@@ -270,7 +270,7 @@ pub fn App(
 
                 // Handle tab dragging - calculate drop position from x coordinate
                 if drag_tracking::is_tab_dragging() {
-                    let x = evt.data().client_coordinates().x as f64;
+                    let x = evt.data().client_coordinates().x;
                     let tabs_len = state.tabs.read().len();
                     let current_target = *state.tab_drag_state.read().drop_target_index.read();
 
@@ -295,7 +295,7 @@ pub fn App(
                 is_dragging.set(true);
             },
             ondragleave: move |evt| {
-                // Ignore file drop during tab dragging
+                // Ignore tab drop during tab dragging - ondrop will handle it
                 if drag_tracking::is_tab_dragging() {
                     return;
                 }
@@ -309,19 +309,23 @@ pub fn App(
                 // Handle tab drop
                 if let Some(dragged) = drag_tracking::get_dragged_tab() {
                     if dragged.source_window_id == window().id() {
-                        // Get drop target from drag state
+                        // Same-window drop: check if we have a valid drop target
                         let drop_target = *state.tab_drag_state.read().drop_target_index.read();
                         if let Some(idx) = drop_target {
-                            // Reorder tab and get new index
+                            // Valid drop target: reorder tabs
                             if let Some(new_index) = super::tab_bar::handle_tab_reorder(&mut state, dragged.source_tab_index, idx) {
-                                // Focus the dropped tab
                                 state.switch_to_tab(new_index);
                                 state.tab_drag_state.write().trigger_animation();
                             }
+                            // Mark as dropped in-window (ondragend will check this)
+                            drag_tracking::mark_dropped_in_window();
+                            state.tab_drag_state.write().end_drag();
+                            return;
                         }
+                        // No drop target: dragged outside window, let ondragend handle it
+                        return;
                     }
-                    drag_tracking::end_tab_drag();
-                    state.tab_drag_state.write().end_drag();
+                    // Different window: let ondragend handle it
                     return;
                 }
 

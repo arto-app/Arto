@@ -13,7 +13,11 @@ use crate::state::{AppState, TabDragState};
 
 /// Handle tab reordering within the same window
 /// Returns the new index of the moved tab, or None if no move occurred
-pub fn handle_tab_reorder(state: &mut AppState, from_index: usize, to_index: usize) -> Option<usize> {
+pub fn handle_tab_reorder(
+    state: &mut AppState,
+    from_index: usize,
+    to_index: usize,
+) -> Option<usize> {
     if from_index == to_index {
         return None; // Same position - no change needed
     }
@@ -125,11 +129,14 @@ fn TabItem(
     let mut state = use_context::<AppState>();
     let tab_name = get_tab_display_name(&tab);
 
-    // Check if this tab can be transferred (only File tabs, not None/Inline/Preferences)
+    // Check if this tab can be transferred
+    // - Only File tabs (not None/Inline/Preferences)
+    // - Not the last remaining tab (prevents empty window)
+    let tabs_count = state.tabs.read().len();
     let is_transferable = matches!(
         tab.content,
         crate::state::TabContent::File(_) | crate::state::TabContent::FileError(_, _)
-    );
+    ) && tabs_count > 1;
 
     let mut show_context_menu = use_signal(|| false);
     let mut context_menu_position = use_signal(|| (0, 0));
@@ -265,15 +272,50 @@ fn TabItem(
             oncontextmenu: handle_context_menu,
 
             // Drag event handlers
-            ondragstart: move |_evt| {
+            ondragstart: move |evt| {
+                // Record mouse offset within the tab element
+                let offset_x = evt.data().element_coordinates().x;
+                let offset_y = evt.data().element_coordinates().y;
+
                 // Set global drag state
-                drag_tracking::start_tab_drag(window().id(), index);
+                drag_tracking::start_tab_drag(window().id(), index, offset_x, offset_y);
 
                 // Set local drag state
                 drag_state.write().start_drag(index);
             },
 
-            ondragend: move |_| {
+            ondragend: move |evt| {
+                // Check if the tab was dropped in-window (set by app.rs ondrop)
+                if let Some(dragged) = drag_tracking::get_dragged_tab() {
+                    if !drag_tracking::was_dropped_in_window() {
+                        // Not dropped in-window: create a new window at cursor position
+                        let screen_x = evt.data().screen_coordinates().x;
+                        let screen_y = evt.data().screen_coordinates().y;
+
+                        if let Some(tab) = state.get_tab(dragged.source_tab_index) {
+                            let directory = state.directory.read().clone();
+                            let source_tab_index = dragged.source_tab_index;
+
+                            spawn(async move {
+                                // Position window at cursor (subtract offset for accurate placement)
+                                let params = crate::window::main::CreateMainWindowConfigParams {
+                                    directory,
+                                    position: dioxus::desktop::tao::dpi::LogicalPosition::new(
+                                        (screen_x - dragged.offset_x).round() as i32,
+                                        (screen_y - dragged.offset_y).round() as i32,
+                                    ),
+                                    skip_position_shift: true,
+                                    ..Default::default()
+                                };
+
+                                // Create window first, then close source tab
+                                crate::window::main::create_new_main_window(tab, params).await;
+                                state.close_tab(source_tab_index);
+                            });
+                        }
+                    }
+                }
+
                 drag_tracking::end_tab_drag();
                 drag_state.write().end_drag();
             },

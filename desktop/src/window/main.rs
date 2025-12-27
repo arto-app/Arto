@@ -47,6 +47,7 @@ pub struct CreateMainWindowConfigParams {
     pub sidebar_show_all_files: bool,
     pub size: LogicalSize<u32>,
     pub position: LogicalPosition<i32>,
+    pub skip_position_shift: bool, // Skip automatic position adjustment
 }
 
 impl CreateMainWindowConfigParams {
@@ -67,6 +68,7 @@ impl CreateMainWindowConfigParams {
             sidebar_show_all_files: sidebar_pref.show_all_files,
             size: size_pref.size,
             position: position_pref.position,
+            skip_position_shift: false,
         }
     }
 }
@@ -186,26 +188,31 @@ pub(crate) async fn create_new_main_window(
         .or_else(dirs::home_dir)
         .unwrap_or_else(|| PathBuf::from("/"));
 
-    // Apply position shift based on existing windows
-    let position_offset = CONFIG.read().window_position.position_offset;
-    let (screen_origin, screen_size) = get_current_display_bounds()
-        .unwrap_or_else(|| (LogicalPosition::new(0, 0), LogicalSize::new(1000, 800)));
-    let occupied = list_main_window_positions();
-    let shifted_position = shift_position_if_needed(
-        params.position,
-        params.size,
-        position_offset,
-        screen_origin,
-        screen_size,
-        &occupied,
-    );
-    tracing::debug!(
-        screen_size=?screen_size,
-        position_offset=?position_offset,
-        resolved_position=?params.position,
-        shifted_position=?shifted_position,
-        "Shifted position is calculated"
-    );
+    // Apply position shift based on existing windows (unless skipped)
+    let shifted_position = if params.skip_position_shift {
+        params.position
+    } else {
+        let position_offset = CONFIG.read().window_position.position_offset;
+        let (screen_origin, screen_size) = get_current_display_bounds()
+            .unwrap_or_else(|| (LogicalPosition::new(0, 0), LogicalSize::new(1000, 800)));
+        let occupied = list_main_window_positions();
+        let shifted = shift_position_if_needed(
+            params.position,
+            params.size,
+            position_offset,
+            screen_origin,
+            screen_size,
+            &occupied,
+        );
+        tracing::debug!(
+            screen_size=?screen_size,
+            position_offset=?position_offset,
+            resolved_position=?params.position,
+            shifted_position=?shifted,
+            "Shifted position is calculated"
+        );
+        shifted
+    };
 
     // Create VirtualDom with the provided tab and params
     let dom = VirtualDom::new_with_props(
@@ -220,13 +227,17 @@ pub(crate) async fn create_new_main_window(
         },
     );
 
-    // Override position with shifted position
-    let params_with_shift = CreateMainWindowConfigParams {
-        position: shifted_position,
-        ..params
+    // Override position with shifted position (unless skip_position_shift is true)
+    let final_params = if params.skip_position_shift {
+        params
+    } else {
+        CreateMainWindowConfigParams {
+            position: shifted_position,
+            ..params
+        }
     };
 
-    let config = create_main_window_config(&params_with_shift).with_menu(None); // To avoid child window taking over the main window's menu
+    let config = create_main_window_config(&final_params).with_menu(None); // To avoid child window taking over the main window's menu
 
     let pending = window().new_window(dom, config);
     let handle = pending.await;
