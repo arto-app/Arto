@@ -212,6 +212,6 @@ jobs:
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          repository: lambdalisue/homebrew-arto
+          repository: arto-app/homebrew-tap
           event-type: update
           client-payload: '{"version": "${{ env.VERSION }}", "sha256": "${{ env.SHA256 }}"}'
