@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 
 use crate::components::icon::{Icon, IconName};
 use crate::components::theme_selector::ThemeSelector;
-use crate::state::{AppState, TabContent};
+use crate::state::AppState;
 
 #[component]
 pub fn Header() -> Element {
@@ -160,24 +160,6 @@ pub fn Header() -> Element {
 
                 // Theme selector
                 ThemeSelector { current_theme: state.current_theme }
-
-                // Preferences button
-                {
-                    let is_preferences_active = current_tab
-                        .as_ref()
-                        .is_some_and(|tab| matches!(tab.content, TabContent::Preferences));
-                    rsx! {
-                        button {
-                            class: "nav-button preferences-button",
-                            class: if is_preferences_active { "active" },
-                            title: "Preferences",
-                            onclick: move |_| {
-                                state.open_preferences();
-                            },
-                            Icon { name: IconName::Gear, size: 18 }
-                        }
-                    }
-                }
             }
         }
     }

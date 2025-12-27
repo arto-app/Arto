@@ -45,6 +45,9 @@ pub fn TabBar() -> Element {
 
             // New tab button
             NewTabButton {}
+
+            // Preferences button
+            PreferencesButton {}
         }
     }
 }
@@ -223,6 +226,27 @@ fn NewTabButton() -> Element {
                 state.add_empty_tab(true);
             },
             Icon { name: IconName::Add, size: 16 }
+        }
+    }
+}
+
+#[component]
+fn PreferencesButton() -> Element {
+    let mut state = use_context::<AppState>();
+    let current_tab = state.current_tab();
+    let is_preferences_active = current_tab
+        .as_ref()
+        .is_some_and(|tab| matches!(tab.content, crate::state::TabContent::Preferences));
+
+    rsx! {
+        button {
+            class: "tab-preferences",
+            class: if is_preferences_active { "active" },
+            title: "Preferences",
+            onclick: move |_| {
+                state.toggle_preferences();
+            },
+            Icon { name: IconName::Gear, size: 16 }
         }
     }
 }

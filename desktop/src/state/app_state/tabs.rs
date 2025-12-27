@@ -242,6 +242,31 @@ impl AppState {
             self.active_tab.set(new_index);
         }
     }
+
+    /// Toggle preferences tab. Opens if not present, closes if currently active.
+    pub fn toggle_preferences(&mut self) {
+        // Check if preferences tab already exists
+        let tabs = self.tabs.read();
+        let preferences_index = tabs
+            .iter()
+            .position(|tab| matches!(tab.content, TabContent::Preferences));
+        drop(tabs);
+
+        if let Some(index) = preferences_index {
+            // Preferences tab exists - check if it's the active tab
+            let active_index = *self.active_tab.read();
+            if active_index == index {
+                // Close the preferences tab
+                self.close_tab(index);
+            } else {
+                // Switch to the preferences tab
+                self.switch_to_tab(index);
+            }
+        } else {
+            // No preferences tab - open new one
+            self.open_preferences();
+        }
+    }
 }
 
 #[cfg(test)]

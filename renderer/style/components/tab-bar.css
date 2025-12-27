@@ -118,3 +118,27 @@
 .tab-new:hover {
   opacity: 1;
 }
+
+.tab-preferences {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 3px;
+  margin-left: auto;
+  transition: all 0.15s;
+  opacity: 0.5;
+}
+
+.tab-preferences:hover {
+  opacity: 1;
+}
+
+.tab-preferences.active {
+  opacity: 0.8;
+  color: var(--accent-bg);
+}
