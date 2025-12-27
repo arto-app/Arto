@@ -9,7 +9,117 @@ use crate::components::tab_context_menu::TabContextMenu;
 use crate::events::{
     TabTransferRequest, TabTransferResponse, TAB_TRANSFER_REQUEST, TAB_TRANSFER_RESPONSE,
 };
-use crate::state::{AppState, TabDragState};
+use crate::state::{AppState, Tab, TabDragState};
+
+struct DragToNewWindowParams {
+    screen_x: f64,
+    screen_y: f64,
+    offset_x: f64,
+    offset_y: f64,
+}
+
+/// Create a new window with the dragged tab at cursor position
+async fn create_window_from_drag(
+    mut state: AppState,
+    tab: Tab,
+    source_tab_index: usize,
+    directory: Option<std::path::PathBuf>,
+    drag_params: DragToNewWindowParams,
+) {
+    // Position window at cursor (subtract offset for accurate placement)
+    let params = crate::window::main::CreateMainWindowConfigParams {
+        directory,
+        position: dioxus::desktop::tao::dpi::LogicalPosition::new(
+            (drag_params.screen_x - drag_params.offset_x).round() as i32,
+            (drag_params.screen_y - drag_params.offset_y).round() as i32,
+        ),
+        skip_position_shift: true,
+        ..Default::default()
+    };
+
+    // Create window first, then close source tab
+    crate::window::main::create_new_main_window(tab, params).await;
+    state.close_tab(source_tab_index);
+}
+
+/// Execute cross-window tab transfer using Two-Phase Commit pattern
+async fn execute_cross_window_transfer(
+    mut state: AppState,
+    tab: Tab,
+    source_tab_index: usize,
+    target_window_id: WindowId,
+    directory: Option<std::path::PathBuf>,
+) {
+    let request = TabTransferRequest {
+        source_window_id: window().id(),
+        target_window_id,
+        tab,
+        source_directory: directory,
+        request_id: uuid::Uuid::new_v4(),
+    };
+
+    let request_id = request.request_id;
+
+    // Subscribe BEFORE sending request to avoid race condition
+    let mut rx = TAB_TRANSFER_RESPONSE.subscribe();
+
+    // Send transfer request
+    if TAB_TRANSFER_REQUEST.send(request).is_err() {
+        tracing::error!(
+            ?request_id,
+            "Failed to send cross-window tab transfer request"
+        );
+        return;
+    }
+
+    tracing::debug!(?request_id, "Sent cross-window tab transfer request");
+
+    // Wait for response with timeout (500ms)
+    let timeout_duration = Duration::from_millis(500);
+    let timeout_at = tokio::time::Instant::now() + timeout_duration;
+
+    while tokio::time::Instant::now() < timeout_at {
+        match tokio::time::timeout_at(timeout_at, rx.recv()).await {
+            Ok(Ok(response)) => {
+                match response {
+                    TabTransferResponse::Ack {
+                        request_id: resp_id,
+                        ..
+                    } if resp_id == request_id => {
+                        tracing::info!(
+                            ?request_id,
+                            "Cross-window tab transfer acknowledged, closing source tab"
+                        );
+                        state.close_tab(source_tab_index);
+                        return;
+                    }
+                    TabTransferResponse::Nack {
+                        request_id: resp_id,
+                        reason,
+                        ..
+                    } if resp_id == request_id => {
+                        tracing::warn!(?request_id, ?reason, "Cross-window tab transfer rejected");
+                        return;
+                    }
+                    _ => {
+                        // Response for different request, keep waiting
+                        continue;
+                    }
+                }
+            }
+            Ok(Err(_)) => {
+                tracing::error!(?request_id, "Tab transfer response channel closed");
+                return;
+            }
+            Err(_) => {
+                // Timeout - continue loop until final timeout
+                continue;
+            }
+        }
+    }
+
+    tracing::error!(?request_id, "Cross-window tab transfer timed out");
+}
 
 /// Handle tab reordering within the same window
 /// Returns the new index of the moved tab, or None if no move occurred
@@ -131,12 +241,10 @@ fn TabItem(
 
     // Check if this tab can be transferred
     // - Only File tabs (not None/Inline/Preferences)
-    // - Not the last remaining tab (prevents empty window)
-    let tabs_count = state.tabs.read().len();
     let is_transferable = matches!(
         tab.content,
         crate::state::TabContent::File(_) | crate::state::TabContent::FileError(_, _)
-    ) && tabs_count > 1;
+    );
 
     let mut show_context_menu = use_signal(|| false);
     let mut context_menu_position = use_signal(|| (0, 0));
@@ -185,69 +293,12 @@ fn TabItem(
 
     // Handler for "Move to Window" (Two-Phase Commit)
     let handle_move_to_window = move |target_id: WindowId| {
-        use uuid::Uuid;
-
-        // Phase 1: Prepare - get tab copy (don't close yet)
         if let Some(tab) = state.get_tab(index) {
             let current_directory = state.directory.read().clone();
 
-            let request = TabTransferRequest {
-                source_window_id: window().id(),
-                target_window_id: target_id,
-                tab: tab.clone(),
-                source_directory: current_directory,
-                request_id: Uuid::new_v4(),
-            };
-
-            // Wait for response (spawned task)
-            let request_id = request.request_id;
-
             spawn(async move {
-                // Subscribe BEFORE sending request to avoid race condition
-                let mut rx = TAB_TRANSFER_RESPONSE.subscribe();
-
-                // Send prepare request AFTER subscribing
-                if TAB_TRANSFER_REQUEST.send(request.clone()).is_err() {
-                    tracing::error!("Failed to send tab transfer request");
-                    return;
-                }
-
-                tracing::debug!(?request_id, tab_index = index, "Sent tab transfer request");
-
-                let timeout = tokio::time::sleep(Duration::from_secs(3));
-                tokio::pin!(timeout);
-
-                loop {
-                    tokio::select! {
-                        // Timeout - rollback
-                        _ = &mut timeout => {
-                            tracing::warn!(?request_id, "Tab transfer timeout, rolling back");
-                            break;
-                        }
-                        // Receive response
-                        Ok(response) = rx.recv() => {
-                            tracing::debug!(?response, ?request_id, "Received tab transfer response");
-                            match response {
-                                TabTransferResponse::Ack { request_id: id, .. } if id == request_id => {
-                                    // Phase 2: Commit - close tab (remove from source)
-                                    tracing::info!(?request_id, tab_index = index, "Closing tab in source window");
-                                    state.close_tab(index);
-                                    tracing::info!(?request_id, "Tab transferred successfully");
-                                    break;
-                                }
-                                TabTransferResponse::Nack { request_id: id, reason, .. } if id == request_id => {
-                                    // Phase 2: Rollback (tab remains in source)
-                                    tracing::warn!(?request_id, %reason, "Tab transfer rejected");
-                                    break;
-                                }
-                                _ => {
-                                    tracing::debug!(?response, ?request_id, "Ignoring unrelated response");
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-                }
+                execute_cross_window_transfer(state, tab, index, target_id, current_directory)
+                    .await;
             });
         }
         show_context_menu.set(false);
@@ -285,34 +336,55 @@ fn TabItem(
             },
 
             ondragend: move |evt| {
-                // Check if the tab was dropped in-window (set by app.rs ondrop)
-                if let Some(dragged) = drag_tracking::get_dragged_tab() {
-                    if !drag_tracking::was_dropped_in_window() {
-                        // Not dropped in-window: create a new window at cursor position
-                        let screen_x = evt.data().screen_coordinates().x;
-                        let screen_y = evt.data().screen_coordinates().y;
+                // If DRAGGED_TAB is None, it means ondrop already handled it (same-window drop)
+                let Some(dragged) = drag_tracking::get_dragged_tab() else {
+                    drag_state.write().end_drag();
+                    return;
+                };
 
-                        if let Some(tab) = state.get_tab(dragged.source_tab_index) {
-                            let directory = state.directory.read().clone();
-                            let source_tab_index = dragged.source_tab_index;
+                if let Some(target_window_id) = dragged.target_window_id {
+                    // Cross-window transfer using Two-Phase Commit pattern
+                    if let Some(tab) = state.get_tab(dragged.source_tab_index) {
+                        let source_tab_index = dragged.source_tab_index;
+                        let directory = state.directory.read().clone();
 
-                            spawn(async move {
-                                // Position window at cursor (subtract offset for accurate placement)
-                                let params = crate::window::main::CreateMainWindowConfigParams {
-                                    directory,
-                                    position: dioxus::desktop::tao::dpi::LogicalPosition::new(
-                                        (screen_x - dragged.offset_x).round() as i32,
-                                        (screen_y - dragged.offset_y).round() as i32,
-                                    ),
-                                    skip_position_shift: true,
-                                    ..Default::default()
-                                };
+                        spawn(async move {
+                            execute_cross_window_transfer(
+                                state,
+                                tab,
+                                source_tab_index,
+                                target_window_id,
+                                directory,
+                            )
+                            .await;
+                        });
+                    }
+                } else {
+                    // No target_window_id and DRAGGED_TAB is still Some:
+                    // This means dragged outside window (not dropped in any window)
+                    let screen_x = evt.data().screen_coordinates().x;
+                    let screen_y = evt.data().screen_coordinates().y;
 
-                                // Create window first, then close source tab
-                                crate::window::main::create_new_main_window(tab, params).await;
-                                state.close_tab(source_tab_index);
-                            });
-                        }
+                    if let Some(tab) = state.get_tab(dragged.source_tab_index) {
+                        let directory = state.directory.read().clone();
+                        let source_tab_index = dragged.source_tab_index;
+                        let drag_params = DragToNewWindowParams {
+                            screen_x,
+                            screen_y,
+                            offset_x: dragged.offset_x,
+                            offset_y: dragged.offset_y,
+                        };
+
+                        spawn(async move {
+                            create_window_from_drag(
+                                state,
+                                tab,
+                                source_tab_index,
+                                directory,
+                                drag_params,
+                            )
+                            .await;
+                        });
                     }
                 }
 

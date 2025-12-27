@@ -97,7 +97,7 @@ impl AppState {
     }
 
     /// Close a tab at index
-    /// If all tabs are removed, automatically adds an empty tab to keep window open
+    /// If all tabs are removed, closes the window
     /// Returns true if tab was closed, false if index was invalid
     pub fn close_tab(&mut self, index: usize) -> bool {
         let mut tabs = self.tabs.write();
@@ -122,10 +122,9 @@ impl AppState {
             self.active_tab.set(new_active);
         }
 
-        // If all tabs removed, add empty tab (keep window open)
+        // If all tabs removed, close the window
         if tabs.is_empty() {
-            tabs.push(Tab::default());
-            self.active_tab.set(0);
+            dioxus_desktop::window().close();
         }
 
         true

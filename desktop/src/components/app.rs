@@ -270,23 +270,33 @@ pub fn App(
 
                 // Handle tab dragging - calculate drop position from x coordinate
                 if drag_tracking::is_tab_dragging() {
-                    let x = evt.data().client_coordinates().x;
-                    let tabs_len = state.tabs.read().len();
-                    let current_target = *state.tab_drag_state.read().drop_target_index.read();
+                    if let Some(dragged) = drag_tracking::get_dragged_tab() {
+                        let current_window_id = window().id();
 
-                    let drop_target = calculate_drop_target(
-                        x,
-                        tabs_len,
-                        current_target,
-                        tabbar_start,
-                        tabbar_content_start,
-                        tab_width,
-                        marker_width,
-                    );
+                        if dragged.source_window_id == current_window_id {
+                            // Same-window drag: calculate drop position
+                            let x = evt.data().client_coordinates().x;
+                            let tabs_len = state.tabs.read().len();
+                            let current_target = *state.tab_drag_state.read().drop_target_index.read();
 
-                    // Only update if changed
-                    if current_target != drop_target {
-                        state.tab_drag_state.write().update_drop_target(drop_target);
+                            let drop_target = calculate_drop_target(
+                                x,
+                                tabs_len,
+                                current_target,
+                                tabbar_start,
+                                tabbar_content_start,
+                                tab_width,
+                                marker_width,
+                            );
+
+                            // Only update if changed
+                            if current_target != drop_target {
+                                state.tab_drag_state.write().update_drop_target(drop_target);
+                            }
+                        } else {
+                            // Cross-window drag: mark this window as target
+                            drag_tracking::set_target_window(current_window_id);
+                        }
                     }
                     return;
                 }
@@ -295,8 +305,17 @@ pub fn App(
                 is_dragging.set(true);
             },
             ondragleave: move |evt| {
-                // Ignore tab drop during tab dragging - ondrop will handle it
+                // Handle tab drag leaving this window
                 if drag_tracking::is_tab_dragging() {
+                    if let Some(dragged) = drag_tracking::get_dragged_tab() {
+                        let current_window_id = window().id();
+                        // If this was a cross-window drag and we're the target, clear it
+                        if dragged.source_window_id != current_window_id
+                            && dragged.target_window_id == Some(current_window_id)
+                        {
+                            drag_tracking::clear_target_window();
+                        }
+                    }
                     return;
                 }
 
@@ -306,9 +325,11 @@ pub fn App(
             ondrop: move |evt| {
                 evt.prevent_default();
 
-                // Handle tab drop
+                // Handle tab drop (same-window only)
                 if let Some(dragged) = drag_tracking::get_dragged_tab() {
-                    if dragged.source_window_id == window().id() {
+                    let current_window_id = window().id();
+
+                    if dragged.source_window_id == current_window_id {
                         // Same-window drop: check if we have a valid drop target
                         let drop_target = *state.tab_drag_state.read().drop_target_index.read();
                         if let Some(idx) = drop_target {
@@ -317,15 +338,15 @@ pub fn App(
                                 state.switch_to_tab(new_index);
                                 state.tab_drag_state.write().trigger_animation();
                             }
-                            // Mark as dropped in-window (ondragend will check this)
-                            drag_tracking::mark_dropped_in_window();
                             state.tab_drag_state.write().end_drag();
+                            // Clear drag state so ondragend knows this was handled
+                            drag_tracking::end_tab_drag();
                             return;
                         }
                         // No drop target: dragged outside window, let ondragend handle it
                         return;
                     }
-                    // Different window: let ondragend handle it
+                    // Cross-window drop: let ondragend handle it
                     return;
                 }
 
