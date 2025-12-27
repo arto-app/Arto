@@ -13,6 +13,37 @@
   margin-top: -4px;
 }
 
+/* Animation when tabs are reordered */
+.tab-bar.animating .tab {
+  animation: tabSlideIn 0.3s ease-out;
+}
+
+@keyframes tabSlideIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+}
+
+.tab-bar.animating .tab.active {
+  animation: tabSlideInActive 0.3s ease-out;
+}
+
+@keyframes tabSlideInActive {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .tab-bar:hover {
   opacity: 1;
 }
@@ -48,12 +79,22 @@
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 12px;
-  transition: all 0.2s;
   white-space: nowrap;
   user-select: none;
   opacity: 0.5;
   position: relative;
   border-radius: 4px;
+  transition: opacity 0.2s ease, background 0.2s ease;
+}
+
+/* Draggable tab cursor */
+.tab[draggable="true"] {
+  cursor: grab;
+}
+
+/* Tab being dragged - hide from tab bar */
+.tab.dragging {
+  display: none;
 }
 
 .tab:hover {
@@ -141,4 +182,25 @@
 .tab-preferences.active {
   opacity: 0.8;
   color: var(--accent-bg);
+}
+
+/* Drop indicator - dashed box matching tab size */
+.tab-drop-indicator {
+  min-width: 80px;
+  height: 28px;
+  border: 2px dashed var(--accent-bg);
+  border-radius: 4px;
+  margin: 0 4px;
+  opacity: 0.6;
+  box-sizing: border-box;
+  animation: dropIndicatorPulse 0.8s ease-in-out infinite;
+}
+
+@keyframes dropIndicatorPulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }

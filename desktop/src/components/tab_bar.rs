@@ -1,3 +1,5 @@
+pub mod drag_tracking;
+
 use dioxus::desktop::{tao::window::WindowId, window};
 use dioxus::prelude::*;
 use std::time::Duration;
@@ -7,7 +9,50 @@ use crate::components::tab_context_menu::TabContextMenu;
 use crate::events::{
     TabTransferRequest, TabTransferResponse, TAB_TRANSFER_REQUEST, TAB_TRANSFER_RESPONSE,
 };
-use crate::state::AppState;
+use crate::state::{AppState, TabDragState};
+
+/// Handle tab reordering within the same window
+/// Returns the new index of the moved tab, or None if no move occurred
+pub fn handle_tab_reorder(state: &mut AppState, from_index: usize, to_index: usize) -> Option<usize> {
+    if from_index == to_index {
+        return None; // Same position - no change needed
+    }
+
+    let mut tabs = state.tabs.write();
+
+    // Allow to_index to be tabs.len() (after the last tab)
+    if from_index >= tabs.len() || to_index > tabs.len() {
+        return None; // Invalid indices
+    }
+
+    // Remove tab from source position
+    let tab = tabs.remove(from_index);
+
+    // Calculate insert position (account for the removal)
+    let insert_index = if from_index < to_index {
+        to_index - 1
+    } else {
+        to_index
+    };
+
+    // Insert tab at target position
+    tabs.insert(insert_index, tab);
+
+    // Update active tab index to follow the moved tab
+    let current_active = *state.active_tab.read();
+    let new_active = match current_active {
+        idx if idx == from_index => insert_index,
+        idx if from_index < idx && idx <= insert_index => idx - 1,
+        idx if insert_index <= idx && idx < from_index => idx + 1,
+        idx => idx,
+    };
+
+    if new_active != current_active {
+        state.active_tab.set(new_active);
+    }
+
+    Some(insert_index)
+}
 
 /// Extract display name from a tab's content
 fn get_tab_display_name(tab: &crate::state::Tab) -> String {
@@ -29,18 +74,36 @@ pub fn TabBar() -> Element {
     let tabs = state.tabs.read().clone();
     let active_tab_index = *state.active_tab.read();
 
+    // Use drag state from AppState
+    let drag_state = state.tab_drag_state;
+
+    // Read drop target once for the entire render
+    let drop_target = *drag_state.read().drop_target_index.read();
+    let is_animating = *drag_state.read().animating.read();
+
     rsx! {
         div {
             class: "tab-bar",
+            class: if is_animating { "animating" },
 
             // Render existing tabs
             for (index, tab) in tabs.iter().enumerate() {
+                // Drop indicator before this tab
+                if drop_target == Some(index) {
+                    div { class: "tab-drop-indicator" }
+                }
+
                 TabItem {
-                    key: "{index}",
                     index,
                     tab: tab.clone(),
                     is_active: index == active_tab_index,
+                    drag_state,
                 }
+            }
+
+            // Drop indicator after the last tab (for rightmost position)
+            if drop_target == Some(tabs.len()) {
+                div { class: "tab-drop-indicator" }
             }
 
             // New tab button
@@ -53,7 +116,12 @@ pub fn TabBar() -> Element {
 }
 
 #[component]
-fn TabItem(index: usize, tab: crate::state::Tab, is_active: bool) -> Element {
+fn TabItem(
+    index: usize,
+    tab: crate::state::Tab,
+    is_active: bool,
+    drag_state: Signal<TabDragState>,
+) -> Element {
     let mut state = use_context::<AppState>();
     let tab_name = get_tab_display_name(&tab);
 
@@ -178,14 +246,37 @@ fn TabItem(index: usize, tab: crate::state::Tab, is_active: bool) -> Element {
         show_context_menu.set(false);
     };
 
+    // Check if this tab is being dragged
+    let is_dragging = drag_state
+        .read()
+        .dragging_tab_index
+        .read()
+        .is_some_and(|i| i == index);
+
     rsx! {
         div {
             class: "tab",
             class: if is_active { "active" },
+            class: if is_dragging { "dragging" },
+            draggable: "{is_transferable}",
             onclick: move |_| {
                 state.switch_to_tab(index);
             },
             oncontextmenu: handle_context_menu,
+
+            // Drag event handlers
+            ondragstart: move |_evt| {
+                // Set global drag state
+                drag_tracking::start_tab_drag(window().id(), index);
+
+                // Set local drag state
+                drag_state.write().start_drag(index);
+            },
+
+            ondragend: move |_| {
+                drag_tracking::end_tab_drag();
+                drag_state.write().end_drag();
+            },
 
             span {
                 class: "tab-name",
@@ -248,5 +339,157 @@ fn PreferencesButton() -> Element {
             },
             Icon { name: IconName::Gear, size: 16 }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::state::Tab;
+    use std::path::PathBuf;
+
+    // Helper function to test tab reordering logic without Dioxus runtime
+    fn test_reorder_logic(
+        tabs: &mut Vec<Tab>,
+        active_tab: usize,
+        from_index: usize,
+        to_index: usize,
+    ) -> usize {
+        if from_index == to_index || from_index >= tabs.len() || to_index > tabs.len() {
+            return active_tab;
+        }
+
+        let tab = tabs.remove(from_index);
+        let insert_index = if from_index < to_index {
+            to_index - 1
+        } else {
+            to_index
+        };
+        tabs.insert(insert_index, tab);
+
+        // Calculate new active index
+        match active_tab {
+            idx if idx == from_index => insert_index,
+            idx if from_index < idx && idx <= insert_index => idx - 1,
+            idx if insert_index <= idx && idx < from_index => idx + 1,
+            idx => idx,
+        }
+    }
+
+    #[test]
+    fn test_handle_tab_reorder_basic() {
+        let mut tabs = vec![
+            Tab::new(PathBuf::from("/a.md")),
+            Tab::new(PathBuf::from("/b.md")),
+            Tab::new(PathBuf::from("/c.md")),
+        ];
+
+        // Move tab from index 0 to index 2
+        test_reorder_logic(&mut tabs, 1, 0, 2);
+
+        // After removing index 0: [b, c]
+        // Insert at index (2-1=1): [b, a] -> wait, insert(1) should be after b
+        // Actually: [b, c] -> insert(1, a) -> [b, a, c]
+        assert_eq!(
+            tabs[0].file().unwrap().to_str(),
+            Some("/b.md"),
+            "First tab should be /b.md"
+        );
+        assert_eq!(
+            tabs[1].file().unwrap().to_str(),
+            Some("/a.md"),
+            "Second tab should be /a.md"
+        );
+        assert_eq!(
+            tabs[2].file().unwrap().to_str(),
+            Some("/c.md"),
+            "Third tab should be /c.md"
+        );
+    }
+
+    #[test]
+    fn test_handle_tab_reorder_same_position() {
+        let mut tabs = vec![Tab::new(PathBuf::from("/a.md"))];
+
+        test_reorder_logic(&mut tabs, 0, 0, 0);
+
+        // No change
+        assert_eq!(tabs.len(), 1);
+        assert_eq!(tabs[0].file().unwrap().to_str(), Some("/a.md"));
+    }
+
+    #[test]
+    fn test_handle_tab_reorder_preserves_active() {
+        let mut tabs = vec![
+            Tab::new(PathBuf::from("/a.md")),
+            Tab::new(PathBuf::from("/b.md")),
+            Tab::new(PathBuf::from("/c.md")),
+        ];
+        let active_tab = 2;
+
+        // Move tab from index 0 to index 1
+        let new_active = test_reorder_logic(&mut tabs, active_tab, 0, 1);
+
+        // Active tab (index 2) is not affected by reorder between 0 and 1
+        // After reorder: [b, a, c]
+        // active_tab=2 stays at 2
+        assert_eq!(new_active, 2);
+    }
+
+    #[test]
+    fn test_handle_tab_reorder_active_tab_moved() {
+        let mut tabs = vec![
+            Tab::new(PathBuf::from("/a.md")),
+            Tab::new(PathBuf::from("/b.md")),
+            Tab::new(PathBuf::from("/c.md")),
+        ];
+        let active_tab = 0; // Active is /a.md
+
+        let new_active = test_reorder_logic(&mut tabs, active_tab, 0, 2);
+
+        // Active tab should follow the moved tab to index 1 (after adjustment)
+        assert_eq!(new_active, 1);
+    }
+
+    #[test]
+    fn test_handle_tab_reorder_backward() {
+        let mut tabs = vec![
+            Tab::new(PathBuf::from("/a.md")),
+            Tab::new(PathBuf::from("/b.md")),
+            Tab::new(PathBuf::from("/c.md")),
+        ];
+
+        test_reorder_logic(&mut tabs, 0, 2, 0);
+
+        assert_eq!(
+            tabs[0].file().unwrap().to_str(),
+            Some("/c.md"),
+            "First tab should be /c.md"
+        );
+        assert_eq!(
+            tabs[1].file().unwrap().to_str(),
+            Some("/a.md"),
+            "Second tab should be /a.md"
+        );
+        assert_eq!(
+            tabs[2].file().unwrap().to_str(),
+            Some("/b.md"),
+            "Third tab should be /b.md"
+        );
+    }
+
+    #[test]
+    fn test_handle_tab_reorder_invalid_indices() {
+        let mut tabs = vec![
+            Tab::new(PathBuf::from("/a.md")),
+            Tab::new(PathBuf::from("/b.md")),
+        ];
+
+        // Invalid from_index
+        test_reorder_logic(&mut tabs, 0, 5, 0);
+        assert_eq!(tabs.len(), 2);
+
+        // Invalid to_index
+        test_reorder_logic(&mut tabs, 0, 0, 5);
+        assert_eq!(tabs.len(), 2);
     }
 }

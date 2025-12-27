@@ -12,6 +12,7 @@ use super::content::Content;
 use super::header::Header;
 use super::icon::{Icon, IconName};
 use super::sidebar::Sidebar;
+use super::tab_bar::drag_tracking;
 use super::tab_bar::TabBar;
 use crate::assets::MAIN_SCRIPT;
 use crate::events::{DIRECTORY_OPEN_BROADCAST, FILE_OPEN_BROADCAST};
@@ -97,6 +98,15 @@ pub fn App(
     };
     // Track drag-and-drop hover state
     let mut is_dragging = use_signal(|| false);
+
+    // Pre-calculate tab drop position constants (used in ondragover)
+    let sidebar_width = state.sidebar.read().width;
+    let sidebar_open = state.sidebar.read().open;
+    let tabbar_start = if sidebar_open { sidebar_width } else { 0.0 };
+    let tabbar_padding = 20.0; // .tab-bar { padding: 0 20px }
+    let tabbar_content_start = tabbar_start + tabbar_padding;
+    let tab_width = 120.0; // Fixed tab width estimate
+    let marker_width = 88.0; // .tab-drop-indicator { min-width: 80px; margin: 0 4px }
 
     // Initialize JavaScript main module (theme listeners, etc.)
     use_hook(|| {
@@ -257,16 +267,66 @@ pub fn App(
             class: if is_dragging() { "drag-over" },
             ondragover: move |evt| {
                 evt.prevent_default();
+
+                // Handle tab dragging - calculate drop position from x coordinate
+                if drag_tracking::is_tab_dragging() {
+                    let x = evt.data().client_coordinates().x as f64;
+                    let tabs_len = state.tabs.read().len();
+                    let current_target = *state.tab_drag_state.read().drop_target_index.read();
+
+                    let drop_target = calculate_drop_target(
+                        x,
+                        tabs_len,
+                        current_target,
+                        tabbar_start,
+                        tabbar_content_start,
+                        tab_width,
+                        marker_width,
+                    );
+
+                    // Only update if changed
+                    if current_target != drop_target {
+                        state.tab_drag_state.write().update_drop_target(drop_target);
+                    }
+                    return;
+                }
+
+                // Handle file drop preview
                 is_dragging.set(true);
             },
             ondragleave: move |evt| {
+                // Ignore file drop during tab dragging
+                if drag_tracking::is_tab_dragging() {
+                    return;
+                }
+
                 evt.prevent_default();
                 is_dragging.set(false);
             },
             ondrop: move |evt| {
                 evt.prevent_default();
-                is_dragging.set(false);
 
+                // Handle tab drop
+                if let Some(dragged) = drag_tracking::get_dragged_tab() {
+                    if dragged.source_window_id == window().id() {
+                        // Get drop target from drag state
+                        let drop_target = *state.tab_drag_state.read().drop_target_index.read();
+                        if let Some(idx) = drop_target {
+                            // Reorder tab and get new index
+                            if let Some(new_index) = super::tab_bar::handle_tab_reorder(&mut state, dragged.source_tab_index, idx) {
+                                // Focus the dropped tab
+                                state.switch_to_tab(new_index);
+                                state.tab_drag_state.write().trigger_animation();
+                            }
+                        }
+                    }
+                    drag_tracking::end_tab_drag();
+                    state.tab_drag_state.write().end_drag();
+                    return;
+                }
+
+                // Handle file drop
+                is_dragging.set(false);
                 spawn(async move {
                     handle_dropped_files(evt, state).await;
                 });
@@ -286,6 +346,52 @@ pub fn App(
                 DragDropOverlay {}
             }
         }
+    }
+}
+
+/// Calculate tab drop target index from mouse x coordinate
+///
+/// Takes into account:
+/// - Sidebar position and width
+/// - TabBar padding
+/// - Current drop marker position (to compensate for marker-induced shifts)
+fn calculate_drop_target(
+    x: f64,
+    tabs_len: usize,
+    current_marker_idx: Option<usize>,
+    tabbar_start: f64,
+    tabbar_content_start: f64,
+    tab_width: f64,
+    marker_width: f64,
+) -> Option<usize> {
+    // Adjust x coordinate if marker is currently displayed
+    let adjusted_x = match current_marker_idx {
+        Some(marker_idx) => {
+            let marker_position = tabbar_content_start + (marker_idx as f64 * tab_width);
+            if x >= marker_position {
+                // Mouse is after the marker - subtract marker width to compensate for shift
+                x - marker_width
+            } else {
+                x
+            }
+        }
+        None => x,
+    };
+
+    // Calculate drop target based on adjusted x coordinate
+    if adjusted_x < tabbar_start {
+        // Over sidebar - drop at leftmost (index 0)
+        Some(0)
+    } else if adjusted_x < tabbar_content_start {
+        // Over TabBar padding - drop at leftmost
+        Some(0)
+    } else {
+        // Over TabBar content area - calculate index from tab positions
+        let relative_x = adjusted_x - tabbar_content_start;
+        let index = (relative_x / tab_width).floor() as usize;
+
+        // Clamp to valid range [0, tabs_len]
+        Some(index.min(tabs_len))
     }
 }
 
