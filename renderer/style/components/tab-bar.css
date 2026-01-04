@@ -43,6 +43,9 @@
   gap: 6px;
   padding: 8px 12px;
   padding-right: 28px;
+  /* Fixed width for consistent sizing and placeholder matching */
+  width: 140px;
+  box-sizing: border-box;
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -113,6 +116,9 @@
   margin-left: 4px;
   transition: all 0.15s;
   opacity: 0.5;
+  /* Keep above floating tab during drag */
+  position: relative;
+  z-index: 1001;
 }
 
 .tab-new:hover {
@@ -132,6 +138,9 @@
   margin-left: auto;
   transition: all 0.15s;
   opacity: 0.5;
+  /* Keep above floating tab during drag */
+  position: relative;
+  z-index: 1001;
 }
 
 .tab-preferences:hover {
@@ -141,4 +150,66 @@
 .tab-preferences.active {
   opacity: 0.8;
   color: var(--accent-bg);
+}
+
+/* ==========================================================================
+   Tab Drag and Drop Styles
+   ========================================================================== */
+
+/* Tab bar in dragging state */
+.tab-bar.dragging {
+  cursor: grabbing;
+}
+
+/* Tab with shift animation (Firefox Photon curve) */
+.tab {
+  transition: transform 150ms cubic-bezier(0.07, 0.95, 0, 1);
+}
+
+.tab.shifting-left {
+  transform: translateX(-100%);
+}
+
+.tab.shifting-right {
+  transform: translateX(100%);
+}
+
+/* Placeholder for dragged tab (transparent gap) */
+/* Inherits .tab sizing, overrides visibility */
+.tab.placeholder {
+  opacity: 0;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+/* Floating tab that follows cursor (X only, Y is fixed to tab bar) */
+/* Inherits .tab sizing, adds floating behavior */
+.tab.floating {
+  position: fixed;
+  z-index: 1000;
+  opacity: 0.9;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  cursor: grabbing;
+  pointer-events: none;
+  background: var(--bg-secondary);
+}
+
+/* Invalid drop zone visual feedback */
+.tab.floating.invalid-zone {
+  opacity: 0.5;
+  filter: grayscale(50%);
+  cursor: not-allowed;
+}
+
+/* Full-screen overlay to capture mouse events during drag */
+.drag-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  cursor: grabbing;
+  /* Transparent but captures events */
+  background: transparent;
 }

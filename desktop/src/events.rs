@@ -114,6 +114,8 @@ pub struct TabTransferRequest {
     pub target_window_id: WindowId,
     /// The tab to transfer (with full history)
     pub tab: Tab,
+    /// Target index in the tab bar (None = append at end)
+    pub target_index: Option<usize>,
     /// Preserve source window's current directory for new window
     #[allow(dead_code)]
     pub source_directory: Option<PathBuf>,
@@ -169,3 +171,24 @@ pub static TAB_TRANSFER_REQUEST: std::sync::LazyLock<broadcast::Sender<TabTransf
 /// Smaller buffer makes lag issues more obvious during development.
 pub static TAB_TRANSFER_RESPONSE: std::sync::LazyLock<broadcast::Sender<TabTransferResponse>> =
     std::sync::LazyLock::new(|| broadcast::channel(10).0);
+
+// ============================================================================
+// Unified Drag State Updates (for UI re-render)
+// ============================================================================
+
+/// Notification that drag state has changed.
+///
+/// Sent from DeviceEvent handlers in App when drag state is updated.
+/// All windows subscribe to trigger re-render for visual feedback.
+/// Windows read the actual state from `drag::get_active_drag()` to determine
+/// if they are the current target.
+#[derive(Debug, Clone, Copy)]
+pub struct ActiveDragUpdate;
+
+/// Global broadcast sender for drag updates.
+///
+/// Used to notify all windows to re-render when drag state changes.
+/// Each window checks if it's the target and shows floating tab + shift indicators.
+/// This bridges the gap between DeviceEvent handlers (global) and Dioxus reactivity.
+pub static ACTIVE_DRAG_UPDATE: std::sync::LazyLock<broadcast::Sender<ActiveDragUpdate>> =
+    std::sync::LazyLock::new(|| broadcast::channel(100).0);

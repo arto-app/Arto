@@ -1,71 +1,79 @@
-use dioxus::desktop::{tao::window::WindowId, window};
-use dioxus::prelude::*;
 use std::time::Duration;
 
+use dioxus::desktop::{tao::window::WindowId, window};
+use dioxus::prelude::*;
+
+use super::calculations::{calculate_grab_offset, is_tab_transferable};
+use super::context_menu::TabContextMenu;
+use super::tab_bar::PendingDrag;
 use crate::components::icon::{Icon, IconName};
-use crate::components::tab_context_menu::TabContextMenu;
+use crate::drag;
 use crate::events::{
     TabTransferRequest, TabTransferResponse, TAB_TRANSFER_REQUEST, TAB_TRANSFER_RESPONSE,
 };
 use crate::state::AppState;
 
-/// Extract display name from a tab's content
-fn get_tab_display_name(tab: &crate::state::Tab) -> String {
-    use crate::state::TabContent;
-    match &tab.content {
-        TabContent::File(path) | TabContent::FileError(path, _) => path
-            .file_name()
-            .map(|name| name.to_string_lossy().to_string())
-            .unwrap_or_else(|| "Unnamed file".to_string()),
-        TabContent::Inline(_) => "Welcome".to_string(),
-        TabContent::Preferences => "Preferences".to_string(),
-        TabContent::None => "No file".to_string(),
-    }
-}
-
 #[component]
-pub fn TabBar() -> Element {
-    let state = use_context::<AppState>();
-    let tabs = state.tabs.read().clone();
-    let active_tab_index = *state.active_tab.read();
-
-    rsx! {
-        div {
-            class: "tab-bar",
-
-            // Render existing tabs
-            for (index, tab) in tabs.iter().enumerate() {
-                TabItem {
-                    key: "{index}",
-                    index,
-                    tab: tab.clone(),
-                    is_active: index == active_tab_index,
-                }
-            }
-
-            // New tab button
-            NewTabButton {}
-
-            // Preferences button
-            PreferencesButton {}
-        }
-    }
-}
-
-#[component]
-fn TabItem(index: usize, tab: crate::state::Tab, is_active: bool) -> Element {
+pub fn TabItem(
+    index: usize,
+    tab: crate::state::Tab,
+    is_active: bool,
+    shift_class: Option<&'static str>,
+    on_drag_start: EventHandler<PendingDrag>,
+) -> Element {
     let mut state = use_context::<AppState>();
-    let tab_name = get_tab_display_name(&tab);
-
-    // Check if this tab can be transferred (only File tabs, not None/Inline/Preferences)
-    let is_transferable = matches!(
-        tab.content,
-        crate::state::TabContent::File(_) | crate::state::TabContent::FileError(_, _)
-    );
+    let tab_name = tab.display_name();
+    let transferable = is_tab_transferable(&tab.content);
 
     let mut show_context_menu = use_signal(|| false);
     let mut context_menu_position = use_signal(|| (0, 0));
     let mut other_windows = use_signal(Vec::new);
+
+    // Store mounted element for accurate grab_offset calculation
+    let mut tab_element: Signal<Option<std::rc::Rc<MountedData>>> = use_signal(|| None);
+
+    // Handle pointer down for drag initiation
+    // Uses PointerData for setPointerCapture compatibility (window-external drag)
+    // Uses async to get accurate grab_offset via getBoundingClientRect
+    let handle_pointerdown = move |evt: Event<PointerData>| async move {
+        // Only start drag on left button
+        if evt.data().trigger_button() != Some(dioxus::html::input_data::MouseButton::Primary) {
+            return;
+        }
+
+        let pointer_id = evt.data().pointer_id();
+        let client_coords = evt.client_coordinates();
+
+        // Calculate grab_offset using getBoundingClientRect for accuracy
+        // Clone signal data before await to avoid holding GenerationalRef across await point
+        let mounted_data = tab_element.read().clone();
+        let (grab_x, grab_y) = if let Some(ref mounted) = mounted_data {
+            if let Ok(rect) = mounted.get_client_rect().await {
+                calculate_grab_offset(
+                    client_coords.x,
+                    client_coords.y,
+                    rect.origin.x,
+                    rect.origin.y,
+                )
+            } else {
+                // Fallback to element_coordinates
+                let element_coords = evt.element_coordinates();
+                (element_coords.x, element_coords.y)
+            }
+        } else {
+            // Fallback to element_coordinates
+            let element_coords = evt.element_coordinates();
+            (element_coords.x, element_coords.y)
+        };
+
+        on_drag_start.call(PendingDrag {
+            index,
+            start_x: client_coords.x,
+            start_y: client_coords.y,
+            grab_offset: crate::window::Offset::new(grab_x, grab_y),
+            pointer_id,
+        });
+    };
 
     // Handle right-click to show context menu
     let handle_context_menu = move |evt: Event<MouseData>| {
@@ -77,19 +85,21 @@ fn TabItem(index: usize, tab: crate::state::Tab, is_active: bool) -> Element {
         ));
 
         // Refresh window list
-        let windows = crate::window::main::list_main_window_ids();
+        let windows = crate::window::main::list_visible_main_windows();
         let current_id = window().id();
         other_windows.set(
             windows
-                .into_iter()
-                .filter(|(id, _)| *id != current_id)
+                .iter()
+                .filter(|w| w.window.id() != current_id)
+                .map(|w| (w.window.id(), w.window.title()))
                 .collect(),
         );
 
         show_context_menu.set(true);
     };
 
-    // Handler for "Open in New Window" (simple fire-and-forget)
+    // Handler for "Open in New Window"
+    // Create new window first, then close tab (in case it's the last tab)
     let handle_open_in_new_window = move |_| {
         if let Some(tab) = state.get_tab(index) {
             let directory = state.directory.read().clone();
@@ -100,10 +110,10 @@ fn TabItem(index: usize, tab: crate::state::Tab, is_active: bool) -> Element {
                     ..Default::default()
                 };
                 crate::window::main::create_new_main_window(tab, params).await;
-            });
 
-            // Close tab in source window
-            state.close_tab(index);
+                // Close tab in source window after new window is created
+                state.close_tab(index);
+            });
         }
         show_context_menu.set(false);
     };
@@ -120,6 +130,7 @@ fn TabItem(index: usize, tab: crate::state::Tab, is_active: bool) -> Element {
                 source_window_id: window().id(),
                 target_window_id: target_id,
                 tab: tab.clone(),
+                target_index: None, // Context menu always appends at end
                 source_directory: current_directory,
                 request_id: Uuid::new_v4(),
             };
@@ -178,14 +189,25 @@ fn TabItem(index: usize, tab: crate::state::Tab, is_active: bool) -> Element {
         show_context_menu.set(false);
     };
 
+    // Tab is always rendered normally - no placeholder needed since
+    // dragged tab is removed at drag start (unified approach)
+    let shift_class_str = shift_class.unwrap_or("");
     rsx! {
         div {
-            class: "tab",
+            class: "tab {shift_class_str}",
             class: if is_active { "active" },
+            onpointerdown: handle_pointerdown,
             onclick: move |_| {
-                state.switch_to_tab(index);
+                // Only switch tab if not in a drag operation
+                if !drag::is_tab_dragging() {
+                    state.switch_to_tab(index);
+                }
             },
             oncontextmenu: handle_context_menu,
+            onmounted: move |evt| {
+                // Store mounted data for accurate grab_offset calculation
+                tab_element.set(Some(evt.data()));
+            },
 
             span {
                 class: "tab-name",
@@ -209,44 +231,8 @@ fn TabItem(index: usize, tab: crate::state::Tab, is_active: bool) -> Element {
                 on_open_in_new_window: handle_open_in_new_window,
                 on_move_to_window: handle_move_to_window,
                 other_windows: other_windows.read().clone(),
-                disabled: !is_transferable,
+                disabled: !transferable,
             }
-        }
-    }
-}
-
-#[component]
-fn NewTabButton() -> Element {
-    let mut state = use_context::<AppState>();
-
-    rsx! {
-        button {
-            class: "tab-new",
-            onclick: move |_| {
-                state.add_empty_tab(true);
-            },
-            Icon { name: IconName::Add, size: 16 }
-        }
-    }
-}
-
-#[component]
-fn PreferencesButton() -> Element {
-    let mut state = use_context::<AppState>();
-    let current_tab = state.current_tab();
-    let is_preferences_active = current_tab
-        .as_ref()
-        .is_some_and(|tab| matches!(tab.content, crate::state::TabContent::Preferences));
-
-    rsx! {
-        button {
-            class: "tab-preferences",
-            class: if is_preferences_active { "active" },
-            title: "Preferences",
-            onclick: move |_| {
-                state.toggle_preferences();
-            },
-            Icon { name: IconName::Gear, size: 16 }
         }
     }
 }

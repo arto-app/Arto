@@ -1,6 +1,7 @@
 mod assets;
 mod components;
 mod config;
+mod drag;
 mod events;
 mod history;
 mod markdown;
@@ -67,7 +68,11 @@ fn main() {
                 window_id,
                 ..
             } => {
-                window::update_last_focused_window(*window_id);
+                // Skip updating LAST_FOCUSED_WINDOW for preview windows
+                // to prevent focus from jumping to wrong window during drag
+                if window::get_preview_window_id() != Some(*window_id) {
+                    window::update_last_focused_window(*window_id);
+                }
             }
             _ => {}
         })

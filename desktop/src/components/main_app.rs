@@ -1,7 +1,6 @@
 use crate::events::{DIRECTORY_OPEN_BROADCAST, FILE_OPEN_BROADCAST};
 use crate::state::Tab;
 use crate::window as window_manager;
-use crate::window::metrics::update_outer_to_inner_metrics;
 use crate::window::{settings, CreateMainWindowConfigParams};
 use dioxus::core::spawn_forever;
 use dioxus::desktop::use_muda_event_handler;
@@ -100,8 +99,14 @@ pub fn MainApp() -> Element {
         let weak_handle = std::rc::Rc::downgrade(&window());
         window_manager::register_main_window(weak_handle);
 
-        // Dioxus inner_size doesn't update after resize; cache outer->inner deltas once.
-        update_outer_to_inner_metrics(&window().window);
+        // Set chrome inset (window frame offset) - only first call takes effect
+        let win = &window().window;
+        if let (Ok(inner), Ok(outer)) = (win.inner_position(), win.outer_position()) {
+            window_manager::set_chrome_inset(
+                (inner.x - outer.x) as f64,
+                (inner.y - outer.y) as f64,
+            );
+        }
     });
 
     // Set up global menu event handling
