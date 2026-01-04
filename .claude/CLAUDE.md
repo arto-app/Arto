@@ -10,6 +10,7 @@
 - **Icon Management**: Use `add-icon` skill
 - **UI/UX Design**: See `.claude/rules/ui-design.md`
 - **Quality Check**: Run `just fmt check test` before reporting completion
+- **Application Launch**: Do NOT launch the application; the user handles this
 
 ## Development Workflow
 
