@@ -89,7 +89,8 @@ fn TabItem(index: usize, tab: crate::state::Tab, is_active: bool) -> Element {
         show_context_menu.set(true);
     };
 
-    // Handler for "Open in New Window" (simple fire-and-forget)
+    // Handler for "Open in New Window"
+    // Create new window first, then close tab (in case it's the last tab)
     let handle_open_in_new_window = move |_| {
         if let Some(tab) = state.get_tab(index) {
             let directory = state.directory.read().clone();
@@ -100,10 +101,10 @@ fn TabItem(index: usize, tab: crate::state::Tab, is_active: bool) -> Element {
                     ..Default::default()
                 };
                 crate::window::main::create_new_main_window(tab, params).await;
-            });
 
-            // Close tab in source window
-            state.close_tab(index);
+                // Close tab in source window after new window is created
+                state.close_tab(index);
+            });
         }
         show_context_menu.set(false);
     };

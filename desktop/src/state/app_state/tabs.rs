@@ -96,39 +96,34 @@ impl AppState {
         }
     }
 
-    /// Close a tab at index
-    /// If all tabs are removed, automatically adds an empty tab to keep window open
-    /// Returns true if tab was closed, false if index was invalid
-    pub fn close_tab(&mut self, index: usize) -> bool {
-        let mut tabs = self.tabs.write();
-
-        if index >= tabs.len() {
-            return false;
-        }
-
-        tabs.remove(index);
-
-        // Update active tab index
-        let current_active = *self.active_tab.read();
-        let new_active = match current_active.cmp(&index) {
-            std::cmp::Ordering::Greater => current_active - 1,
-            std::cmp::Ordering::Equal if current_active >= tabs.len() => {
-                tabs.len().saturating_sub(1)
+    /// Close a tab at index.
+    /// If no tabs remain, closes the window.
+    pub fn close_tab(&mut self, index: usize) {
+        {
+            let mut tabs = self.tabs.write();
+            if index >= tabs.len() {
+                return;
             }
-            _ => current_active,
-        };
-
-        if new_active != current_active && !tabs.is_empty() {
-            self.active_tab.set(new_active);
+            tabs.remove(index);
         }
 
-        // If all tabs removed, add empty tab (keep window open)
+        let tabs = self.tabs.read();
+
         if tabs.is_empty() {
-            tabs.push(Tab::default());
-            self.active_tab.set(0);
+            dioxus::desktop::window().close();
+        } else {
+            let current_active = *self.active_tab.read();
+            let new_active = match current_active.cmp(&index) {
+                std::cmp::Ordering::Greater => current_active - 1,
+                std::cmp::Ordering::Equal if current_active >= tabs.len() => {
+                    tabs.len().saturating_sub(1)
+                }
+                _ => current_active,
+            };
+            if new_active != current_active {
+                self.active_tab.set(new_active);
+            }
         }
-
-        true
     }
 
     /// Insert tab at specified position
