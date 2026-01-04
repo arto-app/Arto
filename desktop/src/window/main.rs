@@ -1,10 +1,11 @@
 use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
 use dioxus::desktop::tao::window::WindowId;
-use dioxus::desktop::{window, Config, WeakDesktopContext, WindowBuilder};
+use dioxus::desktop::{window, Config, DesktopService, WeakDesktopContext, WindowBuilder};
 use dioxus::prelude::*;
 
 use std::cell::RefCell;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use crate::assets::MAIN_STYLE;
 use crate::components::app::{App, AppProps};
@@ -84,7 +85,7 @@ thread_local! {
 }
 
 /// List all active (upgraded) main window contexts
-fn list_main_window_contexts() -> Vec<std::rc::Rc<dioxus::desktop::DesktopService>> {
+fn list_main_windows() -> Vec<Rc<DesktopService>> {
     MAIN_WINDOWS.with(|windows| {
         windows
             .borrow()
@@ -94,26 +95,14 @@ fn list_main_window_contexts() -> Vec<std::rc::Rc<dioxus::desktop::DesktopServic
     })
 }
 
-/// List all visible main window contexts
-fn list_visible_main_window_contexts() -> Vec<std::rc::Rc<dioxus::desktop::DesktopService>> {
-    list_main_window_contexts()
+/// List all visible main window handles
+///
+/// Returns window handles for all visible main windows.
+/// Callers can access window properties (id, title, position, size) via the handle.
+pub fn list_visible_main_windows() -> Vec<Rc<DesktopService>> {
+    list_main_windows()
         .into_iter()
         .filter(|ctx| ctx.window.is_visible())
-        .collect()
-}
-
-/// List all visible main windows with their IDs and titles
-///
-/// Returns a vector of (WindowId, title) tuples for all visible main windows.
-/// This is useful for populating context menus that show available windows.
-pub fn list_main_window_ids() -> Vec<(WindowId, String)> {
-    list_visible_main_window_contexts()
-        .iter()
-        .map(|ctx| {
-            let id = ctx.window.id();
-            let title = ctx.window.title();
-            (id, title)
-        })
         .collect()
 }
 
@@ -134,11 +123,7 @@ pub fn register_main_window(handle: WeakDesktopContext) {
 /// avoid sending events (e.g., FILE_OPEN_BROADCAST) to hidden windows, which would
 /// be invisible to users.
 pub fn has_any_main_windows() -> bool {
-    // Clean up dead windows first
-    MAIN_WINDOWS.with(|windows| {
-        windows.borrow_mut().retain(|w| w.upgrade().is_some());
-    });
-    !list_visible_main_window_contexts().is_empty()
+    !list_visible_main_windows().is_empty()
 }
 
 pub fn focus_last_focused_main_window() -> bool {
@@ -146,7 +131,7 @@ pub fn focus_last_focused_main_window() -> bool {
         // Resolve to parent window if the last focused was a child window
         let main_window_id = child::resolve_to_parent_window(window_id);
 
-        list_main_window_contexts()
+        list_main_windows()
             .into_iter()
             .find(|ctx| ctx.window.id() == main_window_id)
             .map(|ctx| {
@@ -161,7 +146,7 @@ pub fn focus_last_focused_main_window() -> bool {
 }
 
 pub fn close_all_main_windows() {
-    let windows = list_main_window_contexts();
+    let windows = list_main_windows();
     windows.iter().for_each(|w| w.close());
     MAIN_WINDOWS.with(|w| w.borrow_mut().clear());
 }
@@ -264,14 +249,14 @@ pub(crate) fn get_last_focused_window() -> Option<WindowId> {
 }
 
 fn find_window_metrics(window_id: WindowId) -> Option<WindowMetrics> {
-    list_main_window_contexts()
+    list_main_windows()
         .into_iter()
         .find(|ctx| ctx.window.id() == window_id)
         .map(|ctx| capture_window_metrics(&ctx.window))
 }
 
 fn list_main_window_positions() -> Vec<LogicalPosition<i32>> {
-    list_main_window_contexts()
+    list_main_windows()
         .iter()
         .map(|ctx| {
             let metrics = capture_window_metrics(&ctx.window);

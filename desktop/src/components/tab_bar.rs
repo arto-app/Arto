@@ -77,12 +77,13 @@ fn TabItem(index: usize, tab: crate::state::Tab, is_active: bool) -> Element {
         ));
 
         // Refresh window list
-        let windows = crate::window::main::list_main_window_ids();
+        let windows = crate::window::main::list_visible_main_windows();
         let current_id = window().id();
         other_windows.set(
             windows
-                .into_iter()
-                .filter(|(id, _)| *id != current_id)
+                .iter()
+                .filter(|w| w.window.id() != current_id)
+                .map(|w| (w.window.id(), w.window.title()))
                 .collect(),
         );
 
