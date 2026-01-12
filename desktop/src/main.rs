@@ -32,6 +32,20 @@ fn main() {
     }
     init_tracing();
 
+    // On Windows/Linux, ensure only one instance is running
+    // macOS handles this automatically via the app bundle
+    #[cfg(not(target_os = "macos"))]
+    let _instance = {
+        let instance = single_instance::SingleInstance::new("com.lambdalisue.Arto")
+            .expect("Failed to create single instance lock");
+        if !instance.is_single() {
+            tracing::info!("Another instance is already running, exiting");
+            // TODO: Send file path to existing instance via IPC
+            return;
+        }
+        instance // Keep the lock alive for the lifetime of the app
+    };
+
     // Create event channel and store receiver for MainApp
     let (tx, rx) = channel::<components::main_app::OpenEvent>(10);
     components::main_app::OPEN_EVENT_RECEIVER
@@ -44,8 +58,27 @@ fn main() {
     // Get window parameters for first window from preferences
     let params = window::CreateMainWindowConfigParams::from_preferences(true);
 
+    // On Windows/Linux, handle file/directory from command-line arguments
+    #[cfg(not(target_os = "macos"))]
+    if let Some(arg) = std::env::args().nth(1) {
+        let path = std::path::PathBuf::from(&arg);
+        let open_event = if path.is_dir() {
+            Some(components::main_app::OpenEvent::Directory(path))
+        } else if path.is_file() {
+            Some(components::main_app::OpenEvent::File(path))
+        } else {
+            None
+        };
+        if let Some(event) = open_event {
+            tx.try_send(event)
+                .expect("Failed to send open event from args");
+        }
+    }
+
     let config = window::create_main_window_config(&params)
         .with_custom_event_handler(move |event, _target| match event {
+            // macOS: Handle file open events from Finder/file association
+            #[cfg(target_os = "macos")]
             Event::Opened { urls, .. } => {
                 for url in urls {
                     if let Ok(path) = url.to_file_path() {
@@ -61,6 +94,8 @@ fn main() {
                     }
                 }
             }
+            // macOS: Handle dock icon click when app is already running
+            #[cfg(target_os = "macos")]
             Event::Reopen { .. } => {
                 // Send reopen event through channel to handle it safely in component context
                 tx.try_send(components::main_app::OpenEvent::Reopen).ok();
@@ -113,9 +148,13 @@ fn init_tracing() {
         .with(fmt_layer);
 
     // On macOS, log to Console.app via oslog
+    #[cfg(target_os = "macos")]
     let registry = registry.with(
         tracing_oslog::OsLogger::new("com.lambdalisue.Arto", "default").with_filter(silence_filter),
     );
+
+    #[cfg(not(target_os = "macos"))]
+    let _ = silence_filter; // Suppress unused variable warning
 
     registry.init();
 }

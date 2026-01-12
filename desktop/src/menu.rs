@@ -8,6 +8,19 @@ use crate::components::content::set_preferences_tab_to_about;
 use crate::state::AppState;
 use crate::window::{self, CreateMainWindowConfigParams};
 
+// Platform-specific menu labels
+#[cfg(target_os = "macos")]
+const REVEAL_IN_FILE_MANAGER_LABEL: &str = "Reveal in Finder";
+
+#[cfg(target_os = "windows")]
+const REVEAL_IN_FILE_MANAGER_LABEL: &str = "Show in Explorer";
+
+#[cfg(target_os = "linux")]
+const REVEAL_IN_FILE_MANAGER_LABEL: &str = "Show in File Manager";
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+const REVEAL_IN_FILE_MANAGER_LABEL: &str = "Show in File Manager";
+
 /// Menu identifier enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MenuId {
@@ -159,7 +172,7 @@ fn add_file_menu(menu: &Menu) {
             &create_menu_item(MenuId::CopyFilePath, "Copy File Path", None, None),
             &create_menu_item(
                 MenuId::RevealInFinder,
-                "Reveal in Finder",
+                REVEAL_IN_FILE_MANAGER_LABEL,
                 Some(Code::KeyR),
                 Some(Modifiers::SHIFT),
             ),
@@ -469,9 +482,17 @@ fn pick_directory() -> Option<PathBuf> {
     dir
 }
 
+/// Disable macOS automatic window tabbing feature.
+/// This is a no-op on non-macOS platforms.
+#[cfg(target_os = "macos")]
 fn disable_automatic_window_tabbing() {
     use objc2::MainThreadMarker;
     use objc2_app_kit::NSWindow;
     let marker = MainThreadMarker::new().expect("Failed to get main thread marker");
     NSWindow::setAllowsAutomaticWindowTabbing(false, marker);
+}
+
+#[cfg(not(target_os = "macos"))]
+fn disable_automatic_window_tabbing() {
+    // No-op: macOS-specific feature
 }

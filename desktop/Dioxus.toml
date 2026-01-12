@@ -20,3 +20,12 @@ info_plist_path = "../extras/mac/Info.plist"
 files = {}
 hardened_runtime = false # because we don't have a proper Apple Developer ID
 signing_identity = "-" # use ad-hoc signing for ARM64 compatibility
+
+[bundle.windows]
+license = "../LICENSE"
+icon = "../extras/windows/arto-app.ico"
+
+[bundle.linux]
+license = "../LICENSE"
+icon = "../extras/linux/arto-app.png"
+desktop_file = "../extras/linux/arto.desktop"

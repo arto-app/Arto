@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Arto
+GenericName=Markdown Viewer
+Comment=A GitHub Markdown viewer
+Exec=arto %F
+Icon=arto
+Terminal=false
+Type=Application
+Categories=Office;Viewer;TextEditor;
+MimeType=text/markdown;text/x-markdown;
+Keywords=markdown;viewer;document;
+StartupNotify=true

@@ -30,11 +30,25 @@ clean:
 dev: setup
   @bash -c ./scripts/dev.sh
 
-build: setup assets
+# Platform-specific builds
+build-macos: setup assets
   @cd desktop && dx bundle --release --macos
 
+build-windows: setup assets
+  @cd desktop && dx bundle --release --windows
+
+build-linux: setup assets
+  @cd desktop && dx bundle --release --linux
+
+# Default build (auto-detect platform)
+build: setup assets
+  @cd desktop && dx bundle --release
+
+# macOS-specific commands
+[macos]
 open:
   @./desktop/target/dx/arto/bundle/macos/bundle/macos/Arto.app/Contents/MacOS/arto
 
+[macos]
 install:
   @cp -af desktop/target/dx/arto/bundle/macos/bundle/macos/Arto.app /Applications/.

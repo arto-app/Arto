@@ -83,10 +83,20 @@ fn handle_open_event(event: OpenEvent) {
 /// Additional windows should use the App component directly.
 #[component]
 pub fn MainApp() -> Element {
-    // Configure WindowCloseBehaviour::WindowHides for first window
+    // Configure WindowCloseBehaviour for first window
+    // - macOS: WindowHides (app stays in dock when last window closes)
+    // - Windows/Linux: CloseWindow (app quits when last window closes)
     use_hook(|| {
-        tracing::debug!("Configuring main window with WindowHides behavior");
-        window().set_close_behavior(WindowCloseBehaviour::WindowHides);
+        #[cfg(target_os = "macos")]
+        {
+            tracing::debug!("Configuring main window with WindowHides behavior");
+            window().set_close_behavior(WindowCloseBehaviour::WindowHides);
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            tracing::debug!("Configuring main window with CloseWindow behavior");
+            window().set_close_behavior(WindowCloseBehaviour::CloseWindow);
+        }
 
         // Register the first window in MAIN_WINDOWS list
         // This is critical for has_any_main_windows() to work correctly

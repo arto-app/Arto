@@ -45,6 +45,9 @@ objc2 = "0.6.3"
 objc2-app-kit = "0.3.2"
 tracing-oslog = "0.3.0"
 
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+single-instance = "0.3"
+
 [dev-dependencies]
 tempfile = "3.15.0"
 
