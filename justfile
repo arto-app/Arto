@@ -31,6 +31,9 @@ dev: setup
   @bash -c ./scripts/dev.sh
 
 build: setup assets
+  @# Clean stale hashed assets from previous builds (Dioxus doesn't GC them)
+  @rm -rf desktop/target/dx/arto/release/macos/Arto.app/Contents/Resources/assets
+  @rm -rf desktop/target/dx/arto/bundle/macos/bundle/macos/Arto.app/Contents/Resources/assets
   @cd desktop && dx bundle --release --macos
 
 open:
