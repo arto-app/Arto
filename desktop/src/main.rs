@@ -1,5 +1,6 @@
 mod assets;
 mod bookmarks;
+mod cache;
 mod components;
 mod config;
 mod drag;
@@ -31,6 +32,9 @@ fn main() {
         println!("Loaded .env file from: {}", dotenv.display());
     }
     init_tracing();
+
+    // Clear stale WebView cache when build changes (app upgrade via Homebrew, etc.)
+    cache::clear_stale_webview_cache_if_needed();
 
     // Create event channel and store receiver for MainApp
     let (tx, rx) = channel::<components::main_app::OpenEvent>(10);
