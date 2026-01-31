@@ -14,6 +14,7 @@ use super::content::{
 use super::header::Header;
 use super::icon::{Icon, IconName};
 use super::right_sidebar::RightSidebar;
+use super::right_sidebar::RightSidebarTab;
 use super::search_bar::SearchBar;
 use super::sidebar::Sidebar;
 use super::tab::TabBar;
@@ -39,6 +40,7 @@ pub fn App(
     sidebar_show_all_files: bool,
     toc_open: bool,
     toc_width: f64,
+    toc_tab: RightSidebarTab,
 ) -> Element {
     // Initialize application state with the provided tab
     let mut state = use_context_provider(|| {
@@ -61,6 +63,7 @@ pub fn App(
         {
             app_state.right_sidebar_open.set(toc_open);
             app_state.right_sidebar_width.set(toc_width);
+            app_state.right_sidebar_tab.set(toc_tab);
         }
 
         let metrics = crate::window::metrics::capture_window_metrics(&window().window);

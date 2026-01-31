@@ -3,6 +3,7 @@ use dioxus::prelude::*;
 use mouse_position::mouse_position::Mouse;
 use std::path::PathBuf;
 
+use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::{
     NewWindowBehavior, StartupBehavior, WindowDimension, WindowDimensionUnit, WindowPosition,
     WindowPositionMode, WindowSize, CONFIG,
@@ -35,6 +36,7 @@ pub struct SidebarPreference {
 pub struct TocPreference {
     pub open: bool,
     pub width: f64,
+    pub tab: RightSidebarTab,
 }
 
 pub struct WindowSizePreference {
@@ -292,18 +294,21 @@ pub fn get_toc_preference(is_first_window: bool) -> TocPreference {
         || TocPreference {
             open: cfg.right_sidebar.default_open,
             width: cfg.right_sidebar.default_width,
+            tab: cfg.right_sidebar.default_tab,
         },
         || {
             if let Some(state) = get_last_focused_window_state() {
                 TocPreference {
                     open: *state.right_sidebar_open.read(),
                     width: *state.right_sidebar_width.read(),
+                    tab: *state.right_sidebar_tab.read(),
                 }
             } else {
                 let persisted = PersistedState::load();
                 TocPreference {
                     open: persisted.right_sidebar_open,
                     width: persisted.right_sidebar_width,
+                    tab: persisted.right_sidebar_tab,
                 }
             }
         },

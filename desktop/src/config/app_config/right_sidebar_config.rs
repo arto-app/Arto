@@ -19,6 +19,7 @@ pub struct RightSidebarConfig {
     #[serde(default = "default_right_sidebar_width")]
     pub default_width: f64,
     /// Default active tab
+    #[serde(default)]
     pub default_tab: RightSidebarTab,
     /// Behavior on app startup: "default" or "last_closed"
     pub on_startup: StartupBehavior,

@@ -12,6 +12,7 @@ use crate::state::AppState;
 
 use crate::assets::MAIN_STYLE;
 use crate::components::app::{App, AppProps};
+use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::{WindowPositionOffset, CONFIG};
 use crate::state::Tab;
 use crate::theme::Theme;
@@ -49,6 +50,7 @@ pub struct CreateMainWindowConfigParams {
     pub sidebar_show_all_files: bool,
     pub toc_open: bool,
     pub toc_width: f64,
+    pub toc_tab: RightSidebarTab,
     pub size: LogicalSize<u32>,
     pub position: LogicalPosition<i32>,
     /// Skip position shifting for overlap avoidance.
@@ -75,6 +77,7 @@ impl CreateMainWindowConfigParams {
             sidebar_show_all_files: sidebar_pref.show_all_files,
             toc_open: toc_pref.open,
             toc_width: toc_pref.width,
+            toc_tab: toc_pref.tab,
             size: size_pref.size,
             position: position_pref.position,
             skip_position_shift: false,
@@ -254,6 +257,7 @@ pub(crate) async fn create_new_main_window(
             sidebar_show_all_files: params.sidebar_show_all_files,
             toc_open: params.toc_open,
             toc_width: params.toc_width,
+            toc_tab: params.toc_tab,
         },
     );
 

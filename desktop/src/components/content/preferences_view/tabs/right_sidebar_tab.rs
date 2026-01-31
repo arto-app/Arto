@@ -1,4 +1,5 @@
 use super::super::form_controls::{OptionCardItem, OptionCards, SliderInput};
+use crate::components::right_sidebar::RightSidebarTab as RightSidebarTabKind;
 use crate::config::{Config, NewWindowBehavior, StartupBehavior};
 use dioxus::prelude::*;
 
@@ -43,6 +44,37 @@ pub fn RightSidebarTab(
                     selected: right_sidebar.default_open,
                     on_change: move |new_state| {
                         config.write().right_sidebar.default_open = new_state;
+                        has_changes.set(true);
+                    },
+                }
+            }
+
+            div {
+                class: "preference-item",
+                div {
+                    class: "preference-item-header",
+                    label { "Default Tab" }
+                    p { class: "preference-description", "Which tab is active when the right sidebar opens." }
+                }
+                OptionCards {
+                    name: "right-sidebar-default-tab".to_string(),
+                    options: vec![
+                        OptionCardItem {
+                            icon: None,
+                            value: RightSidebarTabKind::Contents,
+                            title: "Contents".to_string(),
+                            description: Some("Show table of contents".to_string()),
+                        },
+                        OptionCardItem {
+                            icon: None,
+                            value: RightSidebarTabKind::Search,
+                            title: "Search".to_string(),
+                            description: Some("Show document search".to_string()),
+                        },
+                    ],
+                    selected: right_sidebar.default_tab,
+                    on_change: move |new_tab| {
+                        config.write().right_sidebar.default_tab = new_tab;
                         has_changes.set(true);
                     },
                 }

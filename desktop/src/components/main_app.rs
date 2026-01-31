@@ -171,6 +171,7 @@ pub fn MainApp() -> Element {
             sidebar_show_all_files: sidebar_pref.show_all_files,
             toc_open: toc_pref.open,
             toc_width: toc_pref.width,
+            toc_tab: toc_pref.tab,
         }
     }
 }
