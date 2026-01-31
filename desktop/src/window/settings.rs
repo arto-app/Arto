@@ -401,6 +401,10 @@ mod tests {
         let result = get_toc_preference(true);
         // Should return a TocPreference
         assert!(result.width > 0.0);
+        assert!(matches!(
+            result.tab,
+            RightSidebarTab::Contents | RightSidebarTab::Search
+        ));
     }
 
     #[test]
@@ -408,6 +412,10 @@ mod tests {
         let result = get_toc_preference(false);
         // Should return a TocPreference
         assert!(result.width > 0.0);
+        assert!(matches!(
+            result.tab,
+            RightSidebarTab::Contents | RightSidebarTab::Search
+        ));
     }
 
     #[test]
