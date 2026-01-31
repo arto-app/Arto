@@ -40,4 +40,5 @@ open:
   @./desktop/target/dx/arto/bundle/macos/bundle/macos/Arto.app/Contents/MacOS/arto
 
 install:
+  @rm -rf /Applications/Arto.app
   @cp -af desktop/target/dx/arto/bundle/macos/bundle/macos/Arto.app /Applications/.
