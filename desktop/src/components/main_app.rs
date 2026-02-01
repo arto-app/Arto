@@ -75,8 +75,11 @@ fn handle_open_event(event: OpenEvent) {
             }
         }
         OpenEvent::Focus => {
-            // Focus/show the main app window (sent from IPC after receiving messages)
-            window_manager::show_main_app_window();
+            // Intentionally do not force-focus the main app window here.
+            // Focusing is handled when creating new windows for File/Directory events.
+            tracing::debug!(
+                "Received OpenEvent::Focus; no-op to avoid stealing focus from newly opened windows"
+            );
         }
     }
 }
