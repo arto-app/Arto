@@ -96,6 +96,19 @@ environment.systemPackages = [ inputs.arto.packages.${system}.default ];
 
 Launch the application to see the welcome screen with keyboard shortcuts and usage instructions.
 
+## Usage
+
+After installation, the `arto` command becomes available in your terminal:
+
+```
+arto                     # Launch Arto (shows welcome screen)
+arto README.md           # Open a specific file
+arto docs/               # Open a directory in the file explorer
+arto file1.md file2.md   # Open multiple files in tabs
+```
+
+Arto runs as a **single instance** — if Arto is already running, the command sends paths to the existing window and activates it instead of launching a new process.
+
 [Homebrew]: https://brew.sh/
 [homebrew-tap]: https://github.com/arto-app/homebrew-tap
 [Nix]: https://nixos.org/

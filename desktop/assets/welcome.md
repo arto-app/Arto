@@ -19,6 +19,7 @@ To open a markdown file:
 - Drag and drop a file onto this window
 - Use `Cmd+O` to browse and open a file
 - Use `Cmd+Shift+O` to open a directory (with file explorer)
+- Run `arto <file>` or `arto <directory>` from the terminal
 - Use `Cmd+T` to open a new tab
 - Use `Cmd+B` to toggle the sidebar file explorer
 
