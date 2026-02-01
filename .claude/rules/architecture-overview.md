@@ -2,6 +2,22 @@
 
 Understanding the relationship between Config, PersistedState, and State modules.
 
+## Single-Instance Enforcement
+
+**Arto runs as a single process enforced via IPC:**
+
+- First launch → Becomes primary instance, starts IPC server
+- Subsequent launches → Connect to primary, send paths via JSON Lines, exit(0)
+- Primary instance receives paths via IPC server → Opens files/directories in existing windows
+
+**IPC Protocol:** Unix domain socket (`com.lambdalisue.arto.sock`) with JSON Lines messages
+
+**Why:** Prevents multiple processes from conflicting over file watches, config writes, and state persistence.
+
+**Implementation:** See `desktop/src/ipc.rs` for detailed documentation.
+
+**Note:** This document focuses on the state management within the single running instance.
+
 ## Three-Layer Architecture
 
 ```
@@ -125,23 +141,53 @@ pub struct AppState {
 
 ## Data Flow
 
-### Startup Flow (First Window)
+### Startup Flow (Primary Instance)
+
+**Single-instance enforcement happens BEFORE initialization:**
 
 ```
-1. Load config.json
+0. IPC Check (in main(), before any initialization)
+   ├─> Try to connect to existing instance via Unix socket
+   ├─> If connection succeeds → Send paths via JSON Lines → exit(0)
+   └─> If connection fails → Continue as primary instance
+
+1. Initialize primary instance
+   ├─> Load .env, init tracing
+   ├─> Create OpenEvent channel (tx/rx)
+   ├─> Start IPC server (listens for future instances)
+   └─> Send CLI paths as OpenEvents
+
+2. Load config.json
    ├─> Config { theme.on_startup: "last_closed" }
    └─> Config { directory.on_startup: "default" }
 
-2. Load state.json
+3. Load state.json
    ├─> PersistedState { theme: "dark" }
    └─> PersistedState { directory: "/path/to/project" }
 
-3. Apply startup behavior using window::settings helpers
+4. Apply startup behavior using window::settings helpers
    ├─> Theme: "last_closed" → Use persisted.theme ("dark")
    └─> Directory: "default" → Use config.default_directory
 
-4. Create AppState with computed values
+5. Create AppState with computed values
    └─> AppState { current_theme: "dark", sidebar.root_directory: "/Users/alice/Documents" }
+```
+
+**Secondary Instance Flow:**
+
+```
+0. IPC Check (in main())
+   ├─> Try to connect to existing instance
+   ├─> Connection succeeds!
+   ├─> Send paths: [{"type":"file","path":"/doc.md"}]
+   └─> exit(0) immediately (no initialization)
+
+Primary instance receives:
+   ├─> IPC server accepts connection
+   ├─> Parse JSON Lines messages
+   ├─> Convert to OpenEvents
+   ├─> Send to OPEN_EVENT_RECEIVER channel
+   └─> MainApp component processes events (open file/directory)
 ```
 
 ### New Window Flow (Second+ Window)

@@ -39,9 +39,29 @@ This command runs:
 
 ## Architecture Patterns
 
+### Single-Instance Architecture
+
+**Arto enforces single-instance via IPC (Inter-Process Communication):**
+
+When a new Arto process launches:
+1. Check for existing instance via Unix domain socket connection
+2. If found → send paths to existing instance via JSON Lines protocol, exit(0)
+3. If not found → become primary instance, start IPC server for future launches
+
+**Protocol (JSON Lines):**
+```json
+{"type":"file","path":"/path/to/file.md"}
+{"type":"directory","path":"/path/to/dir"}
+{"type":"reopen"}
+```
+
+**Implementation:** See `desktop/src/ipc.rs` for detailed architecture documentation.
+
+**Why single-instance:** Prevents multiple processes from conflicting over file watches, configuration writes, and persisted state management.
+
 ### Window Management & Lifecycle
 
-**Arto uses a multi-window architecture:**
+**Within the single instance, Arto uses a multi-window architecture:**
 
 #### Window Types
 

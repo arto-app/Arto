@@ -542,9 +542,11 @@ tracing::debug!("Processing batch of {} items", items.len());
 ### 5. Over-Engineering Local Communication
 
 **❌ Don't:**
-- Add timeout/retry logic for local IPC (same-process communication)
+- Add timeout/retry logic for in-process broadcast channels (window-to-window)
 - Use request/response patterns for fire-and-forget operations
 - Implement acknowledgment systems for desktop app window communication
+
+**Note:** This refers to broadcast channels between windows WITHIN the same process. For inter-process IPC (secondary → primary instance), see `desktop/src/ipc.rs`.
 
 **✅ Do:**
 ```rust
@@ -762,7 +764,9 @@ pub struct PersistedState {
 - `ACTIVE_DRAG_UPDATE` - Drag state updates for visual feedback
 - `OPEN_FILE_IN_WINDOW` / `OPEN_DIRECTORY_IN_WINDOW` - Context menu "Open in Window"
 
-**OS events (Finder/CLI) always create new windows** - handled directly in `main_app.rs`.
+**OS events (Finder/CLI) always create new windows** - handled via IPC and `main_app.rs`:
+- Secondary instances send paths via IPC socket → primary instance receives via `OPEN_EVENT_RECEIVER`
+- Primary instance OS events (Finder) handled directly in `main_app.rs`
 
 #### Tab Transfer Between Windows
 
@@ -779,7 +783,7 @@ crate::window::main::focus_window(target_window_id);
 ```
 
 **Why fire-and-forget:**
-- Desktop app with local IPC (no network latency)
+- Desktop app with in-process broadcast channels (no network latency)
 - No need for acknowledgment/timeout logic
 - Simpler than request/response pattern (~150 lines removed)
 - Target window subscribes and handles tab insertion directly
