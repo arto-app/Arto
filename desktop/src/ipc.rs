@@ -334,9 +334,15 @@ pub fn start_ipc_server(tx: Sender<OpenEvent>) {
             tracing::error!(
                 ?e,
                 "IPC server failed to start or encountered a fatal error; \
-                 single-instance enforcement may not be working. New Arto instances \
-                 might start separately instead of connecting to this one"
+                 single-instance enforcement is broken. Terminating to prevent duplicate instances."
             );
+            // Fail fast: running without an IPC server breaks the single-instance guarantee,
+            // so terminate the process rather than continuing in a degraded state.
+            //
+            // NOTE: process::exit() does not run destructors (e.g. use_drop / PersistedState::save).
+            // This is acceptable because IPC server failure occurs during early startup, before any
+            // user-visible windows or unsaved state exist.
+            std::process::exit(1);
         }
     });
 }
