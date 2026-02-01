@@ -23,6 +23,8 @@ pub enum OpenEvent {
     Directory(PathBuf),
     /// App icon clicked (reopen event)
     Reopen,
+    /// Request to focus/activate the application window (from IPC)
+    Focus,
 }
 
 /// A global receiver to receive open events from the main thread (OS → Dioxus context)
@@ -71,6 +73,10 @@ fn handle_open_event(event: OpenEvent) {
                 // MainApp is hidden, show it
                 window_manager::show_main_app_window();
             }
+        }
+        OpenEvent::Focus => {
+            // Focus/show the main app window (sent from IPC after receiving messages)
+            window_manager::show_main_app_window();
         }
     }
 }
