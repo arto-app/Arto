@@ -686,12 +686,34 @@ mod tests {
     #[cfg(unix)]
     fn test_socket_path_contains_user_id() {
         let path = get_socket_path();
-        let path_str = path.to_string_lossy();
+
+        // Ensure the socket file name is exactly SOCKET_NAME
+        let file_name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .expect("Socket path should have a valid UTF-8 file name");
+        assert_eq!(
+            file_name, SOCKET_NAME,
+            "Socket file name should be '{}', got '{}'",
+            SOCKET_NAME, file_name
+        );
 
         // Either XDG_RUNTIME_DIR or /tmp/arto-{uid}/
+        let parent = path
+            .parent()
+            .expect("Socket path should have a parent directory");
+
+        let xdg_runtime_dir = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from);
+        let parent_matches_xdg = xdg_runtime_dir.as_deref().is_some_and(|xdg| parent == xdg);
+
+        let parent_str = parent.to_string_lossy();
+        let parent_matches_tmp = parent_str.starts_with("/tmp/arto-");
+
         assert!(
-            path_str.contains("arto") || path_str.contains(SOCKET_NAME),
-            "Socket path should contain 'arto' or socket name: {path_str}"
+            parent_matches_xdg || parent_matches_tmp,
+            "Socket directory should be XDG_RUNTIME_DIR ({:?}) or start with '/tmp/arto-'; got {}",
+            xdg_runtime_dir,
+            parent_str
         );
     }
 
