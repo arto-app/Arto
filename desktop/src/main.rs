@@ -69,15 +69,9 @@ fn main() {
 
     // Send CLI paths as OpenEvents (before Dioxus launches)
     for path in cli.paths {
-        // Canonicalize to resolve symlinks and get absolute paths
-        let path = path.canonicalize().unwrap_or(path);
-        let event = if path.is_dir() {
-            components::main_app::OpenEvent::Directory(path)
-        } else if path.is_file() {
-            components::main_app::OpenEvent::File(path)
-        } else {
-            tracing::warn!(?path, "Skipping invalid path");
-            continue;
+        let event = match ipc::validate_path(&path) {
+            Some(event) => event,
+            None => continue, // Invalid path, already logged by validate_path
         };
         tracing::debug!(?event, "Sending CLI path as open event");
         if let Err(e) = tx.try_send(event) {

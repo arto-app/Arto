@@ -234,6 +234,51 @@ impl IpcMessage {
             IpcMessage::Reopen => OpenEvent::Reopen,
         }
     }
+
+    /// Validate and categorize a path as File or Directory message.
+    ///
+    /// This helper canonicalizes the path (resolving symlinks), checks if it's a file
+    /// or directory, and returns the appropriate IpcMessage variant.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(IpcMessage::File)` if the path is a file
+    /// - `Some(IpcMessage::Directory)` if the path is a directory
+    /// - `None` if the path is invalid (neither file nor directory)
+    fn from_path(path: impl AsRef<Path>) -> Option<Self> {
+        let path = path.as_ref();
+        let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+        if canonical.is_dir() {
+            Some(IpcMessage::Directory { path: canonical })
+        } else if canonical.is_file() {
+            Some(IpcMessage::File { path: canonical })
+        } else {
+            tracing::warn!(?path, "Skipping invalid path (not a file or directory)");
+            None
+        }
+    }
+}
+
+/// Validate and categorize a path as an OpenEvent.
+///
+/// This helper canonicalizes the path (resolving symlinks), checks if it's a file
+/// or directory, and returns the appropriate OpenEvent variant.
+///
+/// # Returns
+///
+/// - `Some(OpenEvent::File)` if the path is a file
+/// - `Some(OpenEvent::Directory)` if the path is a directory
+/// - `None` if the path is invalid (neither file nor directory)
+///
+/// # Examples
+///
+/// ```no_run
+/// use std::path::Path;
+///
+/// let event = validate_path(Path::new("/path/to/file.md"));
+/// ```
+pub fn validate_path(path: impl AsRef<Path>) -> Option<OpenEvent> {
+    IpcMessage::from_path(path).map(|msg| msg.into_open_event())
 }
 
 /// Result of trying to send paths to an existing instance.
@@ -283,20 +328,7 @@ fn send_messages_to_primary(mut stream: Stream, paths: &[PathBuf]) -> std::io::R
     let mut messages: Vec<IpcMessage> = if paths.is_empty() {
         vec![IpcMessage::Reopen]
     } else {
-        paths
-            .iter()
-            .filter_map(|path| {
-                let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
-                if canonical.is_dir() {
-                    Some(IpcMessage::Directory { path: canonical })
-                } else if canonical.is_file() {
-                    Some(IpcMessage::File { path: canonical })
-                } else {
-                    tracing::warn!(?path, "Skipping invalid path (not a file or directory)");
-                    None
-                }
-            })
-            .collect()
+        paths.iter().filter_map(IpcMessage::from_path).collect()
     };
 
     // If all paths were invalid (filtered out), send Reopen to activate the app
