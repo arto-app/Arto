@@ -173,19 +173,33 @@ fn try_connect_with_timeout(socket_path: &Path, timeout: Duration) -> Option<Str
     // Use a channel to communicate the result from the connection thread
     let (tx, rx) = mpsc::channel();
 
-    // Spawn a thread to attempt connection (blocking)
-    std::thread::spawn(move || {
-        let name = match path.to_fs_name::<GenericFilePath>() {
-            Ok(name) => name,
-            Err(_) => {
-                let _ = tx.send(None);
-                return;
-            }
-        };
+    let tx_clone = tx.clone();
 
-        let result = Stream::connect(name).ok();
-        let _ = tx.send(result);
-    });
+    // Spawn a named thread to attempt connection (blocking)
+    match std::thread::Builder::new()
+        .name("ipc-connect".to_string())
+        .spawn(move || {
+            let name = match path.to_fs_name::<GenericFilePath>() {
+                Ok(name) => name,
+                Err(_) => {
+                    let _ = tx_clone.send(None);
+                    return;
+                }
+            };
+
+            let result = Stream::connect(name).ok();
+            let _ = tx_clone.send(result);
+        }) {
+        Ok(_handle) => {
+            // Drop the original sender so rx detects disconnect if the thread panics
+            // without sending (preserves original behavior of immediate Disconnected error)
+            drop(tx);
+        }
+        Err(e) => {
+            tracing::error!(error = %e, "Failed to spawn IPC connection thread");
+            let _ = tx.send(None);
+        }
+    }
 
     // Wait for result with timeout
     match rx.recv_timeout(timeout) {
@@ -414,9 +428,14 @@ fn run_ipc_server_sync(tx: Sender<OpenEvent>) -> anyhow::Result<()> {
         match conn {
             Ok(stream) => {
                 let tx = tx.clone();
-                std::thread::spawn(move || {
-                    handle_client_connection(stream, tx);
-                });
+                if let Err(e) = std::thread::Builder::new()
+                    .name("ipc-client-handler".into())
+                    .spawn(move || {
+                        handle_client_connection(stream, tx);
+                    })
+                {
+                    tracing::error!(?e, "Failed to spawn IPC client handler thread");
+                }
             }
             Err(e) => {
                 tracing::warn!(?e, "Failed to accept IPC connection");
