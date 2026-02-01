@@ -12,8 +12,10 @@ arboard = "3.4.1"
 base64 = "0.22.1"
 dark-light = "2.0.0"
 chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
 compile-time = "0.2"
 dirs = "5.0.1"
+interprocess = { version = "2.2", features = ["tokio"] }
 dioxus = { version = "0.7.2", features = [] }
 dioxus-desktop = "0.7.2"
 dioxus-sdk-window = "0.7.0"
@@ -40,6 +42,8 @@ tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt"] }
 uuid = { version = "1.0", features = ["v4"] }
 display-info = "0.5.7"
 mouse_position = "0.1.4"
+libc = "0.2.180"
+ctrlc = "3.5.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.3"
