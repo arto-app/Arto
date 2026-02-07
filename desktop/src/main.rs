@@ -7,6 +7,7 @@ mod drag;
 mod events;
 mod history;
 mod ipc;
+mod keybindings;
 mod markdown;
 mod menu;
 mod pinned_search;
