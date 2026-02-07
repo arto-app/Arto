@@ -4,6 +4,7 @@ use parking_lot::RwLock;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::LazyLock;
+use tokio::sync::broadcast;
 
 impl Config {
     /// Get the configuration file path based on the platform
@@ -64,3 +65,10 @@ pub static CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
     let config = Config::load().unwrap_or_default();
     RwLock::new(config)
 });
+
+/// Broadcast channel for config change notifications.
+///
+/// Sent when Config is saved (from Preferences UI).
+/// Each window's App component subscribes to rebuild its KeybindingEngine.
+pub static CONFIG_CHANGED_BROADCAST: LazyLock<broadcast::Sender<()>> =
+    LazyLock::new(|| broadcast::channel(16).0);

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 mod behavior;
 mod directory_config;
+mod keybindings_config;
 mod right_sidebar_config;
 mod sidebar_config;
 mod theme_config;
@@ -12,6 +13,7 @@ mod zoom_config;
 
 pub use behavior::{NewWindowBehavior, StartupBehavior};
 pub use directory_config::DirectoryConfig;
+pub use keybindings_config::*;
 pub use right_sidebar_config::{RightSidebarConfig, DEFAULT_RIGHT_SIDEBAR_WIDTH};
 pub use sidebar_config::SidebarConfig;
 pub use theme_config::ThemeConfig;
@@ -33,6 +35,7 @@ pub struct Config {
     pub window_position: WindowPositionConfig,
     pub window_size: WindowSizeConfig,
     pub zoom: ZoomConfig,
+    pub keybindings: KeybindingsConfig,
 }
 
 #[cfg(test)]
@@ -177,6 +180,7 @@ mod tests {
                 on_startup: StartupBehavior::LastClosed,
                 on_new_window: NewWindowBehavior::LastFocused,
             },
+            keybindings: KeybindingsConfig::default(),
         };
 
         let json = serde_json::to_string_pretty(&config).unwrap();
