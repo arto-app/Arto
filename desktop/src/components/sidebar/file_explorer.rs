@@ -12,8 +12,11 @@ use crate::state::AppState;
 use crate::utils::{file::is_markdown_file, file_operations};
 use crate::watcher::FILE_WATCHER;
 
-// Sort entries: directories first, then files, both alphabetically
-fn sort_entries(items: &mut [PathBuf]) {
+/// Sort entries: directories first, then files, both alphabetically.
+///
+/// This ordering is shared with `sidebar_cursor` to ensure the keyboard
+/// cursor visits items in the same visual order as the file tree.
+pub(crate) fn sort_entries(items: &mut [PathBuf]) {
     items.sort_by(|a, b| {
         let a_is_dir = a.is_dir();
         let b_is_dir = b.is_dir();
@@ -342,6 +345,13 @@ fn FileTreeNode(path: PathBuf, depth: usize, mut refresh_counter: Signal<u32>) -
         .and_then(|tab| tab.file().map(|f| f == path))
         .unwrap_or(false);
 
+    let is_keyboard_focused = state
+        .sidebar_cursor
+        .read()
+        .as_ref()
+        .map(|c| c == &path)
+        .unwrap_or(false);
+
     let indent_style = format!("padding-left: {}px", depth * 20);
 
     // Copy feedback state
@@ -481,6 +491,7 @@ fn FileTreeNode(path: PathBuf, depth: usize, mut refresh_counter: Signal<u32>) -
         div {
             class: "left-sidebar-tree-node",
             class: if is_active { "active" },
+            class: if is_keyboard_focused { "keyboard-focused" },
 
             // Full-row clickable design:
             // - Parent row (this div): Fallback handler for empty space clicks

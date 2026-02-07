@@ -9,10 +9,14 @@ use crate::markdown::HeadingInfo;
 use crate::pinned_search::PinnedSearchId;
 use crate::theme::Theme;
 
+mod focused_panel;
 mod sidebar;
+mod sidebar_cursor;
 mod tabs;
 
+pub use focused_panel::*;
 pub use sidebar::Sidebar;
+pub use sidebar_cursor::*;
 pub use tabs::{Tab, TabContent};
 
 /// Information about a single search match for display in the Search tab.
@@ -82,6 +86,14 @@ pub struct AppState {
     /// Current scroll position of the content area.
     /// Updated by scroll events, used to save position before back/forward navigation.
     pub current_scroll_position: Signal<f64>,
+    /// Which panel currently holds keyboard focus (Content, LeftSidebar, RightSidebar).
+    pub focused_panel: Signal<FocusedPanel>,
+    /// Cursor position in the left sidebar file tree (path of the focused item).
+    pub sidebar_cursor: Signal<Option<PathBuf>>,
+    /// Cursor index in the right sidebar TOC heading list.
+    pub toc_cursor: Signal<Option<usize>>,
+    /// Cursor index in the Quick Access bookmark list.
+    pub quick_access_cursor: Signal<Option<usize>>,
 }
 
 impl AppState {
@@ -110,6 +122,10 @@ impl AppState {
             pinned_matches: Signal::new(HashMap::new()),
             pending_scroll_position: Signal::new(None),
             current_scroll_position: Signal::new(0.0),
+            focused_panel: Signal::new(FocusedPanel::default()),
+            sidebar_cursor: Signal::new(None),
+            toc_cursor: Signal::new(None),
+            quick_access_cursor: Signal::new(None),
         }
     }
 }
