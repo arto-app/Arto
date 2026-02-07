@@ -156,6 +156,7 @@ dependencies = [
  "anyhow",
  "arboard",
  "base64",
+ "bitflags 2.10.0",
  "chrono",
  "clap",
  "compile-time",

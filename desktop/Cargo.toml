@@ -10,6 +10,7 @@ edition = "2021"
 anyhow = "1.0.100"
 arboard = "3.4.1"
 base64 = "0.22.1"
+bitflags = "2"
 dark-light = "2.0.0"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
