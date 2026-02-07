@@ -7,6 +7,8 @@ import * as mermaidRenderer from "./mermaid-renderer";
 import { renderCoordinator } from "./render-coordinator";
 import { setup as setupContextMenu, restoreSelection } from "./context-menu-handler";
 import * as findInPage from "./find-in-page";
+import * as keyboardInterceptor from "./keyboard-interceptor";
+import * as scrollController from "./scroll-controller";
 
 // Declare global Arto namespace
 declare global {
@@ -25,6 +27,18 @@ declare global {
         reapply: typeof findInPage.reapply;
         setPinned: typeof findInPage.setPinned;
         scrollToPinnedMatch: typeof findInPage.scrollToPinnedMatch;
+      };
+      keyboard: {
+        onKeydown: typeof keyboardInterceptor.onKeydown;
+        pause: typeof keyboardInterceptor.pause;
+        resume: typeof keyboardInterceptor.resume;
+        isActive: typeof keyboardInterceptor.isActive;
+      };
+      scroll: {
+        scrollBy: typeof scrollController.scrollBy;
+        scrollPage: typeof scrollController.scrollPage;
+        scrollHalfPage: typeof scrollController.scrollHalfPage;
+        scrollToEdge: typeof scrollController.scrollToEdge;
       };
     };
   }
@@ -55,6 +69,9 @@ export function init(): void {
   mermaidRenderer.init();
   renderCoordinator.init();
 
+  // Initialize keyboard interceptor (listens for keydown in bubble phase)
+  keyboardInterceptor.setup();
+
   // Expose Arto API on window for Rust interop
   window.Arto = {
     setupContextMenu,
@@ -69,6 +86,18 @@ export function init(): void {
       reapply: findInPage.reapply,
       setPinned: findInPage.setPinned,
       scrollToPinnedMatch: findInPage.scrollToPinnedMatch,
+    },
+    keyboard: {
+      onKeydown: keyboardInterceptor.onKeydown,
+      pause: keyboardInterceptor.pause,
+      resume: keyboardInterceptor.resume,
+      isActive: keyboardInterceptor.isActive,
+    },
+    scroll: {
+      scrollBy: scrollController.scrollBy,
+      scrollPage: scrollController.scrollPage,
+      scrollHalfPage: scrollController.scrollHalfPage,
+      scrollToEdge: scrollController.scrollToEdge,
     },
   };
 
