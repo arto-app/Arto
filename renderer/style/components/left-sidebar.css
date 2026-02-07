@@ -21,6 +21,11 @@
   transition: none; /* Disable transition during resize */
 }
 
+/* Panel focus indicator — only visible during keyboard navigation */
+.keyboard-navigating .left-sidebar.panel-focused {
+  box-shadow: inset 0 0 0 2px var(--bg-secondary), inset 0 0 0 3px var(--accent-bg);
+}
+
 /* Inner wrapper with zoom applied */
 .left-sidebar-inner {
   display: flex;
@@ -375,6 +380,12 @@
 .left-sidebar-tree-label.disabled {
   color: var(--text-secondary);
   opacity: var(--opacity-secondary);
+}
+
+/* Keyboard cursor highlight */
+.left-sidebar-tree-node.keyboard-focused > .left-sidebar-tree-node-content {
+  background: color-mix(in srgb, var(--accent-bg) 12%, transparent);
+  opacity: 1;
 }
 
 /* Tree action buttons - only visible on hover */

@@ -23,8 +23,9 @@ use crate::drag;
 use crate::events::{
     ActiveDragUpdate, ACTIVE_DRAG_UPDATE, OPEN_DIRECTORY_IN_WINDOW, OPEN_FILE_IN_WINDOW,
 };
+use crate::keybindings::{self, KeyMatchResult, KeybindingEngine};
 use crate::menu;
-use crate::state::{AppState, PersistedState, Tab};
+use crate::state::{AppState, FocusedPanel, PersistedState, Tab};
 use crate::theme::Theme;
 
 /// Left mouse button ID for DeviceEvent::Button (platform-dependent raw value)
@@ -108,6 +109,9 @@ pub fn App(
 
     // Setup search handlers at App level (window-wide feature)
     use_search_handler(state);
+
+    // Initialize keybinding engine from config
+    setup_keybinding_engine(state);
 
     // Handle menu events (only state-dependent events, not global ones)
     use_muda_event_handler(move |event| {
@@ -327,6 +331,134 @@ pub fn App(
         }
     }
 }
+
+// ============================================================================
+// Keybinding Engine
+// ============================================================================
+
+/// JavaScript key event data received from the keyboard interceptor.
+#[derive(serde::Deserialize)]
+struct JsKeyEvent {
+    key: String,
+    modifiers: u8,
+    repeat: bool,
+}
+
+/// Set up the keybinding engine for this window.
+///
+/// This function:
+/// 1. Creates a KeybindingEngine from the current config
+/// 2. Registers a JS callback to receive keyboard events via dioxus.send()
+/// 3. Processes each key event through the engine
+/// 4. Dispatches matched actions (with ActionCancel priority chain)
+/// 5. Subscribes to CONFIG_CHANGED_BROADCAST to rebuild the engine on changes
+fn setup_keybinding_engine(mut state: AppState) {
+    // Build the initial engine from config
+    let initial_config = crate::config::CONFIG.read().keybindings.clone();
+    let engine = use_signal(|| std::cell::RefCell::new(KeybindingEngine::new(&initial_config)));
+
+    // Listen for keyboard events from the JS interceptor
+    use_effect(move || {
+        spawn(async move {
+            // Wait for the JS API to be ready, then register the callback
+            let mut eval_provider = document::eval(
+                r#"
+                (async () => {
+                    // Wait for window.Arto.keyboard.onKeydown to be available
+                    while (!window.Arto?.keyboard?.onKeydown) {
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                    }
+                    // Register callback that bridges to dioxus.send()
+                    window.Arto.keyboard.onKeydown((data) => {
+                        dioxus.send(data);
+                    });
+                })();
+                "#,
+            );
+
+            // Process keyboard events in a loop
+            while let Ok(event) = eval_provider.recv::<JsKeyEvent>().await {
+                let input = keybindings::from_js_event(&event.key, event.modifiers);
+                let context = state.focused_panel.read().key_context();
+
+                let result = engine
+                    .read()
+                    .borrow_mut()
+                    .process_key(&input, event.repeat, context);
+
+                match result {
+                    KeyMatchResult::Matched(action) => {
+                        handle_matched_action(&action, &mut state, &engine);
+                    }
+                    KeyMatchResult::Pending => {
+                        tracing::debug!(?input, "Key sequence pending");
+                    }
+                    KeyMatchResult::NoMatch => {
+                        // Key not bound — silently consumed (preventDefault already called in JS)
+                    }
+                }
+            }
+        });
+    });
+
+    // Subscribe to config changes to rebuild the engine
+    use_effect(move || {
+        spawn(async move {
+            let mut rx = crate::config::CONFIG_CHANGED_BROADCAST.subscribe();
+            while rx.recv().await.is_ok() {
+                let new_config = crate::config::CONFIG.read().keybindings.clone();
+                *engine.read().borrow_mut() = KeybindingEngine::new(&new_config);
+                tracing::info!("Keybinding engine rebuilt after config change");
+            }
+        });
+    });
+}
+
+/// Handle a matched action from the keybinding engine.
+///
+/// ActionCancel has a priority chain:
+/// 1. If the engine is pending a sequence → reset the sequence state
+/// 2. If a sidebar panel is focused → return focus to Content
+/// 3. If search bar is open → close it
+/// 4. Otherwise → no-op (cancel has nothing to do)
+fn handle_matched_action(
+    action: &keybindings::Action,
+    state: &mut AppState,
+    engine: &Signal<std::cell::RefCell<KeybindingEngine>>,
+) {
+    if matches!(action, keybindings::Action::Cancel) {
+        // Priority 1: Reset pending sequence
+        if engine.read().borrow().is_pending() {
+            engine.read().borrow_mut().reset_state();
+            tracing::debug!("ActionCancel: reset pending sequence");
+            return;
+        }
+
+        // Priority 2: Return focus from sidebar to content
+        if *state.focused_panel.read() != FocusedPanel::Content {
+            state.focused_panel.set(FocusedPanel::Content);
+            tracing::debug!("ActionCancel: returned focus to content");
+            return;
+        }
+
+        // Priority 3: Close search bar
+        if *state.search_open.read() {
+            state.toggle_search();
+            tracing::debug!("ActionCancel: closed search bar");
+            return;
+        }
+
+        // Priority 4: Nothing to cancel
+        tracing::debug!("ActionCancel: no-op");
+        return;
+    }
+
+    keybindings::dispatcher::dispatch_action(action, state);
+}
+
+// ============================================================================
+// File Drop Handler
+// ============================================================================
 
 /// Handle dropped files/directories - opens markdown files or sets directory as root
 async fn handle_dropped_files(evt: Event<DragData>, mut state: AppState) {

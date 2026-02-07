@@ -237,6 +237,8 @@ pub fn TabBar() -> Element {
             // Cancel local pending state
             if matches!(*local_drag_state.read(), LocalDragState::Pending(_)) {
                 local_drag_state.set(LocalDragState::Idle);
+                // Prevent the keyboard interceptor from also handling Escape
+                evt.stop_propagation();
             }
             // Cancel global active drag and restore tab
             if drag::is_active_drag() {
@@ -245,6 +247,8 @@ pub fn TabBar() -> Element {
                     current_window_id,
                     &mut active_drag_signal,
                 );
+                // Prevent the keyboard interceptor from also handling Escape
+                evt.stop_propagation();
             }
         }
     };

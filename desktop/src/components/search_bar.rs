@@ -135,6 +135,13 @@ pub fn SearchBar() -> Element {
                 }
                 // Clear the initial text after using it
                 state.search_initial_text.set(None);
+            } else {
+                // No initial text — just focus the input
+                spawn(async move {
+                    let _ = document::eval(
+                        "const input = document.querySelector('.search-input'); if (input) input.focus();",
+                    ).await;
+                });
             }
         }
     }));
@@ -173,8 +180,13 @@ pub fn SearchBar() -> Element {
                                 Key::Enter => {
                                     let direction = if evt.modifiers().shift() { "prev" } else { "next" };
                                     navigate(direction);
+                                    evt.stop_propagation();
                                 }
-                                Key::Escape => state.toggle_search(),
+                                Key::Escape => {
+                                    state.toggle_search();
+                                    // Prevent the keyboard interceptor from also handling Escape
+                                    evt.stop_propagation();
+                                }
                                 _ => {}
                             }
                         },

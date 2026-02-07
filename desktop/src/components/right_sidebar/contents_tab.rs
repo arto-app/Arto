@@ -2,6 +2,7 @@ use dioxus::document;
 use dioxus::prelude::*;
 
 use crate::markdown::HeadingInfo;
+use crate::state::AppState;
 
 #[component]
 pub fn ContentsTab(headings: Vec<HeadingInfo>) -> Element {
@@ -17,8 +18,8 @@ pub fn ContentsTab(headings: Vec<HeadingInfo>) -> Element {
             } else {
                 ul {
                     class: "right-sidebar-contents-list",
-                    for heading in headings.iter() {
-                        HeadingItem { heading: heading.clone() }
+                    for (idx, heading) in headings.iter().enumerate() {
+                        HeadingItem { heading: heading.clone(), index: idx }
                     }
                 }
             }
@@ -27,13 +28,17 @@ pub fn ContentsTab(headings: Vec<HeadingInfo>) -> Element {
 }
 
 #[component]
-fn HeadingItem(heading: HeadingInfo) -> Element {
+fn HeadingItem(heading: HeadingInfo, index: usize) -> Element {
+    let state = use_context::<AppState>();
     let id = heading.id.clone();
     let level = heading.level;
+
+    let is_keyboard_focused = *state.toc_cursor.read() == Some(index);
 
     rsx! {
         li {
             class: "right-sidebar-contents-item",
+            class: if is_keyboard_focused { "keyboard-focused" },
             "data-level": "{level}",
 
             button {

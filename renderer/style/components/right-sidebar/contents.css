@@ -64,6 +64,12 @@
   font-size: var(--font-size-sm);
 }
 
+/* Keyboard cursor highlight */
+.right-sidebar-contents-item.keyboard-focused .right-sidebar-contents-item-button {
+  background: color-mix(in srgb, var(--accent-bg) 12%, transparent);
+  opacity: 1;
+}
+
 /* Empty state */
 .right-sidebar-contents-empty {
   text-align: center;
