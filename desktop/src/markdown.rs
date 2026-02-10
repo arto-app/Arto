@@ -4,6 +4,7 @@ mod frontmatter;
 mod headings;
 mod post_process;
 mod source_lines;
+pub(crate) mod source_maps;
 
 pub use headings::*;
 

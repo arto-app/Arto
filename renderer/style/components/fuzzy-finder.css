@@ -1,0 +1,328 @@
+/* ========================================
+   Fuzzy Finder — Raycast-style overlay
+   ======================================== */
+
+/* Dimmed backdrop — closes Finder on outside click, visually separates modal */
+.fuzzy-finder-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-fuzzy-finder) - 1);
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(2px);
+}
+
+/* Floating panel */
+.fuzzy-finder {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
+  /* Overlay positioning — centered, floating below header */
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  width: min(680px, calc(100% - 48px));
+  max-height: calc(100vh - 120px);
+  z-index: var(--z-fuzzy-finder);
+  overflow: hidden;
+  /* Animation — hidden by default */
+  transform: translateX(-50%) translateY(-8px);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.15s ease-out,
+    opacity 0.1s ease-out;
+}
+
+.fuzzy-finder--open {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ── Input area ──────────────────────── */
+
+.fuzzy-finder-input {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.fuzzy-finder-input > .icon {
+  opacity: var(--opacity-muted);
+  flex-shrink: 0;
+}
+
+.fuzzy-finder-input .search-input-wrapper {
+  max-width: none; /* Override search-bar.css max-width */
+}
+
+.fuzzy-finder-input .search-input {
+  border: none;
+  background: transparent;
+  font-size: 17px;
+  padding: 4px 28px 4px 0;
+}
+
+.fuzzy-finder-input .search-input:focus {
+  outline: none;
+  border: none;
+}
+
+.fuzzy-finder-input .search-input::placeholder {
+  opacity: var(--opacity-subtle);
+}
+
+/* Pin button (compact) */
+.fuzzy-finder-input .search-pin-button {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+}
+
+/* Match count (compact, inline) */
+.fuzzy-finder-input .search-match-count {
+  font-size: var(--font-size-sm);
+  min-width: 48px;
+  opacity: var(--opacity-muted);
+}
+
+/* ── Footer (mode indicator + shortcut hint) ── */
+
+.finder-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 18px;
+  border-top: 1px solid var(--border-color);
+  cursor: pointer;
+  user-select: none;
+}
+
+.finder-footer:hover {
+  background: var(--hover-bg);
+}
+
+.finder-footer-mode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+}
+
+.finder-footer-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-color);
+  opacity: var(--opacity-subtle);
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.finder-footer-option.active {
+  color: var(--accent-bg);
+  opacity: var(--opacity-secondary);
+}
+
+.finder-footer-option .icon {
+  flex-shrink: 0;
+}
+
+.finder-footer-separator {
+  color: var(--text-color);
+  opacity: var(--opacity-subtle);
+  font-size: var(--font-size-xs);
+}
+
+.finder-footer-hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-color);
+  opacity: var(--opacity-subtle);
+}
+
+.finder-footer-hint kbd {
+  display: inline-block;
+  padding: 1px 4px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  line-height: 1.3;
+  background: var(--hover-bg);
+}
+
+/* ── Results list ────────────────────── */
+
+.finder-results {
+  max-height: 50vh;
+  overflow-y: auto;
+  overscroll-behavior: contain; /* Prevent scroll chaining to parent */
+  border-top: 1px solid var(--border-color);
+  padding: 8px 10px;
+}
+
+.finder-results-count {
+  padding: 4px 8px 8px;
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+  opacity: var(--opacity-muted);
+}
+
+.finder-results-status {
+  padding: 20px;
+  font-size: var(--font-size-base);
+  color: var(--text-color);
+  opacity: var(--opacity-secondary);
+  text-align: center;
+}
+
+/* ── Result card (unified for both modes) ── */
+
+.finder-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+/* Hover only when user has actively moved the mouse (not just cursor under card) */
+.finder-results--mouse-active .finder-card:hover {
+  background: var(--hover-bg);
+}
+
+/* Selected card — strong accent background + border */
+.finder-card.selected {
+  background: color-mix(in srgb, var(--accent-bg) 15%, transparent);
+  border-color: var(--accent-bg);
+}
+
+/* Current match (in-file mode: the match DOM is focused on) */
+.finder-card.current {
+  background: var(--hover-bg);
+  border-color: color-mix(in srgb, var(--accent-bg) 40%, transparent);
+}
+
+/* Card metadata line (file info, match number) — small, subdued, sans-serif */
+.finder-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--text-color);
+  opacity: var(--opacity-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.finder-card-meta .icon {
+  opacity: var(--opacity-muted);
+  flex-shrink: 0;
+}
+
+.finder-card-filename {
+  font-weight: 600;
+  color: var(--text-color);
+  opacity: var(--opacity-hover);
+}
+
+.finder-card-separator {
+  opacity: var(--opacity-muted);
+}
+
+.finder-card-linenum {
+  color: var(--accent-bg);
+  font-weight: 600;
+  opacity: 1;
+}
+
+.finder-card-badge {
+  color: var(--text-color);
+  opacity: var(--opacity-secondary);
+}
+
+.finder-card-dir {
+  margin-left: 4px;
+  opacity: var(--opacity-subtle);
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Code block (context lines + match line) ── */
+
+.finder-card-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Courier New", monospace;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--text-color) 4%, transparent);
+}
+
+.finder-card-code-line {
+  display: flex;
+  white-space: nowrap;
+  overflow: hidden;
+  padding: 0 8px;
+}
+
+.finder-card-code-gutter {
+  flex-shrink: 0;
+  min-width: 3ch;
+  text-align: right;
+  padding-right: 10px;
+  color: var(--text-color);
+  opacity: var(--opacity-muted);
+  user-select: none;
+}
+
+.finder-card-code-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Context lines (before/after match) — very muted */
+.finder-card-code-line--context {
+  color: var(--text-color);
+  opacity: var(--opacity-subtle);
+}
+
+/* Match line — more prominent with subtle highlight */
+.finder-card-code-line--match {
+  color: var(--text-color);
+  opacity: var(--opacity-secondary);
+  background: color-mix(in srgb, var(--text-color) 3%, transparent);
+}
+
+/* Unified match highlight — accent color text + yellow background for visibility */
+.finder-match-highlight {
+  font-weight: 600;
+  color: var(--accent-bg);
+  opacity: 1;
+  background: color-mix(in srgb, var(--search-highlight) 60%, transparent);
+  padding: 1px 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* Selected card overrides */
+.finder-card.selected .finder-card-code-line--context {
+  opacity: var(--opacity-muted);
+}
+
+.finder-card.selected .finder-card-code-line--match {
+  opacity: var(--opacity-hover);
+}
+
+.finder-card.selected .finder-card-meta {
+  opacity: var(--opacity-secondary);
+}

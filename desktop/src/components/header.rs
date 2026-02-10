@@ -154,11 +154,11 @@ pub fn Header() -> Element {
                 // Search button
                 button {
                     class: "nav-button search-button",
-                    class: if *state.search_open.read() { "active" },
+                    class: if *state.finder_open.read() { "active" },
                     title: "Search in page",
                     onclick: move |_| {
-                        let was_closed = !*state.search_open.read();
-                        state.toggle_search();
+                        let was_closed = !*state.finder_open.read();
+                        state.toggle_finder();
                         if was_closed {
                             // Focus the search input after opening
                             spawn(async {

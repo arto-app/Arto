@@ -8,14 +8,12 @@ use dioxus_core::use_drop;
 use mouse_position::mouse_position::Mouse;
 use std::path::PathBuf;
 
-use super::content::{
-    close_context_menu, use_search_handler, Content, ContentContextMenu, CONTENT_CONTEXT_MENU,
-};
+use super::content::{close_context_menu, Content, ContentContextMenu, CONTENT_CONTEXT_MENU};
+use super::fuzzy_finder::FuzzyFinder;
 use super::header::Header;
 use super::icon::{Icon, IconName};
 use super::right_sidebar::RightSidebar;
 use super::right_sidebar::RightSidebarTab;
-use super::search_bar::SearchBar;
 use super::sidebar::Sidebar;
 use super::tab::TabBar;
 use crate::assets::MAIN_SCRIPT;
@@ -113,9 +111,6 @@ pub fn App(
             .await;
         });
     });
-
-    // Setup search handlers at App level (window-wide feature)
-    use_search_handler(state);
 
     // Handle menu events (only state-dependent events, not global ones)
     use_muda_event_handler(move |event| {
@@ -306,7 +301,7 @@ pub fn App(
             div {
                 class: "main-area",
                 Header {},
-                SearchBar {},
+                FuzzyFinder {},
                 TabBar {},
                 Content {},
             }
@@ -375,7 +370,7 @@ async fn handle_dropped_files(evt: Event<DragData>, mut state: AppState) {
         } else {
             // Open any file (not just markdown)
             tracing::info!("Opening dropped file: {:?}", resolved_path);
-            state.open_file(resolved_path);
+            state.open_file(resolved_path, Default::default());
         }
     }
 }
@@ -405,7 +400,7 @@ fn setup_cross_window_open_listeners(mut state: AppState) {
             // Only handle if this window is the target
             if target_window_id == current_window_id {
                 tracing::info!(?path, "Opening file from cross-window request");
-                state.open_file(path);
+                state.open_file(path, Default::default());
             }
         }
     });

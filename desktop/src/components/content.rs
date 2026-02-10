@@ -5,8 +5,6 @@ mod file_viewer;
 mod inline_viewer;
 mod no_file_view;
 mod preferences_view;
-mod search_handler;
-
 use dioxus::prelude::*;
 
 use crate::state::{AppState, TabContent};
@@ -22,9 +20,6 @@ pub use preferences_view::set_preferences_tab_to_about;
 // Re-export context menu types for App-level rendering
 pub use context_menu::ContentContextMenu;
 pub use context_menu_state::{close_context_menu, CONTENT_CONTEXT_MENU};
-
-// Re-export search handler for App-level setup
-pub use search_handler::use_search_handler;
 
 #[component]
 pub fn Content() -> Element {

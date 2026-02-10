@@ -1,13 +1,13 @@
 pub mod app;
 pub mod bookmark_button;
 pub mod content;
+pub mod fuzzy_finder;
 pub mod header;
 pub mod icon;
 pub mod main_app;
 pub mod mermaid_window;
 pub mod pinned_chips;
 pub mod right_sidebar;
-pub mod search_bar;
 pub mod sidebar;
 pub mod tab;
 pub mod theme_selector;

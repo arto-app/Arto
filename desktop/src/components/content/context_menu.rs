@@ -175,7 +175,7 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
                         } else {
                             None
                         };
-                        state.open_search_with_text(text);
+                        state.open_finder_with_text(text);
                         on_close.call(());
                     }
                 },

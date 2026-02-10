@@ -102,7 +102,7 @@ pub fn QuickAccess() -> Element {
                             if is_directory {
                                 state.set_root_directory(&bookmark.path);
                             } else {
-                                state.open_file(&bookmark.path);
+                                state.open_file(&bookmark.path, Default::default());
                             }
                         },
                         on_drag_start: move |idx| {

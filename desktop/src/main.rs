@@ -5,6 +5,7 @@ mod components;
 mod config;
 mod drag;
 mod events;
+mod finder;
 mod history;
 mod ipc;
 mod markdown;

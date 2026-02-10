@@ -18,13 +18,14 @@ declare global {
       onRenderComplete: (callback: () => void) => void;
       search: {
         setup: typeof findInPage.setup;
-        find: typeof findInPage.find;
+        applyHighlights: typeof findInPage.applyHighlights;
         navigate: typeof findInPage.navigate;
         navigateTo: typeof findInPage.navigateTo;
         clear: typeof findInPage.clear;
         reapply: typeof findInPage.reapply;
         setPinned: typeof findInPage.setPinned;
         scrollToPinnedMatch: typeof findInPage.scrollToPinnedMatch;
+        setNavigateOnApply: typeof findInPage.setNavigateOnApply;
       };
     };
   }
@@ -62,13 +63,14 @@ export function init(): void {
     onRenderComplete: (callback) => renderCoordinator.onRenderComplete(callback),
     search: {
       setup: findInPage.setup,
-      find: findInPage.find,
+      applyHighlights: findInPage.applyHighlights,
       navigate: findInPage.navigate,
       navigateTo: findInPage.navigateTo,
       clear: findInPage.clear,
       reapply: findInPage.reapply,
       setPinned: findInPage.setPinned,
       scrollToPinnedMatch: findInPage.scrollToPinnedMatch,
+      setNavigateOnApply: findInPage.setNavigateOnApply,
     },
   };
 

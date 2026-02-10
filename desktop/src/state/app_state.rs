@@ -1,33 +1,29 @@
 use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
 use dioxus::prelude::*;
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::DEFAULT_RIGHT_SIDEBAR_WIDTH;
+use crate::finder::{DirectorySearchMatch, FinderMode};
 use crate::markdown::HeadingInfo;
-use crate::pinned_search::PinnedSearchId;
 use crate::theme::Theme;
 
 mod sidebar;
 mod tabs;
 
 pub use sidebar::Sidebar;
-pub use tabs::{Tab, TabContent};
+pub use tabs::{OpenFileOptions, Tab, TabContent};
 
-/// Information about a single search match for display in the Search tab.
-#[derive(Debug, Clone, PartialEq)]
-pub struct SearchMatch {
-    /// 0-based index of this match
-    pub index: usize,
-    /// The matched text itself
-    pub text: String,
-    /// Surrounding context including the match
-    pub context: String,
-    /// Start position of match within context (byte index)
-    pub context_start: usize,
-    /// End position of match within context (byte index)
-    pub context_end: usize,
+/// Scroll target specification for FileViewer.
+///
+/// Unifies pixel-based scrolling (for tab switching/history) and line-based scrolling
+/// (for search results/jump-to-line features).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PendingScroll {
+    /// Scroll to a specific pixel position (for tab switching, back/forward navigation)
+    Position(f64),
+    /// Scroll to a specific line number (for search results, jump-to-line)
+    Line(usize),
 }
 
 /// Per-window application state.
@@ -65,24 +61,33 @@ pub struct AppState {
     pub right_sidebar_headings: Signal<Vec<HeadingInfo>>,
     pub position: Signal<LogicalPosition<i32>>,
     pub size: Signal<LogicalSize<u32>>,
-    // Search state (not persisted, managed via JavaScript for IME compatibility)
-    pub search_open: Signal<bool>,
-    pub search_match_count: Signal<usize>,
-    pub search_current_index: Signal<usize>,
-    /// Initial search text to populate when opening search bar
+    // Finder state (Fuzzy Finder overlay)
+    pub finder_open: Signal<bool>,
+    pub finder_mode: Signal<FinderMode>,
+    /// Selected index in the Finder results list (for the active mode)
+    pub finder_selected_index: Signal<usize>,
+    /// Saved selected index for the inactive mode (swapped on mode switch)
+    pub finder_saved_selected_index: Signal<usize>,
+    /// Query string for directory-wide search (separate from in-file search)
+    pub directory_search_query: Signal<Option<String>>,
+    /// Results from directory-wide fuzzy search
+    pub directory_search_results: Signal<Vec<DirectorySearchMatch>>,
+    /// Whether directory search is currently indexing/searching
+    pub directory_search_loading: Signal<bool>,
+    /// Index of the selected search result (for highlighting active match)
+    pub selected_search_result_index: Signal<Option<usize>>,
+    /// Initial search text to populate when opening finder
     pub search_initial_text: Signal<Option<String>>,
-    /// Current search query string (for display in Search tab)
-    pub search_query: Signal<Option<String>>,
-    /// All search matches with context (for Search tab display)
-    pub search_matches: Signal<Vec<SearchMatch>>,
-    /// Pinned search matches by ID (for Search tab display)
-    pub pinned_matches: Signal<HashMap<PinnedSearchId, Vec<SearchMatch>>>,
-    /// Pending scroll position to restore after navigation (for back/forward).
-    /// When Some, FileViewer will scroll to this position instead of resetting to top.
-    pub pending_scroll_position: Signal<Option<f64>>,
+    /// Pending scroll target for FileViewer.
+    /// Unifies pixel position (tab switching) and line number (search jump).
+    pub pending_scroll: Signal<Option<PendingScroll>>,
     /// Current scroll position of the content area.
     /// Updated by scroll events, used to save position before back/forward navigation.
     pub current_scroll_position: Signal<f64>,
+    /// Last non-empty search results for dimmed sidebar display.
+    /// Persists in AppState (not in SearchTab hooks) so it survives
+    /// component unmount/remount when right sidebar tabs switch.
+    pub sidebar_last_search: Signal<Option<(String, Vec<DirectorySearchMatch>)>>,
 }
 
 impl AppState {
@@ -102,16 +107,19 @@ impl AppState {
             right_sidebar_headings: Signal::new(Vec::new()),
             position: Signal::new(Default::default()),
             size: Signal::new(Default::default()),
-            // Search state
-            search_open: Signal::new(false),
-            search_match_count: Signal::new(0),
-            search_current_index: Signal::new(0),
+            // Finder state
+            finder_open: Signal::new(false),
+            finder_mode: Signal::new(FinderMode::default()),
+            finder_selected_index: Signal::new(0),
+            finder_saved_selected_index: Signal::new(0),
+            directory_search_query: Signal::new(None),
+            directory_search_results: Signal::new(Vec::new()),
+            directory_search_loading: Signal::new(false),
+            selected_search_result_index: Signal::new(None),
             search_initial_text: Signal::new(None),
-            search_query: Signal::new(None),
-            search_matches: Signal::new(Vec::new()),
-            pinned_matches: Signal::new(HashMap::new()),
-            pending_scroll_position: Signal::new(None),
+            pending_scroll: Signal::new(None),
             current_scroll_position: Signal::new(0.0),
+            sidebar_last_search: Signal::new(None),
         }
     }
 }
@@ -186,46 +194,111 @@ impl AppState {
         self.right_sidebar_tab.set(tab);
     }
 
-    /// Toggle search bar visibility
+    /// Toggle finder visibility
     ///
     /// Note: Does NOT clear search state when closing. Search highlights and
     /// results persist until the user explicitly clears them (via clear button)
     /// or the content changes. This enables the "persistent highlighting" feature.
-    pub fn toggle_search(&mut self) {
-        let new_state = !*self.search_open.read();
-        self.search_open.set(new_state);
+    pub fn toggle_finder(&mut self) {
+        let new_state = !*self.finder_open.read();
+        self.finder_open.set(new_state);
     }
 
-    /// Update search results from JavaScript callback (basic count/current only)
-    pub fn update_search_results(&mut self, count: usize, current: usize) {
-        self.search_match_count.set(count);
-        self.search_current_index.set(current);
+    /// Check if the given finder mode has valid search context.
+    ///
+    /// - File: requires the active tab to be a file
+    /// - Directory: requires a root directory in the sidebar
+    pub fn can_use_finder_mode(&self, mode: FinderMode) -> bool {
+        match mode {
+            FinderMode::File => {
+                let tabs = self.tabs.read();
+                let active = *self.active_tab.read();
+                tabs.get(active).and_then(|t| t.file()).is_some()
+            }
+            FinderMode::Directory => self.sidebar.read().root_directory.is_some(),
+        }
     }
 
-    /// Update full search results from JavaScript callback (includes match details)
-    pub fn update_search_results_full(
+    /// Open finder in the last-used mode.
+    ///
+    /// If the last-used mode is no longer valid (e.g., no file open for File
+    /// mode), falls back to the other mode. No-op if neither mode is available.
+    pub fn open_finder(&mut self) {
+        let current = *self.finder_mode.read();
+        if self.can_use_finder_mode(current) {
+            self.finder_open.set(true);
+        } else {
+            // Fall back to the other mode
+            let fallback = match current {
+                FinderMode::File => FinderMode::Directory,
+                FinderMode::Directory => FinderMode::File,
+            };
+            if self.can_use_finder_mode(fallback) {
+                self.finder_mode.set(fallback);
+                self.finder_selected_index.set(0);
+                self.finder_open.set(true);
+            }
+        }
+    }
+
+    /// Switch finder mode, swapping the per-mode selected index.
+    ///
+    /// No-op if the target mode has no valid search context.
+    pub fn switch_finder_mode(&mut self) {
+        let current = *self.finder_mode.read();
+        let new_mode = match current {
+            FinderMode::File => FinderMode::Directory,
+            FinderMode::Directory => FinderMode::File,
+        };
+        if !self.can_use_finder_mode(new_mode) {
+            return;
+        }
+        // Swap active ↔ saved selected index
+        let active = *self.finder_selected_index.read();
+        let saved = *self.finder_saved_selected_index.read();
+        self.finder_saved_selected_index.set(active);
+        self.finder_selected_index.set(saved);
+        self.finder_mode.set(new_mode);
+    }
+
+    /// Close finder (results are preserved for persistent highlighting)
+    pub fn close_finder(&mut self) {
+        // Snapshot current search results for dimmed sidebar display.
+        // Captured once on close so SearchTab can show stale results
+        // without subscribing to the frequently-updating result signals.
+        if let Some(q) = self.directory_search_query.read().as_ref() {
+            if !q.is_empty() {
+                let results = self.directory_search_results.read().clone();
+                self.sidebar_last_search.set(Some((q.clone(), results)));
+            }
+        }
+        self.finder_open.set(false);
+    }
+
+    /// Update directory search results from background search
+    pub fn update_directory_search_results(
         &mut self,
         query: Option<String>,
-        count: usize,
-        current: usize,
-        matches: Vec<SearchMatch>,
+        results: Vec<DirectorySearchMatch>,
     ) {
-        self.search_query.set(query);
-        self.search_match_count.set(count);
-        self.search_current_index.set(current);
-        self.search_matches.set(matches);
+        self.directory_search_query.set(query);
+        self.directory_search_results.set(results);
+        self.directory_search_loading.set(false);
+        // Clear search state when updating results (new search)
+        self.selected_search_result_index.set(None);
+        self.pending_scroll.set(None);
     }
 
-    /// Open search bar and populate with given text
-    pub fn open_search_with_text(&mut self, text: Option<String>) {
-        // Set initial text for SearchBar to pick up
+    /// Set the selected search result index for highlighting active match
+    pub fn set_selected_search_result_index(&mut self, index: Option<usize>) {
+        self.selected_search_result_index.set(index);
+    }
+
+    /// Open finder and populate with given text (defaults to File mode)
+    pub fn open_finder_with_text(&mut self, text: Option<String>) {
+        // Set initial text for FuzzyFinder to pick up
         self.search_initial_text.set(text);
-        // Open search bar
-        self.search_open.set(true);
-    }
-
-    /// Update pinned search matches from JavaScript callback
-    pub fn update_pinned_matches(&mut self, matches: HashMap<PinnedSearchId, Vec<SearchMatch>>) {
-        self.pinned_matches.set(matches);
+        // Open finder in current file mode
+        self.finder_open.set(true);
     }
 }

@@ -37,6 +37,7 @@ pub fn FileViewer(file: PathBuf) -> Element {
     // Setup component hooks
     use_file_loader(file.clone(), html, reload_trigger, state);
     use_file_watcher(file.clone(), reload_trigger, state);
+    use_line_jump_handler(state);
     use_link_click_handler(file.clone(), state);
     use_mermaid_window_handler();
     use_context_menu_handler(file.clone(), base_dir);
@@ -113,9 +114,13 @@ fn use_file_loader(
                         state.right_sidebar_headings.set(Vec::new());
                     }
 
-                    // Re-apply search highlighting after content changes
-                    // This preserves search state across tab switches
-                    reapply_search().await;
+                    // Re-apply search highlighting after content changes.
+                    // Skips when PendingScroll::Line is set to avoid duplicate execution:
+                    // - Line jumps are handled by use_line_jump_handler
+                    // - This prevents race condition and unnecessary re-highlighting
+                    if should_reapply_search(&state) {
+                        reapply_search_from_state().await;
+                    }
                 }
                 Err(e) => {
                     // Failed to read as UTF-8 text (likely binary file)
@@ -134,25 +139,39 @@ fn use_file_loader(
     }));
 }
 
-/// Handle scroll position when navigating to a file.
+/// Handle scroll position restoration when navigating to a file.
 ///
-/// If pending_scroll_position is set (from back/forward navigation or tab switch),
-/// restore that position in two phases:
+/// Only processes PendingScroll::Position (pixel-based scroll from history/tab switching).
+/// PendingScroll::Line is handled by use_line_jump_handler and left untouched.
+///
+/// Position restoration uses two-phase approach:
 /// 1. Immediately when DOM content changes (MutationObserver, before browser paint)
 /// 2. After Mermaid/KaTeX rendering completes (adjusts for content height changes)
-///
-/// Otherwise, reset to top immediately (for new navigation like clicking a link).
 fn handle_scroll_position(state: &mut AppState) {
-    let pending_scroll = state.pending_scroll_position.take();
+    use crate::state::PendingScroll;
 
-    if let Some(scroll) = pending_scroll {
-        // Fast path: scrolling to top doesn't need two-phase restoration
-        if scroll <= 0.0 {
-            let _ = document::eval("document.querySelector('.content')?.scrollTo(0, 0);");
-            tracing::debug!("Reset scroll position to top (fast path)");
+    let pending_scroll = *state.pending_scroll.read();
+
+    let scroll = match pending_scroll {
+        Some(PendingScroll::Position(scroll)) => scroll,
+        Some(PendingScroll::Line(_line)) => {
+            // Line jumps handled by use_line_jump_handler - leave value untouched
             return;
         }
+        None => return,
+    };
 
+    // Only clear if we're handling Position
+    state.pending_scroll.set(None);
+
+    // Fast path: scrolling to top doesn't need two-phase restoration
+    if scroll <= 0.0 {
+        let _ = document::eval("document.querySelector('.content')?.scrollTo(0, 0);");
+        tracing::debug!("Reset scroll position to top (fast path)");
+        return;
+    }
+
+    {
         // Two-phase scroll restoration for non-zero positions:
         // Phase 1: MutationObserver on .markdown-body fires synchronously after innerHTML
         //          update but before browser paint, preventing visible scroll flash.
@@ -192,77 +211,129 @@ fn handle_scroll_position(state: &mut AppState) {
         );
         let _ = document::eval(&scroll_js);
         tracing::debug!(scroll, "Scheduled two-phase scroll position restoration");
-    } else {
-        // Reset to top immediately for new navigation
-        let _ = document::eval("document.querySelector('.content')?.scrollTo(0, 0);");
-        tracing::debug!("Reset scroll position to top");
     }
 }
 
-/// Re-apply search highlighting after DOM changes.
-/// This is called after content rendering to preserve search state across tab switches.
-async fn reapply_search() {
-    // Use MutationObserver to detect when DOM is actually updated, then reapply.
-    // This is more robust than RAF-based timing which is not guaranteed.
-    //
-    // Flow:
-    // 1. html.set() marks signal dirty (Rust side)
-    // 2. This function runs and sets up MutationObserver
-    // 3. Dioxus updates DOM (innerHTML changes)
-    // 4. MutationObserver fires → reapply() is called
-    // 5. Fallback timeout ensures reapply even if no mutation detected
-    let _ = document::eval(indoc::indoc! {r#"
-        (() => {
+/// Check if search should be reapplied after file content changes.
+/// Returns false when PendingScroll::Line is set to avoid duplicate execution.
+fn should_reapply_search(state: &AppState) -> bool {
+    use crate::state::PendingScroll;
+    // Line jumps are handled by use_line_jump_handler
+    !matches!(*state.pending_scroll.read(), Some(PendingScroll::Line(_)))
+}
+
+/// Re-apply search highlighting from AppState.
+/// Reads search results and selected index, applies highlights for current file.
+async fn reapply_search_from_state() {
+    let state = use_context::<AppState>();
+    let query = state.directory_search_query.read().clone();
+    let results = state.directory_search_results.read().clone();
+    let selected_index = *state.selected_search_result_index.read();
+
+    // Get current file
+    let current_file = {
+        let tabs = state.tabs.read();
+        let active = *state.active_tab.read();
+        tabs.get(active)
+            .and_then(|t| t.file().map(|p| p.to_path_buf()))
+    };
+
+    let Some(file) = current_file else {
+        // No file loaded, clear search highlights (but keep pinned)
+        let _ = document::eval(
+            r#"
+            (() => {
+                const container = document.querySelector('.markdown-body');
+                if (container) {
+                    const observer = new MutationObserver(() => {
+                        observer.disconnect();
+                        requestAnimationFrame(() => window.Arto.search.reapply());
+                    });
+                    observer.observe(container, { childList: true, subtree: true });
+                    setTimeout(() => { observer.disconnect(); window.Arto.search.reapply(); }, 100);
+                }
+            })();
+        "#,
+        )
+        .await;
+        return;
+    };
+
+    // Filter for current file
+    let file_results: Vec<_> = results.iter().filter(|r| r.file_path == file).collect();
+
+    if file_results.is_empty() || query.is_none() {
+        // No matches for this file, clear search highlights (but keep pinned)
+        let _ = document::eval(
+            r#"
+            (() => {
+                const container = document.querySelector('.markdown-body');
+                if (container) {
+                    const observer = new MutationObserver(() => {
+                        observer.disconnect();
+                        requestAnimationFrame(() => window.Arto.search.reapply());
+                    });
+                    observer.observe(container, { childList: true, subtree: true });
+                    setTimeout(() => { observer.disconnect(); window.Arto.search.reapply(); }, 100);
+                }
+            })();
+        "#,
+        )
+        .await;
+        return;
+    }
+
+    // Build JS
+    let json_query = serde_json::to_string(&query.unwrap_or_default()).unwrap_or_default();
+    let matches_json: Vec<serde_json::Value> = file_results
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "lineNumber": r.line_number,
+                "contentIndices": r.content_match_indices,
+            })
+        })
+        .collect();
+    let json_matches = serde_json::to_string(&matches_json).unwrap_or_else(|_| "[]".to_string());
+
+    let set_pending_js = selected_index
+        .map(|idx| format!("window.Arto.search.setNavigateOnApply({});", idx))
+        .unwrap_or_default();
+
+    let apply_js = format!(
+        r#"(() => {{
             let called = false;
-            const doReapply = () => {
+            const doApply = () => {{
                 if (called) return;
                 called = true;
-                window.Arto.search.reapply();
-            };
-
+                {set_pending}
+                window.Arto.search.applyHighlights({query}, {matches});
+            }};
             const container = document.querySelector('.markdown-body');
-            if (!container) {
-                // Container doesn't exist yet - Dioxus may still be building the DOM.
-                // Wait for it to appear using MutationObserver on document.body.
-                const bodyObserver = new MutationObserver(() => {
-                    if (document.querySelector('.markdown-body')) {
+            if (!container) {{
+                const bodyObserver = new MutationObserver(() => {{
+                    if (document.querySelector('.markdown-body')) {{
                         bodyObserver.disconnect();
-                        // Container appeared, wait one frame for content to render
-                        requestAnimationFrame(doReapply);
-                    }
-                });
-                bodyObserver.observe(document.body, { childList: true, subtree: true });
-
-                // Fallback timeout in case container never appears
-                setTimeout(() => {
-                    bodyObserver.disconnect();
-                    doReapply();
-                }, 100);
+                        requestAnimationFrame(doApply);
+                    }}
+                }});
+                bodyObserver.observe(document.body, {{ childList: true, subtree: true }});
+                setTimeout(() => {{ bodyObserver.disconnect(); doApply(); }}, 100);
                 return;
-            }
-
-            const observer = new MutationObserver(() => {
+            }}
+            const observer = new MutationObserver(() => {{
                 observer.disconnect();
-                // Wait one frame after mutation to ensure rendering is complete
-                requestAnimationFrame(doReapply);
-            });
+                requestAnimationFrame(doApply);
+            }});
+            observer.observe(container, {{ childList: true, subtree: true }});
+            setTimeout(() => {{ observer.disconnect(); doApply(); }}, 100);
+        }})()"#,
+        set_pending = set_pending_js,
+        query = json_query,
+        matches = json_matches
+    );
 
-            // Note: childList + subtree is sufficient for innerHTML changes.
-            // characterData is not needed since innerHTML replacement triggers childList mutations.
-            observer.observe(container, {
-                childList: true,
-                subtree: true
-            });
-
-            // Fallback: if no mutation within 100ms, reapply anyway
-            // This handles edge cases like navigating to the same file
-            setTimeout(() => {
-                observer.disconnect();
-                doReapply();
-            }, 100);
-        })();
-    "#})
-    .await;
+    let _ = document::eval(&apply_js).await;
 }
 
 /// Hook to watch file for changes and trigger reload
@@ -290,7 +361,9 @@ fn use_file_watcher(file: PathBuf, reload_trigger: Signal<usize>, mut state: App
                 // Save current scroll position before reloading so it can be restored
                 // after the content re-renders (reuses the back/forward restoration mechanism)
                 let scroll = *state.current_scroll_position.read();
-                state.pending_scroll_position.set(Some(scroll));
+                state
+                    .pending_scroll
+                    .set(Some(crate::state::PendingScroll::Position(scroll)));
                 reload_trigger.set(reload_trigger() + 1);
             }
 
@@ -303,6 +376,29 @@ fn use_file_watcher(file: PathBuf, reload_trigger: Signal<usize>, mut state: App
             }
         });
     }));
+}
+
+/// Hook to handle line jumps from Fuzzy Finder search results.
+/// Monitors pending_scroll Signal and triggers search re-application when Line is set.
+/// This enables both same-file and different-file jumps.
+fn use_line_jump_handler(mut state: AppState) {
+    use_effect(move || {
+        use crate::state::PendingScroll;
+
+        // Check if pending_scroll is set to Line variant
+        // Calling the Signal makes this effect reactive to its changes
+        let pending = (state.pending_scroll)();
+        if let Some(PendingScroll::Line(_line)) = pending {
+            // Re-apply search from state to update fuzzyMatches and navigate to selected index
+            // This is necessary for same-file jumps where file Signal doesn't change
+            spawn(async move {
+                reapply_search_from_state().await;
+            });
+
+            // Clear pending_scroll after consuming
+            state.pending_scroll.set(None);
+        }
+    });
 }
 
 /// Hook to setup JavaScript handler for markdown link clicks

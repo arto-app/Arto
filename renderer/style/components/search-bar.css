@@ -143,19 +143,25 @@
   text-align: center;
 }
 
-/* Highlight styles for matches in content */
-.search-highlight {
-  background-color: color-mix(in srgb, var(--accent-bg) 30%, transparent);
-  border-radius: var(--radius-xs);
-  padding: 0 1px;
+/* Fuzzy search range highlights via CSS Custom Highlight API.
+ * Renders background across inline elements (e.g. <code>) without DOM modification.
+ * Active highlight is layered on top with higher priority.
+ */
+::highlight(search-range) {
+  background-color: var(--search-highlight);
 }
 
-.search-highlight-active {
-  background-color: var(--accent-bg);
-  color: white;
-  border-radius: var(--radius-xs);
-  padding: 1px 2px;
-  box-shadow: var(--shadow-sm);
+::highlight(search-range-active) {
+  background-color: color-mix(in srgb, var(--accent-bg) 50%, transparent);
+}
+
+/* Hide inline code styling when inside a search highlight range.
+ * The code element's padding + background creates a visual gap in the highlight;
+ * removing both lets ::highlight() background show through continuously. */
+.markdown-body .code-in-search-highlight {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
 }
 
 /* Pinned search highlights (5 colors, no yellow) */
@@ -169,6 +175,14 @@
 .pinned-highlight[data-color="pink"] { background-color: var(--pinned-pink); }
 .pinned-highlight[data-color="orange"] { background-color: var(--pinned-orange); }
 .pinned-highlight[data-color="purple"] { background-color: var(--pinned-purple); }
+
+/* Fuzzy match: individually matched characters (bold).
+ * background-color: transparent overrides github-markdown-css's
+ * `.markdown-body mark` rule (specificity 0,1,1 → 0,2,0). */
+.markdown-body .fuzzy-highlight-char {
+  background-color: transparent;
+  font-weight: 700;
+}
 
 /* Disabled: override github-markdown-css .markdown-body mark background */
 .markdown-body .pinned-highlight-disabled { background-color: transparent; }

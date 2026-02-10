@@ -13,6 +13,7 @@
 @import url("./components/header.css");
 @import url("./components/tab-bar.css");
 @import url("./components/search-bar.css");
+@import url("./components/fuzzy-finder.css");
 @import url("./components/pinned-chips.css");
 
 /* Left sidebar */

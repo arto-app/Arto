@@ -101,3 +101,93 @@
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 12px;
 }
+
+/* ========================================
+   Directory Search Results (file-grouped)
+   ======================================== */
+
+.right-sidebar-dir-file-group {
+  margin-top: 4px;
+}
+
+.right-sidebar-dir-file-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 16px 4px 24px;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.right-sidebar-dir-file-header:hover {
+  background: var(--hover-bg);
+}
+
+.right-sidebar-dir-file-header .icon {
+  opacity: var(--opacity-secondary);
+  flex-shrink: 0;
+}
+
+.right-sidebar-dir-file-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.right-sidebar-dir-file-dir {
+  color: var(--text-muted);
+  margin-left: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.right-sidebar-dir-file-count {
+  color: var(--text-muted);
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+}
+
+.right-sidebar-dir-file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.right-sidebar-dir-match-item {
+  display: flex;
+  gap: 8px;
+  padding: 3px 16px 3px 40px;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  color: var(--text-secondary);
+  transition: background var(--transition-fast);
+}
+
+.right-sidebar-dir-match-item:hover {
+  background: var(--hover-bg);
+}
+
+.right-sidebar-dir-match-line-num {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  min-width: 24px;
+  text-align: right;
+  font-size: var(--font-size-xs);
+}
+
+.right-sidebar-dir-match-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.right-sidebar-dir-match-highlight {
+  color: var(--accent-bg);
+  font-weight: 600;
+}

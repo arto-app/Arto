@@ -1,4 +1,5 @@
-use dioxus::prelude::{ReadableExt, WritableExt};
+use dioxus::document;
+use dioxus::prelude::*;
 use dioxus_desktop::muda::accelerator::{Accelerator, Code, Modifiers};
 use dioxus_desktop::muda::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use dioxus_desktop::window;
@@ -25,6 +26,8 @@ enum MenuId {
     CloseAllWindows,
     Preferences,
     Find,
+    FindNext,
+    FindPrevious,
     ToggleSidebar,
     ActualSize,
     ZoomIn,
@@ -52,6 +55,8 @@ impl MenuId {
             "window.close_all_windows" => Some(Self::CloseAllWindows),
             "app.preferences" => Some(Self::Preferences),
             "edit.find" => Some(Self::Find),
+            "edit.find_next" => Some(Self::FindNext),
+            "edit.find_previous" => Some(Self::FindPrevious),
             "view.toggle_sidebar" => Some(Self::ToggleSidebar),
             "view.actual_size" => Some(Self::ActualSize),
             "view.zoom_in" => Some(Self::ZoomIn),
@@ -80,6 +85,8 @@ impl MenuId {
             Self::CloseAllWindows => "window.close_all_windows",
             Self::Preferences => "app.preferences",
             Self::Find => "edit.find",
+            Self::FindNext => "edit.find_next",
+            Self::FindPrevious => "edit.find_previous",
             Self::ToggleSidebar => "view.toggle_sidebar",
             Self::ActualSize => "view.actual_size",
             Self::ZoomIn => "view.zoom_in",
@@ -190,6 +197,13 @@ fn add_edit_menu(menu: &Menu) {
             &PredefinedMenuItem::select_all(Some("Select All")),
             &PredefinedMenuItem::separator(),
             &create_menu_item(MenuId::Find, "Find...", Some(Code::KeyF), None),
+            &create_menu_item(MenuId::FindNext, "Find Next", Some(Code::KeyG), None),
+            &create_menu_item(
+                MenuId::FindPrevious,
+                "Find Previous",
+                Some(Code::KeyG),
+                Some(Modifiers::SHIFT),
+            ),
         ])
         .unwrap();
 
@@ -366,7 +380,7 @@ pub fn handle_menu_event_with_state(event: &MenuEvent, state: &mut AppState) -> 
         }
         MenuId::Open => {
             if let Some(file) = pick_markdown_file() {
-                state.open_file(file);
+                state.open_file(file, Default::default());
             }
         }
         MenuId::OpenDirectory => {
@@ -421,8 +435,17 @@ pub fn handle_menu_event_with_state(event: &MenuEvent, state: &mut AppState) -> 
             }
         }
         MenuId::Find => {
-            // None = get selected text from JavaScript
-            state.open_search_with_text(None);
+            state.open_finder();
+        }
+        MenuId::FindNext => {
+            spawn(async move {
+                let _ = document::eval("window.Arto.search.navigate('next')").await;
+            });
+        }
+        MenuId::FindPrevious => {
+            spawn(async move {
+                let _ = document::eval("window.Arto.search.navigate('prev')").await;
+            });
         }
         _ => return false,
     }

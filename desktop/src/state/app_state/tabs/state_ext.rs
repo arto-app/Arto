@@ -15,6 +15,7 @@
 //!   (see `tabs/tab.rs` and `tabs/content.rs` for unit tests)
 
 use super::content::TabContent;
+use super::open_file_options::OpenFileOptions;
 use super::tab::Tab;
 use crate::history::HistoryManager;
 use crate::state::AppState;
@@ -130,33 +131,16 @@ impl AppState {
         self.add_tab(Tab::default(), switch_to)
     }
 
-    /// Switch to a specific tab by index.
+    /// Switch to a specific tab by index (internal, no scroll restoration).
     ///
-    /// Preserves scroll position: saves the current tab's scroll position to its
-    /// history entry, and sets up the target tab's scroll position for restoration.
-    /// This ensures that switching between tabs doesn't reset scroll to the top.
-    pub fn switch_to_tab(&mut self, index: usize) {
+    /// This is the core tab-switching logic without scroll position handling.
+    /// Used by both `switch_to_tab()` and `open_file()`.
+    fn switch_to_tab_no_restore(&mut self, index: usize) {
         let tabs = self.tabs.read();
         if index >= tabs.len() {
             return;
         }
         let current_index = *self.active_tab.read();
-
-        // Extract target tab info before dropping tabs lock to avoid race conditions
-        let target_tab = &tabs[index];
-        let target_scroll = if target_tab.is_no_file() {
-            // Non-file tabs (Preferences, inline content, etc.) don't have scroll restoration
-            None
-        } else {
-            // File tabs: restore saved scroll position
-            Some(
-                target_tab
-                    .history
-                    .current()
-                    .map(|entry| entry.scroll_position)
-                    .unwrap_or(0.0),
-            )
-        };
         drop(tabs);
 
         if index == current_index {
@@ -169,10 +153,37 @@ impl AppState {
             tab.history.save_scroll_position(scroll);
         });
 
-        // Set pending scroll position for target tab (None for non-file tabs)
-        self.pending_scroll_position.set(target_scroll);
-
         self.active_tab.set(index);
+    }
+
+    /// Switch to a specific tab by index.
+    ///
+    /// Preserves scroll position: saves the current tab's scroll position to its
+    /// history entry, and sets up the target tab's scroll position for restoration.
+    /// This ensures that switching between tabs doesn't reset scroll to the top.
+    pub fn switch_to_tab(&mut self, index: usize) {
+        let tabs = self.tabs.read();
+        if index >= tabs.len() {
+            return;
+        }
+
+        // Extract target tab's historical scroll position
+        let target_scroll = if !tabs[index].is_no_file() {
+            tabs[index]
+                .history
+                .current()
+                .map(|entry| crate::state::PendingScroll::Position(entry.scroll_position))
+        } else {
+            None
+        };
+        drop(tabs);
+
+        // Set pending scroll to historical position
+        if let Some(scroll) = target_scroll {
+            self.pending_scroll.set(Some(scroll));
+        }
+
+        self.switch_to_tab_no_restore(index);
     }
 
     /// Check if the current active tab has no file (NoFile tab, Inline content, or FileError)
@@ -191,22 +202,38 @@ impl AppState {
             .position(|tab| tab.file().map(|f| f == file).unwrap_or(false))
     }
 
-    /// Open a file, reusing NoFile tab or existing tab with the same file if possible
-    /// Used when opening from sidebar or external sources
-    pub fn open_file(&mut self, file: impl AsRef<Path>) {
+    /// Open a file with options.
+    ///
+    /// By default, reuses NoFile tab or existing tab with the same file if possible.
+    /// Options can control navigation behavior and scroll position.
+    pub fn open_file(&mut self, file: impl AsRef<Path>, options: OpenFileOptions) {
         let file = file.as_ref();
-        // Check if the file is already open in another tab
-        if let Some(tab_index) = self.find_tab_with_file(file) {
-            // Switch to the existing tab instead of creating a new one
-            self.switch_to_tab(tab_index);
-        } else if self.is_current_tab_no_file() {
-            // If current tab is NoFile, open the file in it
+
+        // Set pending scroll from options (unified setting point)
+        if let Some(line) = options.line {
+            self.pending_scroll
+                .set(Some(crate::state::PendingScroll::Line(line)));
+        }
+
+        if options.in_current_tab {
+            // Force navigation in current tab (for markdown links)
             self.update_current_tab(|tab| {
                 tab.navigate_to(file);
             });
         } else {
-            // Otherwise, create a new tab
-            self.add_file_tab(file, true);
+            // Standard tab reuse logic
+            if let Some(tab_index) = self.find_tab_with_file(file) {
+                // Switch to the existing tab (pending_scroll already set, don't restore history)
+                self.switch_to_tab_no_restore(tab_index);
+            } else if self.is_current_tab_no_file() {
+                // If current tab is NoFile, open the file in it
+                self.update_current_tab(|tab| {
+                    tab.navigate_to(file);
+                });
+            } else {
+                // Otherwise, create a new tab
+                self.add_file_tab(file, true);
+            }
         }
     }
 
@@ -323,7 +350,8 @@ impl AppState {
             );
             // Set pending scroll BEFORE changing content
             // This ensures FileViewer sees the scroll position when it loads
-            self.pending_scroll_position.set(Some(scroll));
+            self.pending_scroll
+                .set(Some(crate::state::PendingScroll::Position(scroll)));
 
             // Now change content, which triggers re-render
             let mut tabs = self.tabs.write();
@@ -361,7 +389,8 @@ impl AppState {
             );
             // Set pending scroll BEFORE changing content
             // This ensures FileViewer sees the scroll position when it loads
-            self.pending_scroll_position.set(Some(scroll));
+            self.pending_scroll
+                .set(Some(crate::state::PendingScroll::Position(scroll)));
 
             // Now change content, which triggers re-render
             let mut tabs = self.tabs.write();

@@ -11,7 +11,7 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use tokio::sync::broadcast;
 use uuid::Uuid;
@@ -88,17 +88,20 @@ impl HighlightColor {
             HighlightColor::Purple => "highlight-purple",
         }
     }
+}
 
-    /// Get the color name for JavaScript.
-    pub fn to_js_name(self) -> &'static str {
-        match self {
-            HighlightColor::Green => "green",
-            HighlightColor::Blue => "blue",
-            HighlightColor::Pink => "pink",
-            HighlightColor::Orange => "orange",
-            HighlightColor::Purple => "purple",
-        }
-    }
+/// Scope defining where a pinned search is active.
+///
+/// When a user pins a search from the Fuzzy Finder, the current context
+/// (file or directory) is captured as the scope. The pinned search only
+/// produces DOM highlights when the scope matches the current view.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type", content = "path")]
+pub enum PinnedScope {
+    /// Active only when viewing this specific file.
+    File(PathBuf),
+    /// Active for any file under this directory.
+    Directory(PathBuf),
 }
 
 /// A pinned search entry.
@@ -116,20 +119,35 @@ pub struct PinnedSearch {
     /// Disabled (highlight not shown but kept in list).
     #[serde(default)]
     pub disabled: bool,
+    /// Scope defining where this pinned search is active.
+    pub scope: PinnedScope,
     /// Creation timestamp.
     pub created_at: DateTime<Utc>,
 }
 
 impl PinnedSearch {
-    /// Create a new pinned search with the given pattern.
-    pub fn new(pattern: impl Into<String>, color: HighlightColor) -> Self {
+    /// Create a new pinned search with the given pattern and scope.
+    pub fn new(pattern: impl Into<String>, color: HighlightColor, scope: PinnedScope) -> Self {
         Self {
             id: PinnedSearchId::new(),
             pattern: pattern.into(),
             color,
             case_sensitive: false,
             disabled: false,
+            scope,
             created_at: Utc::now(),
+        }
+    }
+
+    /// Check if this pinned search is in scope for the given context.
+    ///
+    /// Returns `true` if the current file/directory matches the scope,
+    /// regardless of the `disabled` flag (disabled controls visibility,
+    /// not scope validity).
+    pub fn is_in_scope(&self, current_file: Option<&Path>, current_dir: Option<&Path>) -> bool {
+        match &self.scope {
+            PinnedScope::File(path) => current_file.is_some_and(|f| f == path),
+            PinnedScope::Directory(dir) => current_dir.is_some_and(|d| d == dir),
         }
     }
 }
@@ -228,10 +246,10 @@ impl PinnedSearches {
         }
     }
 
-    /// Add a new pinned search.
-    pub fn add(&mut self, pattern: impl Into<String>) -> &PinnedSearch {
+    /// Add a new pinned search with the given scope.
+    pub fn add(&mut self, pattern: impl Into<String>, scope: PinnedScope) -> &PinnedSearch {
         let color = self.next_color();
-        let pinned = PinnedSearch::new(pattern, color);
+        let pinned = PinnedSearch::new(pattern, color, scope);
         self.pinned_searches.push(pinned);
         self.pinned_searches.last().unwrap()
     }
@@ -295,13 +313,13 @@ pub static PINNED_SEARCHES: LazyLock<RwLock<PinnedSearches>> =
 pub static PINNED_SEARCHES_CHANGED: LazyLock<broadcast::Sender<()>> =
     LazyLock::new(|| broadcast::channel(10).0);
 
-/// Add a pinned search and broadcast the change.
+/// Add a pinned search with the given scope and broadcast the change.
 ///
 /// Returns the ID of the newly created pinned search.
-pub fn add_pinned_search(pattern: impl Into<String>) -> PinnedSearchId {
+pub fn add_pinned_search(pattern: impl Into<String>, scope: PinnedScope) -> PinnedSearchId {
     let id = {
         let mut pinned = PINNED_SEARCHES.write();
-        let search = pinned.add(pattern);
+        let search = pinned.add(pattern, scope);
         let id = search.id.clone();
         pinned.save();
         id
@@ -381,20 +399,31 @@ mod tests {
         assert_eq!(HighlightColor::Purple.css_class(), "highlight-purple");
     }
 
+    /// Helper to create a file scope for tests.
+    fn file_scope(path: &str) -> PinnedScope {
+        PinnedScope::File(PathBuf::from(path))
+    }
+
+    /// Helper to create a directory scope for tests.
+    fn dir_scope(path: &str) -> PinnedScope {
+        PinnedScope::Directory(PathBuf::from(path))
+    }
+
     #[test]
     fn test_pinned_search_creation() {
-        let pinned = PinnedSearch::new("TODO", HighlightColor::Orange);
+        let pinned = PinnedSearch::new("TODO", HighlightColor::Orange, file_scope("/test/file.md"));
         assert_eq!(pinned.pattern, "TODO");
         assert_eq!(pinned.color, HighlightColor::Orange);
         assert!(!pinned.case_sensitive);
         assert!(!pinned.disabled);
+        assert_eq!(pinned.scope, file_scope("/test/file.md"));
     }
 
     #[test]
     fn test_pinned_searches_add_remove() {
         let mut searches = PinnedSearches::default();
 
-        let search = searches.add("TODO");
+        let search = searches.add("TODO", file_scope("/a.md"));
         let id = search.id.clone();
         assert_eq!(searches.pinned_searches.len(), 1);
         assert!(searches.contains_pattern("TODO"));
@@ -407,13 +436,14 @@ mod tests {
     #[test]
     fn test_pinned_searches_color_distribution() {
         let mut searches = PinnedSearches::default();
+        let scope = dir_scope("/project");
 
         // Add 5 pinned searches - should use all 5 colors
-        searches.add("A");
-        searches.add("B");
-        searches.add("C");
-        searches.add("D");
-        searches.add("E");
+        searches.add("A", scope.clone());
+        searches.add("B", scope.clone());
+        searches.add("C", scope.clone());
+        searches.add("D", scope.clone());
+        searches.add("E", scope.clone());
 
         let colors: Vec<_> = searches.pinned_searches.iter().map(|p| p.color).collect();
         assert!(colors.contains(&HighlightColor::Green));
@@ -426,7 +456,7 @@ mod tests {
     #[test]
     fn test_pinned_searches_toggle_disabled() {
         let mut searches = PinnedSearches::default();
-        let search = searches.add("TODO");
+        let search = searches.add("TODO", file_scope("/a.md"));
         let id = search.id.clone();
 
         assert!(!searches.pinned_searches[0].disabled);
@@ -441,7 +471,7 @@ mod tests {
     #[test]
     fn test_pinned_searches_set_color() {
         let mut searches = PinnedSearches::default();
-        let search = searches.add("TODO");
+        let search = searches.add("TODO", file_scope("/a.md"));
         let id = search.id.clone();
 
         assert!(searches.set_color(&id, HighlightColor::Pink));
@@ -451,7 +481,7 @@ mod tests {
     #[test]
     fn test_pinned_searches_serialization() {
         let mut searches = PinnedSearches::default();
-        searches.add("TODO");
+        searches.add("TODO", file_scope("/test/file.md"));
         searches.pinned_searches[0].disabled = true;
 
         let json = serde_json::to_string_pretty(&searches).unwrap();
@@ -461,5 +491,69 @@ mod tests {
         assert_eq!(parsed.pinned_searches.len(), 1);
         assert_eq!(parsed.pinned_searches[0].pattern, "TODO");
         assert!(parsed.pinned_searches[0].disabled);
+        assert_eq!(parsed.pinned_searches[0].scope, file_scope("/test/file.md"));
+    }
+
+    #[test]
+    fn test_pinned_scope_serialization() {
+        // File scope
+        let scope = file_scope("/path/to/file.md");
+        let json = serde_json::to_string(&scope).unwrap();
+        let parsed: PinnedScope = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, scope);
+
+        // Directory scope
+        let scope = dir_scope("/path/to/dir");
+        let json = serde_json::to_string(&scope).unwrap();
+        let parsed: PinnedScope = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, scope);
+    }
+
+    #[test]
+    fn test_is_in_scope_file() {
+        let pinned = PinnedSearch::new(
+            "TODO",
+            HighlightColor::Green,
+            file_scope("/project/readme.md"),
+        );
+
+        // Matching file
+        assert!(pinned.is_in_scope(Some(Path::new("/project/readme.md")), None));
+
+        // Different file
+        assert!(!pinned.is_in_scope(Some(Path::new("/project/other.md")), None));
+
+        // No file
+        assert!(!pinned.is_in_scope(None, None));
+    }
+
+    #[test]
+    fn test_is_in_scope_directory() {
+        let pinned = PinnedSearch::new("TODO", HighlightColor::Green, dir_scope("/project"));
+
+        // Matching directory
+        assert!(pinned.is_in_scope(
+            Some(Path::new("/project/file.md")),
+            Some(Path::new("/project"))
+        ));
+
+        // Different directory
+        assert!(!pinned.is_in_scope(Some(Path::new("/other/file.md")), Some(Path::new("/other"))));
+
+        // No directory
+        assert!(!pinned.is_in_scope(Some(Path::new("/project/file.md")), None));
+    }
+
+    #[test]
+    fn test_is_in_scope_disabled_still_in_scope() {
+        let mut pinned = PinnedSearch::new(
+            "TODO",
+            HighlightColor::Green,
+            file_scope("/project/readme.md"),
+        );
+        pinned.disabled = true;
+
+        // disabled flag doesn't affect scope check
+        assert!(pinned.is_in_scope(Some(Path::new("/project/readme.md")), None));
     }
 }

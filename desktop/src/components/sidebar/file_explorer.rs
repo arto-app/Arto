@@ -387,7 +387,7 @@ fn FileTreeNode(path: PathBuf, depth: usize, mut refresh_counter: Signal<u32>) -
             if is_dir {
                 state.set_root_directory(&path);
             } else {
-                state.open_file(&path);
+                state.open_file(&path, Default::default());
             }
             show_context_menu.set(false);
         }
@@ -499,7 +499,7 @@ fn FileTreeNode(path: PathBuf, depth: usize, mut refresh_counter: Signal<u32>) -
                         if is_dir {
                             state.set_root_directory(&path);
                         } else {
-                            state.open_file(&path);
+                            state.open_file(&path, Default::default());
                         }
                     }
                 },
@@ -552,7 +552,7 @@ fn FileTreeNode(path: PathBuf, depth: usize, mut refresh_counter: Signal<u32>) -
                             let path = path.clone();
                             move |evt| {
                                 evt.stop_propagation();
-                                state.open_file(&path);
+                                state.open_file(&path, Default::default());
                             }
                         },
                         Icon {

@@ -34,6 +34,7 @@
   --z-search-bar: 50;
   --z-header: 60;
   --z-pinned-chips: 99;
+  --z-fuzzy-finder: 100;
   --z-dropdown: 200;
   --z-floating-tab: 1000;
   --z-tab-actions: 1001;
@@ -53,9 +54,9 @@
   --error-color: #dc3545;
   --warning-color: #dc8a2f;
 
-  /* Search Highlight */
-  --light-search-highlight: rgba(255, 235, 59, 0.4);
-  --dark-search-highlight: rgba(255, 235, 59, 0.3);
+  /* Search Highlight (range background for fuzzy matches) */
+  --light-search-highlight: rgba(255, 213, 0, 0.7);
+  --dark-search-highlight: rgba(230, 170, 0, 0.45);
   --search-highlight: var(--light-search-highlight);
 
   /* ========================================
