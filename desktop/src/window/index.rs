@@ -57,7 +57,7 @@ pub fn build_custom_index(theme: Theme) -> String {
                             showBody();
                         }} else {{
                             // Otherwise wait a bit for asset server to respond
-                            // Most stylesheets should load within 50ms on cold start
+                            // Most stylesheets should load within 200ms on cold start
                             var maxWait = 200;
                             var checkInterval = 10;
                             var elapsed = 0;
@@ -103,6 +103,8 @@ pub(crate) fn build_mermaid_window_index(theme: Theme) -> String {
             <!-- MODULE LOADER -->
             <script>
                 // Show body once CSS is fully loaded and parsed
+                // This prevents FOUC (Flash of Unstyled Content) on cold start
+                // when the asset server might not be fully ready yet
                 (function() {{
                     function showBody() {{
                         document.body.classList.add('loaded');
