@@ -26,17 +26,52 @@ pub fn build_custom_index(theme: Theme) -> String {
             <script>
                 // Show body once CSS is fully loaded and parsed
                 // This prevents FOUC (Flash of Unstyled Content) on cold start
-                window.addEventListener('DOMContentLoaded', function() {{
-                    // Wait for stylesheets to load
-                    if (document.styleSheets.length > 0) {{
+                // when the asset server might not be fully ready yet
+                (function() {{
+                    function showBody() {{
                         document.body.classList.add('loaded');
-                    }} else {{
-                        // Fallback: show after a short delay if no stylesheets detected
-                        setTimeout(function() {{
-                            document.body.classList.add('loaded');
-                        }}, 100);
                     }}
-                }});
+
+                    // Check if stylesheets are loaded
+                    function checkStylesheets() {{
+                        // Count loaded stylesheets (excluding inline styles)
+                        var loadedCount = 0;
+                        for (var i = 0; i < document.styleSheets.length; i++) {{
+                            try {{
+                                // Try to access cssRules to verify stylesheet is loaded
+                                // This will throw for unloaded or cross-origin stylesheets
+                                var rules = document.styleSheets[i].cssRules;
+                                if (rules && rules.length > 0) {{
+                                    loadedCount++;
+                                }}
+                            }} catch (e) {{
+                                // Stylesheet not loaded or cross-origin
+                            }}
+                        }}
+                        return loadedCount > 0;
+                    }}
+
+                    window.addEventListener('DOMContentLoaded', function() {{
+                        // If stylesheets are already loaded, show immediately
+                        if (checkStylesheets()) {{
+                            showBody();
+                        }} else {{
+                            // Otherwise wait a bit for asset server to respond
+                            // Most stylesheets should load within 50ms on cold start
+                            var maxWait = 200;
+                            var checkInterval = 10;
+                            var elapsed = 0;
+                            
+                            var interval = setInterval(function() {{
+                                elapsed += checkInterval;
+                                if (checkStylesheets() || elapsed >= maxWait) {{
+                                    clearInterval(interval);
+                                    showBody();
+                                }}
+                            }}, checkInterval);
+                        }}
+                    }});
+                }})();
             </script>
         </body>
     </html>
@@ -68,15 +103,44 @@ pub(crate) fn build_mermaid_window_index(theme: Theme) -> String {
             <!-- MODULE LOADER -->
             <script>
                 // Show body once CSS is fully loaded and parsed
-                window.addEventListener('DOMContentLoaded', function() {{
-                    if (document.styleSheets.length > 0) {{
+                (function() {{
+                    function showBody() {{
                         document.body.classList.add('loaded');
-                    }} else {{
-                        setTimeout(function() {{
-                            document.body.classList.add('loaded');
-                        }}, 100);
                     }}
-                }});
+
+                    function checkStylesheets() {{
+                        var loadedCount = 0;
+                        for (var i = 0; i < document.styleSheets.length; i++) {{
+                            try {{
+                                var rules = document.styleSheets[i].cssRules;
+                                if (rules && rules.length > 0) {{
+                                    loadedCount++;
+                                }}
+                            }} catch (e) {{
+                                // Stylesheet not loaded or cross-origin
+                            }}
+                        }}
+                        return loadedCount > 0;
+                    }}
+
+                    window.addEventListener('DOMContentLoaded', function() {{
+                        if (checkStylesheets()) {{
+                            showBody();
+                        }} else {{
+                            var maxWait = 200;
+                            var checkInterval = 10;
+                            var elapsed = 0;
+                            
+                            var interval = setInterval(function() {{
+                                elapsed += checkInterval;
+                                if (checkStylesheets() || elapsed >= maxWait) {{
+                                    clearInterval(interval);
+                                    showBody();
+                                }}
+                            }}, checkInterval);
+                        }}
+                    }});
+                }})();
             </script>
         </body>
     </html>
