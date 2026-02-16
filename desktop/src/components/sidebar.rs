@@ -5,6 +5,7 @@ pub mod quick_access;
 use dioxus::document;
 use dioxus::prelude::*;
 
+use crate::components::icon::{Icon, IconName};
 use crate::state::AppState;
 
 #[component]
@@ -30,6 +31,22 @@ pub fn Sidebar() -> Element {
             class: if is_visible { "visible" },
             class: if is_resizing() { "resizing" },
             style: "{outer_style}",
+
+            // Panel header with close button (outside zoom wrapper)
+            div {
+                class: "sidebar-panel-header",
+                button {
+                    class: "sidebar-panel-close-button",
+                    title: "Close Sidebar",
+                    onclick: move |_| {
+                        state.toggle_sidebar();
+                    },
+                    Icon {
+                        name: IconName::SidebarLeftCollapse,
+                        size: 18,
+                    }
+                }
+            }
 
             // Inner wrapper with zoom applied
             div {

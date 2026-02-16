@@ -9,6 +9,7 @@ use contents_tab::ContentsTab;
 use search_tab::SearchTab;
 use tab_bar::TabBar;
 
+use crate::components::icon::{Icon, IconName};
 use crate::markdown::HeadingInfo;
 use crate::state::AppState;
 
@@ -55,6 +56,22 @@ pub fn RightSidebar(props: RightSidebarProps) -> Element {
             // Resize handle
             if is_open {
                 RightSidebarResizeHandle { is_resizing }
+            }
+
+            // Panel header with close button (outside zoom wrapper)
+            div {
+                class: "sidebar-panel-header right",
+                button {
+                    class: "sidebar-panel-close-button",
+                    title: "Close Right Sidebar",
+                    onclick: move |_| {
+                        state.toggle_right_sidebar();
+                    },
+                    Icon {
+                        name: IconName::SidebarRightCollapse,
+                        size: 18,
+                    }
+                }
             }
 
             // Inner wrapper with zoom applied
