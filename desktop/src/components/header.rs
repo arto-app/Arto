@@ -65,16 +65,17 @@ pub fn Header() -> Element {
             div {
                 class: "header-left",
 
-                // Sidebar toggle button
-                button {
-                    class: "left-sidebar-toggle-button",
-                    class: if is_sidebar_open { "active" },
-                    onclick: move |_| {
-                        state.toggle_sidebar();
-                    },
-                    Icon {
-                        name: IconName::Sidebar,
-                        size: 20,
+                // Sidebar toggle button (hidden when sidebar is open)
+                if !is_sidebar_open {
+                    button {
+                        class: "left-sidebar-toggle-button",
+                        onclick: move |_| {
+                            state.toggle_sidebar();
+                        },
+                        Icon {
+                            name: IconName::Sidebar,
+                            size: 20,
+                        }
                     }
                 }
 
@@ -170,17 +171,18 @@ pub fn Header() -> Element {
                 // Theme selector
                 ThemeSelector { current_theme: state.current_theme }
 
-                // Right sidebar toggle button
-                button {
-                    class: "right-sidebar-toggle-button",
-                    class: if *state.right_sidebar_open.read() { "active" },
-                    title: "Toggle Right Sidebar",
-                    onclick: move |_| {
-                        state.toggle_right_sidebar();
-                    },
-                    Icon {
-                        name: IconName::List,
-                        size: 18,
+                // Right sidebar toggle button (hidden when right sidebar is open)
+                if !*state.right_sidebar_open.read() {
+                    button {
+                        class: "right-sidebar-toggle-button",
+                        title: "Toggle Right Sidebar",
+                        onclick: move |_| {
+                            state.toggle_right_sidebar();
+                        },
+                        Icon {
+                            name: IconName::List,
+                            size: 18,
+                        }
                     }
                 }
             }
