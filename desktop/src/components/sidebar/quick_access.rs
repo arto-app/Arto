@@ -14,23 +14,15 @@ use crate::state::AppState;
 #[derive(Clone)]
 struct CachedBookmark {
     bookmark: Bookmark,
-    exists: bool,
-    is_dir: bool,
 }
 
 impl CachedBookmark {
     fn from_bookmark(bookmark: Bookmark) -> Self {
-        let exists = bookmark.exists();
-        let is_dir = bookmark.is_dir();
-        Self {
-            bookmark,
-            exists,
-            is_dir,
-        }
+        Self { bookmark }
     }
 }
 
-/// Load bookmarks with cached exists status
+/// Load bookmarks without filesystem probing.
 fn load_cached_bookmarks() -> Vec<CachedBookmark> {
     BOOKMARKS
         .read()
@@ -94,12 +86,13 @@ pub fn QuickAccess() -> Element {
                         key: "{cached.bookmark.path.display()}",
                         index,
                         bookmark: cached.bookmark.clone(),
-                        exists: cached.exists,
-                        item_is_directory: cached.is_dir,
                         is_dragging: *dragging_index.read() == Some(index),
                         is_drop_target: *drop_target_index.read() == Some(index),
-                        on_click: move |(bookmark, is_directory): (Bookmark, bool)| {
-                            if is_directory {
+                        on_click: move |bookmark: Bookmark| {
+                            if !bookmark.exists() {
+                                return;
+                            }
+                            if bookmark.is_dir() {
                                 state.set_root_directory(&bookmark.path);
                             } else {
                                 state.open_file(&bookmark.path);
@@ -138,13 +131,9 @@ pub fn QuickAccess() -> Element {
 fn QuickAccessItem(
     index: usize,
     bookmark: Bookmark,
-    /// Cached exists status (computed when bookmarks change, not on every render)
-    exists: bool,
-    /// Cached directory status (computed when bookmarks change, not on every render)
-    item_is_directory: bool,
     is_dragging: bool,
     is_drop_target: bool,
-    on_click: EventHandler<(Bookmark, bool)>,
+    on_click: EventHandler<Bookmark>,
     on_drag_start: EventHandler<usize>,
     on_drag_over: EventHandler<usize>,
     on_drag_leave: EventHandler<()>,
@@ -153,16 +142,15 @@ fn QuickAccessItem(
     let path = bookmark.path.clone();
     let display_name = bookmark.display_name().to_string();
 
-    let icon_name = if item_is_directory {
-        IconName::Folder
-    } else {
+    // Avoid filesystem probing during render.
+    // Use a conservative heuristic so files/directories are visually distinguishable.
+    let icon_name = if bookmark.path.extension().is_some() {
         IconName::File
+    } else {
+        IconName::Folder
     };
 
     let mut classes = vec!["left-sidebar-quick-access-item"];
-    if !exists {
-        classes.push("missing");
-    }
     if is_dragging {
         classes.push("dragging");
     }
@@ -171,11 +159,7 @@ fn QuickAccessItem(
     }
     let class_str = classes.join(" ");
 
-    let title = if exists {
-        path.to_string_lossy().to_string()
-    } else {
-        format!("{} (not found)", path.to_string_lossy())
-    };
+    let title = path.to_string_lossy().to_string();
 
     rsx! {
         div {
@@ -202,9 +186,7 @@ fn QuickAccessItem(
             onclick: {
                 let bookmark = bookmark.clone();
                 move |_| {
-                    if exists {
-                        on_click.call((bookmark.clone(), item_is_directory));
-                    }
+                    on_click.call(bookmark.clone());
                 }
             },
 
