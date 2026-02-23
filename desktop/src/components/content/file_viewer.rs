@@ -500,12 +500,19 @@ fn use_context_menu_handler(file: PathBuf, base_dir: PathBuf) {
         let file = file.clone();
         let base_dir = base_dir.clone();
 
-        // Setup JS context menu handler using the exported function
+        // Setup JS context menu handler using the exported function.
+        // Wait for window.Arto to be available because the main JS module
+        // is loaded asynchronously (async import in App) and may not have
+        // resolved yet when this effect first fires on initial render.
         let mut eval_provider = document::eval(indoc::indoc! {r#"
-            // Setup context menu handler
-            window.Arto.contextMenu.setup((data) => {
-                dioxus.send(data);
-            });
+            (async () => {
+                while (!window.Arto?.contextMenu) {
+                    await new Promise(r => setTimeout(r, 50));
+                }
+                window.Arto.contextMenu.setup((data) => {
+                    dioxus.send(data);
+                });
+            })();
         "#});
 
         spawn(async move {
