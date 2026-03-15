@@ -14,9 +14,10 @@ pub fn shortcut_hint_for_action(action: &str, context: Option<KeyContext>) -> Op
     Some(format_shortcut_hint(key))
 }
 
-/// Return a formatted shortcut hint from global keybindings.
-pub fn shortcut_hint_for_global_action(action: &str) -> Option<String> {
-    shortcut_hint_for_action(action, None)
+/// Return the raw keybinding string for a global action (e.g., `"Cmd+Comma"`).
+pub fn raw_key_for_global_action(action: &str) -> Option<String> {
+    let config = CONFIG.read();
+    find_key_for_action(&config.keybindings.global, action).map(|s| s.to_string())
 }
 
 /// Return a formatted shortcut hint in the given context.
@@ -102,6 +103,18 @@ fn format_key_name_hint(key: &str) -> String {
         "PageDown" => "⇟".to_string(),
         "Home" => "↖".to_string(),
         "End" => "↘".to_string(),
+        // Symbol key aliases (match shortcut.rs parse_key)
+        "Equal" => "=".to_string(),
+        "Minus" => "-".to_string(),
+        "BracketLeft" => "[".to_string(),
+        "BracketRight" => "]".to_string(),
+        "Slash" => "/".to_string(),
+        "Backslash" => "\\".to_string(),
+        "Comma" => ",".to_string(),
+        "Period" => ".".to_string(),
+        "Semicolon" => ";".to_string(),
+        "Quote" => "'".to_string(),
+        "Backquote" => "`".to_string(),
         _ => key.to_uppercase(),
     }
 }
@@ -123,11 +136,17 @@ mod tests {
     }
 
     #[test]
+    fn format_shortcut_hint_formats_symbol_keys() {
+        assert_eq!(format_shortcut_hint("Cmd+Comma"), "⌘,");
+        assert_eq!(format_shortcut_hint("Cmd+Equal"), "⌘=");
+        assert_eq!(format_shortcut_hint("Cmd+Minus"), "⌘-");
+        assert_eq!(format_shortcut_hint("Cmd+BracketLeft"), "⌘[");
+        assert_eq!(format_shortcut_hint("Cmd+BracketRight"), "⌘]");
+        assert_eq!(format_shortcut_hint("Cmd+Slash"), "⌘/");
+    }
+
+    #[test]
     fn helper_wrappers_match_base_api() {
-        assert_eq!(
-            shortcut_hint_for_global_action("no.such.action"),
-            shortcut_hint_for_action("no.such.action", None)
-        );
         assert_eq!(
             shortcut_hint_for_context_action(KeyContext::Content, "no.such.action"),
             shortcut_hint_for_action("no.such.action", Some(KeyContext::Content))

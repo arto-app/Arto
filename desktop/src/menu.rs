@@ -6,7 +6,7 @@ use dioxus_desktop::window;
 use std::path::PathBuf;
 
 use crate::components::content::set_preferences_tab_to_about;
-use crate::keybindings::shortcut_hint_for_global_action;
+use crate::keybindings::raw_key_for_global_action;
 use crate::state::AppState;
 use crate::window::{self, settings::normalize_zoom_level, CreateMainWindowConfigParams};
 
@@ -99,26 +99,31 @@ impl MenuId {
     }
 }
 
-/// Helper to create a menu item without an accelerator.
+/// Helper to create a menu item with a native accelerator for shortcut display.
 ///
-/// All keyboard shortcuts are handled by the keybinding engine, not muda.
+/// Keyboard shortcuts are primarily handled by the keybinding engine, but we also
+/// set native accelerators so macOS renders them correctly (right-aligned, dimmed).
+/// Items with context-specific keybinding conflicts skip the accelerator.
 fn create_menu_item(id: MenuId, label: &str) -> MenuItem {
-    let display_label = menu_label_with_shortcut(id, label);
-    MenuItem::with_id(id.as_str(), &display_label, true, None::<Accelerator>)
+    let accel = accelerator_for_menu(id);
+    MenuItem::with_id(id.as_str(), label, true, accel)
 }
 
-/// Build a menu label with a right-aligned shortcut hint (without muda Accelerator).
+/// Convert a menu item's keybinding to a native muda Accelerator.
 ///
-/// We intentionally avoid `with_accelerator()` because keyboard handling is owned by
-/// the keybinding engine. This only mirrors the hint in the menu UI.
-fn menu_label_with_shortcut(id: MenuId, base_label: &str) -> String {
-    let Some(action) = menu_action_for_id(id) else {
-        return base_label.to_string();
-    };
-    let Some(shortcut) = shortcut_hint_for_global_action(action) else {
-        return base_label.to_string();
-    };
-    format!("{base_label}\t{shortcut}")
+/// Returns None for items that:
+/// - Have no keybinding
+/// - Use multi-chord sequences (not supported by native menus)
+fn accelerator_for_menu(id: MenuId) -> Option<Accelerator> {
+    let action = menu_action_for_id(id)?;
+    let key = raw_key_for_global_action(action)?;
+
+    // Multi-chord sequences can't be represented as native accelerators
+    if key.contains(' ') {
+        return None;
+    }
+
+    key.parse::<Accelerator>().ok()
 }
 
 /// Map menu items to keybinding actions for hint display.
