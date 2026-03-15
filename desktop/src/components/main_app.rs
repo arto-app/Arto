@@ -38,6 +38,17 @@ pub fn MainApp() -> Element {
         crate::menu::handle_menu_event_global(event);
     });
 
+    // Mark menu accelerators dirty when keybindings change.
+    // The actual update runs on the event-loop thread (lib.rs MainEventsCleared).
+    use_hook(|| {
+        dioxus_core::spawn_forever(async {
+            let mut rx = crate::config::CONFIG_CHANGED_BROADCAST.subscribe();
+            while rx.recv().await.is_ok() {
+                crate::menu::mark_menu_accelerators_dirty();
+            }
+        });
+    });
+
     // Pop the first event from IPC queue (CLI path pushed by main.rs before launch)
     let first_event = crate::ipc::try_pop_first_event();
     if first_event.is_some() {

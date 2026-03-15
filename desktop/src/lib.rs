@@ -117,6 +117,11 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
                     // future cross-platform support where wake_main_thread() may not have
                     // a fully reliable platform-specific implementation (e.g., Linux/Windows).
                     ipc::process_main_thread_tasks();
+
+                    // Refresh native menu accelerators after keybinding config change.
+                    // Runs on the event-loop thread so the thread-local MENU_ITEMS is
+                    // the same one populated by build_menu().
+                    menu::update_menu_accelerators_if_dirty();
                 }
                 _ => {}
             }

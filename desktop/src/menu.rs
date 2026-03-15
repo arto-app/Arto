@@ -1,13 +1,26 @@
 use dioxus_desktop::muda::accelerator::Accelerator;
 use dioxus_desktop::muda::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use dioxus_desktop::window;
+use std::cell::RefCell;
 use std::str::FromStr;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::keybindings::dispatcher::dispatch_action;
 use crate::keybindings::raw_key_for_global_action;
 use crate::keybindings::Action;
 use crate::state::AppState;
 use crate::window::{self, CreateMainWindowConfigParams};
+
+/// Flag set by async tasks when keybindings change; cleared by the main-thread
+/// event loop after updating the native menu accelerators.
+static MENU_ACCEL_DIRTY: AtomicBool = AtomicBool::new(false);
+
+// MenuItem is !Send, so we store references via thread_local on the main
+// (event-loop) thread.  Both `build_menu()` and `update_menu_accelerators_if_dirty()`
+// are called from the Tao event loop, guaranteeing the same thread.
+thread_local! {
+    static MENU_ITEMS: RefCell<Vec<(MenuId, MenuItem)>> = const { RefCell::new(Vec::new()) };
+}
 
 /// Menu identifier enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -102,10 +115,12 @@ impl MenuId {
 ///
 /// Keyboard shortcuts are primarily handled by the keybinding engine, but we also
 /// set native accelerators so macOS renders them correctly (right-aligned, dimmed).
-/// Items with context-specific keybinding conflicts skip the accelerator.
+/// Each created item is registered in MENU_ITEMS for later accelerator updates.
 fn create_menu_item(id: MenuId, label: &str) -> MenuItem {
     let accel = accelerator_for_menu(id);
-    MenuItem::with_id(id.as_str(), label, true, accel)
+    let item = MenuItem::with_id(id.as_str(), label, true, accel);
+    MENU_ITEMS.with(|items| items.borrow_mut().push((id, item.clone())));
+    item
 }
 
 /// Convert a menu item's keybinding to a native muda Accelerator.
@@ -281,6 +296,38 @@ fn add_help_menu(menu: &Menu) {
         .unwrap();
 
     menu.append(&help_menu).unwrap();
+}
+
+/// Mark menu accelerators as stale.  Safe to call from any thread.
+///
+/// The actual update happens on the next event-loop cycle via
+/// `update_menu_accelerators_if_dirty`, which runs on the main thread.
+pub fn mark_menu_accelerators_dirty() {
+    MENU_ACCEL_DIRTY.store(true, Ordering::Relaxed);
+}
+
+/// Check the dirty flag and, if set, refresh every menu item's accelerator
+/// from the current CONFIG.
+///
+/// **Must be called on the main (event-loop) thread** – the same thread that
+/// called `build_menu()` – so the thread-local `MENU_ITEMS` is accessible.
+pub fn update_menu_accelerators_if_dirty() {
+    if MENU_ACCEL_DIRTY
+        .compare_exchange(true, false, Ordering::Relaxed, Ordering::Relaxed)
+        .is_err()
+    {
+        return;
+    }
+
+    MENU_ITEMS.with(|items| {
+        for (id, item) in items.borrow().iter() {
+            let accel = accelerator_for_menu(*id);
+            if let Err(e) = item.set_accelerator(accel) {
+                tracing::warn!("Failed to update accelerator for {:?}: {}", id, e);
+            }
+        }
+    });
+    tracing::debug!("Menu accelerators updated after config change");
 }
 
 /// Check if a menu event is a close action (Close Tab or Close Window)
