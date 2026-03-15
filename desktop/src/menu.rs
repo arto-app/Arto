@@ -1,14 +1,13 @@
-use dioxus::document;
-use dioxus::prelude::{spawn, ReadableExt, WritableExt};
 use dioxus_desktop::muda::accelerator::Accelerator;
 use dioxus_desktop::muda::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use dioxus_desktop::window;
-use std::path::PathBuf;
+use std::str::FromStr;
 
-use crate::components::content::set_preferences_tab_to_about;
+use crate::keybindings::dispatcher::dispatch_action;
 use crate::keybindings::raw_key_for_global_action;
+use crate::keybindings::Action;
 use crate::state::AppState;
-use crate::window::{self, settings::normalize_zoom_level, CreateMainWindowConfigParams};
+use crate::window::{self, CreateMainWindowConfigParams};
 
 /// Menu identifier enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -353,19 +352,8 @@ pub fn handle_menu_event_global(event: &MenuEvent) -> bool {
 /// Handle menu events that require per-window AppState.
 ///
 /// Only processes events for the currently focused window.
-///
-/// # Handled events
-/// - `About`: Opens preferences page on About tab
-/// - `Preferences`: Opens preferences page
-/// - `NewTab`: Adds an empty tab to current window
-/// - `Open`: Opens file picker for markdown files
-/// - `OpenDirectory`: Opens directory picker
-/// - `CloseTab` / `CloseAllTabs` / `CloseWindow`: Tab/window management
-/// - `ToggleSidebar`: Toggles sidebar visibility
-/// - `ActualSize` / `ZoomIn` / `ZoomOut`: Zoom controls
-/// - `GoBack` / `GoForward`: Navigation history
-/// - `RevealInFinder` / `CopyFilePath`: File operations
-/// - `Find` / `FindNext` / `FindPrevious`: Search operations
+/// Delegates to the keybinding dispatcher to ensure consistent behavior
+/// between menu accelerators and keyboard shortcuts.
 ///
 /// # Returns
 /// `true` if the event was handled, `false` otherwise.
@@ -383,138 +371,15 @@ pub fn handle_menu_event_with_state(event: &MenuEvent, state: &mut AppState) -> 
         None => return false,
     };
 
-    match id {
-        MenuId::About => {
-            // Set the preferences tab to About before opening
-            set_preferences_tab_to_about();
-            state.open_preferences();
-        }
-        MenuId::Preferences => {
-            state.open_preferences();
-        }
-        MenuId::NewTab => {
-            state.add_empty_tab(true);
-        }
-        MenuId::Open => {
-            if let Some(file) = pick_markdown_file() {
-                state.open_file(file);
-            }
-        }
-        MenuId::OpenDirectory => {
-            if let Some(dir) = pick_directory() {
-                state.set_root_directory(dir);
-            }
-        }
-        MenuId::CloseTab => {
-            let active_tab = *state.active_tab.read();
-            state.close_tab(active_tab);
-        }
-        MenuId::CloseAllTabs => {
-            // Close all tabs except one, then clear it
-            let mut tabs = state.tabs.write();
-            tabs.clear();
-            tabs.push(crate::state::Tab::default());
-            state.active_tab.set(0);
-        }
-        MenuId::CloseWindow => {
-            window().close();
-        }
-        MenuId::ToggleSidebar => {
-            state.toggle_sidebar();
-        }
-        MenuId::ActualSize => {
-            state.zoom_level.set(1.0);
-        }
-        MenuId::ZoomIn => {
-            let current = normalize_zoom_level(*state.zoom_level.read());
-            let next = normalize_zoom_level(current + 0.1);
-            state.zoom_level.set(next);
-        }
-        MenuId::ZoomOut => {
-            let current = normalize_zoom_level(*state.zoom_level.read());
-            let next = normalize_zoom_level(current - 0.1);
-            state.zoom_level.set(next);
-        }
-        MenuId::GoBack => {
-            state.save_scroll_and_go_back();
-        }
-        MenuId::GoForward => {
-            state.save_scroll_and_go_forward();
-        }
-        MenuId::RevealInFinder => {
-            if let Some(file) = get_current_file(state) {
-                crate::utils::file_operations::reveal_in_finder(&file);
-            }
-        }
-        MenuId::CopyFilePath => {
-            if let Some(file) = get_current_file(state) {
-                crate::utils::clipboard::copy_text(file.to_string_lossy());
-            }
-        }
-        MenuId::Find => {
-            // None = get selected text from JavaScript
-            state.open_search_with_text(None);
-        }
-        MenuId::FindNext => {
-            spawn(async move {
-                let _ = document::eval("window.Arto.search.navigate('next')").await;
-            });
-        }
-        MenuId::FindPrevious => {
-            spawn(async move {
-                let _ = document::eval("window.Arto.search.navigate('prev')").await;
-            });
-        }
-        _ => return false,
-    }
+    let Some(action_str) = menu_action_for_id(id) else {
+        return false;
+    };
+    let Ok(action) = Action::from_str(action_str) else {
+        return false;
+    };
 
+    dispatch_action(&action, *state);
     true
-}
-
-/// Get the current file path from state if viewing a file
-fn get_current_file(state: &AppState) -> Option<PathBuf> {
-    let tabs = state.tabs.read();
-    let active_tab = *state.active_tab.read();
-    tabs.get(active_tab).and_then(|tab| {
-        if let crate::state::TabContent::File(path) = &tab.content {
-            Some(path.clone())
-        } else {
-            None
-        }
-    })
-}
-
-/// Show file picker dialog and return selected file
-fn pick_markdown_file() -> Option<PathBuf> {
-    use rfd::FileDialog;
-
-    tracing::debug!("Opening file picker dialog...");
-    let start = std::time::Instant::now();
-
-    let file = FileDialog::new()
-        .add_filter("Markdown", &["md", "markdown"])
-        .set_directory(std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/")))
-        .pick_file();
-
-    tracing::debug!("File picker completed in {:?}", start.elapsed());
-
-    file
-}
-
-/// Show directory picker dialog and return selected directory
-fn pick_directory() -> Option<PathBuf> {
-    use rfd::FileDialog;
-
-    tracing::debug!("Opening directory picker dialog...");
-    let start = std::time::Instant::now();
-
-    let dir = FileDialog::new()
-        .set_directory(std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/")))
-        .pick_folder();
-
-    tracing::debug!("Directory picker completed in {:?}", start.elapsed());
-
-    dir
 }
 
 #[cfg(target_os = "macos")]
