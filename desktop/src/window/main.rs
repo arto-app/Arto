@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 use crate::state::AppState;
 
-use crate::assets::MAIN_STYLE;
+use crate::assets::get_main_style_path;
 use crate::components::app::{App, AppProps};
 use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::{WindowPositionOffset, CONFIG};
@@ -29,16 +29,28 @@ const MAX_POSITION_SHIFT_ATTEMPTS: usize = 20;
 /// Create base window config from parameters
 /// This config can be further customized with .with_menu(), .with_custom_event_handler(), etc.
 pub fn create_main_window_config(params: &CreateMainWindowConfigParams) -> Config {
+    #[cfg(windows)]
+    let window_builder = WindowBuilder::new()
+        .with_title("Arto")
+        .with_position(params.position)
+        .with_inner_size(params.size)
+        .with_decorations(true)
+        .with_transparent(false);
+
+    #[cfg(not(windows))]
+    let window_builder = WindowBuilder::new()
+        .with_title("Arto")
+        .with_position(params.position)
+        .with_inner_size(params.size);
+
     Config::new()
-        .with_window(
-            WindowBuilder::new()
-                .with_title("Arto")
-                .with_position(params.position)
-                .with_inner_size(params.size),
-        )
+        .with_window(window_builder)
         // Add main style in config. Otherwise the style takes time to load and
         // the window appears unstyled for a brief moment.
-        .with_custom_head(indoc::formatdoc! {r#"<link rel="stylesheet" href="{MAIN_STYLE}">"#})
+        .with_custom_head(indoc::formatdoc!(
+            r#"<link rel="stylesheet" href="{}">"#,
+            get_main_style_path()
+        ))
         // Use a custom index to set the initial theme correctly
         .with_custom_index(build_custom_index(params.theme))
 }

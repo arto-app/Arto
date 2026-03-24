@@ -5,7 +5,7 @@ use dioxus::prelude::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use crate::assets::MAIN_STYLE;
+use crate::assets::get_main_style_path;
 use crate::components::image_window::{generate_image_id, ImageWindow, ImageWindowProps};
 use crate::components::math_window::{generate_math_id, MathWindow, MathWindowProps};
 use crate::components::mermaid_window::{generate_diagram_id, MermaidWindow, MermaidWindowProps};
@@ -13,6 +13,17 @@ use crate::theme::Theme;
 
 use super::index::{build_image_window_index, build_math_window_index, build_mermaid_window_index};
 use super::main::get_last_focused_window;
+
+fn get_child_window_builder(title: &str) -> WindowBuilder {
+    #[cfg(windows)]
+    return WindowBuilder::new()
+        .with_title(title)
+        .with_decorations(true)
+        .with_transparent(false);
+
+    #[cfg(not(windows))]
+    return WindowBuilder::new().with_title(title);
+}
 
 struct ChildWindowEntry {
     handle: WeakDesktopContext,
@@ -180,8 +191,11 @@ pub fn open_or_focus_mermaid_window(source: String, theme: Theme) {
         );
         let config = Config::new()
             .with_menu(None)
-            .with_window(WindowBuilder::new().with_title("Mermaid Viewer"))
-            .with_custom_head(indoc::formatdoc! {r#"<link rel="stylesheet" href="{MAIN_STYLE}">"#})
+            .with_window(get_child_window_builder("Mermaid Viewer"))
+            .with_custom_head(indoc::formatdoc!(
+                r#"<link rel="stylesheet" href="{}">"#,
+                get_main_style_path()
+            ))
             .with_custom_index(build_mermaid_window_index(theme));
 
         dioxus_core::spawn(create_and_register_child_window(
@@ -205,8 +219,11 @@ pub fn open_or_focus_math_window(source: String, theme: Theme) {
         );
         let config = Config::new()
             .with_menu(None)
-            .with_window(WindowBuilder::new().with_title("Math Viewer"))
-            .with_custom_head(indoc::formatdoc! {r#"<link rel="stylesheet" href="{MAIN_STYLE}">"#})
+            .with_window(get_child_window_builder("Math Viewer"))
+            .with_custom_head(indoc::formatdoc!(
+                r#"<link rel="stylesheet" href="{}">"#,
+                get_main_style_path()
+            ))
             .with_custom_index(build_math_window_index(theme));
 
         dioxus_core::spawn(create_and_register_child_window(
@@ -231,8 +248,11 @@ pub fn open_or_focus_image_window(src: String, alt: Option<String>, theme: Theme
         );
         let config = Config::new()
             .with_menu(None)
-            .with_window(WindowBuilder::new().with_title("Image Viewer"))
-            .with_custom_head(indoc::formatdoc! {r#"<link rel="stylesheet" href="{MAIN_STYLE}">"#})
+            .with_window(get_child_window_builder("Image Viewer"))
+            .with_custom_head(indoc::formatdoc!(
+                r#"<link rel="stylesheet" href="{}">"#,
+                get_main_style_path()
+            ))
             .with_custom_index(build_image_window_index(theme));
 
         dioxus_core::spawn(create_and_register_child_window(
