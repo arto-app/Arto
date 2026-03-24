@@ -71,16 +71,45 @@ fn format_chord_hint(chord: &str) -> String {
 
     let key_part = parts.pop().unwrap();
     let mut out = String::new();
+
+    let is_macos = cfg!(target_os = "macos");
+
     for modifier in parts {
-        match modifier.to_ascii_lowercase().as_str() {
-            "cmd" | "command" | "meta" => out.push('⌘'),
-            "ctrl" | "control" => out.push('⌃'),
-            "shift" => out.push('⇧'),
-            "alt" | "option" => out.push('⌥'),
-            other => {
-                out.push_str(other);
-                out.push('+');
+        let modifier_lower = modifier.to_ascii_lowercase();
+        let label = match modifier_lower.as_str() {
+            "cmd" | "command" | "meta" => {
+                if is_macos {
+                    "⌘"
+                } else {
+                    "Ctrl"
+                }
             }
+            "ctrl" | "control" => {
+                if is_macos {
+                    "⌃"
+                } else {
+                    "Win"
+                }
+            }
+            "shift" => {
+                if is_macos {
+                    "⇧"
+                } else {
+                    "Shift"
+                }
+            }
+            "alt" | "option" => {
+                if is_macos {
+                    "⌥"
+                } else {
+                    "Alt"
+                }
+            }
+            other => other,
+        };
+        out.push_str(label);
+        if !is_macos {
+            out.push('+');
         }
     }
     out.push_str(&format_key_name_hint(key_part));
@@ -112,14 +141,23 @@ mod tests {
 
     #[test]
     fn format_shortcut_hint_uses_menu_style_symbols() {
-        assert_eq!(format_shortcut_hint("Cmd+Shift+o"), "⌘⇧O");
-        assert_eq!(format_shortcut_hint("Ctrl+w h"), "⌃W H");
+        if cfg!(target_os = "macos") {
+            assert_eq!(format_shortcut_hint("Cmd+Shift+o"), "⌘⇧O");
+            assert_eq!(format_shortcut_hint("Ctrl+w h"), "⌃W H");
+        } else {
+            assert_eq!(format_shortcut_hint("Cmd+Shift+o"), "Ctrl+Shift+O");
+            assert_eq!(format_shortcut_hint("Ctrl+w h"), "Win+W H");
+        }
     }
 
     #[test]
     fn format_shortcut_hint_formats_arrow_keys() {
         assert_eq!(format_shortcut_hint("ArrowDown"), "↓");
-        assert_eq!(format_shortcut_hint("Cmd+ArrowLeft"), "⌘←");
+        if cfg!(target_os = "macos") {
+            assert_eq!(format_shortcut_hint("Cmd+ArrowLeft"), "⌘←");
+        } else {
+            assert_eq!(format_shortcut_hint("Cmd+ArrowLeft"), "Ctrl+←");
+        }
     }
 
     #[test]

@@ -137,7 +137,7 @@ pub fn TabContextMenu(
             }
 
             ContextMenuItem {
-                label: "Reveal in Finder",
+                label: if cfg!(windows) { "Reveal in File Explorer" } else { "Reveal in Finder" },
                 shortcut: shortcut("file.reveal_in_finder"),
                 icon: Some(IconName::Folder),
                 disabled: !has_file,

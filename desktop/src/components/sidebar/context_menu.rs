@@ -149,7 +149,7 @@ pub fn SidebarContextMenu(
             }
 
             ContextMenuItem {
-                label: "Reveal in Finder",
+                label: if cfg!(windows) { "Reveal in File Explorer" } else { "Reveal in Finder" },
                 shortcut: shortcut("file.reveal_in_finder"),
                 icon: Some(IconName::Folder),
                 on_click: move |_| on_reveal_in_finder.call(()),
@@ -174,7 +174,8 @@ pub fn SidebarContextMenu(
 
 #[derive(Props, Clone, PartialEq)]
 struct ContextMenuItemProps {
-    label: &'static str,
+    #[props(into)]
+    label: String,
     #[props(default)]
     shortcut: Option<String>,
     #[props(default)]
