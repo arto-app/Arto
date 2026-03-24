@@ -195,7 +195,11 @@ impl fmt::Display for KeyChord {
             write!(f, "Shift+")?;
         }
         if self.modifiers.contains(Modifiers::META) {
-            write!(f, "Cmd+")?;
+            if cfg!(target_os = "macos") {
+                write!(f, "Cmd+")?;
+            } else {
+                write!(f, "Win+")?;
+            }
         }
         match &self.key {
             Key::Character(c) => write!(f, "{c}"),
@@ -251,10 +255,22 @@ fn parse_chord(token: &str) -> Result<KeyChord, ShortcutParseError> {
         }
 
         match part.to_ascii_lowercase().as_str() {
-            "ctrl" | "control" => modifiers.insert(Modifiers::CONTROL),
+            "ctrl" | "control" => {
+                if cfg!(target_os = "macos") {
+                    modifiers.insert(Modifiers::CONTROL);
+                } else {
+                    modifiers.insert(Modifiers::META);
+                }
+            }
             "shift" => modifiers.insert(Modifiers::SHIFT),
             "alt" | "option" => modifiers.insert(Modifiers::ALT),
-            "meta" | "cmd" | "command" => modifiers.insert(Modifiers::META),
+            "meta" | "cmd" | "command" => {
+                if cfg!(target_os = "macos") {
+                    modifiers.insert(Modifiers::META);
+                } else {
+                    modifiers.insert(Modifiers::CONTROL);
+                }
+            }
             _ => {
                 if key_part.is_some() {
                     return Err(ShortcutParseError::UnknownModifier(part.to_string()));
@@ -400,11 +416,12 @@ mod tests {
     #[test]
     fn parse_with_modifiers() {
         let seq = ShortcutSequence::from_str("Ctrl+Shift+g").unwrap();
+        let expected_ctrl = if cfg!(target_os = "macos") { Modifiers::CONTROL } else { Modifiers::META };
         assert_eq!(
             seq.chords,
             vec![KeyChord {
                 key: Key::Character("g".to_string()),
-                modifiers: Modifiers::CONTROL | Modifiers::SHIFT
+                modifiers: expected_ctrl | Modifiers::SHIFT
             }]
         );
     }
@@ -412,6 +429,7 @@ mod tests {
     #[test]
     fn parse_sequence() {
         let seq = ShortcutSequence::from_str("g Ctrl+g").unwrap();
+        let expected_ctrl = if cfg!(target_os = "macos") { Modifiers::CONTROL } else { Modifiers::META };
         assert_eq!(
             seq.chords,
             vec![
@@ -421,7 +439,7 @@ mod tests {
                 },
                 KeyChord {
                     key: Key::Character("g".to_string()),
-                    modifiers: Modifiers::CONTROL
+                    modifiers: expected_ctrl
                 }
             ]
         );
@@ -452,11 +470,12 @@ mod tests {
     #[test]
     fn parse_cmd_key() {
         let seq = ShortcutSequence::from_str("Cmd+n").unwrap();
+        let expected_mod = if cfg!(target_os = "macos") { Modifiers::META } else { Modifiers::CONTROL };
         assert_eq!(
             seq.chords,
             vec![KeyChord {
                 key: Key::Character("n".to_string()),
-                modifiers: Modifiers::META
+                modifiers: expected_mod
             }]
         );
     }
@@ -482,11 +501,12 @@ mod tests {
     #[test]
     fn parse_symbol_alias() {
         let seq = ShortcutSequence::from_str("Cmd+Equal").unwrap();
+        let expected_mod = if cfg!(target_os = "macos") { Modifiers::META } else { Modifiers::CONTROL };
         assert_eq!(
             seq.chords,
             vec![KeyChord {
                 key: Key::Character("=".to_string()),
-                modifiers: Modifiers::META
+                modifiers: expected_mod
             }]
         );
     }
@@ -560,7 +580,11 @@ mod tests {
             key: Key::Enter,
             modifiers: Modifiers::META,
         };
-        assert_eq!(chord.to_string(), "Cmd+Enter");
+        if cfg!(target_os = "macos") {
+            assert_eq!(chord.to_string(), "Cmd+Enter");
+        } else {
+            assert_eq!(chord.to_string(), "Win+Enter");
+        }
     }
 
     #[test]
