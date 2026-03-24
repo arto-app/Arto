@@ -3,7 +3,7 @@
 use dioxus::desktop::{use_muda_event_handler, window};
 use dioxus::prelude::*;
 
-use crate::assets::MAIN_SCRIPT;
+use crate::assets::get_main_script_path;
 use crate::components::icon::{Icon, IconName};
 
 #[derive(serde::Deserialize)]
@@ -150,9 +150,10 @@ pub fn CopyImageButton(props: CopyImageButtonProps) -> Element {
         spawn(async move {
             copy_status.set(CopyStatus::Copying);
 
-            let mut eval = document::eval(&indoc::formatdoc! {r#"
+            let mut eval = document::eval(&indoc::formatdoc!(
+                r#"
                 (async () => {{
-                    const {{ {js_function} }} = await import("{MAIN_SCRIPT}");
+                    const {{ {js_function} }} = await import("{}");
                     try {{
                         await {js_function}();
                         dioxus.send(true);
@@ -161,7 +162,9 @@ pub fn CopyImageButton(props: CopyImageButtonProps) -> Element {
                         dioxus.send(false);
                     }}
                 }})();
-            "#});
+                "#,
+                get_main_script_path()
+            ));
 
             let result =
                 tokio::time::timeout(std::time::Duration::from_secs(5), eval.recv::<bool>()).await;

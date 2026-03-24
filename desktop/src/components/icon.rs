@@ -110,7 +110,11 @@ pub struct IconProps {
 
 #[component]
 pub fn Icon(props: IconProps) -> Element {
+    #[cfg(windows)]
+    let sprite_url = crate::assets::windows_safe_asset_url(&TABLER_SPRITE);
+    #[cfg(not(windows))]
     let sprite_url = TABLER_SPRITE.to_string();
+
     let icon_id = format!("tabler-{}", props.name);
 
     rsx! {

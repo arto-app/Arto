@@ -22,7 +22,7 @@ use super::right_sidebar::RightSidebarTab;
 use super::search_bar::SearchBar;
 use super::sidebar::Sidebar;
 use super::tab::TabBar;
-use crate::assets::MAIN_SCRIPT;
+use crate::assets::get_main_script_path;
 use crate::drag;
 use crate::events::{ActiveDragUpdate, ACTIVE_DRAG_UPDATE};
 use crate::menu;
@@ -120,13 +120,14 @@ pub fn App(
                 r#"
                 (async () => {{
                     try {{
-                        const {{ init }} = await import("{MAIN_SCRIPT}");
+                        const {{ init }} = await import("{}");
                         init();
                     }} catch (error) {{
                         console.error("Failed to load main module:", error);
                     }}
                 }})();
-                "#
+                "#,
+                get_main_script_path()
             ))
             .await;
         });

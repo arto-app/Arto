@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use sha2::{Digest, Sha256};
 
-use crate::assets::MAIN_SCRIPT;
+use crate::assets::get_main_script_path;
 use crate::components::theme_selector::ThemeSelector;
 use crate::hooks::{
     use_clipboard_image_handler, use_theme_dispatch, use_window_close_handler, use_zoom_sync,
@@ -63,16 +63,19 @@ pub fn MathWindow(props: MathWindowProps) -> Element {
         };
 
         spawn(async move {
-            let eval_result = document::eval(&indoc::formatdoc! {r#"
+            let eval_result = document::eval(&indoc::formatdoc!(
+                r#"
                 (async () => {{
                     try {{
-                        const {{ initMathWindow }} = await import("{MAIN_SCRIPT}");
+                        const {{ initMathWindow }} = await import("{}");
                         await initMathWindow({source_json}, {math_id_json}, "{theme_str}");
                     }} catch (error) {{
                         console.error("Failed to load math window module:", error);
                     }}
                 }})();
-            "#});
+                "#,
+                get_main_script_path()
+            ));
 
             if let Err(e) = eval_result.await {
                 tracing::error!("Failed to initialize math window: {}", e);
