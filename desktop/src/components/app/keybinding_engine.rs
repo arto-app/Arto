@@ -52,12 +52,13 @@ pub(super) fn setup_keybinding_engine(
         // Keyboard event processing loop
         spawn(async move {
             // Wait for JS keyboard API to be ready, then register callback.
-            // Retries up to 50 times (2.5s) before giving up.
+            // Retries up to 200 times (10s) before giving up.
+            // Windows WebView2 may take longer to parse large JS bundles.
             let mut eval = document::eval(
                 r#"
             (async () => {
                 let retries = 0;
-                while (!window.Arto?.keyboard?.onKeydown && retries++ < 50) {
+                while (!window.Arto?.keyboard?.onKeydown && retries++ < 200) {
                     await new Promise(r => setTimeout(r, 50));
                 }
                 if (!window.Arto?.keyboard?.onKeydown) {

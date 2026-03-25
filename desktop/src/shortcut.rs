@@ -254,7 +254,12 @@ fn parse_chord(token: &str) -> Result<KeyChord, ShortcutParseError> {
             "ctrl" | "control" => modifiers.insert(Modifiers::CONTROL),
             "shift" => modifiers.insert(Modifiers::SHIFT),
             "alt" | "option" => modifiers.insert(Modifiers::ALT),
+            // On non-macOS platforms, map Cmd/Command/Meta to CONTROL
+            // so that preset keybindings like "Cmd+n" work as "Ctrl+n" on Windows/Linux
+            #[cfg(target_os = "macos")]
             "meta" | "cmd" | "command" => modifiers.insert(Modifiers::META),
+            #[cfg(not(target_os = "macos"))]
+            "meta" | "cmd" | "command" => modifiers.insert(Modifiers::CONTROL),
             _ => {
                 if key_part.is_some() {
                     return Err(ShortcutParseError::UnknownModifier(part.to_string()));

@@ -64,8 +64,9 @@ async fn wait_for_js_ready() {
     use std::time::Duration;
 
     // Poll until window.Arto.search.setPinned is available
-    for _ in 0..50 {
-        // 50 * 50ms = 2.5s max wait
+    // Windows WebView2 may take longer to parse large JS bundles, so use generous timeout
+    for _ in 0..200 {
+        // 200 * 50ms = 10s max wait
         let mut eval =
             document::eval("dioxus.send(typeof window.Arto?.search?.setPinned === 'function')");
         if let Ok(true) = eval.recv::<bool>().await {
