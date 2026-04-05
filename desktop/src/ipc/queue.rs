@@ -27,6 +27,7 @@ fn get_event_queue() -> &'static Mutex<VecDeque<OpenEvent>> {
     IPC_EVENT_QUEUE.get_or_init(|| Mutex::new(VecDeque::new()))
 }
 
+#[cfg(unix)]
 pub(super) fn request_shutdown(signal: i32) {
     let was_requested = SHUTDOWN_REQUESTED.swap(true, Ordering::SeqCst);
     if was_requested {
