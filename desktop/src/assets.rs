@@ -4,6 +4,28 @@ use dioxus::prelude::*;
 pub static MAIN_SCRIPT: Asset = asset!("/assets/dist/main.js");
 pub static MAIN_STYLE: Asset = asset!("/assets/dist/main.css");
 
+#[cfg(windows)]
+pub fn windows_safe_asset_url(asset: &dioxus::prelude::Asset) -> String {
+    let mut path = asset.to_string().replace('\\', "/");
+    if !path.starts_with('/') && !path.starts_with("http") {
+        path = format!("/{}", path);
+    }
+    path
+}
+
+#[cfg(not(windows))]
+pub fn windows_safe_asset_url(asset: &dioxus::prelude::Asset) -> String {
+    asset.to_string()
+}
+
+pub fn get_main_script_path() -> String {
+    windows_safe_asset_url(&MAIN_SCRIPT)
+}
+
+pub fn get_main_style_path() -> String {
+    windows_safe_asset_url(&MAIN_STYLE)
+}
+
 static ARTO_HEADER_IMAGE: Asset = asset!("/assets/arto-header-welcome.png");
 static WELCOME_TEMPLATE: Asset = asset!("/assets/welcome.md");
 
