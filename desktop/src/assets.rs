@@ -12,19 +12,7 @@ pub fn windows_safe_asset_url(asset: &dioxus::prelude::Asset) -> String {
     path
 }
 
-pub fn get_main_script_path() -> String {
-    #[cfg(windows)]
-    return windows_safe_asset_url(&MAIN_SCRIPT);
-    #[cfg(not(windows))]
-    return MAIN_SCRIPT.to_string();
-}
 
-pub fn get_main_style_path() -> String {
-    #[cfg(windows)]
-    return windows_safe_asset_url(&MAIN_STYLE);
-    #[cfg(not(windows))]
-    return MAIN_STYLE.to_string();
-}
 
 static ARTO_HEADER_IMAGE: Asset = asset!("/assets/arto-header-welcome.png");
 static WELCOME_TEMPLATE: Asset = asset!("/assets/welcome.md");
