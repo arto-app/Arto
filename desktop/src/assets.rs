@@ -1,5 +1,6 @@
 use dioxus::asset_resolver::asset_path;
 use dioxus::prelude::*;
+
 pub static MAIN_SCRIPT: Asset = asset!("/assets/dist/main.js");
 pub static MAIN_STYLE: Asset = asset!("/assets/dist/main.css");
 
@@ -12,7 +13,18 @@ pub fn windows_safe_asset_url(asset: &dioxus::prelude::Asset) -> String {
     path
 }
 
+#[cfg(not(windows))]
+pub fn windows_safe_asset_url(asset: &dioxus::prelude::Asset) -> String {
+    asset.to_string()
+}
 
+pub fn get_main_script_path() -> String {
+    windows_safe_asset_url(&MAIN_SCRIPT)
+}
+
+pub fn get_main_style_path() -> String {
+    windows_safe_asset_url(&MAIN_STYLE)
+}
 
 static ARTO_HEADER_IMAGE: Asset = asset!("/assets/arto-header-welcome.png");
 static WELCOME_TEMPLATE: Asset = asset!("/assets/welcome.md");
@@ -25,16 +37,9 @@ pub fn get_default_markdown_content() -> String {
     let header_path = asset_path(ARTO_HEADER_IMAGE).expect("Failed to resolve ARTO_HEADER_IMAGE");
     let header_str = header_path
         .to_str()
-        .expect("Failed to convert ARTO_HEADER_IMAGE path to str")
-        .replace('\\', "/");
-
-    let final_header_str = if cfg!(windows) && !header_str.starts_with('/') {
-        format!("/{}", header_str)
-    } else {
-        header_str
-    };
+        .expect("Failed to convert ARTO_HEADER_IMAGE path to str");
 
     // Replace relative image path with data URL
     //template.replace("../assets/arto-header-welcome.png", &header_data_url)
-    template.replace("../assets/arto-header-welcome.png", &final_header_str)
+    template.replace("../assets/arto-header-welcome.png", header_str)
 }

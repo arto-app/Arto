@@ -22,7 +22,7 @@ use super::right_sidebar::RightSidebarTab;
 use super::search_bar::SearchBar;
 use super::sidebar::Sidebar;
 use super::tab::TabBar;
-use crate::assets::MAIN_SCRIPT;
+ // use crate::assets::MAIN_SCRIPT;
 use crate::drag;
 use crate::events::{ActiveDragUpdate, ACTIVE_DRAG_UPDATE};
 use crate::menu;
@@ -116,11 +116,12 @@ pub fn App(
     // Initialize JavaScript main module (theme listeners, etc.)
     use_hook(|| {
         spawn(async move {
+            let script_path = crate::assets::get_main_script_path();
             let _ = document::eval(&format!(
                 r#"
                 (async () => {{
                     try {{
-                        const {{ init }} = await import("{MAIN_SCRIPT}");
+                        const {{ init }} = await import("{script_path}");
                         init();
                     }} catch (error) {{
                         console.error("Failed to load main module:", error);
