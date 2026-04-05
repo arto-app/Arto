@@ -22,10 +22,6 @@ pub fn get_main_script_path() -> String {
     windows_safe_asset_url(&MAIN_SCRIPT)
 }
 
-pub fn get_main_style_path() -> String {
-    windows_safe_asset_url(&MAIN_STYLE)
-}
-
 static ARTO_HEADER_IMAGE: Asset = asset!("/assets/arto-header-welcome.png");
 static WELCOME_TEMPLATE: Asset = asset!("/assets/welcome.md");
 
