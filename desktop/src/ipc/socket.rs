@@ -1,4 +1,5 @@
 use super::client::try_connect_with_timeout;
+#[cfg(unix)]
 use super::queue::request_shutdown;
 use interprocess::local_socket::{GenericFilePath, ListenerOptions, Stream, ToFsName};
 use std::path::{Path, PathBuf};

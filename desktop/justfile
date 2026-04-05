@@ -1,3 +1,5 @@
+set windows-shell := ["pwsh.exe", "-NoProfile", "-Command"]
+
 [private]
 default:
   @just --list
@@ -29,6 +31,10 @@ build:
   @rm -rf target/dx/arto/release/linux/app/assets
   dx bundle --release --linux --package-types deb
 
+[windows]
+build:
+  dx bundle --release --windows
+
 [macos]
 open:
   ./target/dx/arto/bundle/macos/bundle/macos/Arto.app/Contents/MacOS/arto
@@ -36,6 +42,10 @@ open:
 [linux]
 open:
   ./target/dx/arto/release/linux/app/arto
+
+[windows]
+open:
+  ./target/dx/arto/release/windows/app/arto.exe
 
 [confirm]
 [macos]
