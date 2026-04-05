@@ -1,3 +1,5 @@
+set windows-shell := ["pwsh.exe", "-NoProfile", "-Command"]
+
 mod desktop
 mod renderer
 
