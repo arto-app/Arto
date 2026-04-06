@@ -254,7 +254,12 @@ fn parse_chord(token: &str) -> Result<KeyChord, ShortcutParseError> {
             "ctrl" | "control" => modifiers.insert(Modifiers::CONTROL),
             "shift" => modifiers.insert(Modifiers::SHIFT),
             "alt" | "option" => modifiers.insert(Modifiers::ALT),
+            // On macOS, map to META (native Cmd key).
+            // On other platforms, map to CONTROL so preset "Cmd+x" works as "Ctrl+x".
+            #[cfg(target_os = "macos")]
             "meta" | "cmd" | "command" => modifiers.insert(Modifiers::META),
+            #[cfg(not(target_os = "macos"))]
+            "meta" | "cmd" | "command" => modifiers.insert(Modifiers::CONTROL),
             _ => {
                 if key_part.is_some() {
                     return Err(ShortcutParseError::UnknownModifier(part.to_string()));
@@ -452,11 +457,17 @@ mod tests {
     #[test]
     fn parse_cmd_key() {
         let seq = ShortcutSequence::from_str("Cmd+n").unwrap();
+        // On macOS Cmd maps to META; on other platforms it maps to CONTROL
+        let expected = if cfg!(target_os = "macos") {
+            Modifiers::META
+        } else {
+            Modifiers::CONTROL
+        };
         assert_eq!(
             seq.chords,
             vec![KeyChord {
                 key: Key::Character("n".to_string()),
-                modifiers: Modifiers::META
+                modifiers: expected
             }]
         );
     }
@@ -482,11 +493,16 @@ mod tests {
     #[test]
     fn parse_symbol_alias() {
         let seq = ShortcutSequence::from_str("Cmd+Equal").unwrap();
+        let expected = if cfg!(target_os = "macos") {
+            Modifiers::META
+        } else {
+            Modifiers::CONTROL
+        };
         assert_eq!(
             seq.chords,
             vec![KeyChord {
                 key: Key::Character("=".to_string()),
-                modifiers: Modifiers::META
+                modifiers: expected
             }]
         );
     }
