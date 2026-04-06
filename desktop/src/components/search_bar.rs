@@ -59,21 +59,23 @@ fn build_pinned_json(searches: &[PinnedSearch]) -> String {
     format!("[{}]", json_entries.join(","))
 }
 
+/// Polling interval (ms) and max retries for waiting on JS API readiness.
+/// 200 retries × 50ms = 10s max wait. Generous for WebView2 on Windows,
+/// which may take longer to parse large JS bundles.
+const JS_READY_POLL_INTERVAL_MS: u64 = 50;
+const JS_READY_MAX_RETRIES: u32 = 200;
+
 /// Wait for JavaScript search API to be ready.
 async fn wait_for_js_ready() {
     use std::time::Duration;
 
-    // Poll until window.Arto.search.setPinned is available
-    // Windows WebView2 may take longer to parse large JS bundles, so use generous timeout
-    for _ in 0..200 {
-        // 200 * 50ms = 10s max wait
+    for _ in 0..JS_READY_MAX_RETRIES {
         let mut eval =
             document::eval("dioxus.send(typeof window.Arto?.search?.setPinned === 'function')");
         if let Ok(true) = eval.recv::<bool>().await {
             return;
         }
-        // Small delay before retrying
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        tokio::time::sleep(Duration::from_millis(JS_READY_POLL_INTERVAL_MS)).await;
     }
     tracing::warn!("Timeout waiting for JavaScript search API to be ready");
 }

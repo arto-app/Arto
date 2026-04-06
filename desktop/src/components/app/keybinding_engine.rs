@@ -52,8 +52,9 @@ pub(super) fn setup_keybinding_engine(
         // Keyboard event processing loop
         spawn(async move {
             // Wait for JS keyboard API to be ready, then register callback.
-            // Retries up to 200 times (10s) before giving up.
-            // Windows WebView2 may take longer to parse large JS bundles.
+            // Retries up to 200 × 50ms = 10s before giving up.
+            // Keep in sync with JS_READY_MAX_RETRIES / JS_READY_POLL_INTERVAL_MS
+            // in search_bar.rs. WebView2 on Windows needs the generous timeout.
             let mut eval = document::eval(
                 r#"
             (async () => {
