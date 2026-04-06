@@ -71,7 +71,9 @@ fn format_chord_hint(chord: &str) -> String {
 
     let key_part = parts.pop().unwrap();
     let mut out = String::new();
-    for modifier in parts {
+
+    #[cfg(target_os = "macos")]
+    for modifier in &parts {
         match modifier.to_ascii_lowercase().as_str() {
             "cmd" | "command" | "meta" => out.push('⌘'),
             "ctrl" | "control" => out.push('⌃'),
@@ -83,10 +85,46 @@ fn format_chord_hint(chord: &str) -> String {
             }
         }
     }
+
+    #[cfg(not(target_os = "macos"))]
+    for modifier in &parts {
+        match modifier.to_ascii_lowercase().as_str() {
+            "cmd" | "command" | "meta" => out.push_str("Ctrl+"),
+            "ctrl" | "control" => out.push_str("Ctrl+"),
+            "shift" => out.push_str("Shift+"),
+            "alt" | "option" => out.push_str("Alt+"),
+            other => {
+                out.push_str(other);
+                out.push('+');
+            }
+        }
+    }
+
     out.push_str(&format_key_name_hint(key_part));
     out
 }
 
+#[cfg(not(target_os = "macos"))]
+fn format_key_name_hint(key: &str) -> String {
+    match key {
+        "ArrowUp" => "Up".to_string(),
+        "ArrowDown" => "Down".to_string(),
+        "ArrowLeft" => "Left".to_string(),
+        "ArrowRight" => "Right".to_string(),
+        "Backspace" => "Backspace".to_string(),
+        "Enter" => "Enter".to_string(),
+        "Escape" => "Esc".to_string(),
+        "Tab" => "Tab".to_string(),
+        "Space" => "Space".to_string(),
+        "PageUp" => "PgUp".to_string(),
+        "PageDown" => "PgDn".to_string(),
+        "Home" => "Home".to_string(),
+        "End" => "End".to_string(),
+        _ => key.to_uppercase(),
+    }
+}
+
+#[cfg(target_os = "macos")]
 fn format_key_name_hint(key: &str) -> String {
     match key {
         "ArrowUp" => "↑".to_string(),
@@ -111,15 +149,31 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn format_shortcut_hint_uses_menu_style_symbols() {
         assert_eq!(format_shortcut_hint("Cmd+Shift+o"), "⌘⇧O");
         assert_eq!(format_shortcut_hint("Ctrl+w h"), "⌃W H");
     }
 
     #[test]
+    #[cfg(not(target_os = "macos"))]
+    fn format_shortcut_hint_uses_text_labels() {
+        assert_eq!(format_shortcut_hint("Cmd+Shift+o"), "Ctrl+Shift+O");
+        assert_eq!(format_shortcut_hint("Ctrl+w h"), "Ctrl+W H");
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
     fn format_shortcut_hint_formats_arrow_keys() {
         assert_eq!(format_shortcut_hint("ArrowDown"), "↓");
         assert_eq!(format_shortcut_hint("Cmd+ArrowLeft"), "⌘←");
+    }
+
+    #[test]
+    #[cfg(not(target_os = "macos"))]
+    fn format_shortcut_hint_formats_arrow_keys() {
+        assert_eq!(format_shortcut_hint("ArrowDown"), "Down");
+        assert_eq!(format_shortcut_hint("Cmd+ArrowLeft"), "Ctrl+Left");
     }
 
     #[test]
