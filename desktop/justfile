@@ -37,6 +37,14 @@ open:
 open:
   ./target/dx/arto/release/linux/app/arto
 
+[windows]
+build:
+  dx bundle --release
+
+[windows]
+open:
+  ./target/dx/arto/bundle/windows/arto.exe
+
 [confirm]
 [macos]
 install:

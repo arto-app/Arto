@@ -44,27 +44,32 @@ just setup
 ## Development Commands
 
 ```bash
-# Run in development mode
-cargo run --release
+# Run in development mode (with hot-reload via Vite + Dioxus)
+just dev
 
-# Run with hot-reload (requires dioxus-cli)
-dx serve --platform desktop
+# Or run the Dioxus dev server directly
+cd desktop && dx serve
 
 # Format, lint, and test
 just fmt check test
 ```
 
+> **Windows note:** On Windows, you must use `dx serve` (or `just dev`) instead of `cargo run`.
+> WebView2 blocks the `file://` protocol that `cargo run` uses for asset serving.
+> `dx serve` works around this by serving assets over HTTP.
+> This limitation does not affect production builds (`dx bundle --release`).
+
 ## Production Build
 
 ```bash
-# Build for macOS
+# Build for the current platform
 just build
 
-# Install to /Applications (macOS)
+# Install to /Applications (macOS only)
 just install
 ```
 
-The binary will be available at `target/release/arto` or `target/dx/arto/bundle/macos/bundle/`.
+The bundled application will be available under `target/dx/arto/bundle/`.
 
 ## Project Structure
 
