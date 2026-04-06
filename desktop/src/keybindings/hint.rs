@@ -49,9 +49,8 @@ fn bindings_for_context(
 
 /// Convert keybinding notation into a menu-style shortcut hint.
 ///
-/// Examples:
-/// - `Cmd+Shift+o` -> `⌘⇧O`
-/// - `Ctrl+w h` -> `⌃W H`
+/// On macOS, uses Unicode symbols (e.g. `Cmd+Shift+o` -> `⌘⇧O`).
+/// On Windows/Linux, uses text labels (e.g. `Cmd+Shift+o` -> `Ctrl+Shift+O`).
 pub fn format_shortcut_hint(key: &str) -> String {
     key.split_whitespace()
         .map(format_chord_hint)
@@ -71,28 +70,32 @@ fn format_chord_hint(chord: &str) -> String {
 
     let key_part = parts.pop().unwrap();
     let mut out = String::new();
-
-    #[cfg(target_os = "macos")]
     for modifier in &parts {
         match modifier.to_ascii_lowercase().as_str() {
-            "cmd" | "command" | "meta" => out.push('⌘'),
-            "ctrl" | "control" => out.push('⌃'),
-            "shift" => out.push('⇧'),
-            "alt" | "option" => out.push('⌥'),
-            other => {
-                out.push_str(other);
-                out.push('+');
+            "cmd" | "command" | "meta" => {
+                #[cfg(target_os = "macos")]
+                out.push('⌘');
+                #[cfg(not(target_os = "macos"))]
+                out.push_str("Ctrl+");
             }
-        }
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    for modifier in &parts {
-        match modifier.to_ascii_lowercase().as_str() {
-            "cmd" | "command" | "meta" => out.push_str("Ctrl+"),
-            "ctrl" | "control" => out.push_str("Ctrl+"),
-            "shift" => out.push_str("Shift+"),
-            "alt" | "option" => out.push_str("Alt+"),
+            "ctrl" | "control" => {
+                #[cfg(target_os = "macos")]
+                out.push('⌃');
+                #[cfg(not(target_os = "macos"))]
+                out.push_str("Ctrl+");
+            }
+            "shift" => {
+                #[cfg(target_os = "macos")]
+                out.push('⇧');
+                #[cfg(not(target_os = "macos"))]
+                out.push_str("Shift+");
+            }
+            "alt" | "option" => {
+                #[cfg(target_os = "macos")]
+                out.push('⌥');
+                #[cfg(not(target_os = "macos"))]
+                out.push_str("Alt+");
+            }
             other => {
                 out.push_str(other);
                 out.push('+');
@@ -164,14 +167,14 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "macos")]
-    fn format_shortcut_hint_formats_arrow_keys() {
+    fn format_shortcut_hint_formats_arrow_keys_macos() {
         assert_eq!(format_shortcut_hint("ArrowDown"), "↓");
         assert_eq!(format_shortcut_hint("Cmd+ArrowLeft"), "⌘←");
     }
 
     #[test]
     #[cfg(not(target_os = "macos"))]
-    fn format_shortcut_hint_formats_arrow_keys() {
+    fn format_shortcut_hint_formats_arrow_keys_non_macos() {
         assert_eq!(format_shortcut_hint("ArrowDown"), "Down");
         assert_eq!(format_shortcut_hint("Cmd+ArrowLeft"), "Ctrl+Left");
     }
