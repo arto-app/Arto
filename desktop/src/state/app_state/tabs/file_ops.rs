@@ -65,11 +65,9 @@ impl AppState {
     }
 
     /// Open preferences in a tab. Reuses existing preferences tab if found.
-    /// Unpins both sidebars so preferences gets the full window.
+    /// Preserves pinned sidebars, but closes any transient overlay sidebars.
     pub fn open_preferences(&mut self) {
-        // Unpin both sidebars and close overlays (preferences is a full-screen settings page)
-        self.sidebar.write().pinned = false;
-        self.right_sidebar_pinned.set(false);
+        // Close transient overlays so preferences opens into a stable layout.
         self.left_hover_active.set(false);
         self.right_hover_active.set(false);
 

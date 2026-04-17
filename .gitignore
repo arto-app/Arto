@@ -8,3 +8,5 @@ package-lock.json
 
 # Build-generated version file (CI only)
 desktop/VERSION
+# CocoIndex Code (ccc)
+/.cocoindex_code/

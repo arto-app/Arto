@@ -1,5 +1,9 @@
 use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
 use dioxus::desktop::tao::window::WindowId;
+#[cfg(target_os = "macos")]
+use dioxus::desktop::tao::{
+    dpi::LogicalPosition as TaoLogicalPosition, platform::macos::WindowBuilderExtMacOS,
+};
 use dioxus::desktop::{
     window, Config, DesktopService, WeakDesktopContext, WindowBuilder, WindowCloseBehaviour,
 };
@@ -29,18 +33,171 @@ const MAX_POSITION_SHIFT_ATTEMPTS: usize = 20;
 /// Create base window config from parameters
 /// This config can be further customized with .with_menu(), .with_custom_event_handler(), etc.
 pub fn create_main_window_config(params: &CreateMainWindowConfigParams) -> Config {
+    let builder = WindowBuilder::new()
+        .with_title("Arto")
+        .with_position(params.position)
+        .with_inner_size(params.size);
+
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .with_title_hidden(true)
+        .with_titlebar_transparent(true)
+        .with_fullsize_content_view(true)
+        .with_traffic_light_inset(TaoLogicalPosition::new(14.0, 16.0));
+
     Config::new()
-        .with_window(
-            WindowBuilder::new()
-                .with_title("Arto")
-                .with_position(params.position)
-                .with_inner_size(params.size),
-        )
+        .with_window(builder)
         // Add main style in config. Otherwise the style takes time to load and
         // the window appears unstyled for a brief moment.
-        .with_custom_head(indoc::formatdoc! {r#"<link rel="stylesheet" href="{MAIN_STYLE}">"#})
+        .with_custom_head(build_main_window_head())
         // Use a custom index to set the initial theme correctly
         .with_custom_index(build_custom_index(params.theme))
+}
+
+fn build_main_window_head() -> String {
+    let mut head = indoc::formatdoc! {r#"<link rel="stylesheet" href="{MAIN_STYLE}">"#};
+
+    #[cfg(target_os = "macos")]
+    head.push_str(indoc::indoc! {r#"
+        <style>
+          .tab-bar.native-titlebar {
+            align-items: center;
+            background: color-mix(in srgb, var(--header-bg) 94%, var(--bg-color));
+            border-bottom: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
+            box-sizing: border-box;
+            gap: 5px;
+            margin-top: 0;
+            min-height: 60px;
+            opacity: 1;
+            overflow: hidden;
+            padding: 20px 14px 8px;
+            position: relative;
+            width: 100%;
+            z-index: calc(var(--z-header) + 1);
+          }
+
+          .tab-bar.native-titlebar:hover {
+            opacity: 1;
+          }
+
+          .tab-bar.native-titlebar .tab-bar-traffic-light-gap {
+            cursor: grab;
+            flex: 0 0 92px;
+            min-height: 32px;
+            min-width: 92px;
+          }
+
+          .tab-bar.native-titlebar .tab-strip {
+            align-items: center;
+            display: flex;
+            flex: 1 1 auto;
+            gap: 4px;
+            min-width: 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 2px;
+          }
+
+          .tab-bar.native-titlebar .tab-strip::-webkit-scrollbar {
+            height: 2px;
+          }
+
+          .tab-bar.native-titlebar .tab {
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            color: var(--text-secondary);
+            min-height: 34px;
+            opacity: 0.88;
+          }
+
+          .tab-bar.native-titlebar .tab:hover {
+            background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
+            opacity: 1;
+          }
+
+          .tab-bar.native-titlebar .tab.active {
+            background: var(--bg-color);
+            border-color: color-mix(in srgb, var(--border-color) 92%, transparent);
+            box-shadow: var(--shadow-xs);
+            color: var(--text-color);
+          }
+
+          .tab-bar.native-titlebar .tab-close {
+            color: inherit;
+          }
+
+          .tab-bar.native-titlebar .tab-bar-drag-spacer {
+            cursor: grab;
+            flex: 1 1 72px;
+            min-height: 32px;
+            min-width: 48px;
+          }
+
+          .tab-bar.native-titlebar .tab-bar-controls {
+            align-items: center;
+            display: flex;
+            flex: 0 0 auto;
+            gap: 6px;
+          }
+
+          .tab-bar.native-titlebar .tab-new,
+          .tab-bar.native-titlebar .tab-preferences {
+            align-items: center;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            display: flex;
+            height: 28px;
+            justify-content: center;
+            margin-left: 0;
+            opacity: 0.9;
+            padding: 0;
+            width: 28px;
+          }
+
+          .tab-bar.native-titlebar .tab-new:hover,
+          .tab-bar.native-titlebar .tab-preferences:hover {
+            background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
+            border-color: color-mix(in srgb, var(--border-color) 92%, transparent);
+            color: var(--text-color);
+            opacity: 1;
+          }
+
+          .tab-bar.native-titlebar .tab-bar-drag-spacer,
+          .tab-bar.native-titlebar .tab-bar-traffic-light-gap {
+            border-radius: 6px;
+            user-select: none;
+            -webkit-user-select: none;
+          }
+
+          .tab-bar.native-titlebar .tab-bar-drag-spacer:active,
+          .tab-bar.native-titlebar .tab-bar-traffic-light-gap:active {
+            background: color-mix(in srgb, var(--text-color) 6%, transparent);
+            cursor: grabbing;
+          }
+
+          .app-container.macos-native-titlebar {
+            --macos-titlebar-height: 56px;
+          }
+
+          .app-container.macos-native-titlebar > .left-sidebar .right-sidebar-tabs {
+            padding-bottom: 2px;
+            padding-top: 22px;
+          }
+
+          .app-container.macos-native-titlebar > .right-sidebar .right-sidebar-tabs {
+            padding-bottom: 2px;
+          }
+
+          .header {
+            background: var(--header-bg);
+          }
+        </style>
+    "#});
+
+    head
 }
 
 /// Parameters for creating a new main window

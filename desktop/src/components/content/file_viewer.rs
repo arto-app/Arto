@@ -410,13 +410,23 @@ async fn scroll_to_heading(heading_id: &str, smooth: bool) {
         (() => {{
             const headingId = {heading_id_json};
             const behavior = {behavior_json};
+            const scrollWithinContent = (el) => {{
+                const content = document.querySelector('.content');
+                if (!content || !el) {{
+                    return false;
+                }}
+                const contentRect = content.getBoundingClientRect();
+                const elRect = el.getBoundingClientRect();
+                const top = content.scrollTop + (elRect.top - contentRect.top);
+                content.scrollTo({{ top, behavior }});
+                return true;
+            }};
             const scrollToHeading = () => {{
                 const el = document.getElementById(headingId);
                 if (!el) {{
                     return false;
                 }}
-                el.scrollIntoView({{ behavior, block: 'start' }});
-                return true;
+                return scrollWithinContent(el);
             }};
 
             if (scrollToHeading()) {{

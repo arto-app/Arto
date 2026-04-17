@@ -15,23 +15,26 @@ pub fn TabBar(
         div {
             class: "right-sidebar-tabs",
 
-            // Contents tab
-            button {
-                class: if active_panel == SidebarPanel::Directory { "right-sidebar-tab active" } else { "right-sidebar-tab" },
-                onclick: move |_| on_change.call(SidebarPanel::Directory),
-                span { "Directory" }
-            }
+            div {
+                class: "right-sidebar-tab-list",
 
-            button {
-                class: if active_panel == SidebarPanel::Contents { "right-sidebar-tab active" } else { "right-sidebar-tab" },
-                onclick: move |_| on_change.call(SidebarPanel::Contents),
-                span { "Contents" }
-            }
+                button {
+                    class: if active_panel == SidebarPanel::Directory { "right-sidebar-tab active" } else { "right-sidebar-tab" },
+                    onclick: move |_| on_change.call(SidebarPanel::Directory),
+                    span { "Directory" }
+                }
 
-            button {
-                class: if active_panel == SidebarPanel::Search { "right-sidebar-tab active" } else { "right-sidebar-tab" },
-                onclick: move |_| on_change.call(SidebarPanel::Search),
-                span { "Search" }
+                button {
+                    class: if active_panel == SidebarPanel::Contents { "right-sidebar-tab active" } else { "right-sidebar-tab" },
+                    onclick: move |_| on_change.call(SidebarPanel::Contents),
+                    span { "Contents" }
+                }
+
+                button {
+                    class: if active_panel == SidebarPanel::Search { "right-sidebar-tab active" } else { "right-sidebar-tab" },
+                    onclick: move |_| on_change.call(SidebarPanel::Search),
+                    span { "Search" }
+                }
             }
 
             // Pin/Unpin button

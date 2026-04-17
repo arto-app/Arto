@@ -377,6 +377,7 @@ pub fn App(
     rsx! {
         div {
             class: "app-container",
+            class: if cfg!(target_os = "macos") { "macos-native-titlebar" },
             class: if is_dragging() { "drag-over" },
             ondragover: move |evt| {
                 evt.prevent_default();
@@ -407,10 +408,17 @@ pub fn App(
 
             div {
                 class: "main-area",
-                Header {},
-                SearchBar {},
-                TabBar {},
-                Content {},
+                if cfg!(target_os = "macos") {
+                    TabBar {}
+                    Header {}
+                    SearchBar {}
+                    Content {}
+                } else {
+                    Header {}
+                    SearchBar {}
+                    TabBar {}
+                    Content {}
+                }
             }
 
             // Right sidebar: pinned → flex layout, unpinned → overlay with animation

@@ -203,6 +203,7 @@ pub fn TabBar() -> Element {
     let mut state = use_context::<AppState>();
     let tabs = state.tabs.read().clone();
     let active_tab_index = *state.active_tab.read();
+    let show_traffic_light_gap = cfg!(target_os = "macos") && !state.sidebar.read().pinned;
 
     // Local drag state - only tracks pending state before threshold
     // Once active, global ACTIVE_DRAG takes over
@@ -357,9 +358,22 @@ pub fn TabBar() -> Element {
         None
     };
 
+    let start_window_drag = move |evt: Event<MouseData>| {
+        let button = evt.data().trigger_button();
+        if matches!(
+            button,
+            Some(dioxus::html::input_data::MouseButton::Primary) | None
+        ) {
+            evt.prevent_default();
+            evt.stop_propagation();
+            window().drag();
+        }
+    };
+
     rsx! {
         div {
             class: "tab-bar",
+            class: if cfg!(target_os = "macos") { "native-titlebar" },
             class: if is_dragging { "dragging" },
             tabindex: "0",
             onkeydown: handle_keydown,
@@ -370,32 +384,59 @@ pub fn TabBar() -> Element {
                 tab_bar_element.set(Some(evt.data()));
             },
 
-            // Render tabs with drag support
-            for (index, tab) in tabs.iter().enumerate() {
-                TabItem {
-                    key: "{index}",
-                    index,
-                    tab: tab.clone(),
-                    shift_class: calculate_shift_class(is_target_window, drag_target_index, index),
-                    is_active: index == active_tab_index,
-                    on_drag_start: move |pending: PendingDrag| {
-                        local_drag_state.set(LocalDragState::Pending(pending));
-                    },
-                }
-            }
-
-            // Placeholder at end (always present during drag to push [+] button)
-            if drag_target_index.is_some() {
+            if show_traffic_light_gap {
                 div {
-                    class: "tab placeholder",
+                    class: "tab-bar-traffic-light-gap",
+                    onmousedown: start_window_drag,
                 }
             }
 
-            // New tab button
-            NewTabButton {}
+            div {
+                class: "tab-strip",
 
-            // Preferences button
-            PreferencesButton {}
+                // Render tabs with drag support
+                for (index, tab) in tabs.iter().enumerate() {
+                    TabItem {
+                        key: "{index}",
+                        index,
+                        tab: tab.clone(),
+                        shift_class: calculate_shift_class(is_target_window, drag_target_index, index),
+                        is_active: index == active_tab_index,
+                        on_drag_start: move |pending: PendingDrag| {
+                            local_drag_state.set(LocalDragState::Pending(pending));
+                        },
+                    }
+                }
+
+                // Placeholder at end (always present during drag to push [+] button)
+                if drag_target_index.is_some() {
+                    div {
+                        class: "tab placeholder",
+                    }
+                }
+            }
+
+            div {
+                class: "tab-bar-drag-spacer",
+                onmousedown: start_window_drag,
+            }
+
+            div {
+                class: "tab-bar-controls",
+
+                // New tab button
+                NewTabButton {}
+
+                // Preferences button
+                PreferencesButton {}
+            }
+
+            if cfg!(target_os = "macos") {
+                div {
+                    class: "tab-bar-drag-spacer",
+                    onmousedown: start_window_drag,
+                }
+            }
         }
 
         // Drag overlay for capturing events (shown during any active drag)

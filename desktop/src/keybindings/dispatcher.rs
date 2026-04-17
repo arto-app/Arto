@@ -499,9 +499,13 @@ fn open_right_sidebar(state: &mut AppState) {
         let js = format!(
             r#"
             (() => {{
+                const content = document.querySelector('.content');
                 const el = document.getElementById({id_json});
-                if (el) {{
-                    el.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+                if (content && el) {{
+                    const contentRect = content.getBoundingClientRect();
+                    const elRect = el.getBoundingClientRect();
+                    const top = content.scrollTop + (elRect.top - contentRect.top);
+                    content.scrollTo({{ top, behavior: 'smooth' }});
                 }}
             }})();
             "#,

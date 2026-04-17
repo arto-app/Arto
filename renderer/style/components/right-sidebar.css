@@ -75,9 +75,26 @@
 /* Tab bar */
 .right-sidebar-tabs {
   display: flex;
-  gap: 16px;
+  align-items: center;
   padding: 12px 16px 8px;
   flex-shrink: 0;
+  gap: 8px;
+  min-width: 0;
+}
+
+.right-sidebar-tab-list {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.right-sidebar-tab-list::-webkit-scrollbar {
+  display: none;
 }
 
 .right-sidebar-tab {
@@ -89,6 +106,8 @@
   font-weight: 400;
   color: var(--text-secondary);
   transition: font-weight var(--transition-fast);
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .right-sidebar-tab.active {
@@ -172,6 +191,7 @@
   align-items: center;
   justify-content: center;
   opacity: var(--opacity-muted);
+  flex: 0 0 auto;
   transition:
     opacity var(--transition-normal),
     background-color var(--transition-fast) ease;

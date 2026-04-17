@@ -99,8 +99,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 0px;
-  margin: 0 0 8px 0;
+  padding: 2px 0;
+  margin: 0 0 2px 0;
 }
 
 /* History navigation buttons */
