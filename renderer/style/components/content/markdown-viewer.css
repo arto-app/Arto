@@ -8,6 +8,20 @@
     margin: 0 auto;
     max-width: 960px;
 
+    /* Keep markdown tables content-sized so short IDs do not wrap under
+       container pressure; oversized tables can scroll horizontally. */
+    table {
+      width: max-content;
+      min-width: 100%;
+      max-width: none;
+    }
+
+    table th,
+    table td {
+      word-break: normal;
+      overflow-wrap: normal;
+    }
+
     /* Style markdown file links (span.md-link) to look like regular links */
     span.md-link {
       color: var(--link-color);
