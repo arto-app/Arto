@@ -3,11 +3,11 @@ use dioxus::prelude::{spawn, ReadableExt, WritableExt};
 use dioxus_desktop::muda::accelerator::Accelerator;
 use dioxus_desktop::muda::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use dioxus_desktop::window;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::components::content::set_preferences_tab_to_about;
 use crate::keybindings::shortcut_hint_for_global_action;
-use crate::state::AppState;
+use crate::state::{AppState, PersistedFileView};
 use crate::window::{self, settings::normalize_zoom_level, CreateMainWindowConfigParams};
 
 /// Menu identifier enum
@@ -38,6 +38,9 @@ enum MenuId {
     GoForward,
     GoToHomepage,
 }
+
+const RECENT_FILE_MENU_PREFIX: &str = "file.open_recent.";
+const NO_RECENT_FILES_MENU_ID: &str = "file.open_recent.none";
 
 impl MenuId {
     /// Convert menu ID string to enum variant
@@ -190,6 +193,7 @@ fn add_app_menu(menu: &Menu) {
 
 fn add_file_menu(menu: &Menu) {
     let file_menu = Submenu::new("File", true);
+    let open_recent_menu = build_open_recent_menu();
 
     file_menu
         .append_items(&[
@@ -198,6 +202,7 @@ fn add_file_menu(menu: &Menu) {
             &PredefinedMenuItem::separator(),
             &create_menu_item(MenuId::Open, "Open File..."),
             &create_menu_item(MenuId::OpenDirectory, "Open Directory..."),
+            &open_recent_menu,
             &PredefinedMenuItem::separator(),
             &create_menu_item(MenuId::CopyFilePath, "Copy File Path"),
             &create_menu_item(MenuId::RevealInFinder, "Reveal in Finder"),
@@ -209,6 +214,58 @@ fn add_file_menu(menu: &Menu) {
         .unwrap();
 
     menu.append(&file_menu).unwrap();
+}
+
+fn build_open_recent_menu() -> Submenu {
+    let submenu = Submenu::with_id("file.open_recent", "Open Recent", true);
+    let recent_files = crate::state::PersistedState::load().recent_files;
+
+    if recent_files.is_empty() {
+        submenu
+            .append(&MenuItem::with_id(
+                NO_RECENT_FILES_MENU_ID,
+                "No Recent Files",
+                false,
+                None::<Accelerator>,
+            ))
+            .unwrap();
+        return submenu;
+    }
+
+    for (index, path) in recent_files.iter().enumerate() {
+        submenu
+            .append(&MenuItem::with_id(
+                format!("{RECENT_FILE_MENU_PREFIX}{index}"),
+                recent_file_menu_label(path),
+                true,
+                None::<Accelerator>,
+            ))
+            .unwrap();
+    }
+
+    submenu
+}
+
+fn recent_file_menu_label(path: &Path) -> String {
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.display().to_string());
+
+    match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => format!("{name} ({})", parent.display()),
+        _ => name,
+    }
+}
+
+fn recent_file_from_menu_id(menu_id: &str) -> Option<PersistedFileView> {
+    let index = menu_id
+        .strip_prefix(RECENT_FILE_MENU_PREFIX)?
+        .parse::<usize>()
+        .ok()?;
+    crate::state::PersistedState::load()
+        .recent_file_view(index)
+        .cloned()
 }
 
 fn add_edit_menu(menu: &Menu) {
@@ -307,6 +364,18 @@ pub fn is_close_action(event: &MenuEvent) -> bool {
 pub fn handle_menu_event_global(event: &MenuEvent) -> bool {
     let menu_id = event.id().0.as_ref();
 
+    if let Some(view) = recent_file_from_menu_id(menu_id) {
+        if !window::has_any_main_windows() {
+            window::create_main_window_sync(
+                &window(),
+                crate::state::Tab::new(view.path),
+                CreateMainWindowConfigParams::default(),
+            );
+            return true;
+        }
+        return false;
+    }
+
     let id = match MenuId::from_str(menu_id) {
         Some(id) => id,
         None => return false,
@@ -378,6 +447,14 @@ pub fn handle_menu_event_with_state(event: &MenuEvent, state: &mut AppState) -> 
 
     let menu_id = event.id().0.as_ref();
     tracing::debug!("State menu event (focused window): {}", menu_id);
+
+    if let Some(view) = recent_file_from_menu_id(menu_id) {
+        state.open_file(view.path);
+        state
+            .pending_scroll_position
+            .set(Some(view.scroll_position));
+        return true;
+    }
 
     let id = match MenuId::from_str(menu_id) {
         Some(id) => id,
@@ -601,5 +678,17 @@ mod tests {
         assert!(is_close_action(&close_tab));
         assert!(is_close_action(&close_window));
         assert!(!is_close_action(&new_tab));
+    }
+
+    #[test]
+    fn test_recent_file_menu_label_includes_parent_directory() {
+        let path = PathBuf::from("/tmp/example/test.md");
+        assert_eq!(recent_file_menu_label(&path), "test.md (/tmp/example)");
+    }
+
+    #[test]
+    fn test_recent_file_from_invalid_menu_id_returns_none() {
+        assert!(recent_file_from_menu_id("file.open_recent.invalid").is_none());
+        assert!(recent_file_from_menu_id(NO_RECENT_FILES_MENU_ID).is_none());
     }
 }

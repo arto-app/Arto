@@ -1096,13 +1096,24 @@ fn open_link_from_cursor(state: &mut AppState, open_in_new_tab: bool) {
             return;
         }
 
-        let target_path = base_dir.join(&href);
-        if let Ok(canonical) = target_path.canonicalize() {
-            if open_in_new_tab {
-                app_state.add_file_tab(canonical, true);
+        let Some(current_file) = get_current_file(&app_state) else {
+            return;
+        };
+        let Some(resolved_link) =
+            crate::utils::markdown_link::resolve_markdown_link(&base_dir, &current_file, &href)
+        else {
+            return;
+        };
+
+        if open_in_new_tab {
+            if let Some(heading_id) = resolved_link.heading_id {
+                app_state.set_pending_heading_navigation(resolved_link.path.clone(), heading_id);
             } else {
-                app_state.navigate_to_file(canonical);
+                app_state.clear_pending_heading_navigation();
             }
+            app_state.add_file_tab(resolved_link.path, true);
+        } else {
+            app_state.navigate_to_file_at_heading(resolved_link.path, resolved_link.heading_id);
         }
     });
 }

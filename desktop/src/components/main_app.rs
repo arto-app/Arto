@@ -42,26 +42,37 @@ pub fn MainApp() -> Element {
 
     // Pop the first event from IPC queue (CLI path pushed by main.rs before launch)
     let first_event = crate::ipc::try_pop_first_event();
+    let persisted = crate::state::PersistedState::load();
     if first_event.is_some() {
         tracing::debug!(?first_event, "Received initial open event from IPC queue");
     } else {
-        tracing::debug!("No initial event, will show welcome screen");
+        tracing::debug!("No initial event, will restore previous session if available");
     }
 
     // Resolve initial tabs and directory from event
     let is_first_window = true;
-    let (tabs, directory_override) = match &first_event {
+    let (tabs, active_tab, directory_override) = match &first_event {
         Some(OpenEvent::Open(request)) => {
             let tabs = if request.files.is_empty() {
                 vec![Tab::default()]
             } else {
                 request.files.iter().cloned().map(Tab::new).collect()
             };
-            (tabs, request.directory.clone())
+            (tabs, 0, request.directory.clone())
+        }
+        _ if !persisted.open_files.is_empty() => {
+            let tabs = persisted.restored_open_tabs();
+            let active_tab = persisted.restored_active_tab();
+            tracing::debug!(
+                tab_count = tabs.len(),
+                active_tab,
+                "Restoring previous file session"
+            );
+            (tabs, active_tab, None)
         }
         _ => {
             let welcome_content = crate::assets::get_default_markdown_content();
-            (vec![Tab::with_inline_content(welcome_content)], None)
+            (vec![Tab::with_inline_content(welcome_content)], 0, None)
         }
     };
 
@@ -89,6 +100,7 @@ pub fn MainApp() -> Element {
     rsx! {
         crate::components::app::App {
             tabs: tabs,
+            active_tab: active_tab,
             directory: directory,
             theme: theme_pref.theme,
             initial_window_position: position_pref.position,

@@ -287,6 +287,7 @@ fn build_window_dom_and_config(
         App,
         AppProps {
             tabs,
+            active_tab: 0,
             directory,
             theme: params.theme,
             initial_window_position: params.position,

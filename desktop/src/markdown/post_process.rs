@@ -118,21 +118,16 @@ fn post_process_html_impl(
                 element!("a[href]", |el| {
                     if let Some(href) = el.get_attribute("href") {
                         if !href.starts_with("http://") && !href.starts_with("https://") {
-                            if let Some(ext) = std::path::Path::new(&href)
-                                .extension()
-                                .and_then(|e| e.to_str())
-                            {
-                                el.set_tag_name("span")?;
-                                el.remove_attribute("href");
-                                el.set_attribute("data-md-link", &href)?;
-                                if ext != "md" && ext != "markdown" {
-                                    el.set_attribute("class", "md-link md-link-invalid")?;
-                                } else {
-                                    el.set_attribute("class", "md-link")?;
-                                }
-                                el.set_attribute("onmousedown",
-                                    "if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}")?;
+                            el.set_tag_name("span")?;
+                            el.remove_attribute("href");
+                            el.set_attribute("data-md-link", &href)?;
+                            if crate::utils::markdown_link::is_internal_markdown_href(&href) {
+                                el.set_attribute("class", "md-link")?;
+                            } else {
+                                el.set_attribute("class", "md-link md-link-invalid")?;
                             }
+                            el.set_attribute("onmousedown",
+                                "if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}")?;
                         }
                     }
                     Ok(())
@@ -327,6 +322,38 @@ mod tests {
         assert!(
             result.contains("handleMarkdownLinkClick"),
             "Should add click handler: {result}"
+        );
+        assert!(!result.contains("<a "), "Should not contain anchor tag");
+    }
+
+    #[test]
+    fn test_post_process_html_tags_anchor_with_fragment() {
+        let html = r#"<a href="doc.md#section-1">Link</a>"#;
+        let result = post_process_html_tags(html, Path::new("."), &[]);
+
+        assert!(
+            result.contains(r#"data-md-link="doc.md#section-1""#),
+            "Should preserve href fragment in data attribute: {result}"
+        );
+        assert!(
+            result.contains(r#"class="md-link""#),
+            "Should be a markdown link: {result}"
+        );
+        assert!(!result.contains("<a "), "Should not contain anchor tag");
+    }
+
+    #[test]
+    fn test_post_process_html_tags_same_file_anchor() {
+        let html = r##"<a href="#section-1">Link</a>"##;
+        let result = post_process_html_tags(html, Path::new("."), &[]);
+
+        assert!(
+            result.contains(r##"data-md-link="#section-1""##),
+            "Should preserve same-file anchor in data attribute: {result}"
+        );
+        assert!(
+            result.contains(r#"class="md-link""#),
+            "Should be a markdown link: {result}"
         );
         assert!(!result.contains("<a "), "Should not contain anchor tag");
     }

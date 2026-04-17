@@ -3,6 +3,7 @@ mod autolinks;
 mod event_processors;
 mod frontmatter;
 mod headings;
+mod liquid;
 mod post_process;
 mod source_lines;
 
@@ -14,6 +15,7 @@ use anyhow::Result;
 use event_processors::{extend_table_ranges, process_code_blocks, process_math_expressions};
 use frontmatter::extract_and_render_frontmatter;
 use headings::extract_headings;
+use liquid::preprocess_liquid_includes;
 use post_process::{post_process_html_tags, post_process_html_with_headings};
 use pulldown_cmark::{html, Options, Parser};
 use source_lines::{extract_table_source_lines, inject_source_lines};
@@ -42,6 +44,9 @@ fn run_pipeline(markdown: &str, base_path: &Path, auto_link_urls: bool) -> Pipel
 
     // Extract frontmatter if present
     let (frontmatter_html, content, frontmatter_lines) = extract_and_render_frontmatter(markdown);
+
+    // Rewrite supported Liquid includes into plain HTML before Markdown parsing.
+    let content = preprocess_liquid_includes(&content);
 
     // Convert bare URLs to <URL> autolinks before any parsing (if enabled)
     let content = if auto_link_urls {
@@ -257,6 +262,23 @@ mod tests {
             result.contains("data-original-content"),
             "Should include data attributes"
         );
+    }
+
+    #[test]
+    fn test_render_to_html_with_figure_liquid_include() {
+        let temp_dir = TempDir::new().unwrap();
+        let assets_dir = temp_dir.path().join("assets").join("img");
+        fs::create_dir_all(&assets_dir).unwrap();
+        fs::write(assets_dir.join("example.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+
+        let markdown =
+            r#"{% include figure.liquid path="assets/img/example.png" class="img-fluid" %}"#;
+        let md_path = temp_dir.path().join("test.md");
+
+        let result = render_to_html(markdown, &md_path).unwrap();
+
+        assert!(result.contains("data:image/png;base64,"));
+        assert!(result.contains(r#"class="img-fluid""#));
     }
 
     #[test]

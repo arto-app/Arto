@@ -8,12 +8,25 @@ use dioxus::prelude::*;
 use std::path::{Path, PathBuf};
 
 impl AppState {
+    /// Record a file in recent history, most-recent-first.
+    pub fn record_recent_file(&mut self, file: impl Into<PathBuf>) {
+        const MAX_RECENT_FILES: usize = 10;
+
+        let file = file.into();
+        let mut recent_files = self.recent_files.write();
+        recent_files.retain(|path| path != &file);
+        recent_files.insert(0, file);
+        recent_files.truncate(MAX_RECENT_FILES);
+    }
+
     /// Open a file, reusing NoFile tab or existing tab with the same file if possible
     /// Used when opening from sidebar or external sources
     pub fn open_file(&mut self, file: impl AsRef<Path>) {
-        let file = file.as_ref();
+        let file = file.as_ref().to_path_buf();
+        self.record_recent_file(file.clone());
+
         // Check if the file is already open in another tab
-        if let Some(tab_index) = self.find_tab_with_file(file) {
+        if let Some(tab_index) = self.find_tab_with_file(&file) {
             // Switch to the existing tab instead of creating a new one
             self.switch_to_tab(tab_index);
         } else if self.is_current_tab_no_file() {
@@ -30,9 +43,25 @@ impl AppState {
     /// Navigate to a file in the current tab (for in-tab navigation like markdown links)
     /// Always opens in current tab regardless of whether file is open elsewhere
     pub fn navigate_to_file(&mut self, file: impl Into<PathBuf>) {
+        let file = file.into();
+        self.record_recent_file(file.clone());
         self.update_current_tab(|tab| {
             tab.navigate_to(file);
         });
+    }
+
+    pub fn navigate_to_file_at_heading(
+        &mut self,
+        file: impl Into<PathBuf>,
+        heading_id: Option<String>,
+    ) {
+        let file = file.into();
+        if let Some(heading_id) = heading_id {
+            self.set_pending_heading_navigation(file.clone(), heading_id);
+        } else {
+            self.clear_pending_heading_navigation();
+        }
+        self.navigate_to_file(file);
     }
 
     /// Open preferences in a tab. Reuses existing preferences tab if found.

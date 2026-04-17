@@ -47,6 +47,7 @@ const MOUSE_BUTTON_LEFT: u32 = 0;
 #[component]
 pub fn App(
     tabs: Vec<Tab>,     // Initial tabs (at least one tab must be present)
+    active_tab: usize,  // Initial active tab index
     directory: PathBuf, // Directory (resolved in create_main_window or MainApp)
     theme: Theme,       // The enum: Auto/Light/Dark
     initial_window_position: LogicalPosition<i32>,
@@ -71,10 +72,21 @@ pub fn App(
         } else {
             tabs
         };
+        let initial_active_tab = active_tab.min(initial_tabs.len().saturating_sub(1));
 
         // Initialize with provided tabs (preserves ordering)
         app_state.tabs.set(initial_tabs);
-        app_state.active_tab.set(0);
+        app_state.active_tab.set(initial_active_tab);
+        app_state
+            .recent_files
+            .set(PersistedState::load().recent_files);
+        let initial_scroll = app_state
+            .tabs
+            .read()
+            .get(initial_active_tab)
+            .and_then(|tab| tab.history.current().map(|entry| entry.scroll_position))
+            .filter(|scroll| *scroll > 0.0);
+        app_state.pending_scroll_position.set(initial_scroll);
 
         // Apply initial sidebar settings from params (including directory)
         {

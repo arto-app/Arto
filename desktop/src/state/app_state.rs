@@ -32,6 +32,12 @@ pub struct SearchMatch {
     pub context_end: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PendingHeadingNavigation {
+    pub file: PathBuf,
+    pub heading_id: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SidebarPanel {
@@ -66,6 +72,8 @@ pub enum SidebarPanel {
 pub struct AppState {
     pub tabs: Signal<Vec<Tab>>,
     pub active_tab: Signal<usize>,
+    pub recent_files: Signal<Vec<PathBuf>>,
+    pub pending_heading_navigation: Signal<Option<PendingHeadingNavigation>>,
     pub current_theme: Signal<Theme>,
     pub zoom_level: Signal<f64>,
     pub sidebar: Signal<Sidebar>,
@@ -122,6 +130,8 @@ impl AppState {
         Self {
             tabs: Signal::new(vec![Tab::default()]),
             active_tab: Signal::new(0),
+            recent_files: Signal::new(Vec::new()),
+            pending_heading_navigation: Signal::new(None),
             current_theme: Signal::new(theme),
             zoom_level: Signal::new(1.0),
             sidebar: Signal::new(Sidebar::default()),
@@ -161,6 +171,22 @@ impl Default for AppState {
 }
 
 impl AppState {
+    pub fn set_pending_heading_navigation(
+        &mut self,
+        file: impl Into<PathBuf>,
+        heading_id: impl Into<String>,
+    ) {
+        self.pending_heading_navigation
+            .set(Some(PendingHeadingNavigation {
+                file: file.into(),
+                heading_id: heading_id.into(),
+            }));
+    }
+
+    pub fn clear_pending_heading_navigation(&mut self) {
+        self.pending_heading_navigation.set(None);
+    }
+
     /// Set the root directory and add to history
     /// Note: The directory is persisted to state file when window closes
     pub fn set_root_directory(&mut self, path: impl Into<PathBuf>) {

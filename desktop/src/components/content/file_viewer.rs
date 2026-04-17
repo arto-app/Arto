@@ -37,6 +37,7 @@ pub fn FileViewer(file: PathBuf) -> Element {
     use_file_loader(file.clone(), html, state);
     use_file_watcher(file.clone(), state);
     use_link_click_handler(file.clone(), state);
+    use_pending_heading_navigation(file.clone(), state);
     use_mermaid_window_handler();
     use_math_window_handler();
     use_image_window_handler();
@@ -135,6 +136,24 @@ fn use_file_loader(file: PathBuf, html: Signal<String>, mut state: AppState) {
             }
         });
     }));
+}
+
+fn use_pending_heading_navigation(file: PathBuf, mut state: AppState) {
+    use_effect(move || {
+        let Some(pending) = state.pending_heading_navigation.read().clone() else {
+            return;
+        };
+
+        if pending.file != file {
+            return;
+        }
+
+        state.clear_pending_heading_navigation();
+
+        spawn(async move {
+            scroll_to_heading(&pending.heading_id, false).await;
+        });
+    });
 }
 
 /// Handle scroll position when navigating to a file.
@@ -339,30 +358,100 @@ fn handle_link_click(click_data: LinkClickData, base_dir: &Path, state: &mut App
 
     tracing::info!("Markdown link clicked: {} (button: {})", path, button);
 
-    // Resolve and normalize the path
-    let target_path = base_dir.join(&path);
-    let Ok(canonical_path) = target_path.canonicalize() else {
-        tracing::error!("Failed to resolve path: {:?}", target_path);
+    let current_file = match state
+        .current_tab()
+        .and_then(|tab| tab.file().map(PathBuf::from))
+    {
+        Some(file) => file,
+        None => return,
+    };
+
+    let Some(resolved_link) =
+        crate::utils::markdown_link::resolve_markdown_link(base_dir, &current_file, &path)
+    else {
+        tracing::error!("Failed to resolve markdown link: {:?}", path);
         return;
     };
 
-    tracing::info!("Opening file: {:?}", canonical_path);
+    tracing::info!(
+        file = ?resolved_link.path,
+        heading = ?resolved_link.heading_id,
+        "Opening markdown link"
+    );
 
     match button {
         MIDDLE_CLICK => {
             // Open in new tab (always create a new tab for middle-click)
-            state.add_file_tab(canonical_path, true);
+            if let Some(heading_id) = resolved_link.heading_id {
+                state.set_pending_heading_navigation(resolved_link.path.clone(), heading_id);
+            } else {
+                state.clear_pending_heading_navigation();
+            }
+            state.add_file_tab(resolved_link.path, true);
         }
         LEFT_CLICK => {
             // Save current scroll position to history before navigating
             state.save_current_scroll_position(scroll_position);
             // Navigate in current tab (in-tab navigation, no existing tab check)
-            state.navigate_to_file(canonical_path);
+            state.navigate_to_file_at_heading(resolved_link.path, resolved_link.heading_id);
         }
         _ => {
             tracing::debug!("Ignoring click with button: {}", button);
         }
     }
+}
+
+async fn scroll_to_heading(heading_id: &str, smooth: bool) {
+    let heading_id_json = serde_json::to_string(heading_id).unwrap_or_else(|_| "null".to_string());
+    let behavior_json =
+        serde_json::to_string(if smooth { "smooth" } else { "auto" }).unwrap_or_default();
+    let js = format!(
+        r#"
+        (() => {{
+            const headingId = {heading_id_json};
+            const behavior = {behavior_json};
+            const scrollToHeading = () => {{
+                const el = document.getElementById(headingId);
+                if (!el) {{
+                    return false;
+                }}
+                el.scrollIntoView({{ behavior, block: 'start' }});
+                return true;
+            }};
+
+            if (scrollToHeading()) {{
+                return;
+            }}
+
+            const container = document.querySelector('.markdown-body');
+            let observer = null;
+            if (container) {{
+                observer = new MutationObserver(() => {{
+                    if (scrollToHeading()) {{
+                        observer.disconnect();
+                        observer = null;
+                    }}
+                }});
+                observer.observe(container, {{ childList: true, subtree: true }});
+            }}
+
+            window.Arto?.render?.onComplete?.(() => {{
+                if (scrollToHeading() && observer) {{
+                    observer.disconnect();
+                    observer = null;
+                }}
+            }});
+
+            setTimeout(() => {{
+                if (observer) {{
+                    scrollToHeading();
+                    observer.disconnect();
+                }}
+            }}, 1000);
+        }})();
+        "#,
+    );
+    let _ = document::eval(&js).await;
 }
 
 /// Hook to setup Mermaid window open handler
