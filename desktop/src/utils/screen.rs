@@ -64,13 +64,22 @@ fn flip_y<T: DisplayLike>(y: i32, display: &T) -> i32 {
 /// - `None` - If no displays are available or scale factor is invalid
 pub fn get_current_display_bounds() -> Option<(LogicalPosition<i32>, LogicalSize<u32>)> {
     let display = get_cursor_display().or_else(get_primary_display)?;
-    let scale = display.scale_factor as f64;
-    if scale <= 0.0 {
-        return None;
-    }
-    let origin = to_logical_position_from_parts(display.x, display.y, scale);
-    let size = to_logical_size_from_parts(display.width, display.height, scale);
-    Some((origin, size))
+    display_bounds(&display)
+}
+
+/// Get the display bounds containing the provided logical point.
+pub fn get_display_bounds_for_logical_point(
+    point: LogicalPosition<i32>,
+) -> Option<(LogicalPosition<i32>, LogicalSize<u32>)> {
+    let displays = DisplayInfo::all().ok()?;
+
+    displays.into_iter().find_map(|display| {
+        let (origin, size) = display_bounds(&display)?;
+        let right = origin.x + size.width as i32;
+        let bottom = origin.y + size.height as i32;
+        (point.x >= origin.x && point.x < right && point.y >= origin.y && point.y < bottom)
+            .then_some((origin, size))
+    })
 }
 
 /// Get the primary display information.
@@ -120,6 +129,7 @@ pub fn get_cursor_display() -> Option<DisplayInfo> {
         .or_else(|| displays.first().cloned())
 }
 
+#[cfg(any(not(target_os = "macos"), test))]
 fn to_logical_size_from_parts(width: u32, height: u32, scale: f64) -> LogicalSize<u32> {
     // Use safe minimum scale factor to prevent division by zero
     let safe_scale = if scale <= 0.0 { 1.0 } else { scale };
@@ -128,12 +138,34 @@ fn to_logical_size_from_parts(width: u32, height: u32, scale: f64) -> LogicalSiz
     LogicalSize::new(width, height)
 }
 
+#[cfg(any(not(target_os = "macos"), test))]
 fn to_logical_position_from_parts(x: i32, y: i32, scale: f64) -> LogicalPosition<i32> {
     // Use safe minimum scale factor to prevent division by zero
     let safe_scale = if scale <= 0.0 { 1.0 } else { scale };
     let x = (x as f64 / safe_scale).round() as i32;
     let y = (y as f64 / safe_scale).round() as i32;
     LogicalPosition::new(x, y)
+}
+
+fn display_bounds(display: &DisplayInfo) -> Option<(LogicalPosition<i32>, LogicalSize<u32>)> {
+    #[cfg(target_os = "macos")]
+    {
+        return Some((
+            LogicalPosition::new(display.x, display.y),
+            LogicalSize::new(display.width, display.height),
+        ));
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let scale = display.scale_factor as f64;
+        if scale <= 0.0 {
+            return None;
+        }
+        let origin = to_logical_position_from_parts(display.x, display.y, scale);
+        let size = to_logical_size_from_parts(display.width, display.height, scale);
+        Some((origin, size))
+    }
 }
 
 #[cfg(test)]

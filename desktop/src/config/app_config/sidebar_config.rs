@@ -1,4 +1,5 @@
 use super::behavior::{NewWindowBehavior, StartupBehavior};
+use crate::state::SidebarPanel;
 use serde::{Deserialize, Serialize};
 
 /// Default sidebar width in pixels
@@ -41,6 +42,9 @@ pub fn normalize_zoom_level(zoom: f64) -> f64 {
 pub struct SidebarConfig {
     /// Whether sidebar is pinned to the layout by default
     pub default_pinned: bool,
+    /// Default panel content
+    #[serde(default)]
+    pub default_panel: SidebarPanel,
     /// Default sidebar width in pixels
     #[serde(default = "default_sidebar_width")]
     pub default_width: f64,
@@ -59,6 +63,7 @@ impl Default for SidebarConfig {
     fn default() -> Self {
         Self {
             default_pinned: false,
+            default_panel: SidebarPanel::Directory,
             default_width: default_sidebar_width(),
             default_show_all_files: false,
             default_zoom_level: default_sidebar_zoom_level(),

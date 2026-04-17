@@ -3,14 +3,16 @@ use dioxus::prelude::*;
 use mouse_position::mouse_position::Mouse;
 use std::path::PathBuf;
 
-use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::{
     normalize_zoom_level as normalize_sidebar_zoom_level, NewWindowBehavior, StartupBehavior,
     WindowDimension, WindowDimensionUnit, WindowPosition, WindowPositionMode, WindowSize, CONFIG,
 };
-use crate::state::{PersistedState, Position, Size};
+use crate::state::{PersistedState, Position, SidebarPanel, Size};
 use crate::theme::Theme;
-use crate::utils::screen::{get_current_display_bounds, get_cursor_display, get_primary_display};
+use crate::utils::screen::{
+    get_current_display_bounds, get_cursor_display, get_display_bounds_for_logical_point,
+    get_primary_display,
+};
 use crate::window::main::get_last_focused_window_state;
 
 const MIN_WINDOW_DIMENSION: f64 = 100.0;
@@ -39,6 +41,7 @@ pub struct DirectoryPreference {
 
 pub struct SidebarPreference {
     pub pinned: bool,
+    pub panel: SidebarPanel,
     pub width: f64,
     pub show_all_files: bool,
     pub zoom_level: f64,
@@ -47,7 +50,7 @@ pub struct SidebarPreference {
 pub struct RightSidebarPreference {
     pub pinned: bool,
     pub width: f64,
-    pub tab: RightSidebarTab,
+    pub panel: SidebarPanel,
     pub zoom_level: f64,
 }
 
@@ -61,6 +64,12 @@ pub struct WindowPositionPreference {
 
 pub struct ZoomPreference {
     pub zoom_level: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum WindowPositionSource {
+    Relative(WindowPosition),
+    Absolute(Position),
 }
 
 // ============================================================================
@@ -118,6 +127,25 @@ fn resolve_window_size(config: WindowSize, max_size: LogicalSize<u32>) -> Logica
     LogicalSize::new(width, height)
 }
 
+fn clamp_window_position_to_display(
+    position: LogicalPosition<i32>,
+    screen_origin: LogicalPosition<i32>,
+    screen_size: LogicalSize<u32>,
+    window_size: LogicalSize<u32>,
+) -> LogicalPosition<i32> {
+    let available_width_u32 = screen_size.width.saturating_sub(window_size.width);
+    let available_height_u32 = screen_size.height.saturating_sub(window_size.height);
+    let available_width = available_width_u32.min(i32::MAX as u32) as i32;
+    let available_height = available_height_u32.min(i32::MAX as u32) as i32;
+    let max_x = screen_origin.x + available_width;
+    let max_y = screen_origin.y + available_height;
+
+    LogicalPosition::new(
+        position.x.clamp(screen_origin.x, max_x),
+        position.y.clamp(screen_origin.y, max_y),
+    )
+}
+
 fn resolve_window_position(
     config: WindowPosition,
     screen_origin: LogicalPosition<i32>,
@@ -136,12 +164,21 @@ fn resolve_window_position(
 
     // Clamp position to ensure window stays on screen
     // This prevents off-screen windows when monitors are removed or repositioned
-    let max_x = screen_origin.x + available_width;
-    let max_y = screen_origin.y + available_height;
-    let clamped_x = absolute_position.x.clamp(screen_origin.x, max_x);
-    let clamped_y = absolute_position.y.clamp(screen_origin.y, max_y);
+    clamp_window_position_to_display(absolute_position, screen_origin, screen_size, window_size)
+}
 
-    LogicalPosition::new(clamped_x, clamped_y)
+fn resolve_absolute_window_position(
+    position: Position,
+    screen_origin: LogicalPosition<i32>,
+    screen_size: LogicalSize<u32>,
+    window_size: LogicalSize<u32>,
+) -> LogicalPosition<i32> {
+    clamp_window_position_to_display(
+        LogicalPosition::new(position.x, position.y),
+        screen_origin,
+        screen_size,
+        window_size,
+    )
 }
 
 fn resolve_window_position_from_cursor(
@@ -152,14 +189,28 @@ fn resolve_window_position_from_cursor(
         Mouse::Error => return None,
     };
     let display = get_cursor_display().or_else(get_primary_display)?;
-    let scale = display.scale_factor as f64;
-    if scale <= 0.0 {
-        return None;
-    }
-    let display_x = display.x as f64 / scale;
-    let display_y = display.y as f64 / scale;
-    let display_width = display.width as f64 / scale;
-    let display_height = display.height as f64 / scale;
+    #[cfg(target_os = "macos")]
+    let (display_x, display_y, display_width, display_height) = (
+        display.x as f64,
+        display.y as f64,
+        display.width as f64,
+        display.height as f64,
+    );
+
+    #[cfg(not(target_os = "macos"))]
+    let (display_x, display_y, display_width, display_height) = {
+        let scale = display.scale_factor as f64;
+        if scale <= 0.0 {
+            return None;
+        }
+        (
+            display.x as f64 / scale,
+            display.y as f64 / scale,
+            display.width as f64 / scale,
+            display.height as f64 / scale,
+        )
+    };
+
     let (cursor_x, cursor_y) = (x, y);
     let window_width = window_size.width as f64;
     let window_height = window_size.height as f64;
@@ -186,17 +237,40 @@ fn window_size_from_state(size: Size) -> WindowSize {
     }
 }
 
-fn window_position_from_state(position: Position) -> WindowPosition {
-    WindowPosition {
-        x: WindowDimension {
-            value: position.x as f64,
-            unit: WindowDimensionUnit::Pixels,
-        },
-        y: WindowDimension {
-            value: position.y as f64,
-            unit: WindowDimensionUnit::Pixels,
-        },
+fn has_persisted_window_position(persisted: &PersistedState) -> bool {
+    persisted.window_position != Position::default()
+}
+
+fn has_persisted_window_size(persisted: &PersistedState) -> bool {
+    persisted.window_size != Size::default()
+}
+
+fn should_restore_last_closed_position(
+    is_first_window: bool,
+    startup_behavior: StartupBehavior,
+    default_position_mode: WindowPositionMode,
+    persisted: &PersistedState,
+) -> bool {
+    if !is_first_window || !has_persisted_window_position(persisted) {
+        return false;
     }
+
+    matches!(startup_behavior, StartupBehavior::LastClosed)
+        || matches!(startup_behavior, StartupBehavior::Default)
+            && matches!(default_position_mode, WindowPositionMode::Coordinates)
+}
+
+fn should_restore_last_closed_size(
+    is_first_window: bool,
+    startup_behavior: StartupBehavior,
+    persisted: &PersistedState,
+) -> bool {
+    is_first_window
+        && has_persisted_window_size(persisted)
+        && matches!(
+            startup_behavior,
+            StartupBehavior::LastClosed | StartupBehavior::Default
+        )
 }
 
 /// Get window metrics from last focused window's AppState.
@@ -211,38 +285,76 @@ fn get_last_focused_metrics() -> Option<(Position, Size)> {
 
 fn resolve_window_settings(
     is_first_window: bool,
-) -> (WindowPosition, WindowPositionMode, WindowSize) {
+) -> (WindowPositionSource, WindowPositionMode, WindowSize) {
     let cfg = CONFIG.read();
-    let position = choose_by_behavior(
+    let persisted = PersistedState::load();
+    let restore_last_closed_position = should_restore_last_closed_position(
         is_first_window,
         cfg.window_position.on_startup,
-        cfg.window_position.on_new_window,
-        || cfg.window_position.default_position,
-        || {
-            get_last_focused_metrics()
-                .map(|(pos, _)| window_position_from_state(pos))
-                .unwrap_or_else(|| {
-                    window_position_from_state(PersistedState::load().window_position)
-                })
-        },
+        cfg.window_position.default_position_mode,
+        &persisted,
     );
-    let position_mode = choose_by_behavior(
+    let restore_last_closed_size =
+        should_restore_last_closed_size(is_first_window, cfg.window_size.on_startup, &persisted);
+
+    let position = if restore_last_closed_position {
+        get_last_focused_metrics()
+            .map(|(pos, _)| WindowPositionSource::Absolute(pos))
+            .unwrap_or_else(|| WindowPositionSource::Absolute(persisted.window_position))
+    } else {
+        choose_by_behavior(
+            is_first_window,
+            cfg.window_position.on_startup,
+            cfg.window_position.on_new_window,
+            || WindowPositionSource::Relative(cfg.window_position.default_position),
+            || {
+                get_last_focused_metrics()
+                    .map(|(pos, _)| WindowPositionSource::Absolute(pos))
+                    .unwrap_or_else(|| WindowPositionSource::Absolute(persisted.window_position))
+            },
+        )
+    };
+    let position_mode = if restore_last_closed_position {
+        WindowPositionMode::Coordinates
+    } else {
+        choose_by_behavior(
+            is_first_window,
+            cfg.window_position.on_startup,
+            cfg.window_position.on_new_window,
+            || cfg.window_position.default_position_mode,
+            || WindowPositionMode::Coordinates,
+        )
+    };
+    let size = if restore_last_closed_size {
+        get_last_focused_metrics()
+            .map(|(_, sz)| window_size_from_state(sz))
+            .unwrap_or_else(|| window_size_from_state(persisted.window_size))
+    } else {
+        choose_by_behavior(
+            is_first_window,
+            cfg.window_size.on_startup,
+            cfg.window_size.on_new_window,
+            || cfg.window_size.default_size,
+            || {
+                get_last_focused_metrics()
+                    .map(|(_, sz)| window_size_from_state(sz))
+                    .unwrap_or_else(|| window_size_from_state(persisted.window_size))
+            },
+        )
+    };
+
+    tracing::debug!(
         is_first_window,
-        cfg.window_position.on_startup,
-        cfg.window_position.on_new_window,
-        || cfg.window_position.default_position_mode,
-        || WindowPositionMode::Coordinates,
-    );
-    let size = choose_by_behavior(
-        is_first_window,
-        cfg.window_size.on_startup,
-        cfg.window_size.on_new_window,
-        || cfg.window_size.default_size,
-        || {
-            get_last_focused_metrics()
-                .map(|(_, sz)| window_size_from_state(sz))
-                .unwrap_or_else(|| window_size_from_state(PersistedState::load().window_size))
-        },
+        startup_position_behavior = ?cfg.window_position.on_startup,
+        startup_size_behavior = ?cfg.window_size.on_startup,
+        restore_last_closed_position,
+        restore_last_closed_size,
+        position_mode = ?position_mode,
+        position = ?position,
+        size = ?size,
+        persisted_position = ?persisted.window_position,
+        persisted_size = ?persisted.window_size,
+        "Resolved window settings"
     );
 
     (position, position_mode, size)
@@ -294,6 +406,7 @@ pub fn get_sidebar_preference(is_first_window: bool) -> SidebarPreference {
         cfg.sidebar.on_new_window,
         || SidebarPreference {
             pinned: cfg.sidebar.default_pinned,
+            panel: cfg.sidebar.default_panel,
             width: cfg.sidebar.default_width,
             show_all_files: cfg.sidebar.default_show_all_files,
             zoom_level: cfg.sidebar.default_zoom_level,
@@ -304,6 +417,7 @@ pub fn get_sidebar_preference(is_first_window: bool) -> SidebarPreference {
                     let sidebar = state.sidebar.read();
                     SidebarPreference {
                         pinned: sidebar.pinned,
+                        panel: *state.left_sidebar_panel.read(),
                         width: sidebar.width,
                         show_all_files: sidebar.show_all_files,
                         zoom_level: sidebar.zoom_level,
@@ -311,6 +425,7 @@ pub fn get_sidebar_preference(is_first_window: bool) -> SidebarPreference {
                 },
                 |persisted| SidebarPreference {
                     pinned: persisted.sidebar_pinned,
+                    panel: persisted.left_sidebar_panel,
                     width: persisted.sidebar_width,
                     show_all_files: persisted.sidebar_show_all_files,
                     zoom_level: persisted.sidebar_zoom_level,
@@ -334,7 +449,7 @@ pub fn get_right_sidebar_preference(is_first_window: bool) -> RightSidebarPrefer
         || RightSidebarPreference {
             pinned: cfg.right_sidebar.default_pinned,
             width: cfg.right_sidebar.default_width,
-            tab: cfg.right_sidebar.default_tab,
+            panel: cfg.right_sidebar.default_panel,
             zoom_level: cfg.right_sidebar.default_zoom_level,
         },
         || {
@@ -342,13 +457,13 @@ pub fn get_right_sidebar_preference(is_first_window: bool) -> RightSidebarPrefer
                 |state| RightSidebarPreference {
                     pinned: *state.right_sidebar_pinned.read(),
                     width: *state.right_sidebar_width.read(),
-                    tab: *state.right_sidebar_tab.read(),
+                    panel: *state.right_sidebar_panel.read(),
                     zoom_level: *state.right_sidebar_zoom_level.read(),
                 },
                 |persisted| RightSidebarPreference {
                     pinned: persisted.right_sidebar_pinned,
                     width: persisted.right_sidebar_width,
-                    tab: persisted.right_sidebar_tab,
+                    panel: persisted.right_sidebar_panel,
                     zoom_level: persisted.right_sidebar_zoom_level,
                 },
             )
@@ -397,12 +512,28 @@ pub fn get_window_position_preference(is_first_window: bool) -> WindowPositionPr
         .unwrap_or_else(|| (LogicalPosition::new(0, 0), LogicalSize::new(1000, 800)));
     let resolved_size = resolve_window_size(size, screen_size);
     let resolved_position = match position_mode {
-        WindowPositionMode::Coordinates => {
-            resolve_window_position(position, screen_origin, screen_size, resolved_size)
-        }
+        WindowPositionMode::Coordinates => match position {
+            WindowPositionSource::Relative(position) => {
+                resolve_window_position(position, screen_origin, screen_size, resolved_size)
+            }
+            WindowPositionSource::Absolute(position) => {
+                let persisted_point = LogicalPosition::new(position.x, position.y);
+                let (origin, size) = get_display_bounds_for_logical_point(persisted_point)
+                    .unwrap_or((screen_origin, screen_size));
+                resolve_absolute_window_position(position, origin, size, resolved_size)
+            }
+        },
         WindowPositionMode::Mouse => resolve_window_position_from_cursor(resolved_size)
             .unwrap_or_else(|| LogicalPosition::new(0, 0)),
     };
+    tracing::debug!(
+        is_first_window,
+        position_mode = ?position_mode,
+        position = ?position,
+        resolved_size = ?resolved_size,
+        resolved_position = ?resolved_position,
+        "Resolved window position preference"
+    );
     WindowPositionPreference {
         position: resolved_position,
     }
@@ -461,6 +592,53 @@ mod tests {
     }
 
     #[test]
+    fn test_should_restore_last_closed_position_for_first_window_coordinates() {
+        let persisted = PersistedState {
+            window_position: Position { x: 120, y: 80 },
+            ..Default::default()
+        };
+
+        assert!(should_restore_last_closed_position(
+            true,
+            StartupBehavior::Default,
+            WindowPositionMode::Coordinates,
+            &persisted,
+        ));
+    }
+
+    #[test]
+    fn test_should_not_restore_last_closed_position_for_mouse_mode() {
+        let persisted = PersistedState {
+            window_position: Position { x: 120, y: 80 },
+            ..Default::default()
+        };
+
+        assert!(!should_restore_last_closed_position(
+            true,
+            StartupBehavior::Default,
+            WindowPositionMode::Mouse,
+            &persisted,
+        ));
+    }
+
+    #[test]
+    fn test_should_restore_last_closed_size_for_first_window() {
+        let persisted = PersistedState {
+            window_size: Size {
+                width: 1200,
+                height: 800,
+            },
+            ..Default::default()
+        };
+
+        assert!(should_restore_last_closed_size(
+            true,
+            StartupBehavior::Default,
+            &persisted,
+        ));
+    }
+
+    #[test]
     fn test_get_theme_preference_first_window() {
         let result = get_theme_preference(true);
         // Should return a ThemePreference
@@ -501,6 +679,10 @@ mod tests {
         let result = get_sidebar_preference(true);
         // Should return a SidebarPreference
         assert!(result.width > 0.0);
+        assert!(matches!(
+            result.panel,
+            SidebarPanel::Directory | SidebarPanel::Contents | SidebarPanel::Search
+        ));
     }
 
     #[test]
@@ -508,6 +690,10 @@ mod tests {
         let result = get_sidebar_preference(false);
         // Should return a SidebarPreference
         assert!(result.width > 0.0);
+        assert!(matches!(
+            result.panel,
+            SidebarPanel::Directory | SidebarPanel::Contents | SidebarPanel::Search
+        ));
     }
 
     #[test]
@@ -516,8 +702,8 @@ mod tests {
         // Should return a RightSidebarPreference
         assert!(result.width > 0.0);
         assert!(matches!(
-            result.tab,
-            RightSidebarTab::Contents | RightSidebarTab::Search
+            result.panel,
+            SidebarPanel::Directory | SidebarPanel::Contents | SidebarPanel::Search
         ));
     }
 
@@ -527,8 +713,8 @@ mod tests {
         // Should return a RightSidebarPreference
         assert!(result.width > 0.0);
         assert!(matches!(
-            result.tab,
-            RightSidebarTab::Contents | RightSidebarTab::Search
+            result.panel,
+            SidebarPanel::Directory | SidebarPanel::Contents | SidebarPanel::Search
         ));
     }
 
@@ -629,6 +815,34 @@ mod tests {
         let resolved = resolve_window_position(position, screen_origin, screen_size, window_size);
         assert_eq!(resolved.x, -290);
         assert_eq!(resolved.y, -180);
+    }
+
+    #[test]
+    fn test_resolve_absolute_window_position_preserves_absolute_coordinates() {
+        let position = Position { x: 1200, y: 160 };
+        let screen_origin = LogicalPosition::new(1000, 0);
+        let screen_size = LogicalSize::new(800, 600);
+        let window_size = LogicalSize::new(400, 300);
+
+        let resolved =
+            resolve_absolute_window_position(position, screen_origin, screen_size, window_size);
+
+        assert_eq!(resolved.x, 1200);
+        assert_eq!(resolved.y, 160);
+    }
+
+    #[test]
+    fn test_resolve_absolute_window_position_clamps_to_display() {
+        let position = Position { x: 1700, y: 500 };
+        let screen_origin = LogicalPosition::new(1000, 0);
+        let screen_size = LogicalSize::new(800, 600);
+        let window_size = LogicalSize::new(400, 300);
+
+        let resolved =
+            resolve_absolute_window_position(position, screen_origin, screen_size, window_size);
+
+        assert_eq!(resolved.x, 1400);
+        assert_eq!(resolved.y, 300);
     }
 
     #[test]

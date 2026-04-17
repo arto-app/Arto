@@ -4,12 +4,11 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::DEFAULT_RIGHT_SIDEBAR_WIDTH;
-use crate::state::AppState;
+use crate::state::{AppState, SidebarPanel};
 use crate::theme::Theme;
 
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Position {
     pub x: i32,
@@ -25,7 +24,7 @@ impl From<LogicalPosition<i32>> for Position {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Size {
     pub width: u32,
@@ -55,9 +54,12 @@ pub struct PersistedState {
     pub sidebar_show_all_files: bool,
     #[serde(default = "default_zoom_level")]
     pub sidebar_zoom_level: f64,
+    #[serde(default)]
+    pub left_sidebar_panel: SidebarPanel,
     pub right_sidebar_pinned: bool,
     pub right_sidebar_width: f64,
-    pub right_sidebar_tab: RightSidebarTab,
+    #[serde(default = "default_right_sidebar_panel", alias = "rightSidebarTab")]
+    pub right_sidebar_panel: SidebarPanel,
     #[serde(default = "default_zoom_level")]
     pub right_sidebar_zoom_level: f64,
     pub window_position: Position,
@@ -70,6 +72,10 @@ fn default_zoom_level() -> f64 {
     1.0
 }
 
+fn default_right_sidebar_panel() -> SidebarPanel {
+    SidebarPanel::Contents
+}
+
 impl Default for PersistedState {
     fn default() -> Self {
         Self {
@@ -79,9 +85,10 @@ impl Default for PersistedState {
             sidebar_width: 280.0,
             sidebar_show_all_files: false,
             sidebar_zoom_level: 1.0,
+            left_sidebar_panel: SidebarPanel::Directory,
             right_sidebar_pinned: false,
             right_sidebar_width: DEFAULT_RIGHT_SIDEBAR_WIDTH,
-            right_sidebar_tab: RightSidebarTab::default(),
+            right_sidebar_panel: default_right_sidebar_panel(),
             right_sidebar_zoom_level: 1.0,
             window_position: Position::default(),
             window_size: Size::default(),
@@ -100,9 +107,10 @@ impl From<&AppState> for PersistedState {
             sidebar_width: sidebar.width,
             sidebar_show_all_files: sidebar.show_all_files,
             sidebar_zoom_level: sidebar.zoom_level,
+            left_sidebar_panel: *state.left_sidebar_panel.read(),
             right_sidebar_pinned: *state.right_sidebar_pinned.read(),
             right_sidebar_width: *state.right_sidebar_width.read(),
-            right_sidebar_tab: *state.right_sidebar_tab.read(),
+            right_sidebar_panel: *state.right_sidebar_panel.read(),
             right_sidebar_zoom_level: *state.right_sidebar_zoom_level.read(),
             window_position: (*state.position.read()).into(),
             window_size: (*state.size.read()).into(),
@@ -158,9 +166,10 @@ impl PersistedState {
             sidebar_width = self.sidebar_width,
             sidebar_show_all_files = self.sidebar_show_all_files,
             sidebar_zoom_level = self.sidebar_zoom_level,
+            left_sidebar_panel = ?self.left_sidebar_panel,
             right_sidebar_pinned = self.right_sidebar_pinned,
             right_sidebar_width = self.right_sidebar_width,
-            right_sidebar_tab = ?self.right_sidebar_tab,
+            right_sidebar_panel = ?self.right_sidebar_panel,
             right_sidebar_zoom_level = self.right_sidebar_zoom_level,
             zoom_level = self.zoom_level,
             "Saving persisted state"

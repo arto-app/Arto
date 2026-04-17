@@ -5,7 +5,8 @@ pub mod quick_access;
 use dioxus::document;
 use dioxus::prelude::*;
 
-use crate::state::{AppState, FocusedPanel};
+use super::right_sidebar::{ContentsTab, SearchTab};
+use crate::state::{AppState, FocusedPanel, SidebarPanel};
 
 #[component]
 pub fn Sidebar(
@@ -17,10 +18,14 @@ pub fn Sidebar(
     let width = sidebar_state.width;
     let zoom_level = sidebar_state.zoom_level;
     drop(sidebar_state);
+    let active_panel = *state.left_sidebar_panel.read();
     let focused_panel = *state.focused_panel.read();
     let is_panel_focused =
         focused_panel == FocusedPanel::LeftSidebar || focused_panel == FocusedPanel::QuickAccess;
     let mut is_resizing = use_signal(|| false);
+    let headings = state.right_sidebar_headings.read().clone();
+    let toc_cursor = *state.toc_cursor.read();
+    let is_pinned = state.sidebar.read().pinned;
 
     let outer_style = format!("width: {}px;", width);
     let inner_style = format!("zoom: {};", zoom_level);
@@ -37,9 +42,62 @@ pub fn Sidebar(
                 class: "left-sidebar-inner",
                 style: "{inner_style}",
 
-                // File explorer content (always mounted for animation)
-                file_explorer::FileExplorer {
-                    on_pin_toggle,
+                div {
+                    class: "right-sidebar-tabs",
+
+                    button {
+                        class: if active_panel == SidebarPanel::Directory { "right-sidebar-tab active" } else { "right-sidebar-tab" },
+                        onclick: move |_| state.set_left_sidebar_panel(SidebarPanel::Directory),
+                        span { "Directory" }
+                    }
+
+                    button {
+                        class: if active_panel == SidebarPanel::Contents { "right-sidebar-tab active" } else { "right-sidebar-tab" },
+                        onclick: move |_| state.set_left_sidebar_panel(SidebarPanel::Contents),
+                        span { "Contents" }
+                    }
+
+                    button {
+                        class: if active_panel == SidebarPanel::Search { "right-sidebar-tab active" } else { "right-sidebar-tab" },
+                        onclick: move |_| state.set_left_sidebar_panel(SidebarPanel::Search),
+                        span { "Search" }
+                    }
+
+                    if let Some(handler) = on_pin_toggle {
+                        button {
+                            class: "right-sidebar-pin-button",
+                            class: if is_pinned { "pinned" },
+                            title: if is_pinned { "Unpin sidebar" } else { "Pin sidebar" },
+                            onclick: move |_| handler.call(()),
+                            crate::components::icon::Icon {
+                                name: if is_pinned {
+                                    crate::components::icon::IconName::PinFilled
+                                } else {
+                                    crate::components::icon::IconName::Pin
+                                },
+                                size: 20,
+                            }
+                        }
+                    }
+                }
+
+                match active_panel {
+                    SidebarPanel::Directory => rsx! {
+                        file_explorer::FileExplorer {
+                            on_pin_toggle: None,
+                        }
+                    },
+                    SidebarPanel::Contents => rsx! {
+                        ContentsTab {
+                            headings,
+                            cursor_index: if focused_panel == FocusedPanel::LeftSidebar {
+                                toc_cursor
+                            } else {
+                                None
+                            },
+                        }
+                    },
+                    SidebarPanel::Search => rsx! { SearchTab {} },
                 }
             }
 

@@ -3,7 +3,6 @@ use dioxus::prelude::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::DEFAULT_RIGHT_SIDEBAR_WIDTH;
 use crate::markdown::HeadingInfo;
 use crate::pinned_search::PinnedSearchId;
@@ -31,6 +30,15 @@ pub struct SearchMatch {
     pub context_start: usize,
     /// End position of match within context (byte index)
     pub context_end: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SidebarPanel {
+    #[default]
+    Directory,
+    Contents,
+    Search,
 }
 
 /// Per-window application state.
@@ -61,9 +69,10 @@ pub struct AppState {
     pub current_theme: Signal<Theme>,
     pub zoom_level: Signal<f64>,
     pub sidebar: Signal<Sidebar>,
+    pub left_sidebar_panel: Signal<SidebarPanel>,
     pub right_sidebar_pinned: Signal<bool>,
     pub right_sidebar_width: Signal<f64>,
-    pub right_sidebar_tab: Signal<RightSidebarTab>,
+    pub right_sidebar_panel: Signal<SidebarPanel>,
     pub right_sidebar_zoom_level: Signal<f64>,
     pub right_sidebar_headings: Signal<Vec<HeadingInfo>>,
     pub position: Signal<LogicalPosition<i32>>,
@@ -116,9 +125,10 @@ impl AppState {
             current_theme: Signal::new(theme),
             zoom_level: Signal::new(1.0),
             sidebar: Signal::new(Sidebar::default()),
+            left_sidebar_panel: Signal::new(SidebarPanel::default()),
             right_sidebar_pinned: Signal::new(false),
             right_sidebar_width: Signal::new(DEFAULT_RIGHT_SIDEBAR_WIDTH),
-            right_sidebar_tab: Signal::new(RightSidebarTab::default()),
+            right_sidebar_panel: Signal::new(SidebarPanel::Contents),
             right_sidebar_zoom_level: Signal::new(1.0),
             right_sidebar_headings: Signal::new(Vec::new()),
             position: Signal::new(Default::default()),
@@ -212,9 +222,14 @@ impl AppState {
         self.right_sidebar_width.set(width);
     }
 
-    /// Set right sidebar active tab
-    pub fn set_right_sidebar_tab(&mut self, tab: RightSidebarTab) {
-        self.right_sidebar_tab.set(tab);
+    /// Set left sidebar active panel
+    pub fn set_left_sidebar_panel(&mut self, panel: SidebarPanel) {
+        self.left_sidebar_panel.set(panel);
+    }
+
+    /// Set right sidebar active panel
+    pub fn set_right_sidebar_panel(&mut self, panel: SidebarPanel) {
+        self.right_sidebar_panel.set(panel);
     }
 
     /// Toggle search bar visibility

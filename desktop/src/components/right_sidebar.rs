@@ -1,24 +1,15 @@
 use dioxus::prelude::*;
-use serde::{Deserialize, Serialize};
 
 mod contents_tab;
 mod search_tab;
 mod tab_bar;
 
-use contents_tab::ContentsTab;
-use search_tab::SearchTab;
+pub(crate) use contents_tab::ContentsTab;
+pub(crate) use search_tab::SearchTab;
 use tab_bar::TabBar;
 
 use crate::markdown::HeadingInfo;
-use crate::state::{AppState, FocusedPanel};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RightSidebarTab {
-    #[default]
-    Contents,
-    Search,
-}
+use crate::state::{AppState, FocusedPanel, SidebarPanel};
 
 #[derive(Props, Clone, PartialEq)]
 pub struct RightSidebarProps {
@@ -31,7 +22,7 @@ pub struct RightSidebarProps {
 pub fn RightSidebar(props: RightSidebarProps) -> Element {
     let mut state = use_context::<AppState>();
     let width = *state.right_sidebar_width.read();
-    let active_tab = *state.right_sidebar_tab.read();
+    let active_panel = *state.right_sidebar_panel.read();
     let zoom_level = *state.right_sidebar_zoom_level.read();
     let is_panel_focused = *state.focused_panel.read() == FocusedPanel::RightSidebar;
     let toc_cursor = *state.toc_cursor.read();
@@ -60,8 +51,8 @@ pub fn RightSidebar(props: RightSidebarProps) -> Element {
 
                 // Tab bar
                 TabBar {
-                    active_tab,
-                    on_change: move |tab| state.set_right_sidebar_tab(tab),
+                    active_panel,
+                    on_change: move |panel| state.set_right_sidebar_panel(panel),
                     on_pin_toggle: props.on_pin_toggle,
                 }
 
@@ -69,14 +60,19 @@ pub fn RightSidebar(props: RightSidebarProps) -> Element {
                 div {
                     class: "right-sidebar-content",
 
-                    match active_tab {
-                        RightSidebarTab::Contents => rsx! {
+                    match active_panel {
+                        SidebarPanel::Directory => rsx! {
+                            crate::components::sidebar::file_explorer::FileExplorer {
+                                on_pin_toggle: None,
+                            }
+                        },
+                        SidebarPanel::Contents => rsx! {
                             ContentsTab {
                                 headings,
                                 cursor_index: if is_panel_focused { toc_cursor } else { None },
                             }
                         },
-                        RightSidebarTab::Search => rsx! { SearchTab {} },
+                        SidebarPanel::Search => rsx! { SearchTab {} },
                     }
                 }
             }

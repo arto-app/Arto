@@ -1,7 +1,6 @@
 use super::super::form_controls::{OptionCardItem, OptionCards, SliderInput};
-use crate::components::right_sidebar::RightSidebarTab as RightSidebarTabKind;
 use crate::config::{normalize_zoom_level, Config, NewWindowBehavior, StartupBehavior};
-use crate::state::AppState;
+use crate::state::{AppState, SidebarPanel};
 use dioxus::prelude::*;
 
 #[component]
@@ -88,20 +87,26 @@ pub fn RightSidebarTab(
                     options: vec![
                         OptionCardItem {
                             icon: None,
-                            value: RightSidebarTabKind::Contents,
+                            value: SidebarPanel::Directory,
+                            title: "Directory".to_string(),
+                            description: Some("Show file directory tree".to_string()),
+                        },
+                        OptionCardItem {
+                            icon: None,
+                            value: SidebarPanel::Contents,
                             title: "Contents".to_string(),
                             description: Some("Show table of contents".to_string()),
                         },
                         OptionCardItem {
                             icon: None,
-                            value: RightSidebarTabKind::Search,
+                            value: SidebarPanel::Search,
                             title: "Search".to_string(),
                             description: Some("Show document search".to_string()),
                         },
                     ],
-                    selected: right_sidebar_cfg.default_tab,
+                    selected: right_sidebar_cfg.default_panel,
                     on_change: move |new_tab| {
-                        config.write().right_sidebar.default_tab = new_tab;
+                        config.write().right_sidebar.default_panel = new_tab;
                         has_changes.set(true);
                     },
                 }

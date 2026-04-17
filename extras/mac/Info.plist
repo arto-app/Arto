@@ -7,6 +7,7 @@
   <key>CFBundleExecutable</key><string>arto</string>
   <key>CFBundleIdentifier</key><string>com.lambdalisue.Arto</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>CFBundleIconFile</key><string>icon.icns</string>
   <key>CFBundleName</key><string>Arto</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.1.0</string>

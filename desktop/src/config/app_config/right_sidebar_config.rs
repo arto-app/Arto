@@ -1,5 +1,5 @@
 use super::behavior::{NewWindowBehavior, StartupBehavior};
-use crate::components::right_sidebar::RightSidebarTab;
+use crate::state::SidebarPanel;
 use serde::{Deserialize, Serialize};
 
 /// Default right sidebar panel width in pixels
@@ -16,6 +16,10 @@ fn default_right_sidebar_zoom_level() -> f64 {
     DEFAULT_RIGHT_SIDEBAR_ZOOM_LEVEL
 }
 
+fn default_right_sidebar_panel() -> SidebarPanel {
+    SidebarPanel::Contents
+}
+
 /// Configuration for right sidebar panel settings
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -25,9 +29,9 @@ pub struct RightSidebarConfig {
     /// Default right sidebar panel width in pixels
     #[serde(default = "default_right_sidebar_width")]
     pub default_width: f64,
-    /// Default active tab
-    #[serde(default)]
-    pub default_tab: RightSidebarTab,
+    /// Default panel content
+    #[serde(default = "default_right_sidebar_panel", alias = "defaultTab")]
+    pub default_panel: SidebarPanel,
     /// Default zoom level for right sidebar content
     #[serde(default = "default_right_sidebar_zoom_level")]
     pub default_zoom_level: f64,
@@ -42,7 +46,7 @@ impl Default for RightSidebarConfig {
         Self {
             default_pinned: false,
             default_width: default_right_sidebar_width(),
-            default_tab: RightSidebarTab::default(),
+            default_panel: default_right_sidebar_panel(),
             default_zoom_level: default_right_sidebar_zoom_level(),
             on_startup: StartupBehavior::Default,
             on_new_window: NewWindowBehavior::Default,

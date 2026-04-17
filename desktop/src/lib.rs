@@ -97,6 +97,10 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
                     ipc::push_event(ipc::OpenEvent::Reopen { behavior: None });
                     ipc::process_main_thread_tasks();
                 }
+                Event::LoopDestroyed => {
+                    tracing::debug!("Event::LoopDestroyed received");
+                    window::persist_preferred_main_window_state();
+                }
                 Event::WindowEvent {
                     event: WindowEvent::Focused(true),
                     window_id,

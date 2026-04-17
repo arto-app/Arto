@@ -1,6 +1,6 @@
 use super::super::form_controls::{OptionCardItem, OptionCards, SliderInput};
 use crate::config::{normalize_zoom_level, Config, NewWindowBehavior, StartupBehavior};
-use crate::state::AppState;
+use crate::state::{AppState, SidebarPanel};
 use dioxus::prelude::*;
 
 #[component]
@@ -70,6 +70,43 @@ pub fn SidebarTab(
                     selected: sidebar_cfg.default_pinned,
                     on_change: move |new_state| {
                         config.write().sidebar.default_pinned = new_state;
+                        has_changes.set(true);
+                    },
+                }
+            }
+
+            div {
+                class: "preference-item",
+                div {
+                    class: "preference-item-header",
+                    label { "Default Panel" }
+                    p { class: "preference-description", "Which content the left sidebar shows by default." }
+                }
+                OptionCards {
+                    name: "sidebar-default-panel".to_string(),
+                    options: vec![
+                        OptionCardItem {
+                            icon: None,
+                            value: SidebarPanel::Directory,
+                            title: "Directory".to_string(),
+                            description: Some("Show the file directory tree".to_string()),
+                        },
+                        OptionCardItem {
+                            icon: None,
+                            value: SidebarPanel::Contents,
+                            title: "Contents".to_string(),
+                            description: Some("Show markdown table of contents".to_string()),
+                        },
+                        OptionCardItem {
+                            icon: None,
+                            value: SidebarPanel::Search,
+                            title: "Search".to_string(),
+                            description: Some("Show document search results".to_string()),
+                        },
+                    ],
+                    selected: sidebar_cfg.default_panel,
+                    on_change: move |new_panel| {
+                        config.write().sidebar.default_panel = new_panel;
                         has_changes.set(true);
                     },
                 }

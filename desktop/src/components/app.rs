@@ -20,7 +20,6 @@ use super::content::{
 };
 use super::header::Header;
 use super::right_sidebar::RightSidebar;
-use super::right_sidebar::RightSidebarTab;
 use super::search_bar::SearchBar;
 use super::sidebar::Sidebar;
 use super::tab::TabBar;
@@ -29,7 +28,7 @@ use crate::drag;
 use crate::events::{ActiveDragUpdate, ACTIVE_DRAG_UPDATE};
 #[cfg(not(target_os = "windows"))]
 use crate::menu;
-use crate::state::{AppState, PersistedState, Tab};
+use crate::state::{AppState, PersistedState, SidebarPanel, Tab};
 use crate::theme::Theme;
 
 use drag_drop_overlay::DragDropOverlay;
@@ -50,16 +49,20 @@ pub fn App(
     tabs: Vec<Tab>,     // Initial tabs (at least one tab must be present)
     directory: PathBuf, // Directory (resolved in create_main_window or MainApp)
     theme: Theme,       // The enum: Auto/Light/Dark
+    initial_window_position: LogicalPosition<i32>,
     sidebar_pinned: bool,
+    sidebar_panel: SidebarPanel,
     sidebar_width: f64,
     sidebar_show_all_files: bool,
     sidebar_zoom_level: f64,
     right_sidebar_pinned: bool,
     right_sidebar_width: f64,
-    right_sidebar_tab: RightSidebarTab,
+    right_sidebar_panel: SidebarPanel,
     right_sidebar_zoom_level: f64,
     zoom_level: f64,
 ) -> Element {
+    let desktop = window();
+
     // Initialize application state with the provided tab
     let mut state = use_context_provider(|| {
         let mut app_state = AppState::new(theme);
@@ -82,12 +85,13 @@ pub fn App(
             sidebar.width = sidebar_width;
             sidebar.show_all_files = sidebar_show_all_files;
         }
+        app_state.left_sidebar_panel.set(sidebar_panel);
 
         // Apply initial right sidebar settings from params
         {
             app_state.right_sidebar_pinned.set(right_sidebar_pinned);
             app_state.right_sidebar_width.set(right_sidebar_width);
-            app_state.right_sidebar_tab.set(right_sidebar_tab);
+            app_state.right_sidebar_panel.set(right_sidebar_panel);
         }
 
         // Apply initial zoom levels from params (already normalized in window::settings)
@@ -99,18 +103,22 @@ pub fn App(
             app_state.zoom_level.set(zoom_level);
         }
 
-        let metrics = crate::window::metrics::capture_window_metrics(&window().window);
+        let metrics = crate::window::metrics::capture_window_metrics(&desktop.window);
         *app_state.position.write() = LogicalPosition::new(metrics.position.x, metrics.position.y);
         *app_state.size.write() = LogicalSize::new(metrics.size.width, metrics.size.height);
 
         // Register this window in MAIN_WINDOWS list for cross-window access.
         // This enables fire-and-forget window creation (no need to await new_window()).
-        crate::window::register_main_window(std::rc::Rc::downgrade(&window()));
+        crate::window::register_main_window(std::rc::Rc::downgrade(&desktop));
 
         // Register this window's state for cross-window access
-        crate::window::register_window_state(window().id(), app_state);
+        crate::window::register_window_state(desktop.id(), app_state);
 
         app_state
+    });
+
+    use_hook(move || {
+        desktop.window.set_outer_position(initial_window_position);
     });
 
     // Track drag-and-drop hover state
@@ -153,6 +161,16 @@ pub fn App(
 
     // Handle window events
     use_wry_event_handler(move |event, _| match event {
+        TaoEvent::WindowEvent {
+            event: WindowEvent::CloseRequested | WindowEvent::Destroyed,
+            window_id,
+            ..
+        } => {
+            let window = window();
+            if window_id == &window.id() {
+                persist_window_state(state, &window.window);
+            }
+        }
         TaoEvent::WindowEvent {
             event: WindowEvent::Resized(size),
             window_id,
@@ -298,11 +316,7 @@ pub fn App(
         crate::window::unregister_window_state(window_id);
 
         // Save last used state from this window to disk for next app launch
-        let mut persisted = PersistedState::from(&state);
-        let window_metrics = crate::window::metrics::capture_window_metrics(&window().window);
-        persisted.window_position = window_metrics.position;
-        persisted.window_size = window_metrics.size;
-        persisted.save();
+        persist_window_state(state, &window().window);
 
         // Close child windows
         crate::window::close_child_windows_for_parent(window_id);
@@ -577,4 +591,15 @@ fn sync_window_metrics(
     if let Some(size) = size {
         *state.size.write() = size;
     }
+}
+
+fn persist_window_state(state: AppState, window: &dioxus::desktop::tao::window::Window) {
+    if crate::window::should_skip_persist_on_close() {
+        return;
+    }
+    let mut persisted = PersistedState::from(&state);
+    let window_metrics = crate::window::metrics::capture_window_metrics(window);
+    persisted.window_position = window_metrics.position;
+    persisted.window_size = window_metrics.size;
+    persisted.save();
 }

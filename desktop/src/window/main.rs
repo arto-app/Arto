@@ -9,14 +9,14 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::state::AppState;
+use crate::state::{AppState, PersistedState};
 
 use crate::assets::MAIN_STYLE;
 use crate::components::app::{App, AppProps};
-use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::{WindowPositionOffset, CONFIG};
-use crate::state::Tab;
+use crate::state::{SidebarPanel, Tab};
 use crate::theme::Theme;
 use crate::utils::screen::get_current_display_bounds;
 
@@ -48,12 +48,13 @@ pub struct CreateMainWindowConfigParams {
     pub directory: Option<PathBuf>, // Auto-detect from tab/file if None
     pub theme: Theme,               // The enum: Auto/Light/Dark
     pub sidebar_pinned: bool,
+    pub sidebar_panel: SidebarPanel,
     pub sidebar_width: f64,
     pub sidebar_show_all_files: bool,
     pub sidebar_zoom_level: f64,
     pub right_sidebar_pinned: bool,
     pub right_sidebar_width: f64,
-    pub right_sidebar_tab: RightSidebarTab,
+    pub right_sidebar_panel: SidebarPanel,
     pub right_sidebar_zoom_level: f64,
     pub zoom_level: f64,
     pub size: LogicalSize<u32>,
@@ -79,12 +80,13 @@ impl CreateMainWindowConfigParams {
             directory: directory_pref.directory,
             theme: theme_pref.theme,
             sidebar_pinned: sidebar_pref.pinned,
+            sidebar_panel: sidebar_pref.panel,
             sidebar_width: sidebar_pref.width,
             sidebar_show_all_files: sidebar_pref.show_all_files,
             sidebar_zoom_level: sidebar_pref.zoom_level,
             right_sidebar_pinned: right_sidebar_pref.pinned,
             right_sidebar_width: right_sidebar_pref.width,
-            right_sidebar_tab: right_sidebar_pref.tab,
+            right_sidebar_panel: right_sidebar_pref.panel,
             right_sidebar_zoom_level: right_sidebar_pref.zoom_level,
             zoom_level: zoom_pref.zoom_level,
             size: size_pref.size,
@@ -106,6 +108,8 @@ thread_local! {
     static LAST_FOCUSED_WINDOW: RefCell<Option<WindowId>> = const { RefCell::new(None) };
     static WINDOW_STATES: RefCell<HashMap<WindowId, AppState>> = RefCell::new(HashMap::new());
 }
+
+static SKIP_CLOSE_PERSIST: AtomicBool = AtomicBool::new(false);
 
 /// List all active (upgraded) main window contexts
 pub fn list_main_windows() -> Vec<Rc<DesktopService>> {
@@ -206,6 +210,8 @@ pub fn close_all_main_windows() {
 /// `WindowCloseBehaviour::WindowCloses` so the hidden MainApp window is actually
 /// destroyed and the process can exit on last window close.
 pub fn shutdown_all_windows() -> usize {
+    persist_preferred_main_window_state();
+    SKIP_CLOSE_PERSIST.store(true, Ordering::SeqCst);
     super::child::close_all_child_windows();
 
     let windows = list_main_windows();
@@ -214,6 +220,10 @@ pub fn shutdown_all_windows() -> usize {
         w.close();
     });
     windows.len()
+}
+
+pub fn should_skip_persist_on_close() -> bool {
+    SKIP_CLOSE_PERSIST.load(Ordering::SeqCst)
 }
 
 // ============================================================================
@@ -279,13 +289,15 @@ fn build_window_dom_and_config(
             tabs,
             directory,
             theme: params.theme,
+            initial_window_position: params.position,
             sidebar_pinned: params.sidebar_pinned,
+            sidebar_panel: params.sidebar_panel,
             sidebar_width: params.sidebar_width,
             sidebar_show_all_files: params.sidebar_show_all_files,
             sidebar_zoom_level: params.sidebar_zoom_level,
             right_sidebar_pinned: params.right_sidebar_pinned,
             right_sidebar_width: params.right_sidebar_width,
-            right_sidebar_tab: params.right_sidebar_tab,
+            right_sidebar_panel: params.right_sidebar_panel,
             right_sidebar_zoom_level: params.right_sidebar_zoom_level,
             zoom_level: params.zoom_level,
         },
@@ -412,6 +424,31 @@ pub fn get_last_focused_window_state() -> Option<AppState> {
 
 pub(crate) fn get_last_focused_window() -> Option<WindowId> {
     LAST_FOCUSED_WINDOW.with(|last| *last.borrow())
+}
+
+pub(crate) fn persist_preferred_main_window_state() {
+    let preferred = get_last_focused_window()
+        .and_then(|id| {
+            list_main_windows()
+                .into_iter()
+                .find(|ctx| ctx.window.id() == id)
+        })
+        .or_else(|| list_visible_main_windows().into_iter().next())
+        .or_else(|| list_main_windows().into_iter().next());
+
+    let Some(window_ctx) = preferred else {
+        return;
+    };
+
+    let Some(state) = get_window_state(window_ctx.window.id()) else {
+        return;
+    };
+
+    let mut persisted = PersistedState::from(&state);
+    let metrics = capture_window_metrics(&window_ctx.window);
+    persisted.window_position = metrics.position;
+    persisted.window_size = metrics.size;
+    persisted.save();
 }
 
 fn list_main_window_positions() -> Vec<LogicalPosition<i32>> {

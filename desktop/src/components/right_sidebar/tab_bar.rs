@@ -1,13 +1,12 @@
 use dioxus::prelude::*;
 
-use super::RightSidebarTab;
 use crate::components::icon::{Icon, IconName};
-use crate::state::AppState;
+use crate::state::{AppState, SidebarPanel};
 
 #[component]
 pub fn TabBar(
-    active_tab: RightSidebarTab,
-    on_change: EventHandler<RightSidebarTab>,
+    active_panel: SidebarPanel,
+    on_change: EventHandler<SidebarPanel>,
     on_pin_toggle: Option<EventHandler<()>>,
 ) -> Element {
     let state = use_context::<AppState>();
@@ -18,15 +17,20 @@ pub fn TabBar(
 
             // Contents tab
             button {
-                class: if active_tab == RightSidebarTab::Contents { "right-sidebar-tab active" } else { "right-sidebar-tab" },
-                onclick: move |_| on_change.call(RightSidebarTab::Contents),
+                class: if active_panel == SidebarPanel::Directory { "right-sidebar-tab active" } else { "right-sidebar-tab" },
+                onclick: move |_| on_change.call(SidebarPanel::Directory),
+                span { "Directory" }
+            }
+
+            button {
+                class: if active_panel == SidebarPanel::Contents { "right-sidebar-tab active" } else { "right-sidebar-tab" },
+                onclick: move |_| on_change.call(SidebarPanel::Contents),
                 span { "Contents" }
             }
 
-            // Search tab
             button {
-                class: if active_tab == RightSidebarTab::Search { "right-sidebar-tab active" } else { "right-sidebar-tab" },
-                onclick: move |_| on_change.call(RightSidebarTab::Search),
+                class: if active_panel == SidebarPanel::Search { "right-sidebar-tab active" } else { "right-sidebar-tab" },
+                onclick: move |_| on_change.call(SidebarPanel::Search),
                 span { "Search" }
             }
 

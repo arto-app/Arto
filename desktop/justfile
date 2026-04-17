@@ -23,6 +23,8 @@ build:
   @rm -rf target/dx/arto/release/macos/Arto.app/Contents/Resources/assets
   @rm -rf target/dx/arto/bundle/macos/macos/Arto.app/Contents/Resources/assets
   dx bundle --release --macos --package-types dmg
+  @mkdir -p target/dx/arto/release/macos/Arto.app/Contents/Resources
+  @cp -af ../extras/mac/arto-app.icns target/dx/arto/release/macos/Arto.app/Contents/Resources/icon.icns
 
 [linux]
 build:
@@ -41,7 +43,7 @@ open:
 [macos]
 install:
   @rm -rf /Applications/Arto.app
-  @cp -af target/dx/arto/bundle/macos/macos/Arto.app /Applications/.
+  @cp -af target/dx/arto/release/macos/Arto.app /Applications/.
 
 [windows]
 build:

@@ -49,6 +49,7 @@ pub struct Config {
 mod tests {
     use super::window_position_config::WindowPositionOffset;
     use super::*;
+    use crate::state::SidebarPanel;
     use crate::theme::Theme;
     use std::path::PathBuf;
 
@@ -81,6 +82,7 @@ mod tests {
 
         // Sidebar defaults
         assert!(!config.sidebar.default_pinned); // Default is false (unpinned, overlay on hover)
+        assert_eq!(config.sidebar.default_panel, SidebarPanel::Directory);
         assert_eq!(config.sidebar.default_width, 280.0);
         assert!(!config.sidebar.default_show_all_files);
         assert_eq!(config.sidebar.default_zoom_level, 1.0);
@@ -89,6 +91,7 @@ mod tests {
 
         // Right sidebar defaults
         assert!(!config.right_sidebar.default_pinned);
+        assert_eq!(config.right_sidebar.default_panel, SidebarPanel::Contents);
         assert_eq!(config.right_sidebar.default_width, 220.0);
         assert_eq!(config.right_sidebar.default_zoom_level, 1.0);
         assert_eq!(config.right_sidebar.on_startup, StartupBehavior::Default);
@@ -162,6 +165,7 @@ mod tests {
             },
             sidebar: SidebarConfig {
                 default_pinned: false,
+                default_panel: SidebarPanel::Search,
                 default_width: 320.0,
                 default_show_all_files: true,
                 default_zoom_level: 1.2,
@@ -171,7 +175,7 @@ mod tests {
             right_sidebar: RightSidebarConfig {
                 default_pinned: true,
                 default_width: 250.0,
-                default_tab: Default::default(),
+                default_panel: SidebarPanel::Directory,
                 default_zoom_level: 0.8,
                 on_startup: StartupBehavior::LastClosed,
                 on_new_window: NewWindowBehavior::LastFocused,
@@ -232,9 +236,11 @@ mod tests {
             Some(PathBuf::from("/home/user"))
         );
         assert!(!parsed.sidebar.default_pinned);
+        assert_eq!(parsed.sidebar.default_panel, SidebarPanel::Search);
         assert_eq!(parsed.sidebar.default_width, 320.0);
         assert_eq!(parsed.sidebar.default_zoom_level, 1.2);
         assert!(parsed.right_sidebar.default_pinned);
+        assert_eq!(parsed.right_sidebar.default_panel, SidebarPanel::Directory);
         assert_eq!(parsed.right_sidebar.default_width, 250.0);
         assert_eq!(parsed.right_sidebar.default_zoom_level, 0.8);
         assert_eq!(parsed.window_position.default_position.x.value, 10.0);
