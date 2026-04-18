@@ -82,22 +82,30 @@ pub fn Sidebar(
                 }
 
                 match active_panel {
-                    SidebarPanel::Directory => rsx! {
-                        file_explorer::FileExplorer {
-                            on_pin_toggle: None,
+                    panel => rsx! {
+                        div {
+                            class: "right-sidebar-content",
+
+                            match panel {
+                                SidebarPanel::Directory => rsx! {
+                                    file_explorer::FileExplorer {
+                                        on_pin_toggle: None,
+                                    }
+                                },
+                                SidebarPanel::Contents => rsx! {
+                                    ContentsTab {
+                                        headings,
+                                        cursor_index: if focused_panel == FocusedPanel::LeftSidebar {
+                                            toc_cursor
+                                        } else {
+                                            None
+                                        },
+                                    }
+                                },
+                                SidebarPanel::Search => rsx! { SearchTab {} },
+                            }
                         }
                     },
-                    SidebarPanel::Contents => rsx! {
-                        ContentsTab {
-                            headings,
-                            cursor_index: if focused_panel == FocusedPanel::LeftSidebar {
-                                toc_cursor
-                            } else {
-                                None
-                            },
-                        }
-                    },
-                    SidebarPanel::Search => rsx! { SearchTab {} },
                 }
             }
 

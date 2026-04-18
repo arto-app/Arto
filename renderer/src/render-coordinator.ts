@@ -2,6 +2,7 @@ import * as mathRenderer from "./math-renderer";
 import * as mermaidRenderer from "./mermaid-renderer";
 import * as syntaxHighlighter from "./syntax-highlighter";
 import * as codeCopy from "./code-copy";
+import * as tableControls from "./table-controls";
 
 /**
  * Setup single-click listeners for Image blocks.
@@ -194,6 +195,7 @@ class RenderCoordinator {
           syntaxHighlighter.highlightCodeBlocks(markdownBody);
           await mermaidRenderer.renderDiagrams(markdownBody);
           codeCopy.addCopyButtons(markdownBody);
+          tableControls.enhanceTables(markdownBody);
           setupSpecialBlockListeners(markdownBody);
         }),
       );

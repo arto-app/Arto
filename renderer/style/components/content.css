@@ -1,5 +1,6 @@
 @import url("./content/frontmatter.css");
 @import url("./content/markdown-viewer.css");
+@import url("./content/table-controls.css");
 @import url("./content/no-file.css");
 
 .content {

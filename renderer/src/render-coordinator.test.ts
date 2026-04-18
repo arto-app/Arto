@@ -13,12 +13,16 @@ vi.mock("./mermaid-renderer", () => ({
 vi.mock("./code-copy", () => ({
   addCopyButtons: vi.fn(),
 }));
+vi.mock("./table-controls", () => ({
+  enhanceTables: vi.fn(),
+}));
 
 import { _internal } from "./render-coordinator";
 import * as mathRenderer from "./math-renderer";
 import * as syntaxHighlighter from "./syntax-highlighter";
 import * as mermaidRenderer from "./mermaid-renderer";
 import * as codeCopy from "./code-copy";
+import * as tableControls from "./table-controls";
 
 const { RenderCoordinator } = _internal;
 
@@ -107,6 +111,7 @@ describe("RenderCoordinator", () => {
       expect(syntaxHighlighter.highlightCodeBlocks).toHaveBeenCalledOnce();
       expect(mermaidRenderer.renderDiagrams).toHaveBeenCalledOnce();
       expect(codeCopy.addCopyButtons).toHaveBeenCalledOnce();
+      expect(tableControls.enhanceTables).toHaveBeenCalledOnce();
     });
 
     test("passes markdown-body element to each renderer", async () => {
@@ -123,6 +128,7 @@ describe("RenderCoordinator", () => {
       expect(syntaxHighlighter.highlightCodeBlocks).toHaveBeenCalledWith(markdownBody);
       expect(mermaidRenderer.renderDiagrams).toHaveBeenCalledWith(markdownBody);
       expect(codeCopy.addCopyButtons).toHaveBeenCalledWith(markdownBody);
+      expect(tableControls.enhanceTables).toHaveBeenCalledWith(markdownBody);
     });
 
     test("skips rendering when no .markdown-body exists", async () => {

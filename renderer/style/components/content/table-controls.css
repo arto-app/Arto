@@ -1,0 +1,85 @@
+.markdown-body .table-viewer {
+  margin: 1rem 0;
+}
+
+.markdown-body .table-viewer-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.375rem;
+}
+
+.markdown-body .table-viewer-segment {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--copy-button-bg);
+  overflow: hidden;
+}
+
+.markdown-body .table-viewer-button {
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  padding: 0.35rem 0.6rem;
+  transition:
+    background-color var(--transition-fast) ease,
+    color var(--transition-fast) ease;
+}
+
+.markdown-body .table-viewer-button:last-child {
+  border-right: 0;
+}
+
+.markdown-body .table-viewer-button:hover {
+  background: var(--copy-button-hover-bg);
+  color: var(--text-color);
+}
+
+.markdown-body .table-viewer-button.active {
+  background: var(--accent-bg);
+  color: var(--accent-fg);
+}
+
+.markdown-body .table-viewer-button:focus-visible {
+  outline: 2px solid var(--accent-bg);
+  outline-offset: -2px;
+}
+
+.markdown-body .table-viewer-viewport {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  scrollbar-gutter: stable both-edges;
+}
+
+.markdown-body .table-viewer table {
+  display: table;
+  margin: 0;
+  max-width: none;
+}
+
+.markdown-body .table-viewer[data-table-mode="fixed"] table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.markdown-body .table-viewer[data-table-mode="fixed"] th,
+.markdown-body .table-viewer[data-table-mode="fixed"] td {
+  overflow-wrap: anywhere;
+}
+
+.markdown-body .table-viewer[data-table-mode="full"] table {
+  width: max-content;
+  min-width: 100%;
+}
+
+.markdown-body .table-viewer[data-table-mode="full"] th,
+.markdown-body .table-viewer[data-table-mode="full"] td {
+  word-break: normal;
+  overflow-wrap: normal;
+}
