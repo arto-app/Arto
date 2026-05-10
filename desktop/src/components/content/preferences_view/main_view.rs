@@ -1,13 +1,21 @@
 use super::tabs::{
-    about_tab::AboutTab, directory_tab::DirectoryTab, general_tab::GeneralTab,
-    keybindings_tab::KeybindingsTab, right_sidebar_tab::RightSidebarTab, sidebar_tab::SidebarTab,
-    theme_tab::ThemeTab, window_position_tab::WindowPositionTab, window_size_tab::WindowSizeTab,
+    about_tab::AboutTab,
+    ai_tab::{flush_keychain_after_save, AiTab},
+    directory_tab::DirectoryTab,
+    general_tab::GeneralTab,
+    keybindings_tab::KeybindingsTab,
+    right_sidebar_tab::RightSidebarTab,
+    sidebar_tab::SidebarTab,
+    theme_tab::ThemeTab,
+    window_position_tab::WindowPositionTab,
+    window_size_tab::WindowSizeTab,
 };
 use crate::components::icon::{Icon, IconName};
 use crate::config::{Config, CONFIG, CONFIG_CHANGED_BROADCAST};
 use crate::state::AppState;
 use dioxus::prelude::*;
 use parking_lot::RwLock;
+use std::collections::HashMap;
 use std::sync::LazyLock;
 
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
@@ -21,6 +29,7 @@ pub enum PreferencesTab {
     Sidebar,
     RightSidebar,
     Keybindings,
+    Ai,
     About,
 }
 
@@ -50,6 +59,12 @@ pub fn PreferencesView() -> Element {
     let mut active_tab = use_signal(|| *LAST_PREFERENCES_TAB.read());
     let mut save_status = use_signal(|| SaveStatus::Idle);
 
+    // AI provider secrets the user has typed into the AI tab but hasn't
+    // committed yet. Flushed to the OS keychain only after `cfg.save()`
+    // succeeds, so editing the form has no externally-visible side effects
+    // until the user clicks Save Changes.
+    let mut pending_ai_secrets = use_signal(HashMap::<String, String>::new);
+
     // Load initial config on mount (use_hook runs only once)
     use_hook(|| {
         let cfg = CONFIG.read().clone();
@@ -61,10 +76,19 @@ pub fn PreferencesView() -> Element {
         let cfg = config().clone();
         save_status.set(SaveStatus::Saving);
         spawn(async move {
+            // Snapshot the previous config so we can diff providers and
+            // delete keychain entries for ones the user removed.
+            let previous = CONFIG.read().clone();
             if let Err(e) = cfg.save() {
                 tracing::error!("Failed to save configuration: {:?}", e);
                 save_status.set(SaveStatus::Idle);
             } else {
+                let pending = std::mem::take(&mut *pending_ai_secrets.write());
+                if let Err(e) = flush_keychain_after_save(&previous, &cfg, &pending) {
+                    // Config is already saved on disk; surfacing the keychain
+                    // error keeps the user informed without rolling back.
+                    tracing::warn!(?e, "AI keychain flush failed after save");
+                }
                 *CONFIG.write() = cfg.clone();
                 CONFIG_CHANGED_BROADCAST.send(()).ok();
                 has_changes.set(false);
@@ -162,6 +186,15 @@ pub fn PreferencesView() -> Element {
                         Icon { name: IconName::Command, size: 18 }
                         span { "Keybindings" }
                     }
+                    button {
+                        class: if current_tab == PreferencesTab::Ai { "nav-tab active" } else { "nav-tab" },
+                        onclick: move |_| {
+                            active_tab.set(PreferencesTab::Ai);
+                            *LAST_PREFERENCES_TAB.write() = PreferencesTab::Ai;
+                        },
+                        Icon { name: IconName::Sparkles, size: 18 }
+                        span { "AI" }
+                    }
 
                     // Spacer to push About to bottom
                     div { class: "nav-spacer" }
@@ -256,6 +289,13 @@ pub fn PreferencesView() -> Element {
                             KeybindingsTab {
                                 config,
                                 has_changes,
+                            }
+                        },
+                        PreferencesTab::Ai => rsx! {
+                            AiTab {
+                                config,
+                                has_changes,
+                                pending_secrets: pending_ai_secrets,
                             }
                         },
                         PreferencesTab::About => rsx! {

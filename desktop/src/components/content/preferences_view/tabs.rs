@@ -1,4 +1,5 @@
 pub mod about_tab;
+pub mod ai_tab;
 pub mod directory_tab;
 pub mod general_tab;
 pub mod keybindings_tab;
