@@ -30,6 +30,7 @@
 
 /* Special windows */
 @import url("./components/preferences.css");
+@import url("./components/ai.css");
 @import url("./components/mermaid-window.css");
 @import url("./components/math-window.css");
 @import url("./components/image-window.css");
