@@ -1,13 +1,30 @@
 use super::content::TabContent;
+use super::tab_id::TabId;
 use crate::history::HistoryManager;
 use std::path::{Path, PathBuf};
 
 /// Represents a single tab with its content and navigation history
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default)]
 pub struct Tab {
+    /// Stable per-session identifier. Used as a join key for tab-scoped
+    /// state outside the [`Tab`] itself (AI overlays, chat sessions, …).
+    /// Excluded from [`PartialEq`] so two semantically identical tabs
+    /// still compare equal — equality remains a content-level operation.
+    pub tab_id: TabId,
     pub content: TabContent,
     pub history: HistoryManager,
     pub pinned: bool,
+}
+
+/// Manual `PartialEq` that ignores [`Tab::tab_id`]. Existing tab equality
+/// semantics are content-based; the id is bookkeeping for external state
+/// maps and intentionally does not participate.
+impl PartialEq for Tab {
+    fn eq(&self, other: &Self) -> bool {
+        self.content == other.content
+            && self.history == other.history
+            && self.pinned == other.pinned
+    }
 }
 
 impl Tab {
@@ -17,6 +34,7 @@ impl Tab {
         history.push(file.clone());
         let content = TabContent::File(file);
         Self {
+            tab_id: TabId::fresh(),
             content,
             history,
             pinned: false,
@@ -26,6 +44,7 @@ impl Tab {
     pub fn with_inline_content(content: impl Into<String>) -> Self {
         let content = content.into();
         Self {
+            tab_id: TabId::fresh(),
             content: TabContent::Inline(content),
             history: HistoryManager::new(),
             pinned: false,

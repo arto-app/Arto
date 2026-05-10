@@ -68,6 +68,7 @@ impl AppState {
                 content: TabContent::Preferences,
                 history: HistoryManager::new(),
                 pinned: false,
+                ..Default::default()
             });
             let new_index = tabs.len() - 1;
             drop(tabs);

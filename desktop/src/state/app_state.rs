@@ -9,14 +9,16 @@ use crate::markdown::HeadingInfo;
 use crate::pinned_search::PinnedSearchId;
 use crate::theme::Theme;
 
+mod ai_overlay;
 mod focused_panel;
 mod sidebar;
 pub(crate) mod sidebar_cursor;
 mod tabs;
 
+pub use ai_overlay::AiOverlay;
 pub use focused_panel::*;
 pub use sidebar::Sidebar;
-pub use tabs::{Tab, TabContent};
+pub use tabs::{Tab, TabContent, TabId};
 
 /// Information about a single search match for display in the Search tab.
 #[derive(Debug, Clone, PartialEq)]
@@ -104,6 +106,10 @@ pub struct AppState {
     /// Whether the right sidebar overlay is currently shown (hover/focus triggered).
     /// Transient UI state — not persisted.
     pub right_hover_active: Signal<bool>,
+    /// AI view-action overlays keyed by stable [`TabId`]. When the entry's
+    /// id matches the active tab's, the rendered AI output replaces the
+    /// tab's normal content. Transient UI state — not persisted.
+    pub ai_overlays: Signal<HashMap<TabId, AiOverlay>>,
 }
 
 impl AppState {
@@ -140,6 +146,7 @@ impl AppState {
             quick_access_cursor: Signal::new(None),
             left_hover_active: Signal::new(false),
             right_hover_active: Signal::new(false),
+            ai_overlays: Signal::new(HashMap::new()),
         }
     }
 }

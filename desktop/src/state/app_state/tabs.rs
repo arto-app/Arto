@@ -25,6 +25,8 @@ mod file_ops;
 mod navigation;
 mod scroll_history;
 mod tab;
+mod tab_id;
 
 pub use content::TabContent;
 pub use tab::Tab;
+pub use tab_id::TabId;
