@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+mod ai_config;
 mod behavior;
 mod directory_config;
 mod file_open_behavior;
@@ -13,6 +14,7 @@ mod window_position_config;
 mod window_size_config;
 mod zoom_config;
 
+pub use ai_config::*;
 pub use behavior::{NewWindowBehavior, StartupBehavior};
 pub use directory_config::DirectoryConfig;
 pub use file_open_behavior::FileOpenBehavior;
@@ -41,6 +43,7 @@ pub struct Config {
     pub window_position: WindowPositionConfig,
     pub window_size: WindowSizeConfig,
     pub zoom: ZoomConfig,
+    pub ai: AiConfig,
     #[serde(skip_serializing, skip_deserializing, default)]
     pub keybindings: BindingSet,
 }
@@ -218,11 +221,31 @@ mod tests {
                 }],
                 ..Default::default()
             },
+            ai: AiConfig {
+                providers: vec![AiProvider {
+                    id: "ai-1".to_string(),
+                    name: "Translate".to_string(),
+                    icon: "language".to_string(),
+                    api_url: "https://api.openai.com/v1/chat/completions".to_string(),
+                    protocol: AiProtocol::OpenAiCompatible,
+                    model: "gpt-4o".to_string(),
+                    auth: AiAuth::Bearer {
+                        auth_ref: "ref-1".to_string(),
+                    },
+                    system_prompt: None,
+                    prompt_template: "{content}".to_string(),
+                    action: AiAction::View,
+                    temperature: None,
+                }],
+            },
         };
 
         let json = serde_json::to_string_pretty(&config).unwrap();
         let parsed: Config = serde_json::from_str(&json).unwrap();
         assert!(!json.contains("\"keybindings\""));
+        assert_eq!(parsed.ai.providers.len(), 1);
+        assert_eq!(parsed.ai.providers[0].name, "Translate");
+        assert_eq!(parsed.ai.providers[0].action, AiAction::View);
 
         assert_eq!(parsed.theme.default_theme, Theme::Dark);
         assert_eq!(parsed.theme.on_startup, StartupBehavior::LastClosed);

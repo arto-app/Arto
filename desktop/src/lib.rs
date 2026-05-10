@@ -1,3 +1,4 @@
+mod ai;
 mod assets;
 mod bookmarks;
 mod cache;
