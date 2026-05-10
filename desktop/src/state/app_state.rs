@@ -10,12 +10,14 @@ use crate::pinned_search::PinnedSearchId;
 use crate::theme::Theme;
 
 mod ai_overlay;
+mod ai_session;
 mod focused_panel;
 mod sidebar;
 pub(crate) mod sidebar_cursor;
 mod tabs;
 
 pub use ai_overlay::AiOverlay;
+pub use ai_session::{AiSession, ChatRole as ChatTurnRole, ChatTurn};
 pub use focused_panel::*;
 pub use sidebar::Sidebar;
 pub use tabs::{Tab, TabContent, TabId};
@@ -110,6 +112,9 @@ pub struct AppState {
     /// id matches the active tab's, the rendered AI output replaces the
     /// tab's normal content. Transient UI state — not persisted.
     pub ai_overlays: Signal<HashMap<TabId, AiOverlay>>,
+    /// AI chat sessions keyed by stable [`TabId`]. Surfaced in the right
+    /// sidebar AI tab. Transient — not persisted across window reopens.
+    pub ai_chat_sessions: Signal<HashMap<TabId, AiSession>>,
 }
 
 impl AppState {
@@ -147,6 +152,7 @@ impl AppState {
             left_hover_active: Signal::new(false),
             right_hover_active: Signal::new(false),
             ai_overlays: Signal::new(HashMap::new()),
+            ai_chat_sessions: Signal::new(HashMap::new()),
         }
     }
 }
