@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 
+use crate::components::ai_button::AiButton;
 use crate::components::bookmark_button::BookmarkButton;
 use crate::components::icon::{Icon, IconName};
 use crate::components::theme_selector::ThemeSelector;
@@ -167,6 +168,9 @@ pub fn Header() -> Element {
             // Right side controls
             div {
                 class: "header-right",
+
+                // AI integrations (only rendered when at least one provider is configured)
+                AiButton {}
 
                 // Search button
                 button {

@@ -1,3 +1,4 @@
+pub mod ai_button;
 pub mod app;
 pub mod bookmark_button;
 pub mod content;

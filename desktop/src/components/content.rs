@@ -1,3 +1,4 @@
+mod ai_overlay_view;
 mod context_menu;
 mod context_menu_state;
 mod file_error_view;
@@ -10,6 +11,7 @@ mod search_handler;
 use dioxus::prelude::*;
 
 use crate::state::{AppState, TabContent};
+use ai_overlay_view::AiOverlayView;
 use file_error_view::FileErrorView;
 use file_viewer::FileViewer;
 use inline_viewer::InlineViewer;
@@ -36,6 +38,18 @@ pub fn Content() -> Element {
     // of Content and its children, potentially disrupting scroll position.
     let content = use_memo(move || state.current_tab().map(|tab| tab.content));
 
+    // AI view-action overlay for the active tab. When present, it replaces
+    // the normal tab content until the user clears it via the overlay UI.
+    // Keyed on the active tab's stable TabId so reorders / closes never
+    // surface the overlay against the wrong document.
+    let active_tab_id = use_memo(move || state.current_tab().map(|tab| tab.tab_id));
+    let overlay = use_memo(move || {
+        active_tab_id
+            .read()
+            .as_ref()
+            .and_then(|id| state.ai_overlays.read().get(id).cloned())
+    });
+
     // Use CSS zoom property for vector-based scaling (not transform: scale)
     // This ensures fonts and images remain sharp at any zoom level.
     // Applied to a wrapper INSIDE the scroll container (.content) rather than
@@ -54,25 +68,32 @@ pub fn Content() -> Element {
             div {
                 style: "{zoom_style}",
 
-                match content() {
-                    Some(TabContent::File(file)) => {
-                        rsx! { FileViewer { file } }
-                    },
-                    Some(TabContent::Inline(markdown)) => {
-                        rsx! { InlineViewer { markdown } }
-                    },
-                    Some(TabContent::FileError(file, error)) => {
-                        let filename = file
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or("Unknown file")
-                            .to_string();
-                        rsx! { FileErrorView { filename, error_message: error } }
-                    },
-                    Some(TabContent::Preferences) => {
-                        rsx! { PreferencesView {} }
-                    },
-                    _ => rsx! { NoFileView {} },
+                if let (Some(tab_id), Some(overlay)) = (active_tab_id(), overlay()) {
+                    AiOverlayView {
+                        tab_id,
+                        overlay,
+                    }
+                } else {
+                    match content() {
+                        Some(TabContent::File(file)) => {
+                            rsx! { FileViewer { file } }
+                        },
+                        Some(TabContent::Inline(markdown)) => {
+                            rsx! { InlineViewer { markdown } }
+                        },
+                        Some(TabContent::FileError(file, error)) => {
+                            let filename = file
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("Unknown file")
+                                .to_string();
+                            rsx! { FileErrorView { filename, error_message: error } }
+                        },
+                        Some(TabContent::Preferences) => {
+                            rsx! { PreferencesView {} }
+                        },
+                        _ => rsx! { NoFileView {} },
+                    }
                 }
             }
         }
