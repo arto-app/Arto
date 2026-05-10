@@ -43,11 +43,13 @@ pub enum IconName {
     SelectAll,
     Server,
     Sidebar,
+    Sparkles,
     Star,
     StarFilled,
     Sun,
     SunMoon,
     Trash,
+    Wand,
 }
 
 impl fmt::Display for IconName {
@@ -91,11 +93,13 @@ impl fmt::Display for IconName {
             IconName::SelectAll => "select-all",
             IconName::Server => "server",
             IconName::Sidebar => "layout-sidebar",
+            IconName::Sparkles => "sparkles",
             IconName::Star => "star",
             IconName::StarFilled => "star-filled",
             IconName::Sun => "sun",
             IconName::SunMoon => "sun-moon",
             IconName::Trash => "trash",
+            IconName::Wand => "wand",
         };
         write!(f, "{}", name)
     }
