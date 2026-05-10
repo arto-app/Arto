@@ -1,10 +1,12 @@
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
+mod ai_chat_tab;
 mod contents_tab;
 mod search_tab;
 mod tab_bar;
 
+use ai_chat_tab::AiChatTab;
 use contents_tab::ContentsTab;
 use search_tab::SearchTab;
 use tab_bar::TabBar;
@@ -18,6 +20,7 @@ pub enum RightSidebarTab {
     #[default]
     Contents,
     Search,
+    Ai,
 }
 
 #[derive(Props, Clone, PartialEq)]
@@ -77,6 +80,7 @@ pub fn RightSidebar(props: RightSidebarProps) -> Element {
                             }
                         },
                         RightSidebarTab::Search => rsx! { SearchTab {} },
+                        RightSidebarTab::Ai => rsx! { AiChatTab {} },
                     }
                 }
             }

@@ -344,7 +344,8 @@ fn dispatch_tab_cycle(state: &mut AppState, forward: bool) {
 fn toggle_right_sidebar_tab(state: &mut AppState) {
     let tab = match *state.right_sidebar_tab.read() {
         RightSidebarTab::Contents => RightSidebarTab::Search,
-        RightSidebarTab::Search => RightSidebarTab::Contents,
+        RightSidebarTab::Search => RightSidebarTab::Ai,
+        RightSidebarTab::Ai => RightSidebarTab::Contents,
     };
     state.set_right_sidebar_tab(tab);
 }

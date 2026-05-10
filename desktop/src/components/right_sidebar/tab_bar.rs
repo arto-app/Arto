@@ -30,6 +30,13 @@ pub fn TabBar(
                 span { "Search" }
             }
 
+            // AI tab
+            button {
+                class: if active_tab == RightSidebarTab::Ai { "right-sidebar-tab active" } else { "right-sidebar-tab" },
+                onclick: move |_| on_change.call(RightSidebarTab::Ai),
+                span { "AI" }
+            }
+
             // Pin/Unpin button
             if let Some(handler) = on_pin_toggle {
                 button {

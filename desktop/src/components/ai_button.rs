@@ -8,8 +8,9 @@ use dioxus::prelude::*;
 
 use crate::ai::{render_prompt, stream_chat, AiClientError, AiMessage, PromptInputs, StreamEvent};
 use crate::components::icon::{Icon, IconName};
+use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::{AiAction, AiProvider, CONFIG};
-use crate::state::{AiOverlay, AppState, TabContent, TabId};
+use crate::state::{AiOverlay, AiSession, AppState, TabContent, TabId};
 
 #[component]
 pub fn AiButton() -> Element {
@@ -82,8 +83,9 @@ fn AiDropdownItem(provider: AiProvider, on_invoke: EventHandler<AiProvider>) -> 
 
 /// Dispatch the chosen provider against the current tab.
 ///
-/// View actions populate `state.ai_overlays[active_tab]`. Chat actions are
-/// not yet implemented at the UI layer — this lands in a follow-up.
+/// View actions populate `state.ai_overlays[active_tab]`. Chat actions
+/// instead start a session in `state.ai_chat_sessions` and switch the
+/// right sidebar to the AI tab.
 fn dispatch_provider(state: AppState, provider: AiProvider) {
     let active = *state.active_tab.read();
     let tab_snapshot = match state.tabs.read().get(active).cloned() {
@@ -175,17 +177,66 @@ fn start_view_action(
 }
 
 fn start_chat_action(
-    _state: AppState,
+    mut state: AppState,
     provider: AiProvider,
-    _content: String,
-    _tab: crate::state::Tab,
-    _tab_id: TabId,
+    content: String,
+    tab: crate::state::Tab,
+    tab_id: TabId,
 ) {
-    // Chat session UI is implemented in a follow-up commit.
-    tracing::warn!(
-        provider = %provider.name,
-        "Chat action UI not yet implemented; only View is available"
-    );
+    // Build the initial user prompt (document context) and any system message.
+    let path = tab.file().map(std::path::PathBuf::from);
+    let inputs = PromptInputs::from_parts(&content, "", path.as_deref());
+    let initial_user = render_prompt(&provider.prompt_template, &inputs);
+
+    let mut messages = Vec::new();
+    if let Some(sys) = provider.system_prompt.as_deref() {
+        if !sys.is_empty() {
+            messages.push(AiMessage::system(sys));
+        }
+    }
+    messages.push(AiMessage::user(initial_user.clone()));
+
+    // Seed the visible session: show the user turn we just sent, then a
+    // placeholder assistant turn that streaming deltas append to.
+    let mut session = AiSession::new(provider.id.clone(), provider.name.clone());
+    session.push_user(initial_user);
+    session.begin_assistant_turn();
+    state.ai_chat_sessions.write().insert(tab_id, session);
+
+    // Reveal the chat panel by switching the right sidebar to the AI tab.
+    state.right_sidebar_tab.set(RightSidebarTab::Ai);
+    state.right_sidebar_pinned.set(true);
+
+    let (handle, mut rx) = match stream_chat(&provider, messages) {
+        Ok(pair) => pair,
+        Err(err) => {
+            if let Some(s) = state.ai_chat_sessions.write().get_mut(&tab_id) {
+                s.finish_err(format_error(&err));
+            }
+            return;
+        }
+    };
+    let _ = handle;
+
+    spawn(async move {
+        while let Some(event) = rx.recv().await {
+            let mut sessions = state.ai_chat_sessions.write();
+            let Some(session) = sessions.get_mut(&tab_id) else {
+                break;
+            };
+            match event {
+                StreamEvent::Delta(d) => session.append_delta(&d),
+                StreamEvent::Done => {
+                    session.finish_ok();
+                    break;
+                }
+                StreamEvent::Error(msg) => {
+                    session.finish_err(msg);
+                    break;
+                }
+            }
+        }
+    });
 }
 
 fn install_error_overlay(
