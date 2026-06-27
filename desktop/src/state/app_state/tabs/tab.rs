@@ -32,6 +32,14 @@ impl Tab {
         }
     }
 
+    pub fn preferences() -> Self {
+        Self {
+            content: TabContent::Preferences,
+            history: HistoryManager::new(),
+            pinned: false,
+        }
+    }
+
     /// Get the file path if this tab has a file
     pub fn file(&self) -> Option<&Path> {
         match &self.content {
@@ -100,6 +108,15 @@ mod tests {
         assert_eq!(tab.content, TabContent::Inline(content));
         assert!(tab.is_no_file());
         assert_eq!(tab.file(), None);
+    }
+
+    #[test]
+    fn test_tab_preferences() {
+        let tab = Tab::preferences();
+
+        assert_eq!(tab.content, TabContent::Preferences);
+        assert!(!tab.is_no_file());
+        assert_eq!(tab.display_name(), "Preferences");
     }
 
     #[test]

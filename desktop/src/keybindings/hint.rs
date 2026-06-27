@@ -19,6 +19,12 @@ pub fn shortcut_hint_for_global_action(action: &str) -> Option<String> {
     shortcut_hint_for_action(action, None)
 }
 
+/// Return the raw keybinding string from global keybindings.
+pub fn shortcut_key_for_global_action(action: &str) -> Option<String> {
+    let config = CONFIG.read();
+    find_key_for_action(&config.keybindings.global, action).map(ToOwned::to_owned)
+}
+
 /// Return a formatted shortcut hint in the given context.
 pub fn shortcut_hint_for_context_action(context: KeyContext, action: &str) -> Option<String> {
     shortcut_hint_for_action(action, Some(context))

@@ -131,6 +131,10 @@ pub(super) fn setup_keybinding_engine(
                         } else if action == Action::HelpShowKeyboardShortcuts {
                             engine.read().borrow_mut().reset();
                             toggle_shortcut_overlay(shortcut_overlay_visibility);
+                        } else if crate::menu::action_uses_native_menu_accelerator(&action) {
+                            // Native menu accelerators also emit keydown events to the WebView.
+                            // Let the menu event handle these actions to avoid double dispatch.
+                            tracing::debug!(%action, "Skipping keybinding dispatch for native menu accelerator");
                         } else {
                             dispatch_action(&action, state);
                         }

@@ -4,9 +4,10 @@ use dioxus_desktop::muda::accelerator::Accelerator;
 use dioxus_desktop::muda::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use dioxus_desktop::window;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use crate::components::content::set_preferences_tab_to_about;
-use crate::keybindings::shortcut_hint_for_global_action;
+use crate::keybindings::{shortcut_hint_for_global_action, shortcut_key_for_global_action, Action};
 use crate::state::AppState;
 use crate::window::{self, settings::normalize_zoom_level, CreateMainWindowConfigParams};
 
@@ -102,18 +103,40 @@ impl MenuId {
     }
 }
 
-/// Helper to create a menu item without an accelerator.
-///
-/// All keyboard shortcuts are handled by the keybinding engine, not muda.
+/// Helper to create a menu item.
 fn create_menu_item(id: MenuId, label: &str) -> MenuItem {
-    let display_label = menu_label_with_shortcut(id, label);
-    MenuItem::with_id(id.as_str(), &display_label, true, None::<Accelerator>)
+    let accelerator = menu_accelerator_for_id(id);
+    let display_label = if accelerator.is_some() {
+        label.to_string()
+    } else {
+        menu_label_with_shortcut(id, label)
+    };
+    MenuItem::with_id(id.as_str(), &display_label, true, accelerator)
+}
+
+fn menu_accelerator_for_id(id: MenuId) -> Option<Accelerator> {
+    let action = menu_action_for_id(id)?;
+    let key = shortcut_key_for_global_action(action)?;
+    accelerator_for_shortcut_key(&key)
+}
+
+pub fn action_uses_native_menu_accelerator(action: &Action) -> bool {
+    menu_id_for_action(*action)
+        .and_then(menu_accelerator_for_id)
+        .is_some()
+}
+
+fn accelerator_for_shortcut_key(key: &str) -> Option<Accelerator> {
+    if key.split_whitespace().count() != 1 {
+        return None;
+    }
+    Accelerator::from_str(key).ok()
 }
 
 /// Build a menu label with a right-aligned shortcut hint (without muda Accelerator).
 ///
-/// We intentionally avoid `with_accelerator()` because keyboard handling is owned by
-/// the keybinding engine. This only mirrors the hint in the menu UI.
+/// Multi-chord keybindings cannot be represented as native menu accelerators, so
+/// this mirrors the configured shortcut in the menu UI as a fallback.
 fn menu_label_with_shortcut(id: MenuId, base_label: &str) -> String {
     let Some(action) = menu_action_for_id(id) else {
         return base_label.to_string();
@@ -152,6 +175,36 @@ fn menu_action_for_id(id: MenuId) -> Option<&'static str> {
         MenuId::GoForward => "history.forward",
         MenuId::GoToHomepage => "app.go_to_homepage",
     })
+}
+
+fn menu_id_for_action(action: Action) -> Option<MenuId> {
+    match action {
+        Action::AppAbout => Some(MenuId::About),
+        Action::WindowNew => Some(MenuId::NewWindow),
+        Action::TabNew => Some(MenuId::NewTab),
+        Action::FileOpen => Some(MenuId::Open),
+        Action::FileOpenDirectory => Some(MenuId::OpenDirectory),
+        Action::FileRevealInFinder => Some(MenuId::RevealInFinder),
+        Action::CopyFilePath => Some(MenuId::CopyFilePath),
+        Action::TabClose => Some(MenuId::CloseTab),
+        Action::TabCloseAll => Some(MenuId::CloseAllTabs),
+        Action::WindowClose => Some(MenuId::CloseWindow),
+        Action::WindowCloseAllChildWindows => Some(MenuId::CloseAllChildWindows),
+        Action::WindowCloseAllWindows => Some(MenuId::CloseAllWindows),
+        Action::FilePreferences => Some(MenuId::Preferences),
+        Action::SearchOpen => Some(MenuId::Find),
+        Action::SearchNext => Some(MenuId::FindNext),
+        Action::SearchPrev => Some(MenuId::FindPrevious),
+        Action::WindowToggleSidebar => Some(MenuId::ToggleLeftSidebar),
+        Action::WindowToggleRightSidebar => Some(MenuId::ToggleRightSidebar),
+        Action::ZoomReset => Some(MenuId::ActualSize),
+        Action::ZoomIn => Some(MenuId::ZoomIn),
+        Action::ZoomOut => Some(MenuId::ZoomOut),
+        Action::HistoryBack => Some(MenuId::GoBack),
+        Action::HistoryForward => Some(MenuId::GoForward),
+        Action::AppGoToHomepage => Some(MenuId::GoToHomepage),
+        _ => None,
+    }
 }
 
 /// Build the application menu bar
@@ -297,7 +350,7 @@ pub fn is_close_action(event: &MenuEvent) -> bool {
 /// # Handled events
 /// - `NewWindow`: Creates a new window (no state needed)
 /// - `NewTab` (no windows exist): Creates a window as fallback
-/// - `Preferences`: Declined here (requires per-window state), returns `false`
+/// - `Preferences` / `About` (no windows exist): Shows a preferences window
 /// - `CloseAllChildWindows`: Uses window manager API
 /// - `CloseAllWindows`: Uses window manager API
 /// - `GoToHomepage`: Opens URL in external browser
@@ -313,6 +366,14 @@ pub fn handle_menu_event_global(event: &MenuEvent) -> bool {
     };
 
     match id {
+        MenuId::About => {
+            if !window::has_any_main_windows() {
+                set_preferences_tab_to_about();
+                open_preferences_without_visible_window();
+                return true;
+            }
+            return false;
+        }
         MenuId::NewWindow => {
             window::create_main_window_sync(
                 &window(),
@@ -332,7 +393,10 @@ pub fn handle_menu_event_global(event: &MenuEvent) -> bool {
             return false;
         }
         MenuId::Preferences => {
-            // Declined here; requires per-window AppState access
+            if !window::has_any_main_windows() {
+                open_preferences_without_visible_window();
+                return true;
+            }
             return false;
         }
         MenuId::CloseAllChildWindows => {
@@ -348,6 +412,23 @@ pub fn handle_menu_event_global(event: &MenuEvent) -> bool {
     }
 
     true
+}
+
+fn open_preferences_without_visible_window() {
+    if window::main::show_and_focus_hidden_window() {
+        if let Some(mut state) = window::main::get_last_focused_window_state() {
+            state.open_preferences();
+            return;
+        }
+    }
+
+    let params = CreateMainWindowConfigParams {
+        sidebar_pinned: false,
+        right_sidebar_pinned: false,
+        ..CreateMainWindowConfigParams::default()
+    };
+
+    window::create_main_window_sync(&window(), crate::state::Tab::preferences(), params);
 }
 
 /// Handle menu events that require per-window AppState.
@@ -582,6 +663,37 @@ mod tests {
     fn test_menu_id_unknown_returns_none() {
         assert!(MenuId::from_str("unknown.action").is_none());
         assert!(MenuId::from_str("").is_none());
+    }
+
+    #[test]
+    fn test_accelerator_for_shortcut_key_accepts_single_chord() {
+        assert!(accelerator_for_shortcut_key("Cmd+n").is_some());
+        assert!(accelerator_for_shortcut_key("Cmd+Comma").is_some());
+    }
+
+    #[test]
+    fn test_accelerator_for_shortcut_key_rejects_chains() {
+        assert!(accelerator_for_shortcut_key("Ctrl+w n").is_none());
+        assert!(accelerator_for_shortcut_key("g g").is_none());
+    }
+
+    #[test]
+    fn test_menu_id_for_action_maps_menu_actions() {
+        assert_eq!(menu_id_for_action(Action::TabNew), Some(MenuId::NewTab));
+        assert_eq!(
+            menu_id_for_action(Action::FilePreferences),
+            Some(MenuId::Preferences)
+        );
+        assert_eq!(
+            menu_id_for_action(Action::WindowNew),
+            Some(MenuId::NewWindow)
+        );
+    }
+
+    #[test]
+    fn test_menu_id_for_action_ignores_keyboard_only_actions() {
+        assert_eq!(menu_id_for_action(Action::ScrollDown), None);
+        assert_eq!(menu_id_for_action(Action::CursorDown), None);
     }
 
     /// is_close_action correctly identifies close events
