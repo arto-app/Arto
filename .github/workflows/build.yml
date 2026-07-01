@@ -13,15 +13,15 @@ jobs:
   check:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       # https://zenn.dev/mierune/articles/2af7b9e447712a
       - uses: chetan/git-restore-mtime-action@v2
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: clippy,rustfmt
           cache-all-crates: true
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10
       - uses: actions/setup-node@v6
@@ -43,14 +43,14 @@ jobs:
   test:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       # https://zenn.dev/mierune/articles/2af7b9e447712a
       - uses: chetan/git-restore-mtime-action@v2
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           cache-all-crates: true
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10
       - uses: actions/setup-node@v6
@@ -86,16 +86,16 @@ jobs:
     needs: ["check", "test"]
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       # https://zenn.dev/mierune/articles/2af7b9e447712a
       - uses: chetan/git-restore-mtime-action@v2
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           cache-all-crates: true
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10
       - uses: actions/setup-node@v6
@@ -118,7 +118,7 @@ jobs:
           sed -i '' "s/^version = \"0.0.0\"/version = \"${VERSION}\"/" desktop/Cargo.toml
           echo "${VERSION}" > desktop/VERSION
       - run: just build
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: arto-${{ runner.os }}
           path: |
@@ -133,11 +133,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: nixbuild/nix-quick-install-action@v34
-      - uses: cachix/cachix-action@v16
+      - uses: nixbuild/nix-quick-install-action@v35
+      - uses: cachix/cachix-action@v17
         if: github.event_name != 'pull_request'
         with:
           name: arto
@@ -159,8 +159,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           path: ./artifacts
       - run: find .
@@ -246,7 +246,7 @@ jobs:
           For more information, see the [README](https://github.com/${REPO}).
           <!-- ARTO_INSTALLATION_END -->
           BODY_EOF
-      - uses: ncipollo/release-action@v1.20.0
+      - uses: ncipollo/release-action@v1.21.0
         with:
           tag: ${{ github.event.release.tag_name }}
           allowUpdates: true

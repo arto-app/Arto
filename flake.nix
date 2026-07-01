@@ -68,19 +68,19 @@
 
             nativeBuildInputs = [
               pkgs.nodejs-slim
-              pkgs.pnpm_9
+              pkgs.pnpm_10
               pkgs.pnpmConfigHook
             ];
 
             pnpmDeps = pkgs.fetchPnpmDeps {
               inherit (finalAttrs) pname version src;
-              pnpm = pkgs.pnpm_9;
+              pnpm = pkgs.pnpm_10;
               # To update this hash when renderer dependencies change:
               # 1. Change hash to: lib.fakeHash or ""
               # 2. Run: nix build .#renderer-assets
               # 3. Copy the expected hash from error message
               # 4. Update hash value below
-              hash = "sha256-FN1QpuLke1m8uBM1xaKver3Jfn8EfzHfCmAuGoVT/SU=";
+              hash = "sha256-p2Ay6zKIXnG5BoqBJVpWJPBKzEkQsU97hvlujIas63U=";
               fetcherVersion = 3;
             };
 
@@ -285,7 +285,7 @@
 
               # TypeScript/renderer development (renderer/)
               pkgs.nodejs-slim
-              pkgs.pnpm_9
+              pkgs.pnpm_10
 
               # Build automation
               pkgs.just

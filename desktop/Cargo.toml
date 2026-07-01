@@ -7,56 +7,56 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.100"
-arboard = "3.4.1"
+anyhow = "1.0.103"
+arboard = "3.6.1"
 base64 = "0.22.1"
 dark-light = "2.0.0"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
 compile-time = "0.2"
-dirs = "5.0.1"
+dirs = "6.0.0"
 interprocess = { version = "2.2", features = ["tokio"] }
-dioxus = { version = "0.7.5", features = [] }
-dioxus-desktop = "0.7.5"
+dioxus = { version = "0.7.9", features = [] }
+dioxus-desktop = "0.7.9"
 dioxus-sdk-window = "0.7.0"
 dotenvy = "0.15.7"
 html-escape = "0.2.13"
-image = "0.25.5"
-indoc = "2.0.5"
-lol_html = "2.7.0"
-notify-debouncer-full = "0.4.0"
-open = "5.3.2"
+image = "0.25.10"
+indoc = "2.0.7"
+lol_html = "3.0.0"
+notify-debouncer-full = "0.7.0"
+open = "5.3.6"
 parking_lot = "0.12"
 percent-encoding = "2.3"
-pulldown-cmark = "0.13.0"
-rfd = { version = "0.15.4", default-features = false, features = ["tokio", "xdg-portal"] }
+pulldown-cmark = "0.13.4"
+rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
-sha2 = "0.10"
-thiserror = "2.0.9"
-tokio = { version = "1.47.1", features = ["time"] }
-tracing = "0.1.41"
-ureq = "3.1"
+sha2 = "0.11"
+thiserror = "2.0.18"
+tokio = { version = "1.52.3", features = ["time"] }
+tracing = "0.1.44"
+ureq = "3.3"
 url = "2.5"
-tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 uuid = { version = "1.0", features = ["v4"] }
-display-info = "0.5.7"
+display-info = "0.5.9"
 mouse_position = "0.1.4"
 
 [target.'cfg(unix)'.dependencies]
-signal-hook = "0.3"
-libc = "0.2.180"
+signal-hook = "0.4"
+libc = "0.2.186"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.6.3"
+objc2 = "0.6.4"
 objc2-app-kit = "0.3.2"
-core-graphics = "0.24"
-core-foundation = "0.10"
+core-graphics = "0.25"
+core-foundation = "0.10.1"
 tracing-oslog = "0.3.0"
 
 [dev-dependencies]
-tempfile = "3.15.0"
+tempfile = "3.27.0"
 
 [features]
 default = ["desktop"]

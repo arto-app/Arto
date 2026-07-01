@@ -3,7 +3,7 @@
  * Detects the type of element that was right-clicked and reports to Rust.
  */
 
-import { extractTableDelimited, escapeDelimitedField, formatTableAsMarkdown } from "./table-utils";
+import { extractTableDelimited, formatTableAsMarkdown } from "./table-utils";
 
 export type ContentContextType =
   | { type: "general" }

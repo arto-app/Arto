@@ -67,7 +67,7 @@ export default defineConfig(({ mode }) => ({
     },
     rollupOptions: {
       output: {
-        inlineDynamicImports: true,
+        codeSplitting: false,
         entryFileNames: "main.js",
         assetFileNames: ({ names }) => {
           if (names.some((n) => n.endsWith(".css"))) return "main.css";

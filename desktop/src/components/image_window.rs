@@ -28,7 +28,7 @@ pub fn generate_image_id(src: &str) -> String {
     hasher.update(src.as_bytes());
     let result = hasher.finalize();
     // Use first 16 characters of hex hash
-    format!("{:x}", result)[..16].to_string()
+    result.iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
 
 #[cfg(test)]

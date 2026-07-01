@@ -26,7 +26,7 @@ pub fn generate_math_id(source: &str) -> String {
     hasher.update(source.as_bytes());
     let result = hasher.finalize();
     // Use first 16 characters of hex hash
-    format!("{:x}", result)[..16].to_string()
+    result.iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
 
 /// Truncate LaTeX source for window title
