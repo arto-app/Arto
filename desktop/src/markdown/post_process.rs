@@ -106,133 +106,129 @@ fn post_process_html_impl(
     let headings = headings.map(|h| h.to_vec()).unwrap_or_default();
 
     let mut rewriter = HtmlRewriter::new(
-        Settings {
-            element_content_handlers: vec![
-                // Process table tags: inject source line attributes
-                element!("table", |el| {
-                    let mut idx = table_index.borrow_mut();
-                    if let Some(&(start, end)) = table_source_lines.get(*idx) {
-                        el.set_attribute("data-source-line", &start.to_string())?;
-                        el.set_attribute("data-source-line-end", &end.to_string())?;
-                    }
-                    *idx += 1;
-                    Ok(())
-                }),
-                // Process heading tags: add IDs for TOC navigation
-                // No-op when headings is empty (called from post_process_html_tags)
-                element!("h1, h2, h3, h4, h5, h6", |el| {
-                    if headings.is_empty() {
-                        return Ok(());
-                    }
-                    let mut idx = heading_index.borrow_mut();
-                    if let Some(heading) = headings.get(*idx) {
-                        el.set_attribute("id", &heading.id)?;
-                    }
-                    *idx += 1;
-                    Ok(())
-                }),
-                // Process img tags: convert local paths to data URLs
-                element!("img[src]", move |el| {
-                    if let Some(src) = el.get_attribute("src") {
-                        if !src.starts_with("http://")
-                            && !src.starts_with("https://")
-                            && !src.starts_with("data:")
-                        {
-                            // Resolve the src to a filesystem path for inlining.
-                            // `file:` URLs (including `file://`, `file://localhost/...`, and
-                            // `file:/...`) are parsed properly (handles percent-encoding and
-                            // platform differences). Other values are treated as plain
-                            // filesystem paths: absolute paths are used as-is, and relative
-                            // paths are joined against the markdown file's directory. After
-                            // canonicalization, paths that resolve outside the base directory
-                            // are still allowed and read; this is logged for debugging but not
-                            // blocked.
-                            let absolute_path = if src.starts_with("file:") {
-                                // Try proper URL parsing first; fall back to stripping the
-                                // scheme and treating the remainder as a plain path for
-                                // slightly-nonconforming inputs (e.g. unencoded spaces).
-                                let parsed = url::Url::parse(&src)
-                                    .ok()
-                                    .and_then(|u| u.to_file_path().ok());
-                                if parsed.is_none() {
-                                    tracing::debug!(
-                                        ?src,
-                                        "file: URL could not be parsed; falling back to plain path"
-                                    );
-                                }
-                                parsed.or_else(|| {
-                                    // Strip the scheme prefix and use the rest as a path.
-                                    let raw = src
-                                        .strip_prefix("file://")
-                                        .or_else(|| src.strip_prefix("file:/"))
-                                        .or_else(|| src.strip_prefix("file:"))
-                                        .unwrap_or(&src);
-                                    let path = Path::new(raw);
-                                    if path.is_absolute() {
-                                        Some(path.to_path_buf())
-                                    } else {
-                                        Some(canonical_base.join(path))
-                                    }
-                                })
-                            } else {
-                                let path = Path::new(&src);
+        Settings::new()
+            // Process table tags: inject source line attributes
+            .append_element_content_handler(element!("table", |el| {
+                let mut idx = table_index.borrow_mut();
+                if let Some(&(start, end)) = table_source_lines.get(*idx) {
+                    el.set_attribute("data-source-line", &start.to_string())?;
+                    el.set_attribute("data-source-line-end", &end.to_string())?;
+                }
+                *idx += 1;
+                Ok(())
+            }))
+            // Process heading tags: add IDs for TOC navigation
+            // No-op when headings is empty (called from post_process_html_tags)
+            .append_element_content_handler(element!("h1, h2, h3, h4, h5, h6", |el| {
+                if headings.is_empty() {
+                    return Ok(());
+                }
+                let mut idx = heading_index.borrow_mut();
+                if let Some(heading) = headings.get(*idx) {
+                    el.set_attribute("id", &heading.id)?;
+                }
+                *idx += 1;
+                Ok(())
+            }))
+            // Process img tags: convert local paths to data URLs
+            .append_element_content_handler(element!("img[src]", move |el| {
+                if let Some(src) = el.get_attribute("src") {
+                    if !src.starts_with("http://")
+                        && !src.starts_with("https://")
+                        && !src.starts_with("data:")
+                    {
+                        // Resolve the src to a filesystem path for inlining.
+                        // `file:` URLs (including `file://`, `file://localhost/...`, and
+                        // `file:/...`) are parsed properly (handles percent-encoding and
+                        // platform differences). Other values are treated as plain
+                        // filesystem paths: absolute paths are used as-is, and relative
+                        // paths are joined against the markdown file's directory. After
+                        // canonicalization, paths that resolve outside the base directory
+                        // are still allowed and read; this is logged for debugging but not
+                        // blocked.
+                        let absolute_path = if src.starts_with("file:") {
+                            // Try proper URL parsing first; fall back to stripping the
+                            // scheme and treating the remainder as a plain path for
+                            // slightly-nonconforming inputs (e.g. unencoded spaces).
+                            let parsed = url::Url::parse(&src)
+                                .ok()
+                                .and_then(|u| u.to_file_path().ok());
+                            if parsed.is_none() {
+                                tracing::debug!(
+                                    ?src,
+                                    "file: URL could not be parsed; falling back to plain path"
+                                );
+                            }
+                            parsed.or_else(|| {
+                                // Strip the scheme prefix and use the rest as a path.
+                                let raw = src
+                                    .strip_prefix("file://")
+                                    .or_else(|| src.strip_prefix("file:/"))
+                                    .or_else(|| src.strip_prefix("file:"))
+                                    .unwrap_or(&src);
+                                let path = Path::new(raw);
                                 if path.is_absolute() {
                                     Some(path.to_path_buf())
                                 } else {
                                     Some(canonical_base.join(path))
                                 }
-                            };
+                            })
+                        } else {
+                            let path = Path::new(&src);
+                            if path.is_absolute() {
+                                Some(path.to_path_buf())
+                            } else {
+                                Some(canonical_base.join(path))
+                            }
+                        };
 
-                            if let Some(absolute_path) = absolute_path {
-                                if let Ok(canonical_path) = absolute_path.canonicalize() {
-                                    if !canonical_path.starts_with(&canonical_base) {
-                                        tracing::trace!(
-                                            ?src,
-                                            "Image path resolved outside base directory; proceeding with inline read"
-                                        );
-                                    }
-                                    if let Some(image_data) =
-                                        read_image_bounded(&canonical_path, MAX_INLINE_IMAGE_SIZE)
-                                    {
-                                        let mime_type = get_mime_type(&canonical_path);
-                                        let base64_data =
-                                            general_purpose::STANDARD.encode(&image_data);
-                                        let data_url =
-                                            format!("data:{};base64,{}", mime_type, base64_data);
-                                        el.set_attribute("src", &data_url)?;
-                                    }
+                        if let Some(absolute_path) = absolute_path {
+                            if let Ok(canonical_path) = absolute_path.canonicalize() {
+                                if !canonical_path.starts_with(&canonical_base) {
+                                    tracing::trace!(
+                                        ?src,
+                                        "Image path resolved outside base directory; proceeding with inline read"
+                                    );
+                                }
+                                if let Some(image_data) =
+                                    read_image_bounded(&canonical_path, MAX_INLINE_IMAGE_SIZE)
+                                {
+                                    let mime_type = get_mime_type(&canonical_path);
+                                    let base64_data =
+                                        general_purpose::STANDARD.encode(&image_data);
+                                    let data_url =
+                                        format!("data:{};base64,{}", mime_type, base64_data);
+                                    el.set_attribute("src", &data_url)?;
                                 }
                             }
                         }
                     }
-                    Ok(())
-                }),
-                // Process anchor tags: convert markdown links to spans
-                element!("a[href]", |el| {
-                    if let Some(href) = el.get_attribute("href") {
-                        if !href.starts_with("http://") && !href.starts_with("https://") {
-                            if let Some(ext) = std::path::Path::new(&href)
-                                .extension()
-                                .and_then(|e| e.to_str())
-                            {
-                                el.set_tag_name("span")?;
-                                el.remove_attribute("href");
-                                el.set_attribute("data-md-link", &href)?;
-                                if ext != "md" && ext != "markdown" {
-                                    el.set_attribute("class", "md-link md-link-invalid")?;
-                                } else {
-                                    el.set_attribute("class", "md-link")?;
-                                }
-                                el.set_attribute("onmousedown",
-                                    "if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}")?;
+                }
+                Ok(())
+            }))
+            // Process anchor tags: convert markdown links to spans
+            .append_element_content_handler(element!("a[href]", |el| {
+                if let Some(href) = el.get_attribute("href") {
+                    if !href.starts_with("http://") && !href.starts_with("https://") {
+                        if let Some(ext) = std::path::Path::new(&href)
+                            .extension()
+                            .and_then(|e| e.to_str())
+                        {
+                            el.set_tag_name("span")?;
+                            el.remove_attribute("href");
+                            el.set_attribute("data-md-link", &href)?;
+                            if ext != "md" && ext != "markdown" {
+                                el.set_attribute("class", "md-link md-link-invalid")?;
+                            } else {
+                                el.set_attribute("class", "md-link")?;
                             }
+                            el.set_attribute("onmousedown",
+                                "if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}")?;
                         }
                     }
-                    Ok(())
-                }),
-            ],
-            ..Settings::default()
-        },
+                }
+                Ok(())
+            })),
         |chunk: &[u8]| {
             output.extend_from_slice(chunk);
         },
