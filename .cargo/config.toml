@@ -1,0 +1,9 @@
+# Disable any inherited rustc-wrapper (e.g. sccache from ~/.cargo/config.toml).
+#
+# The Dioxus CLI (`dx bundle`) invokes rustc through its own `.dx-wrapped`
+# wrapper. sccache fails to identify that wrapped compiler during its probe
+# (it feeds a C test file to the Rust wrapper), aborting the build with
+# "Compiler not supported". Clearing the wrapper here keeps sccache active for
+# other projects while letting Arto build.
+[build]
+rustc-wrapper = ""
