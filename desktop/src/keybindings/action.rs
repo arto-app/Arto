@@ -88,6 +88,7 @@ pub enum Action {
     FileSaveImageAs,
     FilePreferences,
     FileRevealInFinder,
+    FilePrint,
 
     // App (4) — MenuId: About, GoToHomepage + keyboard-only help overlay
     AppAbout,
@@ -227,6 +228,7 @@ pub(crate) const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::FileSaveImageAs,
             Action::FilePreferences,
             Action::FileRevealInFinder,
+            Action::FilePrint,
         ],
     ),
     (
@@ -385,6 +387,7 @@ action_strings! {
     FileSaveImageAs => "file.save_image_as",
     FilePreferences => "file.preferences",
     FileRevealInFinder => "file.reveal_in_finder",
+    FilePrint => "file.print",
     AppAbout => "app.about",
     AppQuit => "app.quit",
     AppGoToHomepage => "app.go_to_homepage",
@@ -425,7 +428,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 84);
+        assert_eq!(all_actions().len(), 85);
     }
 
     #[test]
