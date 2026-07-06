@@ -1,0 +1,158 @@
+/* ========================================
+   Print stylesheet
+   ========================================
+
+   Turns the single-window app layout into a paginated document so the
+   native print dialog (and its "Save as PDF" option) produces clean
+   A4 pages: only the active tab's content is printed, application
+   chrome is hidden, and oversized media (Mermaid diagrams, images) is
+   scaled down to fit within one page. */
+
+@media print {
+  /* ----------------------------------------
+     Hide application chrome
+     ---------------------------------------- */
+
+  /* Sidebars, hover triggers, overlays, context menus, drag/shortcut
+     overlays — everything that is a sibling of the main area */
+  .app-container > :not(.main-area),
+  /* Header, search bar, tab bar — everything in the main area except
+     the document itself */
+  .main-area > :not(.content),
+  /* Floating helpers rendered outside the app container */
+  .action-feedback,
+  /* Hover-activated copy buttons on code blocks */
+  .copy-button {
+    display: none !important;
+  }
+
+  /* Keyboard cursor highlight is a screen-only affordance */
+  .content-cursor-active,
+  .content-cursor-active.content-cursor-hold {
+    outline: none !important;
+    background-color: transparent !important;
+  }
+
+  /* ----------------------------------------
+     Unlock the fixed viewport layout
+     ----------------------------------------
+
+     On screen the app is a 100vh flexbox with inner scroll containers.
+     For printing, everything must become a normally flowing block so
+     WebKit can paginate the full document height. */
+
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .app-container,
+  .main-area,
+  .content {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Neutralize the screen zoom wrapper: paper output is always 100% */
+  .content > div[style] {
+    zoom: 1 !important;
+  }
+
+  .markdown-viewer {
+    padding: 0 !important;
+  }
+
+  .markdown-viewer .markdown-body {
+    max-width: none;
+  }
+
+  /* ----------------------------------------
+     Colors
+     ---------------------------------------- */
+
+  /* Always print dark text on white paper, regardless of the UI theme.
+     Component-level colors (code blocks, alerts, Mermaid SVG fills)
+     keep their own theme styling on top of this base. */
+  body,
+  .markdown-viewer,
+  .markdown-body {
+    background: #ffffff !important;
+    color: #1f2328 !important;
+  }
+
+  /* WebKit skips CSS backgrounds when printing by default; force them
+     so code blocks, alerts, and table stripes keep their colors. */
+  .markdown-body,
+  .markdown-body * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ----------------------------------------
+     Fit media into an A4 page
+     ---------------------------------------- */
+
+  /* Keep each visual block on a single page */
+  .markdown-body pre.preprocessed-mermaid,
+  .markdown-body .preprocessed-math-display,
+  .markdown-body .katex-display,
+  .markdown-body img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Mermaid emits SVGs with width="100%" capped by an inline max-width
+     of the diagram's natural size, so the width already fits the page.
+     Cap the height to one A4 page (297mm minus print margins and some
+     slack); the intrinsic aspect ratio then shrinks the width to match,
+     so tall diagrams scale down instead of being cut at a page break. */
+  .markdown-body pre.preprocessed-mermaid svg {
+    height: auto !important;
+    max-height: 240mm;
+  }
+
+  .markdown-body img {
+    max-width: 100% !important;
+    max-height: 240mm;
+    height: auto !important;
+  }
+
+  /* ----------------------------------------
+     Text blocks
+     ---------------------------------------- */
+
+  /* Code blocks scroll horizontally on screen; wrap them on paper */
+  .markdown-body pre {
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere;
+    overflow: visible !important;
+  }
+
+  /* github-markdown-css renders tables as scrollable blocks; restore
+     real table layout so columns compress to the page width */
+  .markdown-body table {
+    display: table !important;
+    width: auto !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere;
+  }
+
+  .markdown-body tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Avoid a heading stranded at the bottom of a page */
+  .markdown-body h1,
+  .markdown-body h2,
+  .markdown-body h3,
+  .markdown-body h4,
+  .markdown-body h5,
+  .markdown-body h6 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+}
