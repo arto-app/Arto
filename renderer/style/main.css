@@ -37,6 +37,9 @@
 /* External */
 @import url("katex/dist/katex.min.css");
 
+/* Print (last so it wins cascade ties over screen styles) */
+@import url("./print.css");
+
 /* App-wide styling */
 body {
   background-color: var(--bg-color);

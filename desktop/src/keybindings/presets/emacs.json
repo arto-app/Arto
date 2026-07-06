@@ -70,6 +70,10 @@
       "action": "history.forward"
     },
     {
+      "key": "Cmd+p",
+      "action": "file.print"
+    },
+    {
       "key": "Cmd+Comma",
       "action": "file.preferences"
     },

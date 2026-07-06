@@ -98,6 +98,12 @@ declare global {
       feedback: {
         show: typeof actionFeedback.show;
       };
+      print: {
+        /** Switch to the light theme for printing; resolves after Mermaid re-renders. */
+        prepare: () => Promise<void>;
+        /** Restore the theme that was active before `prepare()`. */
+        restore: () => void;
+      };
     };
     /** Called from JavaScript when Math block click is detected */
     handleMathWindowOpen?: (source: string) => void;
@@ -125,6 +131,44 @@ export function setCurrentTheme(theme: Theme) {
   syntaxHighlighter.setTheme(theme);
   mermaidRenderer.setTheme(theme);
   renderCoordinator.forceRenderMermaid();
+}
+
+/**
+ * Theme that was active before `preparePrint()` switched to light,
+ * or null when no print is in progress (or the theme was already light).
+ */
+let printSavedTheme: Theme | null = null;
+
+/**
+ * Force the light theme for printing.
+ *
+ * Printed output must always be light-on-white regardless of the UI theme.
+ * The print CSS can override plain colors, but Mermaid bakes its theme into
+ * the generated SVG, so the diagrams have to be re-rendered with the light
+ * theme before the print dialog captures the page. Resolves once that
+ * re-render completes (with a timeout fallback so printing never hangs).
+ */
+async function preparePrint(): Promise<void> {
+  if (getCurrentTheme() === "light") {
+    return;
+  }
+  printSavedTheme = getCurrentTheme();
+
+  const rendered = new Promise<void>((resolve) => {
+    renderCoordinator.onRenderComplete(resolve);
+    setTimeout(resolve, 2000);
+  });
+  setCurrentTheme("light");
+  await rendered;
+}
+
+/** Restore the theme that was active before `preparePrint()`. */
+function restorePrint(): void {
+  if (printSavedTheme === null) {
+    return;
+  }
+  setCurrentTheme(printSavedTheme);
+  printSavedTheme = null;
 }
 
 export function init(): void {
@@ -268,6 +312,10 @@ export function init(): void {
     },
     feedback: {
       show: actionFeedback.show,
+    },
+    print: {
+      prepare: preparePrint,
+      restore: restorePrint,
     },
   };
 

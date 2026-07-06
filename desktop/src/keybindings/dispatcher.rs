@@ -252,6 +252,9 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
                 crate::utils::file_operations::reveal_in_finder(&file);
             }
         }
+        Action::FilePrint => {
+            crate::utils::print::print_window(get_current_file(&state));
+        }
 
         // --- App ---
         Action::AppAbout => {

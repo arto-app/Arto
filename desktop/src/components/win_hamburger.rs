@@ -95,6 +95,11 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
                 HeaderMenuItem { label: "Close Window", shortcut: shortcut("window.close"), on_click: move |_| {
                     dioxus::desktop::window().close();
                 } }
+                HeaderMenuSeparator {}
+                HeaderMenuItem { label: "Print...", shortcut: shortcut("file.print"), on_click: { let f = current_file.clone(); move |_| {
+                    close();
+                    crate::utils::print::print_window(f.clone());
+                } } }
             }
 
             // === Edit ===

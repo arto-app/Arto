@@ -25,6 +25,7 @@ enum MenuId {
     CloseWindow,
     CloseAllChildWindows,
     CloseAllWindows,
+    Print,
     Preferences,
     Find,
     FindNext,
@@ -55,6 +56,7 @@ impl MenuId {
             "file.close_window" => Some(Self::CloseWindow),
             "window.close_all_child_windows" => Some(Self::CloseAllChildWindows),
             "window.close_all_windows" => Some(Self::CloseAllWindows),
+            "file.print" => Some(Self::Print),
             "app.preferences" => Some(Self::Preferences),
             "edit.find" => Some(Self::Find),
             "edit.find_next" => Some(Self::FindNext),
@@ -86,6 +88,7 @@ impl MenuId {
             Self::CloseWindow => "file.close_window",
             Self::CloseAllChildWindows => "window.close_all_child_windows",
             Self::CloseAllWindows => "window.close_all_windows",
+            Self::Print => "file.print",
             Self::Preferences => "app.preferences",
             Self::Find => "edit.find",
             Self::FindNext => "edit.find_next",
@@ -139,6 +142,7 @@ fn menu_action_for_id(id: MenuId) -> Option<&'static str> {
         MenuId::CloseWindow => "window.close",
         MenuId::CloseAllChildWindows => "window.close_all_child_windows",
         MenuId::CloseAllWindows => "window.close_all_windows",
+        MenuId::Print => "file.print",
         MenuId::Preferences => "file.preferences",
         MenuId::Find => "search.open",
         MenuId::FindNext => "search.next",
@@ -205,6 +209,8 @@ fn add_file_menu(menu: &Menu) {
             &create_menu_item(MenuId::CloseTab, "Close Tab"),
             &create_menu_item(MenuId::CloseAllTabs, "Close All Tabs"),
             &create_menu_item(MenuId::CloseWindow, "Close Window"),
+            &PredefinedMenuItem::separator(),
+            &create_menu_item(MenuId::Print, "Print..."),
         ])
         .unwrap();
 
@@ -455,6 +461,9 @@ pub fn handle_menu_event_with_state(event: &MenuEvent, state: &mut AppState) -> 
                 crate::utils::clipboard::copy_text(file.to_string_lossy());
             }
         }
+        MenuId::Print => {
+            crate::utils::print::print_window(get_current_file(state));
+        }
         MenuId::Find => {
             // None = get selected text from JavaScript
             state.open_search_with_text(None);
@@ -550,6 +559,7 @@ mod tests {
             "file.close_window",
             "window.close_all_child_windows",
             "window.close_all_windows",
+            "file.print",
             "app.preferences",
             "edit.find",
             "edit.find_next",
