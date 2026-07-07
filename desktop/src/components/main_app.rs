@@ -70,6 +70,7 @@ pub fn MainApp() -> Element {
     let theme_pref = settings::get_theme_preference(is_first_window);
     let sidebar_pref = settings::get_sidebar_preference(is_first_window);
     let right_sidebar_pref = settings::get_right_sidebar_preference(is_first_window);
+    let content_full_width = settings::get_content_full_width_preference();
     let zoom_pref = settings::get_zoom_preference(is_first_window);
 
     // Directory resolution: override (from event) → config → tab parent → home → root
@@ -90,6 +91,7 @@ pub fn MainApp() -> Element {
             tabs: tabs,
             directory: directory,
             theme: theme_pref.theme,
+            content_full_width,
             sidebar_pinned: sidebar_pref.pinned,
             sidebar_width: sidebar_pref.width,
             sidebar_show_all_files: sidebar_pref.show_all_files,

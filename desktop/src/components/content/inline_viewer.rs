@@ -2,9 +2,11 @@ use dioxus::prelude::*;
 use std::path::Path;
 
 use crate::markdown::render_to_html;
+use crate::state::AppState;
 
 #[component]
 pub fn InlineViewer(markdown: String) -> Element {
+    let state = use_context::<AppState>();
     let html = use_signal(String::new);
 
     // Setup component hooks
@@ -13,6 +15,7 @@ pub fn InlineViewer(markdown: String) -> Element {
     rsx! {
         div {
             class: "markdown-viewer",
+            class: if *state.content_full_width.read() { "full-width" },
             article {
                 class: "markdown-body",
                 dangerous_inner_html: "{html}"

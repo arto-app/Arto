@@ -60,6 +60,8 @@ pub struct AppState {
     pub active_tab: Signal<usize>,
     pub current_theme: Signal<Theme>,
     pub zoom_level: Signal<f64>,
+    /// Whether the content area ignores the markdown body's max-width and fills the pane.
+    pub content_full_width: Signal<bool>,
     pub sidebar: Signal<Sidebar>,
     pub right_sidebar_pinned: Signal<bool>,
     pub right_sidebar_width: Signal<f64>,
@@ -115,6 +117,7 @@ impl AppState {
             active_tab: Signal::new(0),
             current_theme: Signal::new(theme),
             zoom_level: Signal::new(1.0),
+            content_full_width: Signal::new(false),
             sidebar: Signal::new(Sidebar::default()),
             right_sidebar_pinned: Signal::new(false),
             right_sidebar_width: Signal::new(DEFAULT_RIGHT_SIDEBAR_WIDTH),
@@ -196,6 +199,13 @@ impl AppState {
         if let Some(parent) = parent {
             self.set_root_directory(parent);
         }
+    }
+
+    /// Toggle full-width content mode, which lets the markdown body ignore its
+    /// max-width and fill the entire content pane.
+    pub fn toggle_content_full_width(&mut self) {
+        let was_full_width = *self.content_full_width.read();
+        self.content_full_width.set(!was_full_width);
     }
 
     /// Toggle right sidebar between pinned (flex layout) and unpinned (overlay/hover).

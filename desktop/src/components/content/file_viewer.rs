@@ -46,6 +46,7 @@ pub fn FileViewer(file: PathBuf) -> Element {
     rsx! {
         div {
             class: "markdown-viewer",
+            class: if *state.content_full_width.read() { "full-width" },
             article {
                 class: "markdown-body",
                 dangerous_inner_html: "{html}"

@@ -189,6 +189,18 @@ pub fn Header() -> Element {
                     Icon { name: IconName::Search, size: 20 }
                 }
 
+                // Full-width content toggle
+                button {
+                    class: "nav-button full-width-button",
+                    class: if *state.content_full_width.read() { "active" },
+                    title: if *state.content_full_width.read() { "Disable full-width content" } else { "Full-width content" },
+                    onclick: move |_| state.toggle_content_full_width(),
+                    Icon {
+                        name: if *state.content_full_width.read() { IconName::ViewportNarrow } else { IconName::ViewportWide },
+                        size: 20,
+                    }
+                }
+
                 // Theme selector
                 ThemeSelector { current_theme: state.current_theme }
             }

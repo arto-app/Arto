@@ -48,6 +48,8 @@ pub enum IconName {
     Sun,
     SunMoon,
     Trash,
+    ViewportNarrow,
+    ViewportWide,
 }
 
 impl fmt::Display for IconName {
@@ -96,6 +98,8 @@ impl fmt::Display for IconName {
             IconName::Sun => "sun",
             IconName::SunMoon => "sun-moon",
             IconName::Trash => "trash",
+            IconName::ViewportNarrow => "viewport-narrow",
+            IconName::ViewportWide => "viewport-wide",
         };
         write!(f, "{}", name)
     }

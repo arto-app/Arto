@@ -50,6 +50,7 @@ impl From<LogicalSize<u32>> for Size {
 pub struct PersistedState {
     pub directory: Option<PathBuf>,
     pub theme: Theme,
+    pub content_full_width: bool,
     pub sidebar_pinned: bool,
     pub sidebar_width: f64,
     pub sidebar_show_all_files: bool,
@@ -75,6 +76,7 @@ impl Default for PersistedState {
         Self {
             directory: None,
             theme: Theme::default(),
+            content_full_width: false,
             sidebar_pinned: false,
             sidebar_width: 280.0,
             sidebar_show_all_files: false,
@@ -96,6 +98,7 @@ impl From<&AppState> for PersistedState {
         Self {
             directory: sidebar.root_directory.clone(),
             theme: *state.current_theme.read(),
+            content_full_width: *state.content_full_width.read(),
             sidebar_pinned: sidebar.pinned,
             sidebar_width: sidebar.width,
             sidebar_show_all_files: sidebar.show_all_files,
@@ -154,6 +157,7 @@ impl PersistedState {
         tracing::debug!(
             path = %path.display(),
             theme = ?self.theme,
+            content_full_width = self.content_full_width,
             sidebar_pinned = self.sidebar_pinned,
             sidebar_width = self.sidebar_width,
             sidebar_show_all_files = self.sidebar_show_all_files,
@@ -263,6 +267,19 @@ mod tests {
 
         assert!(parsed.sidebar_pinned);
         assert!(parsed.right_sidebar_pinned);
+    }
+
+    #[test]
+    fn test_content_full_width_roundtrip() {
+        let state = PersistedState {
+            content_full_width: true,
+            ..Default::default()
+        };
+
+        let json = serde_json::to_string(&state).unwrap();
+        let parsed: PersistedState = serde_json::from_str(&json).unwrap();
+
+        assert!(parsed.content_full_width);
     }
 
     #[test]
