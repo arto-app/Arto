@@ -50,6 +50,7 @@ pub fn App(
     tabs: Vec<Tab>,     // Initial tabs (at least one tab must be present)
     directory: PathBuf, // Directory (resolved in create_main_window or MainApp)
     theme: Theme,       // The enum: Auto/Light/Dark
+    content_full_width: bool,
     sidebar_pinned: bool,
     sidebar_width: f64,
     sidebar_show_all_files: bool,
@@ -72,6 +73,7 @@ pub fn App(
         // Initialize with provided tabs (preserves ordering)
         app_state.tabs.set(initial_tabs);
         app_state.active_tab.set(0);
+        app_state.content_full_width.set(content_full_width);
 
         // Apply initial sidebar settings from params (including directory)
         {

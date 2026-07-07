@@ -54,6 +54,7 @@ pub fn create_main_window_config(params: &CreateMainWindowConfigParams) -> Confi
 pub struct CreateMainWindowConfigParams {
     pub directory: Option<PathBuf>, // Auto-detect from tab/file if None
     pub theme: Theme,               // The enum: Auto/Light/Dark
+    pub content_full_width: bool,
     pub sidebar_pinned: bool,
     pub sidebar_width: f64,
     pub sidebar_show_all_files: bool,
@@ -78,6 +79,7 @@ impl CreateMainWindowConfigParams {
         let theme_pref = settings::get_theme_preference(is_first_window);
         let sidebar_pref = settings::get_sidebar_preference(is_first_window);
         let right_sidebar_pref = settings::get_right_sidebar_preference(is_first_window);
+        let content_full_width = settings::get_content_full_width_preference();
         let zoom_pref = settings::get_zoom_preference(is_first_window);
         let size_pref = settings::get_window_size_preference(is_first_window);
         let position_pref = settings::get_window_position_preference(is_first_window);
@@ -85,6 +87,7 @@ impl CreateMainWindowConfigParams {
         Self {
             directory: directory_pref.directory,
             theme: theme_pref.theme,
+            content_full_width,
             sidebar_pinned: sidebar_pref.pinned,
             sidebar_width: sidebar_pref.width,
             sidebar_show_all_files: sidebar_pref.show_all_files,
@@ -286,6 +289,7 @@ fn build_window_dom_and_config(
             tabs,
             directory,
             theme: params.theme,
+            content_full_width: params.content_full_width,
             sidebar_pinned: params.sidebar_pinned,
             sidebar_width: params.sidebar_width,
             sidebar_show_all_files: params.sidebar_show_all_files,

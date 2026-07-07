@@ -361,6 +361,18 @@ pub fn get_right_sidebar_preference(is_first_window: bool) -> RightSidebarPrefer
     }
 }
 
+/// Resolve the content full-width preference.
+///
+/// Unlike theme/sidebar/directory, this has no `Config` default or startup/new-window
+/// behavior setting — it simply follows the last focused window, falling back to
+/// `PersistedState` (state.json) so it survives across app restarts.
+pub fn get_content_full_width_preference() -> bool {
+    resolve_from_state_or_persisted(
+        |state| *state.content_full_width.read(),
+        |persisted| persisted.content_full_width,
+    )
+}
+
 pub fn get_zoom_preference(is_first_window: bool) -> ZoomPreference {
     let cfg = CONFIG.read();
     let zoom_level = choose_by_behavior(
