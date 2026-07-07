@@ -322,11 +322,6 @@ pub fn App(
     let left_pinned = state.sidebar.read().pinned;
     let right_pinned = *state.right_sidebar_pinned.read();
 
-    // Disable sidebar hover on Preferences (full-screen settings page)
-    let enable_sidebar_hover = state
-        .current_tab()
-        .is_none_or(|tab| !matches!(tab.content, crate::state::TabContent::Preferences));
-
     // Delay in milliseconds before auto-hiding the overlay sidebar.
     // 300ms is the standard "Hover Intent" delay (Nielsen Norman Group),
     // balancing responsiveness with prevention of flickering at boundaries.
@@ -396,8 +391,8 @@ pub fn App(
                 }
             }
 
-            // Hover triggers and overlays (only when unpinned, on content-display tabs)
-            if !left_pinned && enable_sidebar_hover {
+            // Hover triggers and overlays (only when unpinned)
+            if !left_pinned {
                 div {
                     class: "sidebar-hover-trigger left",
                     onmouseenter: move |_| {
@@ -407,7 +402,7 @@ pub fn App(
                 }
             }
 
-            if !right_pinned && enable_sidebar_hover {
+            if !right_pinned {
                 div {
                     class: "sidebar-hover-trigger right",
                     onmouseenter: move |_| {
@@ -418,7 +413,7 @@ pub fn App(
             }
 
             // Overlay wrappers (rendered when unpinned, animated via .visible class)
-            if !left_pinned && enable_sidebar_hover {
+            if !left_pinned {
                 div {
                     class: "sidebar-overlay-wrapper left",
                     class: if left_hover_active() { "visible" },
@@ -468,7 +463,7 @@ pub fn App(
                 }
             }
 
-            if !right_pinned && enable_sidebar_hover {
+            if !right_pinned {
                 div {
                     class: "sidebar-overlay-wrapper right",
                     class: if right_hover_active() { "visible" },
