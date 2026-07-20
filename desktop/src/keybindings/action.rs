@@ -287,6 +287,46 @@ pub(crate) const ACTION_GROUPS: &[(&str, &[Action])] = &[
     ("Cancel", &[Action::Cancel]),
 ];
 
+/// Actions that have a corresponding menu item and can therefore be bound as a
+/// native menu shortcut.
+///
+/// Kept in sync with `menu::menu_action_for_id` (a drift-guard test in `menu.rs`
+/// asserts every menu item's action appears here).
+pub const MENU_ACTIONS: &[Action] = &[
+    Action::WindowNew,
+    Action::TabNew,
+    Action::FileOpen,
+    Action::FileOpenDirectory,
+    Action::CopyFilePath,
+    Action::FileRevealInFinder,
+    Action::TabClose,
+    Action::TabCloseAll,
+    Action::WindowClose,
+    Action::FilePrint,
+    Action::FilePreferences,
+    Action::AppAbout,
+    Action::SearchOpen,
+    Action::SearchNext,
+    Action::SearchPrev,
+    Action::WindowToggleSidebar,
+    Action::WindowToggleRightSidebar,
+    Action::ZoomReset,
+    Action::ZoomIn,
+    Action::ZoomOut,
+    Action::HistoryBack,
+    Action::HistoryForward,
+    Action::WindowCloseAllChildWindows,
+    Action::WindowCloseAllWindows,
+    Action::AppGoToHomepage,
+];
+
+/// Whether an action string corresponds to a menu item (native-menu eligible).
+pub fn is_menu_action(action: &str) -> bool {
+    Action::from_str(action)
+        .map(|a| MENU_ACTIONS.contains(&a))
+        .unwrap_or(false)
+}
+
 /// Generate `Display` and `FromStr` impls from a single mapping table.
 ///
 /// This ensures the string representation is always consistent between

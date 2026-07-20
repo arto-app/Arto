@@ -86,6 +86,33 @@ fn validate_preset_bindings(name: &str, bindings: &BindingSet) {
             );
         }
     }
+
+    validate_menu_shortcuts(name, &bindings.menu_shortcuts);
+}
+
+/// Menu shortcuts have stricter requirements than engine keybindings: they
+/// become native OS accelerators, which must be a single chord representable
+/// as a muda `Accelerator`.
+fn validate_menu_shortcuts(name: &str, actions: &[KeyAction]) {
+    let mut seen_sequences = HashSet::new();
+    for ka in actions {
+        Action::from_str(&ka.action).unwrap_or_else(|e| {
+            panic!(
+                "{name} preset has unknown action in menu_shortcuts: action={:?}, error={}",
+                ka.action, e
+            )
+        });
+        assert!(
+            super::accelerator_for_key(&ka.key).is_some(),
+            "{name} preset menu shortcut is not a valid single-chord accelerator: key={:?}",
+            ka.key
+        );
+        let normalized = ShortcutSequence::from_str(&ka.key).unwrap().to_string();
+        assert!(
+            seen_sequences.insert(normalized.clone()),
+            "{name} preset has duplicate menu shortcut: {normalized:?}"
+        );
+    }
 }
 
 /// Resolve bindings from configuration for engine consumption.
@@ -100,6 +127,11 @@ impl BindingSet {
     /// Flatten into resolved bindings for engine consumption.
     pub fn into_resolved_bindings(self) -> Vec<ResolvedBinding> {
         let mut result = Vec::new();
+        // Platforms with a native menu (macOS/Linux) let the OS dispatch menu
+        // shortcuts, so they are excluded here. Windows has no native menu, so
+        // the engine must own them or they would have no dispatch path at all.
+        #[cfg(target_os = "windows")]
+        resolve_field(self.menu_shortcuts, None, &mut result);
         resolve_field(self.global, None, &mut result);
         resolve_field(self.content, Some(KeyContext::Content), &mut result);
         resolve_field(self.sidebar, Some(KeyContext::Sidebar), &mut result);

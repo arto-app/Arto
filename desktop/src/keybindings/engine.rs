@@ -271,11 +271,22 @@ mod tests {
     }
 
     #[test]
-    fn default_binding_cmd_n() {
+    fn default_global_binding_cmd_r() {
+        // Cmd+r (window.reload) stays an engine keybinding in the default preset.
+        let config = default_bindings();
+        let mut engine = KeybindingEngine::new(&config);
+        let result = engine.process_key(&chord("Cmd+r"), false, KeyContext::Content);
+        assert_eq!(result, KeyMatchResult::Matched(Action::WindowReload));
+    }
+
+    #[test]
+    fn menu_shortcut_not_matched_by_engine() {
+        // Cmd+n (window.new) is a native menu shortcut, not an engine binding,
+        // so the keybinding engine must not resolve it.
         let config = default_bindings();
         let mut engine = KeybindingEngine::new(&config);
         let result = engine.process_key(&chord("Cmd+n"), false, KeyContext::Content);
-        assert_eq!(result, KeyMatchResult::Matched(Action::WindowNew));
+        assert_eq!(result, KeyMatchResult::NoMatch);
     }
 
     #[test]
@@ -375,14 +386,14 @@ mod tests {
     }
 
     #[test]
-    fn user_overrides_default_cmd_n() {
-        // User edits Cmd+n from window.new to tab.new in their config
+    fn user_overrides_default_global_binding() {
+        // User edits Cmd+r from window.reload to tab.new in their global config.
         let mut custom = crate::keybindings::default_bindings();
-        let cmd_n = custom.global.iter_mut().find(|b| b.key == "Cmd+n").unwrap();
-        cmd_n.action = "tab.new".to_string();
+        let cmd_r = custom.global.iter_mut().find(|b| b.key == "Cmd+r").unwrap();
+        cmd_r.action = "tab.new".to_string();
 
         let mut engine = KeybindingEngine::new(&custom);
-        let result = engine.process_key(&chord("Cmd+n"), false, KeyContext::Content);
+        let result = engine.process_key(&chord("Cmd+r"), false, KeyContext::Content);
         assert_eq!(result, KeyMatchResult::Matched(Action::TabNew));
     }
 

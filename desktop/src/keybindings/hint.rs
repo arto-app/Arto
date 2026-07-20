@@ -3,18 +3,23 @@ use crate::keybindings::KeyContext;
 
 /// Return a formatted shortcut hint for the given action.
 ///
-/// Context bindings are preferred over global when both exist.
+/// Lookup order: context binding → global keybinding → menu shortcut.
 pub fn shortcut_hint_for_action(action: &str, context: Option<KeyContext>) -> Option<String> {
     let config = CONFIG.read();
     let bindings = &config.keybindings;
 
     let key = context
         .and_then(|ctx| find_key_for_action(bindings_for_context(bindings, ctx), action))
-        .or_else(|| find_key_for_action(&bindings.global, action))?;
+        .or_else(|| find_key_for_action(&bindings.global, action))
+        .or_else(|| find_key_for_action(&bindings.menu_shortcuts, action))?;
     Some(format_shortcut_hint(key))
 }
 
-/// Return a formatted shortcut hint from global keybindings.
+/// Return a formatted shortcut hint from global (and menu) keybindings.
+///
+/// Only referenced by the Windows in-app menu (`win_hamburger`); platforms with
+/// a native menu (macOS/Linux) derive accelerators from `menu_shortcuts`.
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 pub fn shortcut_hint_for_global_action(action: &str) -> Option<String> {
     shortcut_hint_for_action(action, None)
 }

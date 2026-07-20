@@ -335,7 +335,7 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
                         on_close: props.on_close,
                     }
                 },
-                ContentContext::Image { src: _, .. } => rsx! {
+                ContentContext::Image { .. } => rsx! {
                     ContextMenuItem {
                         label: "Save Image As...",
                         shortcut: shortcut("file.save_image_as"),

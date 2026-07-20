@@ -5,6 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "menuShortcuts": { "$ref": "#/$defs/bindings" },
     "global": { "$ref": "#/$defs/bindings" },
     "content": { "$ref": "#/$defs/bindings" },
     "sidebar": { "$ref": "#/$defs/bindings" },
