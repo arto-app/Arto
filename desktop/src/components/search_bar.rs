@@ -91,6 +91,9 @@ pub fn SearchBar() -> Element {
     let match_count = *state.search_match_count.read();
     let current_index = *state.search_current_index.read();
     let initial_text = state.search_initial_text.read().clone();
+    // Bumped on every open-search request so re-pressing the shortcut refocuses
+    // the input even when the bar is already open.
+    let focus_request = *state.search_focus_request.read();
     let mut has_input = use_signal(|| false);
 
     // Local signal for pinned searches (updated via broadcast)
@@ -116,8 +119,11 @@ pub fn SearchBar() -> Element {
         }
     });
 
-    // Handle focus and initial text when search bar opens
-    use_effect(use_reactive!(|is_open, initial_text| {
+    // Handle focus and initial text when search bar opens.
+    // `focus_request` is a reactive trigger: it re-runs this effect on every
+    // open-search request, even when `is_open`/`initial_text` are unchanged.
+    use_effect(use_reactive!(|is_open, initial_text, focus_request| {
+        let _ = focus_request;
         if is_open {
             if let Some(ref text) = initial_text {
                 if !text.is_empty() {
