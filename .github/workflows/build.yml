@@ -75,13 +75,29 @@ jobs:
 
   build:
     needs: ["check", "test"]
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS produces a .dmg; Linux targets produce a .deb (see justfile).
+          - target: macos
+            os: macos-latest
+            artifacts: ./desktop/target/dx/arto/bundle/**/*.dmg
+          - target: ubuntu
+            os: ubuntu-latest
+            artifacts: ./desktop/target/dx/arto/bundle/**/*.deb
+          - target: ubuntu-arm64
+            os: ubuntu-24.04-arm
+            artifacts: ./desktop/target/dx/arto/bundle/**/*.deb
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       # https://zenn.dev/mierune/articles/2af7b9e447712a
       - uses: chetan/git-restore-mtime-action@v2
+      # Run via the Nix devShell so the toolchain (rustc, dioxus-cli, node,
+      # pnpm) matches local development and produces distributable bundles.
       - uses: nixbuild/nix-quick-install-action@v35
       - uses: cachix/cachix-action@v17
         if: github.event_name != 'pull_request'
@@ -94,9 +110,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             desktop/target
-          key: cargo-build-${{ runner.os }}-${{ hashFiles('desktop/Cargo.lock') }}
-          restore-keys: cargo-build-${{ runner.os }}-
-      - name: Set package version for DMG filename
+          key: cargo-build-${{ matrix.target }}-${{ hashFiles('desktop/Cargo.lock') }}
+          restore-keys: cargo-build-${{ matrix.target }}-
+      - name: Set package version for bundle filename
         if: ${{ github.event_name == 'release' }}
         run: |
           VERSION="${{ github.event.release.tag_name }}"
@@ -106,18 +122,24 @@ jobs:
       - run: nix develop -c just build
       - uses: actions/upload-artifact@v7
         with:
-          name: arto-${{ runner.os }}
-          path: |
-            ./desktop/target/dx/arto/bundle/macos/macos
+          name: arto-${{ matrix.target }}
+          path: ${{ matrix.artifacts }}
           if-no-files-found: error
     timeout-minutes: 30
 
-  build-nix:
+  nix-check:
     needs: ["check", "test"]
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+          - target: macos
+            os: macos-latest
+          - target: ubuntu
+            os: ubuntu-latest
+          - target: ubuntu-arm64
+            os: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v7
         with:
@@ -237,7 +259,7 @@ jobs:
           tag: ${{ github.event.release.tag_name }}
           allowUpdates: true
           artifactErrorsFailBuild: true
-          artifacts: ./artifacts/**/Arto_*.dmg
+          artifacts: ./artifacts/**/*.dmg,./artifacts/**/*.deb
           removeArtifacts: true
           makeLatest: true
           bodyFile: release_body.md
