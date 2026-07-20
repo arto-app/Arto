@@ -75,13 +75,40 @@ jobs:
 
   build:
     needs: ["check", "test"]
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
+    # macOS is the source of the notarized DMG and gates the Homebrew dispatch,
+    # so it must succeed. Linux bundling is newer and less proven, so a Linux
+    # failure is tolerated (visible as a red leg) and must not block the macOS
+    # release. See the release job for the matching lenient upload.
+    continue-on-error: ${{ matrix.target != 'macos' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS produces a .dmg; Linux targets produce a .deb (see justfile).
+          - target: macos
+            os: macos-latest
+            artifacts: ./desktop/target/dx/arto/bundle/**/*.dmg
+            # macOS builds have historically finished within 30m.
+            timeout: 30
+          - target: ubuntu
+            os: ubuntu-latest
+            artifacts: ./desktop/target/dx/arto/bundle/**/*.deb
+            # A cold cargo cache pushes the full release build past 30m on the
+            # Linux runners (same class of build the nix-check job budgets 60m for).
+            timeout: 60
+          - target: ubuntu-arm64
+            os: ubuntu-24.04-arm
+            artifacts: ./desktop/target/dx/arto/bundle/**/*.deb
+            timeout: 60
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       # https://zenn.dev/mierune/articles/2af7b9e447712a
       - uses: chetan/git-restore-mtime-action@v2
+      # Run via the Nix devShell so the toolchain (rustc, dioxus-cli, node,
+      # pnpm) matches local development and produces distributable bundles.
       - uses: nixbuild/nix-quick-install-action@v35
       - uses: cachix/cachix-action@v17
         if: github.event_name != 'pull_request'
@@ -94,9 +121,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             desktop/target
-          key: cargo-build-${{ runner.os }}-${{ hashFiles('desktop/Cargo.lock') }}
-          restore-keys: cargo-build-${{ runner.os }}-
-      - name: Set package version for DMG filename
+          key: cargo-build-${{ matrix.target }}-${{ hashFiles('desktop/Cargo.lock') }}
+          restore-keys: cargo-build-${{ matrix.target }}-
+      - name: Set package version for bundle filename
         if: ${{ github.event_name == 'release' }}
         run: |
           VERSION="${{ github.event.release.tag_name }}"
@@ -106,18 +133,56 @@ jobs:
       - run: nix develop -c just build
       - uses: actions/upload-artifact@v7
         with:
-          name: arto-${{ runner.os }}
-          path: |
-            ./desktop/target/dx/arto/bundle/macos/macos
+          name: arto-${{ matrix.target }}
+          path: ${{ matrix.artifacts }}
           if-no-files-found: error
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.timeout }}
 
-  build-nix:
-    needs: ["check", "test"]
+  # Detect whether a pull request touches the Nix flake, so the expensive
+  # nix-check job can be limited to PRs that actually change it. On non-PR
+  # events the output is forced to "true" (nix-check always runs there).
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      flake: ${{ steps.detect.outputs.flake }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: detect
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "flake=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- flake.nix flake.lock | grep -q .; then
+            echo "flake=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "flake=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Verify the flake's package output (`nix build`) still builds. This is a
+  # clean, non-incremental build (~20-25m/leg), so on pull requests it runs
+  # only when the flake itself changed; every push to main and every release
+  # runs it unconditionally to catch bit-rot promptly.
+  nix-check:
+    needs: ["check", "test", "changes"]
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.flake == 'true' }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+          - target: macos
+            os: macos-latest
+          - target: ubuntu
+            os: ubuntu-latest
+          - target: ubuntu-arm64
+            os: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v7
         with:
@@ -236,8 +301,12 @@ jobs:
         with:
           tag: ${{ github.event.release.tag_name }}
           allowUpdates: true
-          artifactErrorsFailBuild: true
-          artifacts: ./artifacts/**/Arto_*.dmg
+          # Lenient so a missing Linux .deb (tolerated build failure) does not
+          # block the release. The macOS .dmg is still effectively required:
+          # the release only runs after the mandatory macOS build, and the
+          # downstream dispatch job fails if the aarch64 DMG is absent.
+          artifactErrorsFailBuild: false
+          artifacts: ./artifacts/**/*.dmg,./artifacts/**/*.deb
           removeArtifacts: true
           makeLatest: true
           bodyFile: release_body.md
