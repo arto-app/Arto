@@ -30,6 +30,28 @@ const SHIFT = 0x200;
  */
 const RESERVED_OS_CMD_KEYS = new Set(["q", "c", "v", "x", "a"]);
 
+/**
+ * Chords that are bound as native menu accelerators (canonical form
+ * `"<modifier-bits>:<physical-code>"`, matching {@link canonicalChord}).
+ *
+ * These are dispatched by the OS via the menu bar, so the interceptor must NOT
+ * forward them to the keybinding engine — otherwise the shortcut fires twice
+ * (once by the OS menu, once by the engine). Populated from Rust via
+ * {@link setMenuAccelerators}.
+ */
+let menuAccelerators = new Set<string>();
+
+/**
+ * Build the canonical chord key for an event, matching the Rust side.
+ *
+ * Uses the physical `KeyboardEvent.code` (e.g. `"KeyW"`) rather than `.key`,
+ * because Alt/Option remaps the produced glyph on macOS; `.code` is stable and
+ * matches how muda dispatches native accelerators.
+ */
+function canonicalChord(code: string, modifiers: number): string {
+  return `${modifiers}:${code}`;
+}
+
 /** Minimum mouse movement (px) to switch from keyboard to mouse mode. */
 const MOUSE_MOVE_THRESHOLD_SQ = 5 * 5;
 
@@ -87,6 +109,10 @@ function handleKeydown(e: KeyboardEvent): void {
 
   const modifiers = buildModifiers(e);
 
+  // Skip chords owned by a native menu accelerator: the OS menu already
+  // dispatches them, so forwarding to the engine would double-fire.
+  if (menuAccelerators.has(canonicalChord(e.code, modifiers))) return;
+
   if (!isKeyboardMode) {
     isKeyboardMode = true;
     mouseAnchorX = lastMouseX;
@@ -109,6 +135,16 @@ function handleCompositionEnd(): void {
 /** Register a callback for keydown events. */
 export function onKeydown(callback: KeydownCallback): void {
   currentCallback = callback;
+}
+
+/**
+ * Replace the set of chords owned by native menu accelerators.
+ *
+ * Called from Rust whenever the menu-shortcut config changes. Each entry is the
+ * canonical `"<modifier-bits>:<lowercased-key>"` form produced by the Rust side.
+ */
+export function setMenuAccelerators(chords: string[]): void {
+  menuAccelerators = new Set(chords);
 }
 
 /** Pause interceptor (e.g., during key recording in Preferences). */
