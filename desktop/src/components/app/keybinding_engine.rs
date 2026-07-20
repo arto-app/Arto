@@ -25,6 +25,34 @@ fn should_skip_keybinding(data: &KeyEventData) -> bool {
     data.search_focused && data.modifiers == 0 && data.key == "Escape"
 }
 
+/// Send the current native menu-accelerator chords to the JS interceptor so it
+/// skips them (the OS menu dispatches those; forwarding would double-fire).
+///
+/// Must be called within the Dioxus runtime (component task / spawn).
+#[cfg(not(target_os = "windows"))]
+fn push_menu_accelerators_to_js() {
+    use crate::config::CONFIG;
+
+    let keys = crate::keybindings::menu_accelerator_skip_keys(&CONFIG.read().keybindings);
+    let json = serde_json::to_string(&keys).unwrap_or_else(|_| "[]".to_string());
+    let _ = document::eval(&format!(
+        r#"
+        (async () => {{
+            let retries = 0;
+            while (!window.Arto?.keyboard?.setMenuAccelerators && retries++ < 50) {{
+                await new Promise(r => setTimeout(r, 50));
+            }}
+            window.Arto?.keyboard?.setMenuAccelerators?.({json});
+        }})();
+        "#
+    ));
+}
+
+/// Windows has no native menu, so menu shortcuts are dispatched by the engine
+/// (see `BindingSet::into_resolved_bindings`) — there is nothing to skip.
+#[cfg(target_os = "windows")]
+fn push_menu_accelerators_to_js() {}
+
 /// Set up the keybinding engine with JS keyboard interceptor bridge.
 ///
 /// Creates the engine from current config, then establishes a JS → Rust bridge:
@@ -70,6 +98,10 @@ pub(super) fn setup_keybinding_engine(
             })();
             "#,
             );
+
+            // Tell the interceptor which chords are native menu accelerators so
+            // it does not also forward them to the engine (double-fire guard).
+            push_menu_accelerators_to_js();
 
             // If JS initialization fails (timeout), recv returns Err immediately and
             // the loop never starts. Log a warning so the issue is diagnosable.
@@ -153,6 +185,7 @@ pub(super) fn setup_keybinding_engine(
             while rx.recv().await.is_ok() {
                 let new_config = CONFIG.read().keybindings.clone();
                 *engine.read().borrow_mut() = KeybindingEngine::new(&new_config);
+                push_menu_accelerators_to_js();
                 tracing::debug!("Keybinding engine rebuilt after config change");
             }
         });

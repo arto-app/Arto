@@ -1,6 +1,6 @@
 {
   "$schema": "./preset.schema.json",
-  "global": [
+  "menuShortcuts": [
     {
       "key": "Cmd+n",
       "action": "window.new"
@@ -12,6 +12,14 @@
     {
       "key": "Cmd+w",
       "action": "tab.close"
+    },
+    {
+      "key": "Cmd+Alt+w",
+      "action": "tab.close_all"
+    },
+    {
+      "key": "Cmd+Shift+w",
+      "action": "window.close"
     },
     {
       "key": "Cmd+o",
@@ -26,8 +34,12 @@
       "action": "file.reveal_in_finder"
     },
     {
-      "key": "Cmd+Shift+w",
-      "action": "window.close"
+      "key": "Cmd+p",
+      "action": "file.print"
+    },
+    {
+      "key": "Cmd+Comma",
+      "action": "file.preferences"
     },
     {
       "key": "Cmd+f",
@@ -40,10 +52,6 @@
     {
       "key": "Cmd+Shift+g",
       "action": "search.prev"
-    },
-    {
-      "key": "Cmd+r",
-      "action": "window.reload"
     },
     {
       "key": "Cmd+b",
@@ -72,18 +80,12 @@
     {
       "key": "Cmd+BracketRight",
       "action": "history.forward"
-    },
+    }
+  ],
+  "global": [
     {
-      "key": "Cmd+p",
-      "action": "file.print"
-    },
-    {
-      "key": "Cmd+Comma",
-      "action": "file.preferences"
-    },
-    {
-      "key": "Cmd+Alt+w",
-      "action": "tab.close_all"
+      "key": "Cmd+r",
+      "action": "window.reload"
     },
     {
       "key": "Cmd+Alt+Shift+w",
@@ -100,6 +102,10 @@
     {
       "key": "Cmd+Shift+Enter",
       "action": "file.open_link_in_new_tab"
+    },
+    {
+      "key": "Cmd+d",
+      "action": "file.toggle_bookmark"
     },
     {
       "key": "Cmd+Slash",
@@ -152,10 +158,6 @@
     {
       "key": "Escape",
       "action": "cancel"
-    },
-    {
-      "key": "Cmd+d",
-      "action": "file.toggle_bookmark"
     }
   ],
   "content": [
@@ -230,14 +232,6 @@
     {
       "key": "Backspace",
       "action": "directory.parent"
-    },
-    {
-      "key": "Cmd+BracketLeft",
-      "action": "directory.back"
-    },
-    {
-      "key": "Cmd+BracketRight",
-      "action": "directory.forward"
     },
     {
       "key": "Ctrl+ArrowLeft",

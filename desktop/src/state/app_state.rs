@@ -76,6 +76,9 @@ pub struct AppState {
     pub search_current_index: Signal<usize>,
     /// Initial search text to populate when opening search bar
     pub search_initial_text: Signal<Option<String>>,
+    /// Monotonic counter bumped on every open-search request, so the search
+    /// input is (re)focused even when the bar is already open.
+    pub search_focus_request: Signal<u64>,
     /// Current search query string (for display in Search tab)
     pub search_query: Signal<Option<String>>,
     /// All search matches with context (for Search tab display)
@@ -131,6 +134,7 @@ impl AppState {
             search_match_count: Signal::new(0),
             search_current_index: Signal::new(0),
             search_initial_text: Signal::new(None),
+            search_focus_request: Signal::new(0),
             search_query: Signal::new(None),
             search_matches: Signal::new(Vec::new()),
             pinned_matches: Signal::new(HashMap::new()),
@@ -263,6 +267,11 @@ impl AppState {
         self.search_initial_text.set(text);
         // Open search bar
         self.search_open.set(true);
+        // Request focus even if the bar is already open and the text is
+        // unchanged — otherwise no signal changes and the input keeps focus
+        // wherever it currently is.
+        let next = self.search_focus_request.read().wrapping_add(1);
+        self.search_focus_request.set(next);
     }
 
     /// Update pinned search matches from JavaScript callback

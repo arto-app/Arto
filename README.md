@@ -64,6 +64,28 @@ Arto faithfully reproduces GitHub's Markdown rendering in a local, offline envir
 - **Preferences** — Configurable settings for sidebar, TOC, and more
 - **Context Menus** — Right-click menus for quick actions on files and content
 
+### Keyboard Shortcuts
+
+Shortcuts are stored in `mappings.json` (next to `config.json` in the app config
+directory) and come in two kinds:
+
+- **Menu shortcuts** (`menuShortcuts`) — native OS menu accelerators. Single
+  chord only (e.g. `Cmd+o`), shown in the menu bar, dispatched by the system, so
+  they work even when no window has keyboard focus (e.g. `Cmd+n` with all windows
+  closed). Keyed by a menu action such as `file.open`.
+- **Keybindings** (`global` and the per-context sections) — handled by the
+  in-window engine. Support chord sequences (e.g. vim `g g`) and per-context
+  behavior, but only fire while a document window has focus.
+
+The same action may appear in both — for example `file.open` can be a native
+`Cmd+o` menu shortcut and additionally have an in-window keybinding.
+
+**Migrating an older `mappings.json`:** files written before `menuShortcuts`
+existed still load unchanged. Menu-backed shortcuts you had under `global`
+(e.g. `Cmd+o`, `Cmd+n`) keep working via the engine, but to get native menu
+accelerators move those entries into a `menuShortcuts` section, or re-apply a
+preset (Default / Vim / Emacs) from Preferences.
+
 ## Installation
 
 Use [Homebrew] tap to install. Since the application is not signed or notarized with an Apple Developer ID, you'll need to remove the quarantine attribute after installation.

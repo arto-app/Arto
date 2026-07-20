@@ -5,8 +5,22 @@ use dioxus::prelude::*;
 
 use crate::components::icon::{Icon, IconName};
 use crate::config::{BindingSet, Config, KeyAction};
-use crate::keybindings::{presets, resolve_bindings, KeyContext, ResolvedBinding, ACTION_GROUPS};
+use crate::keybindings::{
+    accelerator_for_key, presets, resolve_bindings, KeyContext, ResolvedBinding, ACTION_GROUPS,
+    MENU_ACTIONS,
+};
 use crate::shortcut::{KeyChord, ShortcutSequence};
+
+/// Which shortcut table a section edits.
+///
+/// Menu shortcuts become native OS menu accelerators (single chord, shown in the
+/// menu bar); engine bindings are handled in-window and support chord sequences
+/// and per-context behavior.
+#[derive(Clone, Copy, PartialEq)]
+enum BindingScope {
+    Menu,
+    Engine(Option<KeyContext>),
+}
 
 #[component]
 pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Element {
@@ -77,8 +91,16 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
             }
 
             BindingSection {
+                title: "Menu Shortcuts",
+                scope: BindingScope::Menu,
+                bindings: keybindings.menu_shortcuts.clone(),
+                filter_query: filter_text(),
+                config,
+                has_changes,
+            }
+            BindingSection {
                 title: "Global",
-                context: None,
+                scope: BindingScope::Engine(None),
                 bindings: keybindings.global.clone(),
                 filter_query: filter_text(),
                 config,
@@ -86,7 +108,7 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
             }
             BindingSection {
                 title: "Content",
-                context: Some(KeyContext::Content),
+                scope: BindingScope::Engine(Some(KeyContext::Content)),
                 bindings: keybindings.content.clone(),
                 filter_query: filter_text(),
                 config,
@@ -94,7 +116,7 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
             }
             BindingSection {
                 title: "Sidebar",
-                context: Some(KeyContext::Sidebar),
+                scope: BindingScope::Engine(Some(KeyContext::Sidebar)),
                 bindings: keybindings.sidebar.clone(),
                 filter_query: filter_text(),
                 config,
@@ -102,7 +124,7 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
             }
             BindingSection {
                 title: "Quick Access",
-                context: Some(KeyContext::QuickAccess),
+                scope: BindingScope::Engine(Some(KeyContext::QuickAccess)),
                 bindings: keybindings.quick_access.clone(),
                 filter_query: filter_text(),
                 config,
@@ -110,7 +132,7 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
             }
             BindingSection {
                 title: "Right Sidebar",
-                context: Some(KeyContext::RightSidebar),
+                scope: BindingScope::Engine(Some(KeyContext::RightSidebar)),
                 bindings: keybindings.right_sidebar.clone(),
                 filter_query: filter_text(),
                 config,
@@ -118,7 +140,7 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
             }
             BindingSection {
                 title: "Search",
-                context: Some(KeyContext::Search),
+                scope: BindingScope::Engine(Some(KeyContext::Search)),
                 bindings: keybindings.search.clone(),
                 filter_query: filter_text(),
                 config,
@@ -139,7 +161,7 @@ enum SortColumn {
 #[component]
 fn BindingSection(
     title: &'static str,
-    context: Option<KeyContext>,
+    scope: BindingScope,
     bindings: Vec<KeyAction>,
     filter_query: String,
     config: Signal<Config>,
@@ -219,7 +241,7 @@ fn BindingSection(
             h4 { class: "binding-section-title", "{title}" }
 
             if bindings.is_empty() && !*show_add_form.read() {
-                p { class: "binding-empty", "No bindings in this context." }
+                p { class: "binding-empty", "No bindings defined yet." }
             }
 
             if !bindings.is_empty() {
@@ -255,7 +277,7 @@ fn BindingSection(
                                             colspan: "2",
                                             BindingForm {
                                                 key: "edit-form-{real_idx}-{ka.key}-{ka.action}",
-                                                context,
+                                                scope,
                                                 edit_index: Some(*real_idx),
                                                 initial_key: Some(ka.key.clone()),
                                                 initial_action: Some(ka.action.clone()),
@@ -299,7 +321,7 @@ fn BindingSection(
             // Add button / inline add form (below bindings)
             if *show_add_form.read() {
                 BindingForm {
-                    context,
+                    scope,
                     edit_index: None::<usize>,
                     initial_key: None::<String>,
                     initial_action: None::<String>,
@@ -324,7 +346,7 @@ fn BindingSection(
 /// - `edit_index: Some(idx)` → Edit mode (pre-filled fields, update in place, show delete)
 #[component]
 fn BindingForm(
-    context: Option<KeyContext>,
+    scope: BindingScope,
     edit_index: Option<usize>,
     initial_key: Option<String>,
     initial_action: Option<String>,
@@ -495,17 +517,48 @@ fn BindingForm(
         if key_str.is_empty() {
             None
         } else {
-            let resolved = resolved.read();
-            if is_edit {
-                check_conflict_excluding(&resolved, &key_str, context, &orig_key, &orig_action)
-            } else {
-                check_conflict(&resolved, &key_str, context)
+            match scope {
+                BindingScope::Engine(context) => {
+                    let same_scope = {
+                        let resolved = resolved.read();
+                        if is_edit {
+                            check_conflict_excluding(
+                                &resolved,
+                                &key_str,
+                                context,
+                                &orig_key,
+                                &orig_action,
+                            )
+                        } else {
+                            check_conflict(&resolved, &key_str, context)
+                        }
+                    };
+                    // A chord owned by a native menu accelerator is consumed
+                    // before the engine, so also warn on menu-scope overlap.
+                    same_scope.or_else(|| {
+                        let menu_shortcuts = config.read().keybindings.menu_shortcuts.clone();
+                        cross_scope_conflict(&menu_shortcuts, &key_str, "Menu Shortcuts")
+                    })
+                }
+                BindingScope::Menu => {
+                    let keybindings = config.read().keybindings.clone();
+                    check_menu_conflict(&keybindings.menu_shortcuts, &key_str, is_edit, &orig_key)
+                        .or_else(|| cross_scope_conflict(&keybindings.global, &key_str, "Global"))
+                }
             }
         }
     };
 
-    let key_valid =
-        !key_input.read().is_empty() && ShortcutSequence::from_str(&key_input.read()).is_ok();
+    // Menu shortcuts must be a single chord representable as a native accelerator;
+    // engine bindings accept any valid chord sequence.
+    let key_valid = {
+        let key = key_input.read();
+        !key.is_empty()
+            && match scope {
+                BindingScope::Menu => accelerator_for_key(&key).is_some(),
+                BindingScope::Engine(_) => ShortcutSequence::from_str(&key).is_ok(),
+            }
+    };
     let action_valid = !selected_action.read().is_empty();
 
     let can_submit = if is_edit {
@@ -611,19 +664,38 @@ fn BindingForm(
                         selected: selected_action_value.is_empty(),
                         "Select action..."
                     }
-                    for (group_label, actions) in ACTION_GROUPS {
-                        optgroup {
-                            label: *group_label,
-                            for action in *actions {
-                                {
-                                    let action_value = action.to_string();
-                                    let is_selected = selected_action_value == action_value;
-                                    rsx! {
-                                option {
-                                            key: "{action_value}",
-                                            value: "{action_value}",
-                                            selected: is_selected,
-                                            "{action_label(&action_value)}"
+                    // Menu shortcuts may only target menu-backed actions; engine
+                    // bindings can target any action (grouped by category).
+                    if scope == BindingScope::Menu {
+                        for action in MENU_ACTIONS {
+                            {
+                                let action_value = action.to_string();
+                                let is_selected = selected_action_value == action_value;
+                                rsx! {
+                                    option {
+                                        key: "{action_value}",
+                                        value: "{action_value}",
+                                        selected: is_selected,
+                                        "{action_label(&action_value)}"
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        for (group_label, actions) in ACTION_GROUPS {
+                            optgroup {
+                                label: *group_label,
+                                for action in *actions {
+                                    {
+                                        let action_value = action.to_string();
+                                        let is_selected = selected_action_value == action_value;
+                                        rsx! {
+                                    option {
+                                                key: "{action_value}",
+                                                value: "{action_value}",
+                                                selected: is_selected,
+                                                "{action_label(&action_value)}"
+                                            }
                                         }
                                     }
                                 }
@@ -657,7 +729,7 @@ fn BindingForm(
                             return;
                         }
                         let mut cfg = config.write();
-                        let bindings = bindings_mut(&mut cfg.keybindings, context);
+                        let bindings = bindings_mut(&mut cfg.keybindings, scope);
                         if let Some(idx) = edit_index {
                             if let Some(binding) = bindings.get_mut(idx) {
                                 binding.key = key;
@@ -686,12 +758,11 @@ fn BindingForm(
                     button {
                         class: "binding-form-delete",
                         onclick: {
-                            let context = context;
                             let key_to_remove = orig_key.clone();
                             move |_| {
                                 bindings_mut(
                                     &mut config.write().keybindings,
-                                    context,
+                                    scope,
                                 ).retain(|b| b.key != key_to_remove);
                                 has_changes.set(true);
                                 on_close.call(());
@@ -709,19 +780,77 @@ fn BindingForm(
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Get mutable reference to the bindings for a given context.
-fn bindings_mut(
-    set: &mut crate::config::BindingSet,
-    ctx: Option<KeyContext>,
-) -> &mut Vec<KeyAction> {
-    match ctx {
-        None => &mut set.global,
-        Some(KeyContext::Content) => &mut set.content,
-        Some(KeyContext::Sidebar) => &mut set.sidebar,
-        Some(KeyContext::QuickAccess) => &mut set.quick_access,
-        Some(KeyContext::RightSidebar) => &mut set.right_sidebar,
-        Some(KeyContext::Search) => &mut set.search,
+/// Get mutable reference to the bindings for a given scope.
+fn bindings_mut(set: &mut crate::config::BindingSet, scope: BindingScope) -> &mut Vec<KeyAction> {
+    match scope {
+        BindingScope::Menu => &mut set.menu_shortcuts,
+        BindingScope::Engine(None) => &mut set.global,
+        BindingScope::Engine(Some(KeyContext::Content)) => &mut set.content,
+        BindingScope::Engine(Some(KeyContext::Sidebar)) => &mut set.sidebar,
+        BindingScope::Engine(Some(KeyContext::QuickAccess)) => &mut set.quick_access,
+        BindingScope::Engine(Some(KeyContext::RightSidebar)) => &mut set.right_sidebar,
+        BindingScope::Engine(Some(KeyContext::Search)) => &mut set.search,
     }
+}
+
+/// Check a menu-shortcut key for validity and duplicates.
+///
+/// Menu shortcuts must be a single chord representable as a native accelerator,
+/// and each chord may be bound only once (one chord = one owner).
+fn check_menu_conflict(
+    menu_shortcuts: &[KeyAction],
+    new_key: &str,
+    is_edit: bool,
+    exclude_key: &str,
+) -> Option<BindingNotice> {
+    if accelerator_for_key(new_key).is_none() {
+        return Some(BindingNotice::Conflict(
+            "Menu shortcuts must be a single chord (e.g. Cmd+K)".to_string(),
+        ));
+    }
+
+    let new_seq = ShortcutSequence::from_str(new_key).ok()?.to_string();
+    for ka in menu_shortcuts {
+        if is_edit && ka.key == exclude_key {
+            continue;
+        }
+        let existing = ShortcutSequence::from_str(&ka.key)
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+        if existing == new_seq {
+            return Some(BindingNotice::Conflict(format!(
+                "Conflicts with \"{}\" (Menu Shortcuts)",
+                action_label(&ka.action)
+            )));
+        }
+    }
+    None
+}
+
+/// Detect a same-chord collision against a flat binding list from the OTHER
+/// shortcut scope.
+///
+/// A chord owned by both a native menu accelerator and an engine binding leaves
+/// one permanently unreachable (the OS menu / interceptor consumes the chord
+/// before the engine sees it), so surface it as a conflict in both editors.
+fn cross_scope_conflict(
+    other: &[KeyAction],
+    new_key: &str,
+    other_label: &str,
+) -> Option<BindingNotice> {
+    let new_seq = ShortcutSequence::from_str(new_key).ok()?.to_string();
+    for ka in other {
+        let existing = ShortcutSequence::from_str(&ka.key)
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+        if existing == new_seq {
+            return Some(BindingNotice::Conflict(format!(
+                "Also bound as \"{}\" ({other_label}) — one will shadow the other",
+                action_label(&ka.action)
+            )));
+        }
+    }
+    None
 }
 
 /// Convert an action string like "scroll.down" to a human-readable label "Scroll Down".
@@ -959,6 +1088,61 @@ mod tests {
         }];
         let result = check_conflict(&resolved, "k", None);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn menu_conflict_rejects_multi_chord() {
+        let result = check_menu_conflict(&[], "g g", false, "");
+        assert!(matches!(result, Some(BindingNotice::Conflict(_))));
+    }
+
+    #[test]
+    fn menu_conflict_detects_duplicate_chord() {
+        let existing = vec![KeyAction {
+            key: "Cmd+o".to_string(),
+            action: "file.open".to_string(),
+        }];
+        let result = check_menu_conflict(&existing, "Cmd+o", false, "");
+        assert!(matches!(result, Some(BindingNotice::Conflict(_))));
+    }
+
+    #[test]
+    fn menu_conflict_allows_unique_single_chord() {
+        let existing = vec![KeyAction {
+            key: "Cmd+o".to_string(),
+            action: "file.open".to_string(),
+        }];
+        assert!(check_menu_conflict(&existing, "Cmd+k", false, "").is_none());
+    }
+
+    #[test]
+    fn cross_scope_conflict_detects_overlap() {
+        let global = vec![KeyAction {
+            key: "Cmd+r".to_string(),
+            action: "window.reload".to_string(),
+        }];
+        // Adding Cmd+r as a menu shortcut collides with the global engine binding.
+        let result = cross_scope_conflict(&global, "Cmd+r", "Global");
+        assert!(matches!(result, Some(BindingNotice::Conflict(_))));
+    }
+
+    #[test]
+    fn cross_scope_conflict_ignores_distinct_chords() {
+        let menu = vec![KeyAction {
+            key: "Cmd+o".to_string(),
+            action: "file.open".to_string(),
+        }];
+        assert!(cross_scope_conflict(&menu, "Cmd+k", "Menu Shortcuts").is_none());
+    }
+
+    #[test]
+    fn menu_conflict_excludes_edited_entry() {
+        let existing = vec![KeyAction {
+            key: "Cmd+o".to_string(),
+            action: "file.open".to_string(),
+        }];
+        // Editing the same entry (orig_key = "Cmd+o") should not self-conflict.
+        assert!(check_menu_conflict(&existing, "Cmd+o", true, "Cmd+o").is_none());
     }
 
     #[test]

@@ -1,14 +1,14 @@
-use dioxus::document;
-use dioxus::prelude::{spawn, ReadableExt, WritableExt};
+use dioxus::prelude::ReadableExt;
 use dioxus_desktop::muda::accelerator::Accelerator;
 use dioxus_desktop::muda::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use dioxus_desktop::window;
-use std::path::PathBuf;
+use std::cell::RefCell;
 
-use crate::components::content::set_preferences_tab_to_about;
-use crate::keybindings::shortcut_hint_for_global_action;
+use crate::config::CONFIG;
+use crate::keybindings::dispatcher::dispatch_action;
+use crate::keybindings::{accelerator_for_key, format_shortcut_hint, Action};
 use crate::state::AppState;
-use crate::window::{self, settings::normalize_zoom_level, CreateMainWindowConfigParams};
+use crate::window::{self, CreateMainWindowConfigParams};
 
 /// Menu identifier enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,26 +105,80 @@ impl MenuId {
     }
 }
 
-/// Helper to create a menu item without an accelerator.
-///
-/// All keyboard shortcuts are handled by the keybinding engine, not muda.
-fn create_menu_item(id: MenuId, label: &str) -> MenuItem {
-    let display_label = menu_label_with_shortcut(id, label);
-    MenuItem::with_id(id.as_str(), &display_label, true, None::<Accelerator>)
+thread_local! {
+    /// Menu items whose accelerator/label is derived from the keybinding config.
+    ///
+    /// Retained so their native accelerators can be refreshed on the main thread
+    /// when the config changes at runtime (see [`refresh_menu_accelerators`]).
+    static MENU_ITEMS: RefCell<Vec<RegisteredMenuItem>> = const { RefCell::new(Vec::new()) };
 }
 
-/// Build a menu label with a right-aligned shortcut hint (without muda Accelerator).
+struct RegisteredMenuItem {
+    id: MenuId,
+    item: MenuItem,
+    base_label: &'static str,
+}
+
+/// Create a menu item, deriving its native accelerator (or cosmetic hint) from
+/// the current menu-shortcut config, and register it for later refresh.
+fn create_menu_item(id: MenuId, label: &'static str) -> MenuItem {
+    let item = MenuItem::with_id(id.as_str(), label, true, None::<Accelerator>);
+    apply_menu_shortcut(id, &item, label);
+    MENU_ITEMS.with(|items| {
+        items.borrow_mut().push(RegisteredMenuItem {
+            id,
+            item: item.clone(),
+            base_label: label,
+        });
+    });
+    item
+}
+
+/// Apply the configured menu shortcut to a menu item.
 ///
-/// We intentionally avoid `with_accelerator()` because keyboard handling is owned by
-/// the keybinding engine. This only mirrors the hint in the menu UI.
-fn menu_label_with_shortcut(id: MenuId, base_label: &str) -> String {
-    let Some(action) = menu_action_for_id(id) else {
-        return base_label.to_string();
-    };
-    let Some(shortcut) = shortcut_hint_for_global_action(action) else {
-        return base_label.to_string();
-    };
-    format!("{base_label}\t{shortcut}")
+/// Menu shortcuts come solely from `config.keybindings.menu_shortcuts`. A
+/// single-chord binding representable as a muda `Accelerator` becomes a native
+/// OS accelerator (rendered by the menu bar, works without window focus).
+/// Anything else falls back to a right-aligned cosmetic hint; no binding means
+/// no shortcut shown.
+fn apply_menu_shortcut(id: MenuId, item: &MenuItem, base_label: &str) {
+    let key = menu_action_for_id(id).and_then(menu_shortcut_key_for_action);
+    let accelerator = key.as_deref().and_then(accelerator_for_key);
+
+    if accelerator.is_some() {
+        item.set_text(base_label);
+        let _ = item.set_accelerator(accelerator);
+    } else {
+        let text = match &key {
+            Some(k) => format!("{base_label}\t{}", format_shortcut_hint(k)),
+            None => base_label.to_string(),
+        };
+        item.set_text(text);
+        let _ = item.set_accelerator(None);
+    }
+}
+
+/// Look up the configured menu-shortcut key string for an action.
+fn menu_shortcut_key_for_action(action: &str) -> Option<String> {
+    CONFIG
+        .read()
+        .keybindings
+        .menu_shortcuts
+        .iter()
+        .find(|ka| ka.action == action)
+        .map(|ka| ka.key.clone())
+}
+
+/// Re-apply native accelerators and hint labels to every registered menu item
+/// from the current keybinding config.
+///
+/// Must be called on the main thread (muda menu items are not `Send`/`Sync`).
+pub fn refresh_menu_accelerators() {
+    MENU_ITEMS.with(|items| {
+        for registered in items.borrow().iter() {
+            apply_menu_shortcut(registered.id, &registered.item, registered.base_label);
+        }
+    });
 }
 
 /// Map menu items to keybinding actions for hint display.
@@ -162,6 +216,9 @@ fn menu_action_for_id(id: MenuId) -> Option<&'static str> {
 pub fn build_menu() -> Menu {
     #[cfg(target_os = "macos")]
     disable_automatic_window_tabbing();
+
+    // Reset the registry so a rebuilt menu does not retain stale item handles.
+    MENU_ITEMS.with(|items| items.borrow_mut().clear());
 
     let menu = Menu::new();
 
@@ -390,144 +447,41 @@ pub fn handle_menu_event_with_state(event: &MenuEvent, state: &mut AppState) -> 
         None => return false,
     };
 
-    match id {
-        MenuId::About => {
-            // Set the preferences tab to About before opening
-            set_preferences_tab_to_about();
-            state.open_preferences();
-        }
-        MenuId::Preferences => {
-            state.open_preferences();
-        }
-        MenuId::NewTab => {
-            state.add_empty_tab(true);
-        }
-        MenuId::Open => {
-            if let Some(file) = pick_markdown_file() {
-                state.open_file(file);
-            }
-        }
-        MenuId::OpenDirectory => {
-            if let Some(dir) = pick_directory() {
-                state.set_root_directory(dir);
-            }
-        }
-        MenuId::CloseTab => {
-            let active_tab = *state.active_tab.read();
-            state.close_tab(active_tab);
-        }
-        MenuId::CloseAllTabs => {
-            // Close all tabs except one, then clear it
-            let mut tabs = state.tabs.write();
-            tabs.clear();
-            tabs.push(crate::state::Tab::default());
-            state.active_tab.set(0);
-        }
-        MenuId::CloseWindow => {
-            window().close();
-        }
-        MenuId::ToggleLeftSidebar => {
-            state.toggle_sidebar();
-        }
-        MenuId::ToggleRightSidebar => {
-            state.toggle_right_sidebar();
-        }
-        MenuId::ActualSize => {
-            state.zoom_level.set(1.0);
-        }
-        MenuId::ZoomIn => {
-            let current = normalize_zoom_level(*state.zoom_level.read());
-            let next = normalize_zoom_level(current + 0.1);
-            state.zoom_level.set(next);
-        }
-        MenuId::ZoomOut => {
-            let current = normalize_zoom_level(*state.zoom_level.read());
-            let next = normalize_zoom_level(current - 0.1);
-            state.zoom_level.set(next);
-        }
-        MenuId::GoBack => {
-            state.save_scroll_and_go_back();
-        }
-        MenuId::GoForward => {
-            state.save_scroll_and_go_forward();
-        }
-        MenuId::RevealInFinder => {
-            if let Some(file) = get_current_file(state) {
-                crate::utils::file_operations::reveal_in_finder(&file);
-            }
-        }
-        MenuId::CopyFilePath => {
-            if let Some(file) = get_current_file(state) {
-                crate::utils::clipboard::copy_text(file.to_string_lossy());
-            }
-        }
-        MenuId::Print => {
-            crate::utils::print::print_window(get_current_file(state));
-        }
-        MenuId::Find => {
-            // None = get selected text from JavaScript
-            state.open_search_with_text(None);
-        }
-        MenuId::FindNext => {
-            spawn(async move {
-                let _ = document::eval("window.Arto.search.navigate('next')").await;
-            });
-        }
-        MenuId::FindPrevious => {
-            spawn(async move {
-                let _ = document::eval("window.Arto.search.navigate('prev')").await;
-            });
-        }
+    // Map the menu item to its action and dispatch through the shared
+    // dispatcher, so a menu click and its keyboard shortcut run the exact same
+    // effect (single source of truth). GoBack/GoForward are context-polymorphic:
+    // the single "Back"/"Forward" item resolves to directory or document history
+    // depending on the focused panel.
+    let is_left_sidebar = *state.focused_panel.read() == crate::state::FocusedPanel::LeftSidebar;
+    let action = match id {
+        MenuId::About => Action::AppAbout,
+        MenuId::Preferences => Action::FilePreferences,
+        MenuId::NewTab => Action::TabNew,
+        MenuId::Open => Action::FileOpen,
+        MenuId::OpenDirectory => Action::FileOpenDirectory,
+        MenuId::CloseTab => Action::TabClose,
+        MenuId::CloseAllTabs => Action::TabCloseAll,
+        MenuId::CloseWindow => Action::WindowClose,
+        MenuId::ToggleLeftSidebar => Action::WindowToggleSidebar,
+        MenuId::ToggleRightSidebar => Action::WindowToggleRightSidebar,
+        MenuId::ActualSize => Action::ZoomReset,
+        MenuId::ZoomIn => Action::ZoomIn,
+        MenuId::ZoomOut => Action::ZoomOut,
+        MenuId::GoBack if is_left_sidebar => Action::DirectoryBack,
+        MenuId::GoBack => Action::HistoryBack,
+        MenuId::GoForward if is_left_sidebar => Action::DirectoryForward,
+        MenuId::GoForward => Action::HistoryForward,
+        MenuId::RevealInFinder => Action::FileRevealInFinder,
+        MenuId::CopyFilePath => Action::CopyFilePath,
+        MenuId::Print => Action::FilePrint,
+        MenuId::Find => Action::SearchOpen,
+        MenuId::FindNext => Action::SearchNext,
+        MenuId::FindPrevious => Action::SearchPrev,
         _ => return false,
-    }
+    };
 
+    dispatch_action(&action, *state);
     true
-}
-
-/// Get the current file path from state if viewing a file
-fn get_current_file(state: &AppState) -> Option<PathBuf> {
-    let tabs = state.tabs.read();
-    let active_tab = *state.active_tab.read();
-    tabs.get(active_tab).and_then(|tab| {
-        if let crate::state::TabContent::File(path) = &tab.content {
-            Some(path.clone())
-        } else {
-            None
-        }
-    })
-}
-
-/// Show file picker dialog and return selected file
-fn pick_markdown_file() -> Option<PathBuf> {
-    use rfd::FileDialog;
-
-    tracing::debug!("Opening file picker dialog...");
-    let start = std::time::Instant::now();
-
-    let file = FileDialog::new()
-        .add_filter("Markdown", &["md", "markdown"])
-        .set_directory(std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/")))
-        .pick_file();
-
-    tracing::debug!("File picker completed in {:?}", start.elapsed());
-
-    file
-}
-
-/// Show directory picker dialog and return selected directory
-fn pick_directory() -> Option<PathBuf> {
-    use rfd::FileDialog;
-
-    tracing::debug!("Opening directory picker dialog...");
-    let start = std::time::Instant::now();
-
-    let dir = FileDialog::new()
-        .set_directory(std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/")))
-        .pick_folder();
-
-    tracing::debug!("Directory picker completed in {:?}", start.elapsed());
-
-    dir
 }
 
 #[cfg(target_os = "macos")]
@@ -583,6 +537,46 @@ mod tests {
                 parsed.unwrap().as_str(),
                 *id_str,
                 "Roundtrip failed for {id_str}"
+            );
+        }
+    }
+
+    /// Every menu item's action must be listed in `MENU_ACTIONS` so the
+    /// Preferences UI and the interceptor skip-list stay in sync with the menu.
+    #[test]
+    fn menu_actions_cover_all_menu_items() {
+        let all_ids = [
+            MenuId::About,
+            MenuId::NewWindow,
+            MenuId::NewTab,
+            MenuId::Open,
+            MenuId::OpenDirectory,
+            MenuId::RevealInFinder,
+            MenuId::CopyFilePath,
+            MenuId::CloseTab,
+            MenuId::CloseAllTabs,
+            MenuId::CloseWindow,
+            MenuId::CloseAllChildWindows,
+            MenuId::CloseAllWindows,
+            MenuId::Print,
+            MenuId::Preferences,
+            MenuId::Find,
+            MenuId::FindNext,
+            MenuId::FindPrevious,
+            MenuId::ToggleLeftSidebar,
+            MenuId::ToggleRightSidebar,
+            MenuId::ActualSize,
+            MenuId::ZoomIn,
+            MenuId::ZoomOut,
+            MenuId::GoBack,
+            MenuId::GoForward,
+            MenuId::GoToHomepage,
+        ];
+        for id in all_ids {
+            let action = menu_action_for_id(id).expect("menu item has an action");
+            assert!(
+                crate::keybindings::is_menu_action(action),
+                "MENU_ACTIONS is missing {action:?} for {id:?}"
             );
         }
     }

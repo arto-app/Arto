@@ -40,6 +40,16 @@ pub fn MainApp() -> Element {
         crate::menu::handle_menu_event_global(event);
     });
 
+    // Keep native menu accelerators in sync with the keybinding config.
+    // Runs on the main thread (required for muda menu mutation).
+    #[cfg(not(target_os = "windows"))]
+    use_future(move || async move {
+        let mut rx = crate::config::CONFIG_CHANGED_BROADCAST.subscribe();
+        while rx.recv().await.is_ok() {
+            crate::menu::refresh_menu_accelerators();
+        }
+    });
+
     // Pop the first event from IPC queue (CLI path pushed by main.rs before launch)
     let first_event = crate::ipc::try_pop_first_event();
     if first_event.is_some() {

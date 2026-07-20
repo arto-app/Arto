@@ -1,6 +1,6 @@
 {
   "$schema": "./preset.schema.json",
-  "global": [
+  "menuShortcuts": [
     {
       "key": "Cmd+n",
       "action": "window.new"
@@ -42,10 +42,6 @@
       "action": "search.prev"
     },
     {
-      "key": "Cmd+r",
-      "action": "window.reload"
-    },
-    {
       "key": "Cmd+b",
       "action": "window.toggle_sidebar"
     },
@@ -76,6 +72,12 @@
     {
       "key": "Cmd+Comma",
       "action": "file.preferences"
+    }
+  ],
+  "global": [
+    {
+      "key": "Cmd+r",
+      "action": "window.reload"
     },
     {
       "key": "Cmd+Slash",
@@ -266,14 +268,6 @@
     {
       "key": "Backspace",
       "action": "directory.parent"
-    },
-    {
-      "key": "Cmd+BracketLeft",
-      "action": "directory.back"
-    },
-    {
-      "key": "Cmd+BracketRight",
-      "action": "directory.forward"
     },
     {
       "key": "Ctrl+x o",
