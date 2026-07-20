@@ -76,6 +76,11 @@ jobs:
   build:
     needs: ["check", "test"]
     runs-on: ${{ matrix.os }}
+    # macOS is the source of the notarized DMG and gates the Homebrew dispatch,
+    # so it must succeed. Linux bundling is newer and less proven, so a Linux
+    # failure is tolerated (visible as a red leg) and must not block the macOS
+    # release. See the release job for the matching lenient upload.
+    continue-on-error: ${{ matrix.target != 'macos' }}
     strategy:
       fail-fast: false
       matrix:
@@ -84,12 +89,18 @@ jobs:
           - target: macos
             os: macos-latest
             artifacts: ./desktop/target/dx/arto/bundle/**/*.dmg
+            # macOS builds have historically finished within 30m.
+            timeout: 30
           - target: ubuntu
             os: ubuntu-latest
             artifacts: ./desktop/target/dx/arto/bundle/**/*.deb
+            # A cold cargo cache pushes the full release build past 30m on the
+            # Linux runners (same class of build the nix-check job budgets 60m for).
+            timeout: 60
           - target: ubuntu-arm64
             os: ubuntu-24.04-arm
             artifacts: ./desktop/target/dx/arto/bundle/**/*.deb
+            timeout: 60
     steps:
       - uses: actions/checkout@v7
         with:
@@ -125,7 +136,7 @@ jobs:
           name: arto-${{ matrix.target }}
           path: ${{ matrix.artifacts }}
           if-no-files-found: error
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.timeout }}
 
   nix-check:
     needs: ["check", "test"]
@@ -258,7 +269,11 @@ jobs:
         with:
           tag: ${{ github.event.release.tag_name }}
           allowUpdates: true
-          artifactErrorsFailBuild: true
+          # Lenient so a missing Linux .deb (tolerated build failure) does not
+          # block the release. The macOS .dmg is still effectively required:
+          # the release only runs after the mandatory macOS build, and the
+          # downstream dispatch job fails if the aarch64 DMG is absent.
+          artifactErrorsFailBuild: false
           artifacts: ./artifacts/**/*.dmg,./artifacts/**/*.deb
           removeArtifacts: true
           makeLatest: true
