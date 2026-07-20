@@ -138,8 +138,40 @@ jobs:
           if-no-files-found: error
     timeout-minutes: ${{ matrix.timeout }}
 
+  # Detect whether a pull request touches the Nix flake, so the expensive
+  # nix-check job can be limited to PRs that actually change it. On non-PR
+  # events the output is forced to "true" (nix-check always runs there).
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      flake: ${{ steps.detect.outputs.flake }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: detect
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "flake=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- flake.nix flake.lock | grep -q .; then
+            echo "flake=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "flake=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Verify the flake's package output (`nix build`) still builds. This is a
+  # clean, non-incremental build (~20-25m/leg), so on pull requests it runs
+  # only when the flake itself changed; every push to main and every release
+  # runs it unconditionally to catch bit-rot promptly.
   nix-check:
-    needs: ["check", "test"]
+    needs: ["check", "test", "changes"]
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.flake == 'true' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
