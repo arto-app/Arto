@@ -277,10 +277,19 @@ pub fn get_directory_preference(is_first_window: bool) -> DirectoryPreference {
         cfg.directory.on_new_window,
         || cfg.directory.default_directory.clone(),
         || {
-            get_last_focused_window_state()
-                .and_then(|state| state.sidebar.read().root_directory.clone())
-                .or_else(|| PersistedState::load().directory)
-                .or_else(|| cfg.directory.default_directory.clone())
+            // When a focused window exists, inherit its directory verbatim -
+            // including `None` (welcome state), so a new window also opens no
+            // directory. Only fall back to persisted state / config default
+            // when there is no focused window to inherit from.
+            resolve_from_state_or_persisted(
+                |state| state.sidebar.read().root_directory.clone(),
+                |persisted| {
+                    persisted
+                        .directory
+                        .clone()
+                        .or_else(|| cfg.directory.default_directory.clone())
+                },
+            )
         },
     );
     DirectoryPreference { directory }
