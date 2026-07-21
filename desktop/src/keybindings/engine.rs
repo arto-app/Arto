@@ -127,6 +127,20 @@ impl KeybindingEngine {
         KeyMatchResult::NoMatch
     }
 
+    /// Build an engine with the menu-shortcut folding decision forced, so tests
+    /// can exercise both the native-menu (macOS/Linux) and folded (Windows)
+    /// branches regardless of the host platform.
+    #[cfg(test)]
+    fn new_with_menu_folding(bindings: &BindingSet, fold_menu_shortcuts: bool) -> Self {
+        Self {
+            bindings: bindings
+                .clone()
+                .into_resolved_bindings_with(fold_menu_shortcuts),
+            state: KeySequenceState::Idle,
+            sequence_timeout: DEFAULT_SEQUENCE_TIMEOUT,
+        }
+    }
+
     /// Reset the engine state (e.g., on focus change or cancel).
     pub fn reset(&mut self) {
         self.state = KeySequenceState::Idle;
@@ -280,13 +294,52 @@ mod tests {
     }
 
     #[test]
-    fn menu_shortcut_not_matched_by_engine() {
-        // Cmd+n (window.new) is a native menu shortcut, not an engine binding,
-        // so the keybinding engine must not resolve it.
+    fn menu_shortcut_reachable_only_when_folded() {
+        // The menu-shortcut folding decision, tested on both branches from any
+        // host. Cmd+o (file.open) is a menu shortcut in the default preset.
+        // - Native-menu platforms (macOS/Linux): the OS dispatches it, so the
+        //   engine must NOT resolve it.
+        // - Windows: no native menu, so it is folded into the engine and matches.
+        // Using `chord("Cmd+o")` keeps the probe in the host's own parse space,
+        // so it lines up with the folded binding regardless of platform.
         let config = default_bindings();
-        let mut engine = KeybindingEngine::new(&config);
-        let result = engine.process_key(&chord("Cmd+n"), false, KeyContext::Content);
-        assert_eq!(result, KeyMatchResult::NoMatch);
+
+        let mut native = KeybindingEngine::new_with_menu_folding(&config, false);
+        assert_eq!(
+            native.process_key(&chord("Cmd+o"), false, KeyContext::Content),
+            KeyMatchResult::NoMatch
+        );
+
+        let mut folded = KeybindingEngine::new_with_menu_folding(&config, true);
+        assert_eq!(
+            folded.process_key(&chord("Cmd+o"), false, KeyContext::Content),
+            KeyMatchResult::Matched(Action::FileOpen)
+        );
+    }
+
+    #[test]
+    fn folded_menu_shortcut_yields_to_later_global_binding() {
+        // Menu shortcuts fold in BEFORE the `global` field, and global matches
+        // are last-wins, so an idiomatic global binding on the same chord wins
+        // over a folded menu shortcut. Keyed with Ctrl+n on both entries so the
+        // chords collide on every host (Ctrl is never remapped), isolating the
+        // fold-ordering invariant from the Cmd→Ctrl remap (covered in shortcut).
+        let set = BindingSet {
+            menu_shortcuts: vec![KeyAction {
+                key: "Ctrl+n".to_string(),
+                action: "window.new".to_string(),
+            }],
+            global: vec![KeyAction {
+                key: "Ctrl+n".to_string(),
+                action: "scroll.down".to_string(),
+            }],
+            ..Default::default()
+        };
+        let mut engine = KeybindingEngine::new_with_menu_folding(&set, true);
+        assert_eq!(
+            engine.process_key(&chord("Ctrl+n"), false, KeyContext::Content),
+            KeyMatchResult::Matched(Action::ScrollDown)
+        );
     }
 
     #[test]

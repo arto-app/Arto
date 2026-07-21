@@ -24,11 +24,64 @@ const META = 0x40;
 const SHIFT = 0x200;
 
 /**
- * Cmd+Key combinations reserved for native OS behavior.
- * These must not be intercepted so the system clipboard (Cmd+C/V/X),
- * select-all (Cmd+A), and app-quit (Cmd+Q) keep working normally.
+ * True when running on macOS, where the primary accelerator is Cmd (metaKey).
+ * On Windows/Linux the primary accelerator is Ctrl (ctrlKey). Detected from the
+ * WebView user agent, which reliably reports the host OS.
  */
-const RESERVED_OS_CMD_KEYS = new Set(["q", "c", "v", "x", "a"]);
+const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+
+/**
+ * Primary-modifier + key combinations reserved for native OS behavior.
+ * These must not be intercepted so the system clipboard (C/V/X), select-all
+ * (A), and app-quit (Q) keep working normally. The primary modifier is Cmd on
+ * macOS and Ctrl on Windows/Linux (see {@link IS_MAC}).
+ *
+ * A reserved letter is only swallowed when the active keybinding config does
+ * NOT bind it as a bare primary+letter chord (see {@link boundPrimaryKeys}) —
+ * otherwise chords like the Emacs `Ctrl+x` prefix or `Ctrl+v` would never reach
+ * the engine.
+ */
+const RESERVED_OS_PRIMARY_KEYS = new Set(["q", "c", "v", "x", "a"]);
+
+/**
+ * Lowercased single letters the active config binds as a bare primary-modifier
+ * chord (Cmd+letter on macOS, Ctrl+letter on Windows/Linux), in any position of
+ * any sequence, in any context. Populated from Rust via
+ * {@link setReservedKeyOverrides}; these letters are excluded from reserved-key
+ * swallowing so bound chords reach the keybinding engine.
+ */
+let boundPrimaryKeys = new Set<string>();
+
+/** Inputs for {@link shouldSwallowReservedKey} (pure, host-independent). */
+export interface ReservedKeyDecision {
+  key: string;
+  isMac: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  altKey: boolean;
+  boundPrimaryKeys: ReadonlySet<string>;
+}
+
+/**
+ * Decide whether a keydown is an OS-reserved primary+letter chord that must be
+ * swallowed (not forwarded to the keybinding engine) to preserve native
+ * clipboard / select-all / quit behavior.
+ *
+ * The reserved gate is per-letter, so the config-aware override is per-letter
+ * too: a letter the config binds as a bare primary+letter chord is never
+ * swallowed. Only fires for exactly the primary modifier (no secondary/Alt);
+ * a Super/Windows key press reads as the secondary modifier off macOS and so is
+ * never swallowed.
+ */
+export function shouldSwallowReservedKey(input: ReservedKeyDecision): boolean {
+  const { key, isMac, ctrlKey, metaKey, altKey } = input;
+  const primaryPressed = isMac ? metaKey : ctrlKey;
+  const secondaryPressed = isMac ? ctrlKey : metaKey;
+  if (!primaryPressed || secondaryPressed || altKey) return false;
+  const baseKey = key.toLowerCase();
+  if (!RESERVED_OS_PRIMARY_KEYS.has(baseKey)) return false;
+  return !input.boundPrimaryKeys.has(baseKey);
+}
 
 /**
  * Chords that are bound as native menu accelerators (canonical form
@@ -100,11 +153,20 @@ function handleKeydown(e: KeyboardEvent): void {
     return;
   }
 
-  // Skip OS-reserved shortcuts (Cmd+Q/C/V/X/A) — handled by PredefinedMenuItem.
-  // All other Cmd+Key combos are processed by the keybinding engine.
-  if (e.metaKey && !e.ctrlKey && !e.altKey) {
-    const baseKey = key.toLowerCase();
-    if (RESERVED_OS_CMD_KEYS.has(baseKey)) return;
+  // Skip OS-reserved shortcuts (primary+Q/C/V/X/A) unless the config binds
+  // them — handled natively. All other primary+Key combos are processed by the
+  // keybinding engine. The primary modifier is Cmd on macOS and Ctrl elsewhere.
+  if (
+    shouldSwallowReservedKey({
+      key,
+      isMac: IS_MAC,
+      ctrlKey: e.ctrlKey,
+      metaKey: e.metaKey,
+      altKey: e.altKey,
+      boundPrimaryKeys,
+    })
+  ) {
+    return;
   }
 
   const modifiers = buildModifiers(e);
@@ -145,6 +207,18 @@ export function onKeydown(callback: KeydownCallback): void {
  */
 export function setMenuAccelerators(chords: string[]): void {
   menuAccelerators = new Set(chords);
+}
+
+/**
+ * Replace the set of letters the active config binds as a bare primary-modifier
+ * chord, excluding them from OS-reserved swallowing (see
+ * {@link shouldSwallowReservedKey}).
+ *
+ * Called from Rust whenever the keybinding config changes. Each entry is a
+ * single lowercase letter produced by `reserved_key_overrides` on the Rust side.
+ */
+export function setReservedKeyOverrides(keys: string[]): void {
+  boundPrimaryKeys = new Set(keys.map((k) => k.toLowerCase()));
 }
 
 /** Pause interceptor (e.g., during key recording in Preferences). */
