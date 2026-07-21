@@ -106,7 +106,17 @@ jobs:
           node-version: 24
       # pnpm is pinned via the renderer's packageManager field.
       - run: corepack enable
-      - uses: extractions/setup-just@v3
+      # Installed from the upstream release rather than extractions/setup-just,
+      # which has no windows-aarch64 binary. just itself ships both arches.
+      - name: Install just
+        shell: pwsh
+        run: |
+          $ver = '1.57.0'
+          $arch = if ($env:RUNNER_ARCH -eq 'ARM64') { 'aarch64' } else { 'x86_64' }
+          $url = "https://github.com/casey/just/releases/download/$ver/just-$ver-$arch-pc-windows-msvc.zip"
+          Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP\just.zip"
+          Expand-Archive "$env:RUNNER_TEMP\just.zip" -DestinationPath "$env:RUNNER_TEMP\just"
+          "$env:RUNNER_TEMP\just" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
       - uses: actions/cache@v4
         with:
           path: |
