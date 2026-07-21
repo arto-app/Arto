@@ -321,6 +321,11 @@ pub const MENU_ACTIONS: &[Action] = &[
 ];
 
 /// Whether an action string corresponds to a menu item (native-menu eligible).
+///
+/// Reached only through the menu-accelerator skip list, which Windows compiles
+/// out (no native menu bar), so the lib target would otherwise trip `dead_code`.
+/// Tests still exercise it on every platform.
+#[cfg_attr(target_os = "windows", allow(dead_code))]
 pub fn is_menu_action(action: &str) -> bool {
     Action::from_str(action)
         .map(|a| MENU_ACTIONS.contains(&a))

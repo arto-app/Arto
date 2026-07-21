@@ -37,6 +37,11 @@ pub fn accelerator_for_key(key: &str) -> Option<Accelerator> {
 ///
 /// Returns `None` unless the key is a single chord that maps to a physical
 /// code — only those are OS-dispatched and would otherwise double-fire.
+///
+/// Only reachable where the JS interceptor needs the skip list; Windows has no
+/// native menu bar, so the caller is compiled out there and the lib target would
+/// otherwise trip `dead_code`. Tests still exercise it on every platform.
+#[cfg_attr(target_os = "windows", allow(dead_code))]
 pub fn menu_accelerator_skip_key(key: &str) -> Option<String> {
     let sequence: ShortcutSequence = key.parse().ok()?;
     let [chord] = sequence.chords.as_slice() else {
@@ -53,6 +58,10 @@ pub fn menu_accelerator_skip_key(key: &str) -> Option<String> {
 /// action actually maps to a menu item are included — a shortcut bound to a
 /// non-menu action attaches to no menu item, so skipping it would leave the
 /// chord dead.
+///
+/// See [`menu_accelerator_skip_key`] for why this is exempt from `dead_code` on
+/// Windows.
+#[cfg_attr(target_os = "windows", allow(dead_code))]
 pub fn menu_accelerator_skip_keys(bindings: &BindingSet) -> Vec<String> {
     bindings
         .menu_shortcuts
