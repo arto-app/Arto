@@ -64,6 +64,16 @@
   z-index: var(--z-context-submenu);
 }
 
+/* Flip the submenu to the left of its parent when the menu sits near the
+   viewport's right edge, so the flyout stays on-screen. The direction is
+   decided in Rust (submenu_opens_left) from the clamped menu position. */
+.context-submenu.flip-left {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  margin-right: 4px;
+}
+
 .submenu-arrow {
   margin-left: auto;
   padding-left: 12px;

@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::components::right_sidebar::RightSidebarTab;
+use crate::components::sidebar::context_menu::SidebarContextMenuData;
 use crate::config::DEFAULT_RIGHT_SIDEBAR_WIDTH;
 use crate::markdown::HeadingInfo;
 use crate::pinned_search::PinnedSearchId;
@@ -109,6 +110,17 @@ pub struct AppState {
     /// Whether the right sidebar overlay is currently shown (hover/focus triggered).
     /// Transient UI state — not persisted.
     pub right_hover_active: Signal<bool>,
+    /// Left-sidebar file-tree context menu state (position, target, window list).
+    ///
+    /// Held here — not in a tree node — so watcher-driven remounts of the file
+    /// tree cannot unmount an open menu. Rendered once at the app-container root
+    /// by `SidebarContextMenuHost`. Transient UI state — not persisted.
+    pub sidebar_context_menu: Signal<Option<SidebarContextMenuData>>,
+    /// Monotonic counter that remounts the file tree on file-system changes or
+    /// manual reload. Lives in `AppState` (rather than a local `FileExplorer`
+    /// signal) so the hoisted context menu's "Reload" action can trigger a
+    /// refresh from outside the tree subtree. Transient UI state — not persisted.
+    pub sidebar_refresh_counter: Signal<u32>,
 }
 
 impl AppState {
@@ -147,6 +159,8 @@ impl AppState {
             quick_access_cursor: Signal::new(None),
             left_hover_active: Signal::new(false),
             right_hover_active: Signal::new(false),
+            sidebar_context_menu: Signal::new(None),
+            sidebar_refresh_counter: Signal::new(0),
         }
     }
 }
@@ -277,5 +291,17 @@ impl AppState {
     /// Update pinned search matches from JavaScript callback
     pub fn update_pinned_matches(&mut self, matches: HashMap<PinnedSearchId, Vec<SearchMatch>>) {
         self.pinned_matches.set(matches);
+    }
+
+    /// Close the left-sidebar file-tree context menu.
+    pub fn close_sidebar_context_menu(&mut self) {
+        self.sidebar_context_menu.set(None);
+    }
+
+    /// Force the file tree to remount and re-read the filesystem (manual reload
+    /// or file-watcher change).
+    pub fn bump_sidebar_refresh(&mut self) {
+        let next = self.sidebar_refresh_counter.read().wrapping_add(1);
+        self.sidebar_refresh_counter.set(next);
     }
 }
