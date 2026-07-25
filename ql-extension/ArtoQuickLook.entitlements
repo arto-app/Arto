@@ -4,5 +4,16 @@
 <dict>
     <key>com.apple.security.app-sandbox</key><true/>
     <key>com.apple.security.files.user-selected.read-only</key><true/>
+    <!--
+      Required for WKWebView to stand up its helper processes (GPU, Networking,
+      WebContent). Without this entitlement those processes abort with
+      "Application does not have permission to communicate with network
+      resources", the WebView never finishes loading, and the Quick Look
+      preview spins forever. This grants no network access to the previewed
+      content itself: the rendered page carries a Content-Security-Policy with
+      `default-src 'none'; connect-src 'none'`, so untrusted Markdown still
+      cannot reach the network.
+    -->
+    <key>com.apple.security.network.client</key><true/>
 </dict>
 </plist>
