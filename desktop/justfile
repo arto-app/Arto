@@ -4,14 +4,20 @@ default:
 
 fmt:
   cargo fmt --all
+  cd markdown && cargo fmt --all
+  cd ../ql-generator && cargo fmt --all
 
 check:
   cargo check --all-targets --all-features
   cargo clippy --all-targets --all-features -- -D warnings
+  cd markdown && cargo clippy --all-targets -- -D warnings
+  cd ../ql-generator && cargo clippy --all-targets -- -D warnings
 
 test:
   cargo test --all-features --all-targets
   cargo test --doc --all-features
+  cd markdown && cargo test
+  cd ../ql-generator && cargo test
 
 verify: fmt check test
 
@@ -22,6 +28,47 @@ clean:
 build:
   @rm -rf target/dx/arto/release/macos/Arto.app/Contents/Resources/assets
   dx bundle --release --macos --package-types dmg
+  just _embed-quicklook
+
+# Build the Quick Look preview extension (Swift shim + Rust `arto_ql` static
+# library) and embed it at Contents/PlugIns/ArtoQuickLook.appex so macOS
+# discovers it for Quick Look and the Finder preview pane.
+#
+# Signing is inside-out: the extension is signed first (with its sandbox
+# entitlements), then the whole app is re-signed so its seal covers the newly
+# embedded extension. `dx bundle` ad-hoc-signs the app before this step, so
+# skipping the re-sign would leave a broken seal and the extension would not
+# load. The extension is signed WITHOUT hardened runtime to match the app
+# (`hardened_runtime = false`) and to keep the WebView's JavaScript JIT enabled.
+[macos]
+[private]
+_embed-quicklook:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  app="target/dx/arto/release/macos/Arto.app"
+  appex="$app/Contents/PlugIns/ArtoQuickLook.appex"
+  arch="$(uname -m)"
+  echo "Building arto_ql static library…"
+  ( cd ../ql-generator && cargo build --release )
+  echo "Compiling Swift Quick Look preview extension…"
+  mkdir -p "$appex/Contents/MacOS"
+  # The nix devshell sets SDKROOT to a nixpkgs SDK that is incompatible with
+  # Apple's /usr/bin/swiftc; unset it so swiftc uses the Command Line Tools SDK.
+  env -u SDKROOT -u DEVELOPER_DIR -u MACOSX_DEPLOYMENT_TARGET /usr/bin/swiftc \
+    ../ql-extension/PreviewViewController.swift \
+    -import-objc-header ../ql-extension/arto_ql-Bridging.h \
+    -target "${arch}-apple-macos12.0" -O \
+    -framework Cocoa -framework QuickLookUI -framework WebKit \
+    -L ../ql-generator/target/release -larto_ql \
+    -Xlinker -e -Xlinker _NSExtensionMain \
+    -o "$appex/Contents/MacOS/ArtoQuickLook"
+  cp ../ql-extension/Info.plist "$appex/Contents/Info.plist"
+  echo "Signing extension (inside-out: extension first, then the app)…"
+  codesign --force --sign - --timestamp=none \
+    --entitlements ../ql-extension/ArtoQuickLook.entitlements \
+    "$appex"
+  codesign --force --sign - --timestamp=none "$app"
+  echo "Quick Look preview extension embedded at Contents/PlugIns/ArtoQuickLook.appex"
 
 [linux]
 build:

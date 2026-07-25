@@ -104,6 +104,9 @@
               root = ./desktop;
               fileset = lib.fileset.unions [
                 (craneLib.fileset.commonCargoSources root)
+                # The shared `arto-markdown` crate is a path dependency nested
+                # under desktop; include its sources for the sandboxed build.
+                (craneLib.fileset.commonCargoSources (root + /markdown))
                 (root + /assets)
                 (root + /Dioxus.toml)
                 (root + /src/keybindings/presets)
@@ -144,6 +147,12 @@
           xattrWrapper = pkgs.writeShellScriptBin "xattr" (
             builtins.readFile ./scripts/xattr-wrapper.sh
           );
+
+          # NOTE: The macOS Quick Look preview extension (Swift shim + Rust
+          # `arto_ql` static library) is assembled and embedded by the
+          # `dx bundle` path in `desktop/justfile` (`_embed-quicklook`), which
+          # runs on the macOS CI runner with the full Command Line Tools. The
+          # Nix build intentionally does not build or embed it.
 
           arto = craneLib.buildPackage (
             commonArgs

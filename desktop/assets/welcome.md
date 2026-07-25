@@ -94,6 +94,8 @@ Arto faithfully reproduces GitHub's Markdown rendering in a local, offline envir
 - **Cross-Window Tabs** — Drag and drop tabs between windows
 - **Context Menus** — Right-click for quick actions on files and content
 - **Offline First** — No internet required — read anywhere, anytime
+- **Quick Look** — Press Space in Finder for an instant rendered preview
+- **Finder Preview** — See rendered Markdown in the Finder sidebar preview pane
 
 ---
 

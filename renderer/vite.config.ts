@@ -63,12 +63,19 @@ export default defineConfig(({ mode }) => ({
     cssCodeSplit: false,
     lib: {
       entry: path.resolve(__dirname, "src/main.ts"),
-      formats: ["es"],
+      // ES build (`main.js`) drives the desktop app; the IIFE build
+      // (`main.iife.js`) exposes `window.ArtoRenderer` for the Quick Look
+      // preview extension, whose WebView loads HTML under an opaque origin
+      // where ES modules are not reliable on older macOS.
+      formats: ["es", "iife"],
+      name: "ArtoRenderer",
+      fileName: (format) => (format === "iife" ? "main.iife.js" : "main.js"),
     },
     rollupOptions: {
       output: {
+        // Emit one self-contained chunk per format (no split chunks) so both
+        // `main.js` and `main.iife.js` are single files with assets inlined.
         codeSplitting: false,
-        entryFileNames: "main.js",
         assetFileNames: ({ names }) => {
           if (names.some((n) => n.endsWith(".css"))) return "main.css";
           return "[name][extname]";

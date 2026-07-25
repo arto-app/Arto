@@ -155,6 +155,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "arboard",
+ "arto-markdown",
  "base64",
  "chrono",
  "clap",
@@ -186,7 +187,6 @@ dependencies = [
  "rfd",
  "serde",
  "serde_json",
- "serde_yaml",
  "sha2 0.11.0",
  "signal-hook 0.4.4",
  "tempfile",
@@ -196,8 +196,21 @@ dependencies = [
  "tracing-oslog",
  "tracing-subscriber",
  "ureq",
- "url",
  "uuid",
+]
+
+[[package]]
+name = "arto-markdown"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "html-escape",
+ "lol_html",
+ "pulldown-cmark",
+ "serde_yaml",
+ "tracing",
+ "url",
 ]
 
 [[package]]
