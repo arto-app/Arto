@@ -5,7 +5,9 @@ use std::fs;
 use std::path::PathBuf;
 use tokio::sync::oneshot;
 
-use super::context_menu::{SidebarContextMenu, SidebarItemKind};
+use super::context_menu::{
+    context_action_should_proceed, SidebarContextMenu, SidebarContextMenuData, SidebarItemKind,
+};
 use super::quick_access::QuickAccess;
 use crate::components::bookmark_button::BookmarkButton;
 use crate::components::icon::{Icon, IconName};
@@ -79,8 +81,10 @@ pub fn FileExplorer(on_pin_toggle: Option<EventHandler<()>>) -> Element {
     let state = use_context::<AppState>();
     let root_directory = state.sidebar.read().root_directory.clone();
 
-    // Refresh counter to force DirectoryTree re-render
-    let refresh_counter = use_signal(|| 0u32);
+    // Refresh counter to force DirectoryTree re-render. Sourced from AppState
+    // (not a local signal) so the hoisted context menu's "Reload" action can
+    // trigger a refresh from outside this subtree.
+    let refresh_counter = state.sidebar_refresh_counter;
 
     // Watch directory for file system changes
     use_directory_watcher(root_directory.clone(), refresh_counter);
@@ -91,7 +95,7 @@ pub fn FileExplorer(on_pin_toggle: Option<EventHandler<()>>) -> Element {
             key: "{refresh_counter}",
 
             if let Some(root) = root_directory {
-                DirectoryNavigation { current_dir: root.clone(), refresh_counter, on_pin_toggle }
+                DirectoryNavigation { current_dir: root.clone(), on_pin_toggle }
                 DirectoryTree { path: root, refresh_counter }
             } else {
                 div {
@@ -107,11 +111,7 @@ pub fn FileExplorer(on_pin_toggle: Option<EventHandler<()>>) -> Element {
 }
 
 #[component]
-fn DirectoryNavigation(
-    current_dir: PathBuf,
-    mut refresh_counter: Signal<u32>,
-    on_pin_toggle: Option<EventHandler<()>>,
-) -> Element {
+fn DirectoryNavigation(current_dir: PathBuf, on_pin_toggle: Option<EventHandler<()>>) -> Element {
     let mut state = use_context::<AppState>();
     let is_pinned = state.sidebar.read().pinned;
     let sidebar = state.sidebar.read();
@@ -144,8 +144,9 @@ fn DirectoryNavigation(
             // Set reloading state for animation
             is_reloading_write.set(true);
 
-            // Increment counter to force DirectoryTree re-render
-            refresh_counter.set(refresh_counter() + 1);
+            // Force the file tree to remount and re-read the filesystem. Funnels
+            // through the shared method so every reload path stays consistent.
+            state.bump_sidebar_refresh();
 
             // Reset reloading state after animation
             let current_dir = current_dir.clone();
@@ -399,7 +400,7 @@ fn FileTreeNode(
     path: PathBuf,
     is_dir: bool,
     depth: usize,
-    mut refresh_counter: Signal<u32>,
+    refresh_counter: Signal<u32>,
 ) -> Element {
     let mut state = use_context::<AppState>();
 
@@ -436,142 +437,45 @@ fn FileTreeNode(
     // Copy feedback state
     let mut is_copied = use_signal(|| false);
 
-    // Context menu state
-    let mut show_context_menu = use_signal(|| false);
-    let mut context_menu_position = use_signal(|| (0, 0));
-    let mut other_windows = use_signal(Vec::new);
-
-    // Handle right-click to show context menu
+    // Right-click opens the shared, hoisted context menu. The node only *sets*
+    // the menu state in AppState; `SidebarContextMenuHost` (rendered at the
+    // app-container root) owns the action handlers and the rendering. Because
+    // the menu lives outside this `refresh_counter`-keyed subtree, a watcher
+    // remount can no longer unmount an open menu.
     let handle_context_menu = {
         let path = path.clone();
         move |evt: Event<MouseData>| {
             evt.prevent_default();
             evt.stop_propagation();
-            let mouse_data = evt.data();
-            context_menu_position.set((
-                mouse_data.client_coordinates().x as i32,
-                mouse_data.client_coordinates().y as i32,
-            ));
 
-            // Refresh window list
-            let windows = crate::window::main::list_visible_main_windows();
-            let current_id = window().id();
-            other_windows.set(
-                windows
-                    .iter()
-                    .filter(|w| w.window.id() != current_id)
-                    .map(|w| (w.window.id(), w.window.title()))
-                    .collect(),
-            );
-
-            show_context_menu.set(true);
-            tracing::trace!(?path, "Context menu opened");
-        }
-    };
-
-    // Handler for "Open File" or "Open Directory"
-    let handle_open = {
-        let path = path.clone();
-        move |_| {
-            if is_dir {
-                state.set_root_directory(&path);
-            } else {
-                state.open_file(&path);
-            }
-            show_context_menu.set(false);
-        }
-    };
-
-    // Handler for "Change Root Directory"
-    let handle_change_root_directory = {
-        let path = path.clone();
-        move |_| {
-            state.set_root_directory(&path);
-            show_context_menu.set(false);
-        }
-    };
-
-    // Handler for "Open in New Window"
-    let handle_open_in_new_window = {
-        let path = path.clone();
-        move |_| {
-            let path = path.clone();
-            spawn(async move {
-                let (tab, directory) = if is_dir {
-                    (crate::state::Tab::default(), Some(path))
-                } else {
-                    (
-                        crate::state::Tab::new(&path),
-                        path.parent().map(|p| p.to_path_buf()),
-                    )
-                };
-
-                let params = crate::window::main::CreateMainWindowConfigParams {
-                    directory,
-                    ..Default::default()
-                };
-                crate::window::main::create_main_window(tab, params).await;
-            });
-            show_context_menu.set(false);
-        }
-    };
-
-    // Handler for "Open in Window" (open in existing window)
-    let handle_open_in_window = {
-        let path = path.clone();
-        move |target_id: dioxus::desktop::tao::window::WindowId| {
-            let path = path.clone();
-            let result = if is_dir {
-                // For directories, broadcast to change root directory
-                crate::events::OPEN_DIRECTORY_IN_WINDOW.send((target_id, path))
-            } else {
-                // For files, broadcast to open file
-                crate::events::OPEN_FILE_IN_WINDOW.send((target_id, path))
+            // The menu renders at the (unzoomed) app root, so client coordinates
+            // are already in unscaled viewport pixels — no zoom compensation.
+            let cursor = {
+                let coords = evt.data().client_coordinates();
+                (coords.x as i32, coords.y as i32)
             };
-            if result.is_err() {
-                tracing::warn!(
-                    ?target_id,
-                    "Failed to open in window: target window may be closed"
-                );
-                show_context_menu.set(false);
-                return;
-            }
-            // Focus the target window
-            crate::window::main::focus_window(target_id);
-            show_context_menu.set(false);
-        }
-    };
+            let viewport = {
+                let size = *state.size.read();
+                (size.width as i32, size.height as i32)
+            };
 
-    // Handler for "Copy File Path" / "Copy Directory Path"
-    let handle_copy_path = {
-        let path = path.clone();
-        move |_| {
-            crate::utils::clipboard::copy_text(path.to_string_lossy());
-            show_context_menu.set(false);
-        }
-    };
+            // Collect the other visible windows for the "Open in Window" submenu.
+            let current_id = window().id();
+            let other_windows = crate::window::main::list_visible_main_windows()
+                .iter()
+                .filter(|w| w.window.id() != current_id)
+                .map(|w| (w.window.id(), w.window.title()))
+                .collect();
 
-    // Handler for "Reveal in Finder"
-    let handle_reveal_in_finder = {
-        let path = path.clone();
-        move |_| {
-            file_operations::reveal_in_finder(&path);
-            show_context_menu.set(false);
-        }
-    };
-
-    // Handler for "Reload"
-    let handle_reload = move |_| {
-        refresh_counter.set(refresh_counter() + 1);
-        show_context_menu.set(false);
-    };
-
-    // Handler for "Toggle Bookmark"
-    let handle_toggle_bookmark = {
-        let path = path.clone();
-        move |_| {
-            crate::bookmarks::toggle_bookmark(&path);
-            show_context_menu.set(false);
+            let kind = if is_dir {
+                SidebarItemKind::Directory
+            } else {
+                SidebarItemKind::File
+            };
+            let data =
+                SidebarContextMenuData::new(cursor, viewport, path.clone(), kind, other_windows);
+            state.sidebar_context_menu.set(Some(data));
+            tracing::trace!(?path, "Sidebar context menu opened");
         }
     };
 
@@ -704,24 +608,177 @@ fn FileTreeNode(
                 DirectoryChildren { path: path.clone(), depth, refresh_counter }
             }
         }
+    }
+}
 
-        // Context menu
-        if *show_context_menu.read() {
-            SidebarContextMenu {
-                position: *context_menu_position.read(),
-                path: path.clone(),
-                kind: if is_dir { SidebarItemKind::Directory } else { SidebarItemKind::File },
-                on_close: move |_| show_context_menu.set(false),
-                on_open: handle_open,
-                on_open_in_new_window: handle_open_in_new_window,
-                on_move_to_window: handle_open_in_window,
-                on_change_root_directory: handle_change_root_directory,
-                on_toggle_bookmark: handle_toggle_bookmark,
-                on_copy_path: handle_copy_path,
-                on_reveal_in_finder: handle_reveal_in_finder,
-                on_reload: handle_reload,
-                other_windows: other_windows.read().clone(),
+/// Renders the left-sidebar file-tree context menu once, at the app-container
+/// root, driven by `AppState::sidebar_context_menu`.
+///
+/// # Why hoisted here
+///
+/// The file tree is keyed on `AppState::sidebar_refresh_counter`, which the
+/// directory watcher bumps on every filesystem event. Rendering the menu inside
+/// a tree node meant a watcher-driven remount destroyed the node — and the open
+/// menu with it. Hosting the menu here, outside every keyed subtree, makes it
+/// independent of those remounts: tree nodes only *set* the menu state, and this
+/// host owns every action handler.
+#[component]
+pub fn SidebarContextMenuHost() -> Element {
+    let mut state = use_context::<AppState>();
+
+    // Subscribe to the menu state; render nothing while the menu is closed.
+    let Some(data) = state.sidebar_context_menu.read().clone() else {
+        return rsx! {};
+    };
+
+    let path = data.path.clone();
+    let is_dir = data.kind.is_dir();
+
+    // Handler for "Open File" / "Open Directory"
+    let handle_open = {
+        let path = path.clone();
+        move |_| {
+            // The snapshotted target may have been deleted/renamed while the menu
+            // stayed open; close as a no-op instead of acting on a stale path.
+            if !context_action_should_proceed(&path) {
+                state.close_sidebar_context_menu();
+                return;
             }
+            if is_dir {
+                state.set_root_directory(&path);
+            } else {
+                state.open_file(&path);
+            }
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    // Handler for "Change Root Directory"
+    let handle_change_root_directory = {
+        let path = path.clone();
+        move |_| {
+            if !context_action_should_proceed(&path) {
+                state.close_sidebar_context_menu();
+                return;
+            }
+            state.set_root_directory(&path);
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    // Handler for "Open in New Window"
+    let handle_open_in_new_window = {
+        let path = path.clone();
+        move |_| {
+            if !context_action_should_proceed(&path) {
+                state.close_sidebar_context_menu();
+                return;
+            }
+            let path = path.clone();
+            spawn(async move {
+                let (tab, directory) = if is_dir {
+                    (crate::state::Tab::default(), Some(path))
+                } else {
+                    (
+                        crate::state::Tab::new(&path),
+                        path.parent().map(|p| p.to_path_buf()),
+                    )
+                };
+
+                let params = crate::window::main::CreateMainWindowConfigParams {
+                    directory,
+                    ..Default::default()
+                };
+                crate::window::main::create_main_window(tab, params).await;
+            });
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    // Handler for "Open in Window" (open in an existing window)
+    let handle_open_in_window = {
+        let path = path.clone();
+        move |target_id: dioxus::desktop::tao::window::WindowId| {
+            if !context_action_should_proceed(&path) {
+                state.close_sidebar_context_menu();
+                return;
+            }
+            let path = path.clone();
+            let result = if is_dir {
+                // For directories, broadcast to change root directory
+                crate::events::OPEN_DIRECTORY_IN_WINDOW.send((target_id, path))
+            } else {
+                // For files, broadcast to open file
+                crate::events::OPEN_FILE_IN_WINDOW.send((target_id, path))
+            };
+            if result.is_err() {
+                tracing::warn!(
+                    ?target_id,
+                    "Failed to open in window: target window may be closed"
+                );
+                state.close_sidebar_context_menu();
+                return;
+            }
+            // Focus the target window
+            crate::window::main::focus_window(target_id);
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    // Handler for "Copy File Path" / "Copy Directory Path"
+    let handle_copy_path = {
+        let path = path.clone();
+        move |_| {
+            crate::utils::clipboard::copy_text(path.to_string_lossy());
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    // Handler for "Reveal in Finder"
+    let handle_reveal_in_finder = {
+        let path = path.clone();
+        move |_| {
+            if !context_action_should_proceed(&path) {
+                state.close_sidebar_context_menu();
+                return;
+            }
+            file_operations::reveal_in_finder(&path);
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    // Handler for "Reload"
+    let handle_reload = move |_| {
+        state.bump_sidebar_refresh();
+        state.close_sidebar_context_menu();
+    };
+
+    // Handler for "Toggle Bookmark"
+    let handle_toggle_bookmark = {
+        let path = path.clone();
+        move |_| {
+            crate::bookmarks::toggle_bookmark(&path);
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    rsx! {
+        SidebarContextMenu {
+            position: data.position,
+            path: path.clone(),
+            kind: data.kind,
+            submenu_left: data.submenu_left,
+            submenu_offset_y: data.submenu_offset_y,
+            on_close: move |_| state.close_sidebar_context_menu(),
+            on_open: handle_open,
+            on_open_in_new_window: handle_open_in_new_window,
+            on_move_to_window: handle_open_in_window,
+            on_change_root_directory: handle_change_root_directory,
+            on_toggle_bookmark: handle_toggle_bookmark,
+            on_copy_path: handle_copy_path,
+            on_reveal_in_finder: handle_reveal_in_finder,
+            on_reload: handle_reload,
+            other_windows: data.other_windows.clone(),
         }
     }
 }

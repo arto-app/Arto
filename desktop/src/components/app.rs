@@ -22,6 +22,7 @@ use super::header::Header;
 use super::right_sidebar::RightSidebar;
 use super::right_sidebar::RightSidebarTab;
 use super::search_bar::SearchBar;
+use super::sidebar::file_explorer::SidebarContextMenuHost;
 use super::sidebar::Sidebar;
 use super::tab::TabBar;
 use crate::assets::MAIN_SCRIPT;
@@ -562,6 +563,11 @@ pub fn App(
                     },
                 }
             }
+
+            // Left-sidebar file-tree context menu (rendered at the app-container
+            // root, outside the watcher-keyed file tree, so refresh-driven
+            // remounts of the tree can no longer unmount an open menu).
+            SidebarContextMenuHost {}
         }
     }
 }
