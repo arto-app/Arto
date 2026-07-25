@@ -62,6 +62,53 @@ pub fn menu_accelerator_skip_keys(bindings: &BindingSet) -> Vec<String> {
         .collect()
 }
 
+/// Letters bound as a bare primary-modifier chord anywhere in the active
+/// bindings, lowercased (e.g. `["c", "v", "x"]`).
+///
+/// The primary modifier is Cmd (`META`) on macOS and Ctrl (`CONTROL`) on
+/// Windows/Linux, matching the parse-time remap in `shortcut.rs`. A chord counts
+/// when it uses *exactly* the primary modifier (no Shift/Alt/secondary) and a
+/// single ASCII letter, in *any* position of *any* sequence, in *any* context —
+/// so the later `Ctrl+c` of emacs `Ctrl+x Ctrl+c` is included alongside the
+/// `Ctrl+x` prefix.
+///
+/// The keybinding engine forwards these to the JS interceptor, which treats a
+/// small set of primary+letter chords (Cmd/Ctrl + Q/C/V/X/A) as OS-reserved and
+/// swallows them before the engine runs. Reporting the ones the config actually
+/// binds lets the interceptor keep native clipboard/quit reserved while letting
+/// bound chords (the whole emacs `C-x` prefix system, `C-v`) reach the engine.
+pub fn reserved_key_overrides(bindings: &BindingSet) -> Vec<String> {
+    reserved_key_overrides_impl(bindings, cfg!(target_os = "macos"))
+}
+
+/// Platform-agnostic core of [`reserved_key_overrides`], extracted so both
+/// primary-modifier branches can be unit-tested from any host.
+fn reserved_key_overrides_impl(bindings: &BindingSet, is_macos: bool) -> Vec<String> {
+    let primary = if is_macos {
+        Modifiers::META
+    } else {
+        Modifiers::CONTROL
+    };
+    let mut letters = std::collections::BTreeSet::new();
+    for binding in bindings.clone().into_resolved_bindings() {
+        for chord in &binding.sequence.chords {
+            if chord.modifiers != primary {
+                continue;
+            }
+            if let Key::Character(ch) = &chord.key {
+                let mut chars = ch.chars();
+                match (chars.next(), chars.next()) {
+                    (Some(c), None) if c.is_ascii_alphabetic() => {
+                        letters.insert(c.to_ascii_lowercase().to_string());
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    letters.into_iter().collect()
+}
+
 /// Map dioxus modifier flags to muda (keyboard_types) modifiers.
 ///
 /// `META` (Cmd on macOS) maps to `SUPER`; `Accelerator::new` also normalizes
@@ -153,11 +200,26 @@ fn char_to_code(character: &str) -> Option<Code> {
 mod tests {
     use super::*;
 
+    /// muda modifier a parsed `Cmd`/`Meta` chord resolves to on the host: `SUPER`
+    /// (Cmd) on macOS, `CONTROL` on Windows/Linux where the primary modifier is
+    /// remapped META → CONTROL at parse time.
+    #[cfg(target_os = "macos")]
+    const PRIMARY_MUDA: MudaModifiers = MudaModifiers::SUPER;
+    #[cfg(not(target_os = "macos"))]
+    const PRIMARY_MUDA: MudaModifiers = MudaModifiers::CONTROL;
+
+    /// dioxus modifier bits the primary accelerator carries in a skip key:
+    /// META (0x40) on macOS, CONTROL (0x08) on Windows/Linux.
+    #[cfg(target_os = "macos")]
+    const PRIMARY_BITS: u32 = 0x40;
+    #[cfg(not(target_os = "macos"))]
+    const PRIMARY_BITS: u32 = 0x08;
+
     #[test]
-    fn cmd_letter_maps_to_super_key_code() {
+    fn cmd_letter_maps_to_primary_key_code() {
         assert_eq!(
             accelerator_for_key("Cmd+o"),
-            Some(Accelerator::new(Some(MudaModifiers::SUPER), Code::KeyO))
+            Some(Accelerator::new(Some(PRIMARY_MUDA), Code::KeyO))
         );
     }
 
@@ -166,7 +228,7 @@ mod tests {
         assert_eq!(
             accelerator_for_key("Cmd+Shift+o"),
             Some(Accelerator::new(
-                Some(MudaModifiers::SUPER | MudaModifiers::SHIFT),
+                Some(PRIMARY_MUDA | MudaModifiers::SHIFT),
                 Code::KeyO
             ))
         );
@@ -176,18 +238,15 @@ mod tests {
     fn symbol_aliases_map_to_codes() {
         assert_eq!(
             accelerator_for_key("Cmd+BracketLeft"),
-            Some(Accelerator::new(
-                Some(MudaModifiers::SUPER),
-                Code::BracketLeft
-            ))
+            Some(Accelerator::new(Some(PRIMARY_MUDA), Code::BracketLeft))
         );
         assert_eq!(
             accelerator_for_key("Cmd+Equal"),
-            Some(Accelerator::new(Some(MudaModifiers::SUPER), Code::Equal))
+            Some(Accelerator::new(Some(PRIMARY_MUDA), Code::Equal))
         );
         assert_eq!(
             accelerator_for_key("Cmd+Minus"),
-            Some(Accelerator::new(Some(MudaModifiers::SUPER), Code::Minus))
+            Some(Accelerator::new(Some(PRIMARY_MUDA), Code::Minus))
         );
     }
 
@@ -195,7 +254,7 @@ mod tests {
     fn digit_maps_to_digit_code() {
         assert_eq!(
             accelerator_for_key("Cmd+0"),
-            Some(Accelerator::new(Some(MudaModifiers::SUPER), Code::Digit0))
+            Some(Accelerator::new(Some(PRIMARY_MUDA), Code::Digit0))
         );
     }
 
@@ -212,7 +271,7 @@ mod tests {
         assert_eq!(
             accelerator_for_key("Cmd+Alt+w"),
             Some(Accelerator::new(
-                Some(MudaModifiers::SUPER | MudaModifiers::ALT),
+                Some(PRIMARY_MUDA | MudaModifiers::ALT),
                 Code::KeyW
             ))
         );
@@ -232,39 +291,41 @@ mod tests {
     // -- Skip-key canonical form (must match JS interceptor's event.code) --
     //
     // dioxus Modifiers bits: ALT=0x01, CONTROL=0x08, META=0x40, SHIFT=0x200.
-    // Key part is the physical Code (e.g. "KeyO"), not the logical glyph.
+    // Key part is the physical Code (e.g. "KeyO"), not the logical glyph. The
+    // primary modifier (Cmd) is META on macOS and remapped to CONTROL elsewhere,
+    // so the leading bits differ per platform (see PRIMARY_BITS).
 
     #[test]
     fn skip_key_cmd_letter() {
         assert_eq!(
-            menu_accelerator_skip_key("Cmd+o").as_deref(),
-            Some("64:KeyO")
+            menu_accelerator_skip_key("Cmd+o"),
+            Some(format!("{PRIMARY_BITS}:KeyO"))
         );
     }
 
     #[test]
     fn skip_key_cmd_shift_letter() {
-        // META (0x40=64) | SHIFT (0x200=512) = 576
+        // primary | SHIFT (0x200=512)
         assert_eq!(
-            menu_accelerator_skip_key("Cmd+Shift+o").as_deref(),
-            Some("576:KeyO")
+            menu_accelerator_skip_key("Cmd+Shift+o"),
+            Some(format!("{}:KeyO", PRIMARY_BITS | 0x200))
         );
     }
 
     #[test]
     fn skip_key_uses_physical_code_for_symbols() {
         assert_eq!(
-            menu_accelerator_skip_key("Cmd+BracketLeft").as_deref(),
-            Some("64:BracketLeft")
+            menu_accelerator_skip_key("Cmd+BracketLeft"),
+            Some(format!("{PRIMARY_BITS}:BracketLeft"))
         );
     }
 
     #[test]
     fn skip_key_alt_uses_stable_physical_code() {
-        // META (64) | ALT (1) = 65; physical code is immune to Option remapping.
+        // primary | ALT (1); physical code is immune to Option remapping.
         assert_eq!(
-            menu_accelerator_skip_key("Cmd+Alt+w").as_deref(),
-            Some("65:KeyW")
+            menu_accelerator_skip_key("Cmd+Alt+w"),
+            Some(format!("{}:KeyW", PRIMARY_BITS | 0x01))
         );
     }
 
@@ -290,6 +351,74 @@ mod tests {
             ],
             ..Default::default()
         };
-        assert_eq!(menu_accelerator_skip_keys(&bindings), vec!["64:KeyO"]);
+        assert_eq!(
+            menu_accelerator_skip_keys(&bindings),
+            vec![format!("{PRIMARY_BITS}:KeyO")]
+        );
+    }
+
+    // -- Reserved-key overrides (config-aware OS-reserved gate) --------------
+
+    #[test]
+    fn reserved_overrides_off_macos_include_emacs_ctrl_prefix_letters() {
+        // On Windows/Linux the primary modifier is Ctrl. The emacs preset binds
+        // Ctrl+x (prefix), Ctrl+v (page down), and Ctrl+x Ctrl+c (quit) — the
+        // reserved letters x, v, and the later-chord c must all be reported so
+        // the interceptor stops swallowing them.
+        let overrides =
+            reserved_key_overrides_impl(&crate::keybindings::presets::emacs::bindings(), false);
+        assert!(overrides.contains(&"x".to_string()));
+        assert!(overrides.contains(&"v".to_string()));
+        assert!(overrides.contains(&"c".to_string()));
+    }
+
+    #[test]
+    fn reserved_overrides_on_macos_exclude_ctrl_only_chords() {
+        // On macOS the primary modifier is Cmd, so emacs' Ctrl-based chords are
+        // not primary chords and the gate never fires on them — they must not be
+        // reported (and Cmd+C/V/X/A stay OS-reserved for native clipboard).
+        let overrides =
+            reserved_key_overrides_impl(&crate::keybindings::presets::emacs::bindings(), true);
+        assert!(!overrides.contains(&"x".to_string()));
+        assert!(!overrides.contains(&"v".to_string()));
+        assert!(!overrides.contains(&"c".to_string()));
+    }
+
+    #[test]
+    fn reserved_overrides_default_preset_leave_clipboard_reserved() {
+        // The default preset binds none of Q/C/V/X/A with the primary modifier,
+        // so on neither platform should those letters be overridden — the
+        // interceptor keeps native clipboard/select-all/quit working.
+        let bindings = crate::keybindings::default_bindings();
+        for is_macos in [true, false] {
+            let overrides = reserved_key_overrides_impl(&bindings, is_macos);
+            for reserved in ["q", "c", "v", "x", "a"] {
+                assert!(
+                    !overrides.contains(&reserved.to_string()),
+                    "default preset must not override reserved {reserved:?} (is_macos={is_macos})"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn reserved_overrides_ignore_shift_and_alt_variants() {
+        use crate::config::KeyAction;
+        // Only bare primary+letter chords count; Shift/Alt variants never trip
+        // the interceptor's reserved gate, so they must not be reported.
+        let bindings = BindingSet {
+            global: vec![
+                KeyAction {
+                    key: "Ctrl+Shift+x".to_string(),
+                    action: "tab.close".to_string(),
+                },
+                KeyAction {
+                    key: "Ctrl+Alt+v".to_string(),
+                    action: "scroll.page_down".to_string(),
+                },
+            ],
+            ..Default::default()
+        };
+        assert!(reserved_key_overrides_impl(&bindings, false).is_empty());
     }
 }

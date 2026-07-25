@@ -125,13 +125,25 @@ pub fn resolve_bindings(bindings: &BindingSet) -> Vec<ResolvedBinding> {
 
 impl BindingSet {
     /// Flatten into resolved bindings for engine consumption.
+    ///
+    /// Platforms with a native menu (macOS/Linux) let the OS dispatch menu
+    /// shortcuts, so they are excluded. Windows has no native menu, so the
+    /// engine must own them or they would have no dispatch path at all.
     pub fn into_resolved_bindings(self) -> Vec<ResolvedBinding> {
+        self.into_resolved_bindings_with(cfg!(target_os = "windows"))
+    }
+
+    /// Core of [`into_resolved_bindings`] with the menu-shortcut folding
+    /// decision passed explicitly, so both platform branches can be exercised
+    /// from a single-host test run.
+    pub(crate) fn into_resolved_bindings_with(
+        self,
+        fold_menu_shortcuts: bool,
+    ) -> Vec<ResolvedBinding> {
         let mut result = Vec::new();
-        // Platforms with a native menu (macOS/Linux) let the OS dispatch menu
-        // shortcuts, so they are excluded here. Windows has no native menu, so
-        // the engine must own them or they would have no dispatch path at all.
-        #[cfg(target_os = "windows")]
-        resolve_field(self.menu_shortcuts, None, &mut result);
+        if fold_menu_shortcuts {
+            resolve_field(self.menu_shortcuts, None, &mut result);
+        }
         resolve_field(self.global, None, &mut result);
         resolve_field(self.content, Some(KeyContext::Content), &mut result);
         resolve_field(self.sidebar, Some(KeyContext::Sidebar), &mut result);

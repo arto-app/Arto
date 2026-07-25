@@ -64,6 +64,7 @@ declare global {
         pause: typeof keyboardInterceptor.pause;
         resume: typeof keyboardInterceptor.resume;
         setMenuAccelerators: typeof keyboardInterceptor.setMenuAccelerators;
+        setReservedKeyOverrides: typeof keyboardInterceptor.setReservedKeyOverrides;
       };
       scroll: {
         scrollDown: typeof scrollController.scrollDown;
@@ -280,6 +281,7 @@ export function init(): void {
       pause: keyboardInterceptor.pause,
       resume: keyboardInterceptor.resume,
       setMenuAccelerators: keyboardInterceptor.setMenuAccelerators,
+      setReservedKeyOverrides: keyboardInterceptor.setReservedKeyOverrides,
     },
     scroll: {
       scrollDown: scrollController.scrollDown,

@@ -240,6 +240,33 @@ impl ShortcutSequence {
     }
 }
 
+/// Rewrite the primary accelerator modifier for the current platform.
+///
+/// Config presets express the primary accelerator with `Cmd`/`Meta`
+/// (`Modifiers::META`) for a native macOS feel. On Windows/Linux the physical
+/// primary modifier is Ctrl: a `KeyboardEvent` with `ctrlKey` set produces
+/// `Modifiers::CONTROL`, and native menu accelerators use Ctrl. Rewriting
+/// `META` → `CONTROL` when a config chord is parsed makes a physical Ctrl press
+/// (which reaches the engine as `CONTROL` via [`KeyChord::from_js_event`]) match
+/// a `Cmd`-defined binding, and makes native accelerators use Ctrl. A physical
+/// Super/Windows key still yields `META` at runtime, so it intentionally matches
+/// nothing. macOS is left untouched so `Cmd` stays `META`.
+fn normalize_primary_modifier(modifiers: Modifiers) -> Modifiers {
+    remap_primary_modifier(modifiers, cfg!(target_os = "macos"))
+}
+
+/// Platform-agnostic core of [`normalize_primary_modifier`], extracted so the
+/// remap can be unit-tested for both platforms from any host.
+///
+/// Only `META` is rewritten; `CONTROL`/`ALT`/`SHIFT` are preserved so
+/// intentionally Ctrl-based chords (e.g. vim/emacs) are never altered.
+fn remap_primary_modifier(modifiers: Modifiers, is_macos: bool) -> Modifiers {
+    if is_macos || !modifiers.contains(Modifiers::META) {
+        return modifiers;
+    }
+    (modifiers - Modifiers::META) | Modifiers::CONTROL
+}
+
 fn parse_chord(token: &str) -> Result<KeyChord, ShortcutParseError> {
     let mut modifiers = Modifiers::empty();
     let mut key_part: Option<&str> = None;
@@ -266,6 +293,7 @@ fn parse_chord(token: &str) -> Result<KeyChord, ShortcutParseError> {
 
     let key_part = key_part.ok_or(ShortcutParseError::MissingKey)?;
     let key = parse_key(key_part)?;
+    let modifiers = normalize_primary_modifier(modifiers);
 
     // Apply normalization: uppercase Character + no explicit SHIFT → add SHIFT
     Ok(KeyChord { key, modifiers }.normalize())
@@ -274,6 +302,13 @@ fn parse_chord(token: &str) -> Result<KeyChord, ShortcutParseError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Modifier a parsed `Cmd`/`Meta` chord resolves to on the host platform:
+    /// `META` on macOS, `CONTROL` elsewhere (see `normalize_primary_modifier`).
+    #[cfg(target_os = "macos")]
+    const PRIMARY: Modifiers = Modifiers::META;
+    #[cfg(not(target_os = "macos"))]
+    const PRIMARY: Modifiers = Modifiers::CONTROL;
 
     // --- parse_key tests ---
 
@@ -451,12 +486,14 @@ mod tests {
 
     #[test]
     fn parse_cmd_key() {
+        // `Cmd`/`Meta` resolves to the platform primary modifier: META on
+        // macOS, CONTROL on Windows/Linux.
         let seq = ShortcutSequence::from_str("Cmd+n").unwrap();
         assert_eq!(
             seq.chords,
             vec![KeyChord {
                 key: Key::Character("n".to_string()),
-                modifiers: Modifiers::META
+                modifiers: PRIMARY
             }]
         );
     }
@@ -486,9 +523,61 @@ mod tests {
             seq.chords,
             vec![KeyChord {
                 key: Key::Character("=".to_string()),
-                modifiers: Modifiers::META
+                modifiers: PRIMARY
             }]
         );
+    }
+
+    // --- Primary modifier remap (Cmd → Ctrl on non-macOS) ---
+
+    #[test]
+    fn remap_primary_modifier_maps_meta_to_control_off_macos() {
+        assert_eq!(
+            remap_primary_modifier(Modifiers::META, false),
+            Modifiers::CONTROL
+        );
+        assert_eq!(
+            remap_primary_modifier(Modifiers::META | Modifiers::SHIFT, false),
+            Modifiers::CONTROL | Modifiers::SHIFT
+        );
+    }
+
+    #[test]
+    fn remap_primary_modifier_keeps_meta_on_macos() {
+        assert_eq!(
+            remap_primary_modifier(Modifiers::META, true),
+            Modifiers::META
+        );
+        assert_eq!(
+            remap_primary_modifier(Modifiers::META | Modifiers::SHIFT, true),
+            Modifiers::META | Modifiers::SHIFT
+        );
+    }
+
+    #[test]
+    fn remap_primary_modifier_preserves_control_chords() {
+        // Intentionally Ctrl-based chords (vim/emacs) must never be altered.
+        assert_eq!(
+            remap_primary_modifier(Modifiers::CONTROL, false),
+            Modifiers::CONTROL
+        );
+        assert_eq!(
+            remap_primary_modifier(Modifiers::CONTROL | Modifiers::ALT, false),
+            Modifiers::CONTROL | Modifiers::ALT
+        );
+    }
+
+    #[test]
+    fn cmd_binding_matches_physical_ctrl_off_macos() {
+        // A `Cmd`-defined binding must compare equal to a physical Ctrl press
+        // (from_js_event with CONTROL bits) on Windows/Linux, and stay distinct
+        // on macOS where Cmd is META.
+        let binding = parse_chord("Cmd+o").unwrap();
+        let physical_ctrl = KeyChord::from_js_event("o", Modifiers::CONTROL.bits());
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(binding, physical_ctrl);
+        #[cfg(target_os = "macos")]
+        assert_ne!(binding, physical_ctrl);
     }
 
     #[test]

@@ -25,6 +25,14 @@ fn should_skip_keybinding(data: &KeyEventData) -> bool {
     data.search_focused && data.modifiers == 0 && data.key == "Escape"
 }
 
+/// Maximum readiness-poll attempts for the JS keyboard API before giving up.
+///
+/// The interceptor ships inside the multi-megabyte renderer bundle; on Windows
+/// a cold WebView2 start can spend several seconds parsing it, so allow a longer
+/// wait there. Each attempt sleeps 50 ms, so 200 ≈ 10 s and 50 ≈ 2.5 s. Both
+/// readiness loops (keyboard interceptor and menu accelerators) share this bound.
+const JS_KEYBOARD_READY_MAX_RETRIES: u32 = if cfg!(target_os = "windows") { 200 } else { 50 };
+
 /// Send the current native menu-accelerator chords to the JS interceptor so it
 /// skips them (the OS menu dispatches those; forwarding would double-fire).
 ///
@@ -39,12 +47,13 @@ fn push_menu_accelerators_to_js() {
         r#"
         (async () => {{
             let retries = 0;
-            while (!window.Arto?.keyboard?.setMenuAccelerators && retries++ < 50) {{
+            while (!window.Arto?.keyboard?.setMenuAccelerators && retries++ < {max}) {{
                 await new Promise(r => setTimeout(r, 50));
             }}
             window.Arto?.keyboard?.setMenuAccelerators?.({json});
         }})();
-        "#
+        "#,
+        max = JS_KEYBOARD_READY_MAX_RETRIES,
     ));
 }
 
@@ -52,6 +61,34 @@ fn push_menu_accelerators_to_js() {
 /// (see `BindingSet::into_resolved_bindings`) — there is nothing to skip.
 #[cfg(target_os = "windows")]
 fn push_menu_accelerators_to_js() {}
+
+/// Tell the JS interceptor which primary-modifier + single-letter chords the
+/// active config binds, so it does not treat them as OS-reserved and swallow
+/// them before the engine runs (e.g. the emacs `C-x` prefix / `C-v`).
+///
+/// Runs on every platform (unlike the menu-accelerator push): the reserved gate
+/// exists on all platforms — Cmd+{Q,C,V,X,A} on macOS, Ctrl+{Q,C,V,X,A} on
+/// Windows/Linux — and the primary modifier is resolved accordingly inside
+/// [`crate::keybindings::reserved_key_overrides`]. Must be called within the
+/// Dioxus runtime (component task / spawn).
+fn push_reserved_key_overrides_to_js() {
+    use crate::config::CONFIG;
+
+    let keys = crate::keybindings::reserved_key_overrides(&CONFIG.read().keybindings);
+    let json = serde_json::to_string(&keys).unwrap_or_else(|_| "[]".to_string());
+    let _ = document::eval(&format!(
+        r#"
+        (async () => {{
+            let retries = 0;
+            while (!window.Arto?.keyboard?.setReservedKeyOverrides && retries++ < {max}) {{
+                await new Promise(r => setTimeout(r, 50));
+            }}
+            window.Arto?.keyboard?.setReservedKeyOverrides?.({json});
+        }})();
+        "#,
+        max = JS_KEYBOARD_READY_MAX_RETRIES,
+    ));
+}
 
 /// Set up the keybinding engine with JS keyboard interceptor bridge.
 ///
@@ -80,28 +117,33 @@ pub(super) fn setup_keybinding_engine(
         // Keyboard event processing loop
         spawn(async move {
             // Wait for JS keyboard API to be ready, then register callback.
-            // Retries up to 50 times (2.5s) before giving up.
-            let mut eval = document::eval(
+            // Retries up to JS_KEYBOARD_READY_MAX_RETRIES times (50 ms each:
+            // ~2.5 s elsewhere, ~10 s on Windows) before giving up.
+            let mut eval = document::eval(&format!(
                 r#"
-            (async () => {
+            (async () => {{
                 let retries = 0;
-                while (!window.Arto?.keyboard?.onKeydown && retries++ < 50) {
+                while (!window.Arto?.keyboard?.onKeydown && retries++ < {max}) {{
                     await new Promise(r => setTimeout(r, 50));
-                }
-                if (!window.Arto?.keyboard?.onKeydown) {
+                }}
+                if (!window.Arto?.keyboard?.onKeydown) {{
                     console.error("Keyboard interceptor API not available after timeout");
                     return;
-                }
-                window.Arto.keyboard.onKeydown((data) => {
+                }}
+                window.Arto.keyboard.onKeydown((data) => {{
                     dioxus.send(data);
-                });
-            })();
+                }});
+            }})();
             "#,
-            );
+                max = JS_KEYBOARD_READY_MAX_RETRIES,
+            ));
 
             // Tell the interceptor which chords are native menu accelerators so
-            // it does not also forward them to the engine (double-fire guard).
+            // it does not also forward them to the engine (double-fire guard),
+            // and which primary+letter chords the config binds so it does not
+            // swallow them as OS-reserved shortcuts.
             push_menu_accelerators_to_js();
+            push_reserved_key_overrides_to_js();
 
             // If JS initialization fails (timeout), recv returns Err immediately and
             // the loop never starts. Log a warning so the issue is diagnosable.
@@ -186,6 +228,7 @@ pub(super) fn setup_keybinding_engine(
                 let new_config = CONFIG.read().keybindings.clone();
                 *engine.read().borrow_mut() = KeybindingEngine::new(&new_config);
                 push_menu_accelerators_to_js();
+                push_reserved_key_overrides_to_js();
                 tracing::debug!("Keybinding engine rebuilt after config change");
             }
         });
