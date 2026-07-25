@@ -16,6 +16,12 @@ final class ArtoPreviewViewController: NSViewController, QLPreviewingController,
 
     override func loadView() {
         let configuration = WKWebViewConfiguration()
+        // Use an ephemeral (in-memory) data store. The default persistent store
+        // makes WKWebView probe an on-disk storage directory during init, which
+        // the extension's sandbox denies — leaving the WebView unable to load
+        // and the Quick Look preview stuck spinning forever. An untrusted
+        // preview also has no reason to persist cookies/cache/localStorage.
+        configuration.websiteDataStore = .nonPersistent()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = self
