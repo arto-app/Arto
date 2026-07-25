@@ -10,7 +10,9 @@
   <key>CFBundleName</key><string>Arto</string>
   <key>CFBundleIconFile</key><string>Arto</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <!-- Placeholder; the real version is stamped from Cargo.toml at bundle time
+       (see the `_apply-bundle-metadata` recipe in desktop/justfile). -->
+  <key>CFBundleShortVersionString</key><string>0.0.0</string>
   <key>CFBundleVersion</key><string>1</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>CFBundleDocumentTypes</key>

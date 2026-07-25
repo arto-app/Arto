@@ -34,8 +34,31 @@ clean:
 build:
   @rm -rf target/dx/arto/release/macos/Arto.app/Contents/Resources/assets
   dx bundle --release --macos --package-types macos
+  just _apply-bundle-metadata
   just _embed-quicklook
   just _package-dmg
+
+# Deterministically install the canonical Info.plist and app icon, and stamp the
+# version from Cargo.toml. The dx toolchain does not reliably apply the
+# `[bundle]` icon or `[bundle.macos] info_plist_path` from Dioxus.toml — a clean
+# build otherwise ships an app with NO `.md`/`.txt` Finder associations, a
+# missing icon, and a version that ignores the release tag. This runs before
+# `_embed-quicklook`, whose final re-sign seals these edits.
+[macos]
+[private]
+_apply-bundle-metadata:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  app="target/dx/arto/release/macos/Arto.app"
+  version="$(perl -ne 'print $1 and exit if /^version = "(.*)"/' Cargo.toml)"
+  # Canonical Info.plist carries the file-type associations and high-DPI flag.
+  cp ../extras/mac/Info.plist "$app/Contents/Info.plist"
+  # Stamp the real version (CI patches Cargo.toml for releases; local stays 0.0.0).
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${version}" \
+    "$app/Contents/Info.plist"
+  # The plist references CFBundleIconFile = Arto → the bundle needs Arto.icns.
+  cp ../extras/mac/Arto.icns "$app/Contents/Resources/Arto.icns"
+  echo "Applied canonical Info.plist (version ${version}) and app icon"
 
 # Build the Quick Look preview extension (Swift shim + Rust `arto_ql` static
 # library) and embed it at Contents/PlugIns/ArtoQuickLook.appex so macOS
