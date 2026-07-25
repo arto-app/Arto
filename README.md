@@ -101,6 +101,17 @@ brew install --cask arto-app/tap/arto
 xattr -dr com.apple.quarantine /Applications/Arto.app
 ```
 
+> [!TIP]
+> **Quick Look preview not showing?** macOS normally registers the Quick Look
+> extension the first time you launch Arto. If pressing Space on a Markdown file
+> still shows no preview — or a stale one right after an upgrade — register the
+> extension manually and refresh the cache:
+>
+> ```sh
+> pluginkit -a /Applications/Arto.app/Contents/PlugIns/ArtoQuickLook.appex
+> qlmanage -r && qlmanage -r cache
+> ```
+
 Alternatively, [Nix] is also supported.
 To try it without a permanent installation:
 
