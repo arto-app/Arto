@@ -5,7 +5,6 @@ use crate::window::settings;
 use dioxus::desktop::use_muda_event_handler;
 use dioxus::desktop::{window, WindowCloseBehaviour};
 use dioxus::prelude::*;
-use std::path::PathBuf;
 
 // ============================================================================
 // MainApp component
@@ -83,15 +82,11 @@ pub fn MainApp() -> Element {
     let content_full_width = settings::get_content_full_width_preference();
     let zoom_pref = settings::get_zoom_preference(is_first_window);
 
-    // Directory resolution: override (from event) → config → tab parent → home → root
-    let directory = directory_override
-        .or(directory_pref.directory)
-        .or_else(|| {
-            tabs.iter()
-                .find_map(|tab| tab.file().and_then(|p| p.parent().map(|p| p.to_path_buf())))
-        })
-        .or_else(dirs::home_dir)
-        .unwrap_or_else(|| PathBuf::from("/"));
+    // Directory resolution: override (from event) → config default → parent of an
+    // explicitly opened file. Stays None on a blank config with no opened file so
+    // the sidebar shows its empty/welcome state instead of scanning home.
+    let params_directory = directory_override.or(directory_pref.directory);
+    let directory = crate::window::main::resolve_directory(params_directory, &tabs);
 
     // Render App component with initial state
     // Subsequent system events are handled by custom_event_handler (main.rs)

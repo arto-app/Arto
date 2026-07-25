@@ -47,9 +47,12 @@ const MOUSE_BUTTON_LEFT: u32 = 0;
 
 #[component]
 pub fn App(
-    tabs: Vec<Tab>,     // Initial tabs (at least one tab must be present)
-    directory: PathBuf, // Directory (resolved in create_main_window or MainApp)
-    theme: Theme,       // The enum: Auto/Light/Dark
+    tabs: Vec<Tab>, // Initial tabs (at least one tab must be present)
+    // Directory to root the file explorer at (resolved in create_main_window or
+    // MainApp). None means no directory is opened, so the sidebar shows its
+    // empty/welcome state instead of scanning an arbitrary directory.
+    directory: Option<PathBuf>,
+    theme: Theme, // The enum: Auto/Light/Dark
     content_full_width: bool,
     sidebar_pinned: bool,
     sidebar_width: f64,
@@ -78,8 +81,10 @@ pub fn App(
         // Apply initial sidebar settings from params (including directory)
         {
             let mut sidebar = app_state.sidebar.write();
-            sidebar.root_directory = Some(directory.clone());
-            sidebar.push_to_history(directory);
+            sidebar.root_directory = directory.clone();
+            if let Some(directory) = directory {
+                sidebar.push_to_history(directory);
+            }
             sidebar.pinned = sidebar_pinned;
             sidebar.width = sidebar_width;
             sidebar.show_all_files = sidebar_show_all_files;

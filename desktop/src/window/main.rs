@@ -230,17 +230,23 @@ pub fn shutdown_all_windows() -> usize {
 // Shared helpers for window creation (used by both sync and async paths)
 // ============================================================================
 
-/// Resolve the directory for a new window.
+/// Resolve the directory to root the file explorer at for a new window.
 ///
-/// Priority: params.directory → tab parent → home dir → root
-fn resolve_directory(params_directory: Option<PathBuf>, tabs: &[Tab]) -> PathBuf {
-    params_directory
-        .or_else(|| {
-            tabs.iter()
-                .find_map(|tab| tab.file().and_then(|p| p.parent().map(|p| p.to_path_buf())))
-        })
-        .or_else(dirs::home_dir)
-        .unwrap_or_else(|| PathBuf::from("/"))
+/// Priority: explicit directory (config default or explicitly requested) → parent
+/// of an explicitly opened file.
+///
+/// Returns `None` when no directory is configured and no file was explicitly
+/// opened. In that case the sidebar renders its empty/welcome state instead of
+/// scanning an arbitrary directory (e.g. the user's home), which on macOS would
+/// trigger unnecessary TCC permission prompts.
+pub(crate) fn resolve_directory(
+    params_directory: Option<PathBuf>,
+    tabs: &[Tab],
+) -> Option<PathBuf> {
+    params_directory.or_else(|| {
+        tabs.iter()
+            .find_map(|tab| tab.file().and_then(|p| p.parent().map(|p| p.to_path_buf())))
+    })
 }
 
 /// Compute the shifted position for a new window, avoiding overlap with existing windows.
@@ -494,6 +500,46 @@ fn shift_position_if_needed(
 mod tests {
     use super::*;
     use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
+
+    #[test]
+    fn test_resolve_directory_none_when_no_config_and_no_file() {
+        // Blank config (no explicit directory) with a no-file/welcome tab must
+        // yield None so the sidebar shows the empty/welcome state instead of
+        // scanning an arbitrary directory such as the user's home.
+        let tabs = vec![Tab::default()];
+        assert_eq!(resolve_directory(None, &tabs), None);
+    }
+
+    #[test]
+    fn test_resolve_directory_uses_explicit_directory() {
+        let tabs = vec![Tab::default()];
+        let explicit = PathBuf::from("/explicit/dir");
+        assert_eq!(
+            resolve_directory(Some(explicit.clone()), &tabs),
+            Some(explicit)
+        );
+    }
+
+    #[test]
+    fn test_resolve_directory_falls_back_to_opened_file_parent() {
+        // Opening a file explicitly (no configured directory) roots the sidebar
+        // at the file's parent directory.
+        let tabs = vec![Tab::new(PathBuf::from("/some/project/README.md"))];
+        assert_eq!(
+            resolve_directory(None, &tabs),
+            Some(PathBuf::from("/some/project"))
+        );
+    }
+
+    #[test]
+    fn test_resolve_directory_prefers_explicit_over_file_parent() {
+        let tabs = vec![Tab::new(PathBuf::from("/some/project/README.md"))];
+        let explicit = PathBuf::from("/explicit/dir");
+        assert_eq!(
+            resolve_directory(Some(explicit.clone()), &tabs),
+            Some(explicit)
+        );
+    }
 
     #[test]
     fn test_shift_position_if_needed_no_offset() {
