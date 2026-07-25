@@ -1,0 +1,71 @@
+name: "Set up build toolchain"
+description: >
+  Provision the Rust/dioxus/node toolchain for a build matrix leg. macOS and
+  Linux run through the Nix devShell (so the toolchain matches local
+  development); Windows cannot run Nix and installs the toolchain natively.
+  The nix-vs-native branch lives here once instead of being duplicated across
+  the check/test/build jobs.
+
+inputs:
+  cachix-auth-token:
+    description: "Cachix auth token. Cachix is skipped on pull requests regardless."
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    # --- Nix toolchain (macOS + Linux) ---
+    # https://zenn.dev/mierune/articles/2af7b9e447712a
+    - if: runner.os != 'Windows'
+      uses: chetan/git-restore-mtime-action@v2
+    - if: runner.os != 'Windows'
+      uses: nixbuild/nix-quick-install-action@v35
+    - if: runner.os != 'Windows' && github.event_name != 'pull_request'
+      uses: cachix/cachix-action@v17
+      with:
+        name: arto
+        authToken: ${{ inputs.cachix-auth-token }}
+
+    # --- Native toolchain (Windows) ---
+    # Windows-only code paths (the cfg(windows) named-pipe IPC, the hamburger
+    # menu, engine-owned menu shortcuts) are invisible to the macOS/Linux legs
+    # and have regressed unnoticed before, so Windows builds natively here.
+    - if: runner.os == 'Windows'
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy
+    # `ring` (arto -> ureq -> rustls) assembles its primitives from source and
+    # needs a different assembler per arch: nasm on x86_64, clang on aarch64.
+    # Installed via choco (not the setup-nasm action, which still targets the
+    # deprecated Node.js 20 runtime).
+    - name: Install NASM (x86_64, required by ring)
+      if: runner.os == 'Windows' && runner.arch == 'X64'
+      shell: pwsh
+      run: |
+        choco install nasm --no-progress -y
+        "C:\Program Files\NASM" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+    - name: Install LLVM (clang, required by ring on aarch64)
+      if: runner.os == 'Windows' && runner.arch == 'ARM64'
+      shell: pwsh
+      run: choco install llvm --no-progress -y
+    - if: runner.os == 'Windows'
+      uses: actions/setup-node@v7
+      with:
+        node-version: 24
+    # pnpm is pinned via the renderer's packageManager field.
+    - if: runner.os == 'Windows'
+      shell: pwsh
+      run: corepack enable
+    # Installed from the upstream release rather than extractions/setup-just,
+    # which has no windows-aarch64 binary. just itself ships both arches.
+    - name: Install just
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $ver = '1.57.0'
+        $arch = if ($env:RUNNER_ARCH -eq 'ARM64') { 'aarch64' } else { 'x86_64' }
+        $url = "https://github.com/casey/just/releases/download/$ver/just-$ver-$arch-pc-windows-msvc.zip"
+        Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP\just.zip"
+        Expand-Archive "$env:RUNNER_TEMP\just.zip" -DestinationPath "$env:RUNNER_TEMP\just"
+        "$env:RUNNER_TEMP\just" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8

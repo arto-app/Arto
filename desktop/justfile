@@ -91,8 +91,8 @@ install:
 
 [windows]
 build:
-  cargo build --release
+  dx bundle --release --windows --package-types nsis
 
 [windows]
 open:
-  ./target/release/arto.exe
+  ./target/dx/arto/release/windows/app/arto.exe
