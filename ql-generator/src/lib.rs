@@ -32,6 +32,15 @@ use std::ptr;
 /// The renderer stylesheet, embedded at compile time.
 const RENDERER_CSS: &str = include_str!("../../desktop/assets/dist/main.css");
 
+/// Quick Look-specific style overrides, applied after [`RENDERER_CSS`].
+///
+/// The shared renderer stylesheet sets `body { overflow: hidden }` because the
+/// app scrolls inside an inner `.content` container. The Quick Look document
+/// has no such container, so inheriting that rule clips long documents and
+/// leaves the preview unscrollable. Restore natural document scrolling for the
+/// standalone preview page.
+const QL_OVERRIDE_CSS: &str = "html,body{overflow:auto!important;height:auto!important;}";
+
 /// The renderer bundle (IIFE build exposing `window.ArtoRenderer`), embedded
 /// at compile time.
 const RENDERER_JS: &str = include_str!("../../desktop/assets/dist/main.iife.js");
@@ -201,7 +210,8 @@ fn build_document(body_html: &str) -> String {
         r#"<!DOCTYPE html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="{csp}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<style>{css}</style></head>
+<style>{css}</style>
+<style>{ql_override}</style></head>
 <body data-theme="light">
 <div class="markdown-viewer"><article class="markdown-body">{body}</article></div>
 <script>{bundle}</script>
@@ -209,6 +219,7 @@ fn build_document(body_html: &str) -> String {
 </body></html>"#,
         csp = csp,
         css = RENDERER_CSS,
+        ql_override = QL_OVERRIDE_CSS,
         body = body_html,
         bundle = bundle,
         bootstrap = BOOTSTRAP_JS,
@@ -233,6 +244,11 @@ mod tests {
         // Styles and scripts are inlined.
         assert!(html.contains("<style>"));
         assert!(html.contains("</style>"));
+        // The Quick Look document has no inner `.content` scroll container, so
+        // the shared `body { overflow: hidden }` must be overridden or the
+        // preview cannot scroll long documents.
+        assert!(html.contains(QL_OVERRIDE_CSS));
+        assert!(html.contains("overflow:auto"));
         assert!(html.contains("<script>"));
         assert!(html.contains("</script>"));
         // Theme defaults are present.
