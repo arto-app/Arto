@@ -73,6 +73,66 @@ jobs:
           exit 1
     timeout-minutes: 30
 
+  # Windows cannot use the Nix devShell the other jobs rely on, so this job
+  # installs the toolchain natively. It exists because Windows-only code paths
+  # (the cfg(windows) named-pipe IPC, the hamburger menu, engine-owned menu
+  # shortcuts) are invisible to the macOS and Linux legs and have already
+  # regressed unnoticed.
+  check-windows:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: windows
+            os: windows-latest
+          - target: windows-arm64
+            os: windows-11-arm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      # `ring` (arto -> ureq -> rustls) assembles its primitives from source and
+      # needs a different assembler per target: nasm on x86_64, clang on
+      # aarch64. Neither is guaranteed to be present on the runner image.
+      - uses: ilammy/setup-nasm@v1
+        if: matrix.target == 'windows'
+      - name: Install LLVM (clang, required by ring on aarch64)
+        if: matrix.target == 'windows-arm64'
+        run: choco install llvm --no-progress -y
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # pnpm is pinned via the renderer's packageManager field.
+      - run: corepack enable
+      # Installed from the upstream release rather than extractions/setup-just,
+      # which has no windows-aarch64 binary. just itself ships both arches.
+      - name: Install just
+        shell: pwsh
+        run: |
+          $ver = '1.57.0'
+          $arch = if ($env:RUNNER_ARCH -eq 'ARM64') { 'aarch64' } else { 'x86_64' }
+          $url = "https://github.com/casey/just/releases/download/$ver/just-$ver-$arch-pc-windows-msvc.zip"
+          Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP\just.zip"
+          Expand-Archive "$env:RUNNER_TEMP\just.zip" -DestinationPath "$env:RUNNER_TEMP\just"
+          "$env:RUNNER_TEMP\just" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/target
+          key: cargo-check-${{ matrix.target }}-${{ hashFiles('desktop/Cargo.lock') }}
+          restore-keys: cargo-check-${{ matrix.target }}-
+      # `just fmt` is deliberately omitted: oxfmt rewrites renderer CSS that is
+      # not oxfmt-clean as committed, and git's LF->CRLF conversion makes
+      # `git diff --exit-code` fail here for reasons unrelated to the change.
+      # Formatting stays gated by the macOS check job.
+      - run: just check
+      - run: just test
+    timeout-minutes: 45
+
   build:
     needs: ["check", "test"]
     runs-on: ${{ matrix.os }}
