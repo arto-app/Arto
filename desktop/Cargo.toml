@@ -9,6 +9,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.103"
 arboard = "3.6.1"
+arto-markdown = { path = "markdown" }
 base64 = "0.22.1"
 dark-light = "2.0.0"
 chrono = { version = "0.4", features = ["serde"] }
@@ -32,13 +33,11 @@ pulldown-cmark = "0.13.4"
 rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0"
-serde_yaml = "0.9"
 sha2 = "0.11"
 thiserror = "2.0.18"
 tokio = { version = "1.52.3", features = ["time"] }
 tracing = "0.1.44"
 ureq = "3.3"
-url = "2.5"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 uuid = { version = "1.0", features = ["v4"] }
 display-info = "0.5.9"

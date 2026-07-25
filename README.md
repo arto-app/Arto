@@ -86,6 +86,11 @@ existed still load unchanged. Menu-backed shortcuts you had under `global`
 accelerators move those entries into a `menuShortcuts` section, or re-apply a
 preset (Default / Vim / Emacs) from Preferences.
 
+### macOS Integration
+
+- **Quick Look** — Press Space on any Markdown file in Finder to get a rendered preview
+- **Finder Preview Pane** — Markdown files display rendered HTML in the Finder sidebar preview pane
+
 ## Installation
 
 Use [Homebrew] tap to install. Since the application is not signed or notarized with an Apple Developer ID, you'll need to remove the quarantine attribute after installation.
