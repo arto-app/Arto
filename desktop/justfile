@@ -24,11 +24,18 @@ verify: fmt check test
 clean:
   cargo clean
 
+# The DMG is built AFTER the Quick Look extension is embedded, not by `dx
+# bundle` directly. `dx bundle --package-types dmg` seals the DMG from the app
+# during the same invocation, before `_embed-quicklook` mutates the app — so a
+# DMG produced that way never contains the extension (only a local `just
+# install`, which copies the mutated .app, would). Bundle the bare .app first,
+# embed the extension into it, then package the DMG from the embedded app.
 [macos]
 build:
   @rm -rf target/dx/arto/release/macos/Arto.app/Contents/Resources/assets
-  dx bundle --release --macos --package-types dmg
+  dx bundle --release --macos --package-types macos
   just _embed-quicklook
+  just _package-dmg
 
 # Build the Quick Look preview extension (Swift shim + Rust `arto_ql` static
 # library) and embed it at Contents/PlugIns/ArtoQuickLook.appex so macOS
@@ -69,6 +76,46 @@ _embed-quicklook:
     "$appex"
   codesign --force --sign - --timestamp=none "$app"
   echo "Quick Look preview extension embedded at Contents/PlugIns/ArtoQuickLook.appex"
+
+# Package the (already extension-embedded and signed) app bundle into a
+# compressed DMG. This replaces `dx bundle --package-types dmg` so the DMG is
+# built from the mutated app rather than sealed before `_embed-quicklook` runs.
+# The output path and filename mirror what `dx bundle` produced
+# (`bundle/macos/macos/Arto_<version>_<arch>.dmg`) so the CI upload glob
+# (`bundle/**/*.dmg`) and the Homebrew asset name (`Arto_<version>_aarch64.dmg`)
+# keep matching. `dx` names the arch `aarch64`, not `uname -m`'s `arm64`.
+#
+# Every stale DMG under the bundle dir is removed first: CI caches
+# `desktop/target` (which contains `bundle/`) and the `build` job also runs on
+# non-release pushes, where the version stays `0.0.0`. Without this sweep a
+# cached `Arto_0.0.0_...dmg` would be restored on a later release build and the
+# `bundle/**/*.dmg` upload glob would attach it alongside the real release DMG.
+[macos]
+[private]
+_package-dmg:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  app="target/dx/arto/release/macos/Arto.app"
+  version="$(perl -ne 'print $1 and exit if /^version = "(.*)"/' Cargo.toml)"
+  case "$(uname -m)" in
+    arm64 | aarch64) arch="aarch64" ;;
+    x86_64) arch="x86_64" ;;
+    *) arch="$(uname -m)" ;;
+  esac
+  bundle="target/dx/arto/bundle"
+  outdir="$bundle/macos/macos"
+  dmg="$outdir/Arto_${version}_${arch}.dmg"
+  mkdir -p "$outdir"
+  # Drop any stale DMG (including wrong-version ones from a restored cache) so
+  # the release upload glob only ever sees the one we build here.
+  find "$bundle" -type f -name '*.dmg' -delete
+  staging="$(mktemp -d)"
+  # `ditto` preserves the code signature and the nested extension bundle.
+  ditto "$app" "$staging/Arto.app"
+  ln -s /Applications "$staging/Applications"
+  hdiutil create -volname "Arto" -srcfolder "$staging" -format UDZO -ov "$dmg"
+  rm -rf "$staging"
+  echo "DMG with embedded Quick Look extension created at $dmg"
 
 [linux]
 build:
