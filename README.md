@@ -93,6 +93,8 @@ preset (Default / Vim / Emacs) from Preferences.
 
 ## Installation
 
+### macOS
+
 Use [Homebrew] tap to install. Since the application is not signed or notarized with an Apple Developer ID, you'll need to remove the quarantine attribute after installation.
 See [homebrew-tap] for more information.
 
@@ -112,7 +114,22 @@ xattr -dr com.apple.quarantine /Applications/Arto.app
 > qlmanage -r && qlmanage -r cache
 > ```
 
-Alternatively, [Nix] is also supported.
+### Linux
+
+Download the `.deb` matching your architecture from the [releases] page and
+install it with `apt`, which pulls in the GTK/WebKit libraries it declares:
+
+```
+sudo apt install ./arto_<version>_amd64.deb
+```
+
+The package is built on Ubuntu 24.04, so it requires glibc 2.39 or newer
+(Ubuntu 24.04+, Debian 13+) and WebKitGTK 4.1. On older distributions, build
+from source or use the Nix package below.
+
+### Nix
+
+[Nix] is supported on both macOS and Linux.
 To try it without a permanent installation:
 
 ```
@@ -159,6 +176,7 @@ Arto runs as a **single instance** — if Arto is already running, the command s
 
 [Homebrew]: https://brew.sh/
 [homebrew-tap]: https://github.com/arto-app/homebrew-tap
+[releases]: https://github.com/arto-app/Arto/releases
 [Nix]: https://nixos.org/
 [nix-darwin]: https://github.com/nix-darwin/nix-darwin
 [home-manager]: https://github.com/nix-community/home-manager
