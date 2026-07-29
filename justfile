@@ -22,6 +22,13 @@ dev:
 
 build: renderer::assets desktop::build
 
+# Gate for release artifacts; see the desktop recipe for what it rejects.
+[macos]
+verify-bundle: desktop::verify-bundle
+
+[linux]
+verify-bundle: desktop::verify-bundle
+
 open: desktop::open
 
 [macos]

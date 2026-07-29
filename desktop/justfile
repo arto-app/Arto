@@ -145,6 +145,33 @@ build:
   @rm -rf target/dx/arto/release/linux/app/assets
   dx bundle --release --linux --package-types deb
 
+# Release artifacts are built with the platform's native toolchain, but a
+# bundle built inside the Nix devShell links against /nix/store paths and is
+# unusable on any machine without that store — a failure invisible until a user
+# launches the download. CI runs this on the artifact it is about to publish;
+# it is deliberately not part of `build`, so local devShell builds stay usable.
+
+# Reject a bundle that carries build-environment dependencies
+[macos]
+verify-bundle:
+  ../scripts/verify-macos-bundle.sh target/dx/arto/release/macos/Arto.app arto
+
+[linux]
+verify-bundle:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  # Every .deb under the bundle dir is checked, not just the newest: CI caches
+  # `desktop/target`, so a stale package from an earlier run can be sitting
+  # there, and the release upload glob would pick it up too.
+  mapfile -t debs < <(find target/dx/arto/bundle -type f -name '*.deb')
+  if [[ ${#debs[@]} -eq 0 ]]; then
+    echo "Error: no .deb found under target/dx/arto/bundle" >&2
+    exit 1
+  fi
+  for deb in "${debs[@]}"; do
+    ../scripts/verify-linux-bundle.sh "$deb" arto
+  done
+
 [macos]
 open:
   ./target/dx/arto/release/macos/Arto.app/Contents/MacOS/arto
