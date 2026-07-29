@@ -1,12 +1,22 @@
 name: "Set up build toolchain"
 description: >
-  Provision the Rust/dioxus/node toolchain for a build matrix leg. macOS and
-  Linux run through the Nix devShell (so the toolchain matches local
-  development); Windows cannot run Nix and installs the toolchain natively.
-  The nix-vs-native branch lives here once instead of being duplicated across
-  the check/test/build jobs.
+  Provision the Rust/dioxus/node toolchain for a matrix leg. Two flavours: the
+  Nix devShell (so checks and tests run the same toolchain as local
+  development), and the platform's native toolchain (so binaries published to a
+  release link against the platform's own libraries, not the Nix store).
+  Windows has no Nix and is always native. The flavour branch lives here once
+  instead of being duplicated across the check/test/build jobs.
 
 inputs:
+  toolchain:
+    description: >
+      "nix" for the devShell, "native" for the platform toolchain. Release
+      artifacts must be built with "native": a devShell build bakes absolute
+      /nix/store paths into the binary (the ELF interpreter and RUNPATH on
+      Linux, the libiconv install name on macOS), which no machine without
+      that store can resolve. Ignored on Windows, which is always native.
+    required: false
+    default: "nix"
   cachix-auth-token:
     description: "Cachix auth token. Cachix is skipped on pull requests regardless."
     required: false
@@ -17,24 +27,38 @@ runs:
   steps:
     # --- Nix toolchain (macOS + Linux) ---
     # https://zenn.dev/mierune/articles/2af7b9e447712a
-    - if: runner.os != 'Windows'
+    - if: inputs.toolchain == 'nix' && runner.os != 'Windows'
       uses: chetan/git-restore-mtime-action@v2
-    - if: runner.os != 'Windows'
+    - if: inputs.toolchain == 'nix' && runner.os != 'Windows'
       uses: nixbuild/nix-quick-install-action@v35
-    - if: runner.os != 'Windows' && github.event_name != 'pull_request'
+    - if: inputs.toolchain == 'nix' && runner.os != 'Windows' && github.event_name != 'pull_request'
       uses: cachix/cachix-action@v17
       with:
         name: arto
         authToken: ${{ inputs.cachix-auth-token }}
 
-    # --- Native toolchain (Windows) ---
+    # --- Native toolchain (every platform) ---
     # Windows-only code paths (the cfg(windows) named-pipe IPC, the hamburger
     # menu, engine-owned menu shortcuts) are invisible to the macOS/Linux legs
-    # and have regressed unnoticed before, so Windows builds natively here.
-    - if: runner.os == 'Windows'
+    # and have regressed unnoticed before, so Windows always builds natively.
+    - if: inputs.toolchain == 'native' || runner.os == 'Windows'
       uses: dtolnay/rust-toolchain@stable
       with:
         components: clippy
+    # The GTK/WebKit stack wry links against. The devShell provides these
+    # through nixpkgs, so only native Linux builds need the distro packages.
+    - name: Install GTK/WebKit development packages (Linux)
+      if: inputs.toolchain == 'native' && runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends -y \
+          libwebkit2gtk-4.1-dev \
+          libgtk-3-dev \
+          libsoup-3.0-dev \
+          libssl-dev \
+          libxdo-dev \
+          pkg-config
     # `ring` (arto -> ureq -> rustls) assembles its primitives from source and
     # needs a different assembler per arch: nasm on x86_64, clang on aarch64.
     # Installed via choco (not the setup-nasm action, which still targets the
@@ -49,17 +73,38 @@ runs:
       if: runner.os == 'Windows' && runner.arch == 'ARM64'
       shell: pwsh
       run: choco install llvm --no-progress -y
-    - if: runner.os == 'Windows'
+    - if: inputs.toolchain == 'native' || runner.os == 'Windows'
       uses: actions/setup-node@v7
       with:
         node-version: 24
     # pnpm is pinned via the renderer's packageManager field.
-    - if: runner.os == 'Windows'
+    - name: Enable corepack (Unix)
+      if: inputs.toolchain == 'native' && runner.os != 'Windows'
+      shell: bash
+      run: corepack enable
+    - name: Enable corepack (Windows)
+      if: runner.os == 'Windows'
       shell: pwsh
       run: corepack enable
     # Installed from the upstream release rather than extractions/setup-just,
-    # which has no windows-aarch64 binary. just itself ships both arches.
-    - name: Install just
+    # which has no windows-aarch64 binary. just itself ships every arch we use.
+    - name: Install just (Unix)
+      if: inputs.toolchain == 'native' && runner.os != 'Windows'
+      shell: bash
+      run: |
+        ver='1.57.0'
+        case "$RUNNER_OS-$RUNNER_ARCH" in
+          macOS-ARM64) triple='aarch64-apple-darwin' ;;
+          macOS-X64) triple='x86_64-apple-darwin' ;;
+          Linux-ARM64) triple='aarch64-unknown-linux-musl' ;;
+          Linux-X64) triple='x86_64-unknown-linux-musl' ;;
+          *) echo "Unsupported runner: $RUNNER_OS-$RUNNER_ARCH" >&2; exit 1 ;;
+        esac
+        url="https://github.com/casey/just/releases/download/${ver}/just-${ver}-${triple}.tar.gz"
+        mkdir -p "$RUNNER_TEMP/just"
+        curl -fsSL "$url" | tar -xz -C "$RUNNER_TEMP/just" just
+        echo "$RUNNER_TEMP/just" >> "$GITHUB_PATH"
+    - name: Install just (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |

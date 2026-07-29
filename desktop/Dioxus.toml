@@ -13,6 +13,28 @@ long_description = """
 Arto is a GitHub Markdown viewer built with Dioxus.
 """
 
+# Every shared library the binary links directly (the DT_NEEDED entries, minus
+# the C runtime), so `apt install ./arto.deb` pulls them in instead of leaving
+# the user to decode a bare dynamic-linker error. Listed even where WebKitGTK
+# would drag them in anyway: relying on another package's dependencies is how a
+# package silently breaks when a distro splits or renames one. The alternatives
+# cover Ubuntu's time64 renaming, which Debian does not use.
+[bundle.deb]
+depends = [
+  "libwebkit2gtk-4.1-0",
+  "libjavascriptcoregtk-4.1-0",
+  "libgtk-3-0t64 | libgtk-3-0",
+  "libglib2.0-0t64 | libglib2.0-0",
+  "libsoup-3.0-0",
+  "libpango-1.0-0",
+  "libcairo2",
+  "libcairo-gobject2",
+  "libgdk-pixbuf-2.0-0",
+  "libxcb1",
+  "libxdo3",
+  "libssl3t64 | libssl3",
+]
+
 [bundle.macos]
 license = "../LICENSE"
 provider_short_name = "Alisue"
