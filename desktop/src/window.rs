@@ -1,4 +1,5 @@
 pub mod child;
+pub mod icon;
 pub mod index;
 pub mod main;
 pub mod metrics;

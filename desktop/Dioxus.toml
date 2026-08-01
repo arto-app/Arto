@@ -35,6 +35,12 @@ depends = [
   "libssl3t64 | libssl3",
 ]
 
+# The generated NSIS script installs the binary and nothing else, so the hook
+# script adds the registry keys that tell Windows which documents Arto opens —
+# the counterpart to CFBundleDocumentTypes in the macOS Info.plist.
+[bundle.windows.nsis]
+installer_hooks = "../extras/windows/file-associations.nsh"
+
 [bundle.macos]
 license = "../LICENSE"
 provider_short_name = "Alisue"
