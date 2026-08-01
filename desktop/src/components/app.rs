@@ -44,7 +44,20 @@ use shortcut_overlay::{
 };
 
 /// Left mouse button ID for DeviceEvent::Button (platform-dependent raw value)
+///
+/// tao does not normalize this value across platforms:
+/// - macOS reports `NSEvent::buttonNumber()`, which is 0-based (left = 0).
+/// - Windows derives it from the raw-input button index as `index + 1` for
+///   consistency with X11, so left = 1.
+///
+/// Getting this wrong is silent and severe: the release event never matches, so
+/// `handle_drag_mouse_release` never runs and an active tab drag never ends. The
+/// detached preview window then keeps following the cursor forever, and the
+/// global drag state is never cleared.
+#[cfg(target_os = "macos")]
 const MOUSE_BUTTON_LEFT: u32 = 0;
+#[cfg(not(target_os = "macos"))]
+const MOUSE_BUTTON_LEFT: u32 = 1;
 
 #[component]
 pub fn App(
