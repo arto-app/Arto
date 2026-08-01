@@ -1,5 +1,5 @@
 mod drag_drop_overlay;
-mod drag_handlers;
+pub(crate) mod drag_handlers;
 mod drop_handlers;
 mod keybinding_engine;
 mod listeners;
@@ -44,7 +44,45 @@ use shortcut_overlay::{
 };
 
 /// Left mouse button ID for DeviceEvent::Button (platform-dependent raw value)
+///
+/// tao does not normalize this value across platforms:
+/// - macOS reports `NSEvent::buttonNumber()`, which is 0-based (left = 0).
+/// - Windows derives it from the raw-input button index as `index + 1` for
+///   consistency with X11, so left = 1.
+///
+/// Getting this wrong is silent and severe: the release event never matches, so
+/// `handle_drag_mouse_release` never runs and an active tab drag never ends. The
+/// detached preview window then keeps following the cursor forever, and the
+/// global drag state is never cleared.
+#[cfg(target_os = "macos")]
 const MOUSE_BUTTON_LEFT: u32 = 0;
+#[cfg(not(target_os = "macos"))]
+const MOUSE_BUTTON_LEFT: u32 = 1;
+
+/// Apply tao's device event filter to match whether a tab drag is in progress.
+///
+/// `DeviceEventFilter::Unfocused` (tao's default) drops device events for
+/// unfocused windows, which is the right trade-off while idle but fatal during a
+/// drag - see the call site. Only the transitions are applied, so this is cheap
+/// to call on every event.
+#[cfg(target_os = "windows")]
+fn sync_device_event_filter<T>(
+    target: &dioxus::desktop::tao::event_loop::EventLoopWindowTarget<T>,
+    dragging: bool,
+) {
+    use dioxus::desktop::tao::event_loop::DeviceEventFilter;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    static RELAXED: AtomicBool = AtomicBool::new(false);
+
+    if RELAXED.swap(dragging, Ordering::Relaxed) != dragging {
+        target.set_device_event_filter(if dragging {
+            DeviceEventFilter::Never
+        } else {
+            DeviceEventFilter::Unfocused
+        });
+    }
+}
 
 #[component]
 pub fn App(
@@ -160,64 +198,81 @@ pub fn App(
     });
 
     // Handle window events
-    use_wry_event_handler(move |event, _| match event {
-        TaoEvent::WindowEvent {
-            event: WindowEvent::Resized(size),
-            window_id,
-            ..
-        } => {
-            let window = window();
-            if window_id == &window.id() {
-                sync_window_metrics(
-                    state,
-                    None,
-                    Some(size.to_logical::<u32>(window.scale_factor())),
-                );
-            }
-        }
-        TaoEvent::WindowEvent {
-            event: WindowEvent::Moved(position),
-            window_id,
-            ..
-        } => {
-            let window = window();
-            if window_id == &window.id() {
-                sync_window_metrics(
-                    state,
-                    Some(position.to_logical::<i32>(window.scale_factor())),
-                    None,
-                );
-            }
-        }
-        // DeviceEvent: Global mouse tracking for tab drag
-        // These events are delivered regardless of window focus, enabling cross-window drag
-        TaoEvent::DeviceEvent {
-            event: DeviceEvent::MouseMotion { .. },
-            ..
-        } => {
-            // Only process if we're the source window of an active drag
-            if let Some(dragged) = drag::get_dragged_tab() {
-                if dragged.source_window_id == window().id() && drag::is_active_drag() {
-                    handle_drag_mouse_motion(state);
+    use_wry_event_handler(move |event, target| {
+        // A tab drag is tracked exclusively by its SOURCE window, but tao drops
+        // DeviceEvents for unfocused windows by default. Detaching a tab creates
+        // and focuses a preview window, which unfocuses the source - so tracking
+        // died mid-drag: motion stopped and the release that ends the drag never
+        // arrived, leaving a drag that follows the cursor forever. Relax the
+        // filter while dragging and restore it after, so idle windows do not pay
+        // for device events they do not need.
+        //
+        // Windows-only by nature: tao ignores this filter everywhere else, which
+        // is exactly why the drag architecture works on macOS as written.
+        #[cfg(target_os = "windows")]
+        sync_device_event_filter(target, drag::is_active_drag());
+        #[cfg(not(target_os = "windows"))]
+        let _ = target;
+
+        match event {
+            TaoEvent::WindowEvent {
+                event: WindowEvent::Resized(size),
+                window_id,
+                ..
+            } => {
+                let window = window();
+                if window_id == &window.id() {
+                    sync_window_metrics(
+                        state,
+                        None,
+                        Some(size.to_logical::<u32>(window.scale_factor())),
+                    );
                 }
             }
-        }
-        TaoEvent::DeviceEvent {
-            event:
-                DeviceEvent::Button {
-                    state: ElementState::Released,
-                    button,
-                    ..
-                },
-            ..
-        } if *button == MOUSE_BUTTON_LEFT => {
-            if let Some(dragged) = drag::get_dragged_tab() {
-                if dragged.source_window_id == window().id() && drag::is_active_drag() {
-                    handle_drag_mouse_release(state);
+            TaoEvent::WindowEvent {
+                event: WindowEvent::Moved(position),
+                window_id,
+                ..
+            } => {
+                let window = window();
+                if window_id == &window.id() {
+                    sync_window_metrics(
+                        state,
+                        Some(position.to_logical::<i32>(window.scale_factor())),
+                        None,
+                    );
                 }
             }
+            // DeviceEvent: Global mouse tracking for tab drag
+            // These events are delivered regardless of window focus, enabling cross-window drag
+            TaoEvent::DeviceEvent {
+                event: DeviceEvent::MouseMotion { .. },
+                ..
+            } => {
+                // Only process if we're the source window of an active drag
+                if let Some(dragged) = drag::get_dragged_tab() {
+                    if dragged.source_window_id == window().id() && drag::is_active_drag() {
+                        handle_drag_mouse_motion(state);
+                    }
+                }
+            }
+            TaoEvent::DeviceEvent {
+                event:
+                    DeviceEvent::Button {
+                        state: ElementState::Released,
+                        button,
+                        ..
+                    },
+                ..
+            } if *button == MOUSE_BUTTON_LEFT => {
+                if let Some(dragged) = drag::get_dragged_tab() {
+                    if dragged.source_window_id == window().id() && drag::is_active_drag() {
+                        handle_drag_mouse_release(state);
+                    }
+                }
+            }
+            _ => {}
         }
-        _ => {}
     });
 
     // Listen for cross-window file/directory open events (from sidebar context menu)

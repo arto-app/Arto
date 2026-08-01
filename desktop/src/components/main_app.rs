@@ -3,7 +3,9 @@ use crate::state::Tab;
 use crate::window::settings;
 #[cfg(not(target_os = "windows"))]
 use dioxus::desktop::use_muda_event_handler;
-use dioxus::desktop::{window, WindowCloseBehaviour};
+use dioxus::desktop::window;
+#[cfg(target_os = "macos")]
+use dioxus::desktop::WindowCloseBehaviour;
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -22,9 +24,19 @@ use dioxus::prelude::*;
 #[component]
 pub fn MainApp() -> Element {
     // Configure WindowCloseBehaviour::WindowHides for first window
+    //
+    // macOS only: hiding the last window models the dock lifecycle, where an app
+    // outlives its windows and is reopened from the dock. Windows and Linux have
+    // no such concept, so it just leaves a headless process behind - and the
+    // single-instance IPC then swallows every subsequent launch into it, making
+    // the app look dead. The Dioxus default (WindowCloses, exiting on last window
+    // close) is the correct behaviour there.
     use_hook(|| {
-        tracing::debug!("Configuring main window with WindowHides behavior");
-        window().set_close_behavior(WindowCloseBehaviour::WindowHides);
+        #[cfg(target_os = "macos")]
+        {
+            tracing::debug!("Configuring main window with WindowHides behavior");
+            window().set_close_behavior(WindowCloseBehaviour::WindowHides);
+        }
 
         // Set chrome inset (window frame offset) - only first call takes effect
         let win = &window().window;

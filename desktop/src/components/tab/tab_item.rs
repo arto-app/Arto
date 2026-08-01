@@ -16,6 +16,9 @@ pub fn TabItem(
     is_active: bool,
     shift_class: Option<&'static str>,
     on_drag_start: EventHandler<PendingDrag>,
+    /// Delivers the precise grab offset once the tab's client rect resolves.
+    /// See `handle_pointerdown` for why this cannot be awaited inline.
+    on_grab_offset_refined: EventHandler<crate::window::Offset>,
 ) -> Element {
     let mut state = use_context::<AppState>();
     let tab_name = tab.display_name();
@@ -36,8 +39,19 @@ pub fn TabItem(
 
     // Handle pointer down for drag initiation
     // Uses PointerData for setPointerCapture compatibility (window-external drag)
-    // Uses async to get accurate grab_offset via getBoundingClientRect
-    let handle_pointerdown = move |evt: Event<PointerData>| async move {
+    //
+    // The pending drag MUST be registered synchronously. `get_client_rect()` is an
+    // async round trip through the webview IPC bridge, and awaiting it before
+    // registering meant every `pointermove` that arrived in the meantime was
+    // ignored. On Windows that round trip is slow enough to outlast the whole
+    // gesture: the drag was registered from a stale position only after the user
+    // had already released the button, so it started on mouse-up and then never
+    // ended (the release that would have ended it was already gone). macOS hides
+    // this because the round trip resolves fast enough to win the race.
+    //
+    // So: register immediately with the offset within the event target, then
+    // refine it once the exact element rect arrives.
+    let handle_pointerdown = move |evt: Event<PointerData>| {
         // Only start drag on left button
         if evt.data().trigger_button() != Some(dioxus::html::input_data::MouseButton::Primary) {
             return;
@@ -45,35 +59,34 @@ pub fn TabItem(
 
         let pointer_id = evt.data().pointer_id();
         let client_coords = evt.client_coordinates();
-
-        // Calculate grab_offset using getBoundingClientRect for accuracy
-        // Clone signal data before await to avoid holding GenerationalRef across await point
-        let mounted_data = tab_element.read().clone();
-        let (grab_x, grab_y) = if let Some(ref mounted) = mounted_data {
-            if let Ok(rect) = mounted.get_client_rect().await {
-                calculate_grab_offset(
-                    client_coords.x,
-                    client_coords.y,
-                    rect.origin.x,
-                    rect.origin.y,
-                )
-            } else {
-                // Fallback to element_coordinates
-                let element_coords = evt.element_coordinates();
-                (element_coords.x, element_coords.y)
-            }
-        } else {
-            // Fallback to element_coordinates
-            let element_coords = evt.element_coordinates();
-            (element_coords.x, element_coords.y)
-        };
+        let element_coords = evt.element_coordinates();
 
         on_drag_start.call(PendingDrag {
             index,
             start_x: client_coords.x,
             start_y: client_coords.y,
-            grab_offset: crate::window::Offset::new(grab_x, grab_y),
+            grab_offset: crate::window::Offset::new(element_coords.x, element_coords.y),
             pointer_id,
+        });
+
+        // `element_coordinates()` is relative to whatever child node the pointer
+        // landed on (label, icon, close button), so refine it against the tab
+        // element itself as soon as the rect is available.
+        let mounted_data = tab_element.read().clone();
+        spawn(async move {
+            let Some(mounted) = mounted_data else {
+                return;
+            };
+            let Ok(rect) = mounted.get_client_rect().await else {
+                return;
+            };
+            let (grab_x, grab_y) = calculate_grab_offset(
+                client_coords.x,
+                client_coords.y,
+                rect.origin.x,
+                rect.origin.y,
+            );
+            on_grab_offset_refined.call(crate::window::Offset::new(grab_x, grab_y));
         });
     };
 

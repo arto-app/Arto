@@ -1,6 +1,5 @@
 use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
 use dioxus::prelude::*;
-use mouse_position::mouse_position::Mouse;
 use std::path::PathBuf;
 
 use crate::components::right_sidebar::RightSidebarTab;
@@ -150,11 +149,12 @@ fn resolve_window_position(
 fn resolve_window_position_from_cursor(
     window_size: LogicalSize<u32>,
 ) -> Option<LogicalPosition<i32>> {
-    let (x, y) = match Mouse::get_mouse_position() {
-        Mouse::Position { x, y } => (x as f64, y as f64),
-        Mouse::Error => return None,
-    };
     let display = get_cursor_display().or_else(get_primary_display)?;
+    // The cursor is compared against logical display bounds below, so it has to
+    // be normalized first - the raw value is physical pixels on Windows. Scale by
+    // the display under the cursor rather than any window's factor, since that is
+    // the one the bounds are derived from.
+    let (x, y) = crate::utils::screen::get_cursor_logical_position(display.scale_factor as f64)?;
     let (display_origin, display_size) = display_info_logical_bounds(&display)?;
     let display_x = display_origin.x as f64;
     let display_y = display_origin.y as f64;

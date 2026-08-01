@@ -1,7 +1,6 @@
 use dioxus::desktop::tao::dpi::LogicalPosition;
 use dioxus::desktop::window;
 use dioxus::prelude::*;
-use mouse_position::mouse_position::Mouse;
 
 use crate::drag;
 use crate::events::{ActiveDragUpdate, ACTIVE_DRAG_UPDATE};
@@ -18,13 +17,14 @@ pub(super) const DETACH_DEBOUNCE_MS: u64 = 50;
 pub(super) fn handle_drag_mouse_motion(state: AppState) {
     use crate::window;
 
-    // Get current mouse position
-    let (screen_x, screen_y) = match Mouse::get_mouse_position() {
-        Mouse::Position { x, y } => (x as f64, y as f64),
-        Mouse::Error => {
-            tracing::debug!("Failed to get mouse position during active drag");
-            return;
-        }
+    // Get current mouse position, normalized to logical coordinates.
+    // The raw value is physical pixels on Windows - see cursor_position_to_logical.
+    let scale_factor = dioxus::desktop::window().scale_factor();
+    let Some((screen_x, screen_y)) =
+        crate::utils::screen::get_cursor_logical_position(scale_factor)
+    else {
+        tracing::debug!("Failed to get mouse position during active drag");
+        return;
     };
 
     let Some(active) = drag::get_active_drag() else {
@@ -118,7 +118,7 @@ pub(super) fn handle_drag_mouse_motion(state: AppState) {
 /// - `DetachState::Pending` -> Drag cancelled during debounce, restore tab
 /// - `DetachState::Creating` -> Window creation in progress, cancel and restore
 /// - `DetachState::Detached` -> Preview visible, commit as new window
-pub(super) fn handle_drag_mouse_release(mut state: AppState) {
+pub(crate) fn handle_drag_mouse_release(mut state: AppState) {
     use crate::drag::DetachState;
 
     let Some(active) = drag::get_active_drag() else {
