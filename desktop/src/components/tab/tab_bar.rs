@@ -381,6 +381,16 @@ pub fn TabBar() -> Element {
                     on_drag_start: move |pending: PendingDrag| {
                         local_drag_state.set(LocalDragState::Pending(pending));
                     },
+                    on_grab_offset_refined: move |offset: crate::window::Offset| {
+                        // Only applies while the drag has not started yet. Once it
+                        // is active the offset is baked into the floating tab's
+                        // position, and moving it would make the ghost jump.
+                        let current = local_drag_state.read().clone();
+                        if let LocalDragState::Pending(mut pending) = current {
+                            pending.grab_offset = offset;
+                            local_drag_state.set(LocalDragState::Pending(pending));
+                        }
+                    },
                 }
             }
 
