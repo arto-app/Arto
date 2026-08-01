@@ -96,6 +96,52 @@ pub fn get_primary_display() -> Option<DisplayInfo> {
         .or_else(|| displays.first().cloned())
 }
 
+/// Normalize a raw cursor position to logical coordinates.
+///
+/// `Mouse::get_mouse_position()` does not report the same coordinate space on
+/// every platform:
+/// - macOS (core-graphics) reports logical points already.
+/// - Windows (`GetCursorPos`) reports physical pixels, because tao marks the
+///   process `DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2`.
+///
+/// Everything the drag code compares against is logical: DOM
+/// `screen_coordinates()`, the tab bar bounds measured from the DOM, and the
+/// rects `drag::is_point_in_window` derives as `physical / scale`. Feeding a
+/// physical value into that world silently breaks it — at 150% scaling the
+/// cursor reads 1.5x too far, so every window hit test misses, the drag detaches
+/// immediately, and the preview window is positioned far off target.
+///
+/// `scale_factor` is the drag source window's scale factor. With monitors on
+/// different DPIs, a cursor dragged onto another monitor is normalized with the
+/// source window's factor rather than the one it is over.
+pub fn cursor_position_to_logical(x: f64, y: f64, scale_factor: f64) -> (f64, f64) {
+    #[cfg(target_os = "windows")]
+    {
+        if scale_factor > 0.0 {
+            return (x / scale_factor, y / scale_factor);
+        }
+        (x, y)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = scale_factor;
+        (x, y)
+    }
+}
+
+/// Get the current cursor position in logical coordinates.
+///
+/// See [`cursor_position_to_logical`] for why normalization is needed.
+/// Returns `None` if the cursor position cannot be determined.
+pub fn get_cursor_logical_position(scale_factor: f64) -> Option<(f64, f64)> {
+    match Mouse::get_mouse_position() {
+        Mouse::Position { x, y } => {
+            Some(cursor_position_to_logical(x as f64, y as f64, scale_factor))
+        }
+        Mouse::Error => None,
+    }
+}
+
 /// Get the display where the cursor is currently located.
 ///
 /// # Returns
@@ -294,5 +340,35 @@ mod tests {
         let position = to_logical_position_from_parts(-40, 20, 2.0);
         assert_eq!(position.x, -40);
         assert_eq!(position.y, 20);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_cursor_position_to_logical_divides_by_scale_on_windows() {
+        // GetCursorPos reports physical pixels, so a cursor at logical (400, 300)
+        // on a 150% display arrives as (600, 450) and must be scaled back down.
+        assert_eq!(
+            cursor_position_to_logical(600.0, 450.0, 1.5),
+            (400.0, 300.0)
+        );
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn test_cursor_position_to_logical_is_identity_off_windows() {
+        // core-graphics (macOS) already reports logical points.
+        assert_eq!(
+            cursor_position_to_logical(600.0, 450.0, 1.5),
+            (600.0, 450.0)
+        );
+    }
+
+    #[test]
+    fn test_cursor_position_to_logical_handles_zero_scale() {
+        // A bogus scale factor must not produce NaN/inf coordinates.
+        assert_eq!(
+            cursor_position_to_logical(600.0, 450.0, 0.0),
+            (600.0, 450.0)
+        );
     }
 }
