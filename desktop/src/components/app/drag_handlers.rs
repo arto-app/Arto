@@ -118,7 +118,7 @@ pub(super) fn handle_drag_mouse_motion(state: AppState) {
 /// - `DetachState::Pending` -> Drag cancelled during debounce, restore tab
 /// - `DetachState::Creating` -> Window creation in progress, cancel and restore
 /// - `DetachState::Detached` -> Preview visible, commit as new window
-pub(super) fn handle_drag_mouse_release(mut state: AppState) {
+pub(crate) fn handle_drag_mouse_release(mut state: AppState) {
     use crate::drag::DetachState;
 
     let Some(active) = drag::get_active_drag() else {

@@ -332,10 +332,21 @@ pub fn TabBar() -> Element {
     // Pointer up handler for local pending state only
     // Active drag release is handled by DeviceEvent in App component
     let handle_pointerup = move |_evt: Event<PointerData>| {
-        // Only cancel local pending state
-        // Active drag is handled by DeviceEvent
         if matches!(*local_drag_state.read(), LocalDragState::Pending(_)) {
             local_drag_state.set(LocalDragState::Idle);
+        }
+
+        // Also end an active drag. DeviceEvent is the primary release path since
+        // it works across windows, but it is the ONLY one, so whenever it fails
+        // to arrive the drag never ends and the overlay swallows every click -
+        // an unrecoverable UI. A pointerup that reaches this window is proof the
+        // button came up, so honour it. Releasing over another window still
+        // relies on DeviceEvent; handle_drag_mouse_release is idempotent, so a
+        // duplicate from both paths is harmless.
+        if drag::is_active_drag()
+            && drag::get_dragged_tab().is_some_and(|d| d.source_window_id == current_window_id)
+        {
+            crate::components::app::drag_handlers::handle_drag_mouse_release(state);
         }
     };
 
