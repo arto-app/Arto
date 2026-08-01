@@ -19,14 +19,17 @@ pub use file_open_behavior::FileOpenBehavior;
 pub use keybindings_config::{BindingSet, KeyAction};
 pub use markdown_config::MarkdownConfig;
 pub use right_sidebar_config::{RightSidebarConfig, DEFAULT_RIGHT_SIDEBAR_WIDTH};
-pub use sidebar_config::{normalize_zoom_level, SidebarConfig};
+pub use sidebar_config::SidebarConfig;
 pub use theme_config::ThemeConfig;
 pub use window_dimension::{WindowDimension, WindowDimensionUnit};
 pub use window_position_config::{
     WindowPosition, WindowPositionConfig, WindowPositionMode, WindowPositionOffset,
 };
 pub use window_size_config::{WindowSize, WindowSizeConfig};
-pub use zoom_config::ZoomConfig;
+pub use zoom_config::{
+    normalize_content_zoom, normalize_sidebar_zoom, ZoomConfig, DEFAULT_ZOOM_LEVEL,
+    MAX_SIDEBAR_ZOOM, MIN_SIDEBAR_ZOOM, ZOOM_STEP,
+};
 
 /// Global application configuration
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]

@@ -93,17 +93,16 @@ pub fn App(
 
         // Apply initial right sidebar settings from params
         {
-            app_state.right_sidebar_pinned.set(right_sidebar_pinned);
-            app_state.right_sidebar_width.set(right_sidebar_width);
-            app_state.right_sidebar_tab.set(right_sidebar_tab);
+            let mut right_sidebar = app_state.right_sidebar.write();
+            right_sidebar.pinned = right_sidebar_pinned;
+            right_sidebar.width = right_sidebar_width;
+            right_sidebar.tab = right_sidebar_tab;
         }
 
         // Apply initial zoom levels from params (already normalized in window::settings)
         {
             app_state.sidebar.write().zoom_level = sidebar_zoom_level;
-            app_state
-                .right_sidebar_zoom_level
-                .set(right_sidebar_zoom_level);
+            app_state.right_sidebar.write().zoom_level = right_sidebar_zoom_level;
             app_state.zoom_level.set(zoom_level);
         }
 
@@ -328,7 +327,7 @@ pub fn App(
     let mut right_mouse_inside = use_signal(|| false);
 
     let left_pinned = state.sidebar.read().pinned;
-    let right_pinned = *state.right_sidebar_pinned.read();
+    let right_pinned = state.right_sidebar.read().pinned;
 
     // Delay in milliseconds before auto-hiding the overlay sidebar.
     // 300ms is the standard "Hover Intent" delay (Nielsen Norman Group),
@@ -393,7 +392,7 @@ pub fn App(
                 RightSidebar {
                     headings: state.right_sidebar_headings.read().clone(),
                     on_pin_toggle: move |_| {
-                        state.right_sidebar_pinned.set(false);
+                        state.right_sidebar.write().pinned = false;
                         right_hover_active.set(true);
                     },
                 }
@@ -497,7 +496,7 @@ pub fn App(
                     RightSidebar {
                         headings: state.right_sidebar_headings.read().clone(),
                         on_pin_toggle: move |_| {
-                            state.right_sidebar_pinned.set(true);
+                            state.right_sidebar.write().pinned = true;
                             right_hover_active.set(false);
                         },
                         on_resize_change: move |resizing: bool| {

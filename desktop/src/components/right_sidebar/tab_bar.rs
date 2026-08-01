@@ -11,7 +11,7 @@ pub fn TabBar(
     on_pin_toggle: Option<EventHandler<()>>,
 ) -> Element {
     let state = use_context::<AppState>();
-    let is_pinned = *state.right_sidebar_pinned.read();
+    let is_pinned = state.right_sidebar.read().pinned;
     rsx! {
         div {
             class: "right-sidebar-tabs",

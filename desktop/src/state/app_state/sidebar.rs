@@ -186,44 +186,6 @@ mod tests {
         assert!(!sidebar.pinned);
     }
 
-    /// Simulates the toggle logic from `AppState::toggle_right_sidebar()`.
-    /// The actual method operates on `Signal<bool>`, but the state
-    /// transition logic is identical to the left sidebar.
-    fn apply_right_toggle(pinned: &mut bool) {
-        *pinned = !*pinned;
-    }
-
-    #[test]
-    fn test_right_toggle_from_unpinned_to_pinned() {
-        let mut pinned = false;
-        apply_right_toggle(&mut pinned);
-        assert!(pinned);
-    }
-
-    #[test]
-    fn test_right_toggle_from_pinned_to_unpinned() {
-        let mut pinned = true;
-        apply_right_toggle(&mut pinned);
-        assert!(!pinned);
-    }
-
-    #[test]
-    fn test_right_toggle_full_cycle() {
-        let mut pinned = false;
-
-        apply_right_toggle(&mut pinned);
-        assert!(pinned);
-
-        apply_right_toggle(&mut pinned);
-        assert!(!pinned);
-
-        apply_right_toggle(&mut pinned);
-        assert!(pinned);
-
-        apply_right_toggle(&mut pinned);
-        assert!(!pinned);
-    }
-
     #[test]
     fn test_sidebar_history_initial_state() {
         let sidebar = Sidebar::default();

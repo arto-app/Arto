@@ -6,7 +6,6 @@ use crate::pinned_search::add_pinned_search;
 use crate::state::sidebar_cursor;
 use crate::state::{AppState, FocusedPanel};
 use crate::theme::Theme;
-use crate::window::settings::normalize_zoom_level;
 
 use super::action::Action;
 
@@ -69,17 +68,9 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::SearchPinCurrent => search_pin_current(&mut state),
 
         // --- Zoom ---
-        Action::ZoomIn => {
-            let current = normalize_zoom_level(*state.zoom_level.read());
-            state.zoom_level.set(normalize_zoom_level(current + 0.1));
-        }
-        Action::ZoomOut => {
-            let current = normalize_zoom_level(*state.zoom_level.read());
-            state.zoom_level.set(normalize_zoom_level(current - 0.1));
-        }
-        Action::ZoomReset => {
-            state.zoom_level.set(1.0);
-        }
+        Action::ZoomIn => state.zoom_in(),
+        Action::ZoomOut => state.zoom_out(),
+        Action::ZoomReset => state.zoom_reset(),
 
         // --- Window ---
         Action::WindowNew => {
@@ -110,7 +101,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
             }
         }
         Action::WindowToggleRightSidebar => {
-            let closing = *state.right_sidebar_pinned.read();
+            let closing = state.right_sidebar.read().pinned;
             state.toggle_right_sidebar();
             if closing && *state.focused_panel.read() == FocusedPanel::RightSidebar {
                 state.focused_panel.set(FocusedPanel::Content);
@@ -172,7 +163,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         }
         Action::FocusRightSidebar => {
             // Show overlay if not pinned, then focus it
-            if !*state.right_sidebar_pinned.read() {
+            if !state.right_sidebar.read().pinned {
                 state.right_hover_active.set(true);
                 state.left_hover_active.set(false);
             }
@@ -277,7 +268,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
 
         // --- Right sidebar ---
         Action::RightSidebarShowContents => {
-            if !*state.right_sidebar_pinned.read() {
+            if !state.right_sidebar.read().pinned {
                 state.right_hover_active.set(true);
                 state.left_hover_active.set(false);
             }
@@ -285,7 +276,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
             state.focused_panel.set(FocusedPanel::RightSidebar);
         }
         Action::RightSidebarShowSearch => {
-            if !*state.right_sidebar_pinned.read() {
+            if !state.right_sidebar.read().pinned {
                 state.right_hover_active.set(true);
                 state.left_hover_active.set(false);
             }
@@ -345,7 +336,7 @@ fn dispatch_tab_cycle(state: &mut AppState, forward: bool) {
 
 /// Cycle the right sidebar between Contents and Search tabs.
 fn toggle_right_sidebar_tab(state: &mut AppState) {
-    let tab = match *state.right_sidebar_tab.read() {
+    let tab = match state.right_sidebar.read().tab {
         RightSidebarTab::Contents => RightSidebarTab::Search,
         RightSidebarTab::Search => RightSidebarTab::Contents,
     };

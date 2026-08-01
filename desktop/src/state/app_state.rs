@@ -3,19 +3,20 @@ use dioxus::prelude::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::components::right_sidebar::RightSidebarTab;
 use crate::components::sidebar::context_menu::SidebarContextMenuData;
-use crate::config::DEFAULT_RIGHT_SIDEBAR_WIDTH;
+use crate::config::{normalize_content_zoom, DEFAULT_ZOOM_LEVEL, ZOOM_STEP};
 use crate::markdown::HeadingInfo;
 use crate::pinned_search::PinnedSearchId;
 use crate::theme::Theme;
 
 mod focused_panel;
+mod right_sidebar;
 mod sidebar;
 pub(crate) mod sidebar_cursor;
 mod tabs;
 
 pub use focused_panel::*;
+pub use right_sidebar::RightSidebar;
 pub use sidebar::Sidebar;
 pub use tabs::{Tab, TabContent};
 
@@ -64,10 +65,7 @@ pub struct AppState {
     /// Whether the content area ignores the markdown body's max-width and fills the pane.
     pub content_full_width: Signal<bool>,
     pub sidebar: Signal<Sidebar>,
-    pub right_sidebar_pinned: Signal<bool>,
-    pub right_sidebar_width: Signal<f64>,
-    pub right_sidebar_tab: Signal<RightSidebarTab>,
-    pub right_sidebar_zoom_level: Signal<f64>,
+    pub right_sidebar: Signal<RightSidebar>,
     pub right_sidebar_headings: Signal<Vec<HeadingInfo>>,
     pub position: Signal<LogicalPosition<i32>>,
     pub size: Signal<LogicalSize<u32>>,
@@ -131,13 +129,10 @@ impl AppState {
             tabs: Signal::new(vec![Tab::default()]),
             active_tab: Signal::new(0),
             current_theme: Signal::new(theme),
-            zoom_level: Signal::new(1.0),
+            zoom_level: Signal::new(DEFAULT_ZOOM_LEVEL),
             content_full_width: Signal::new(false),
             sidebar: Signal::new(Sidebar::default()),
-            right_sidebar_pinned: Signal::new(false),
-            right_sidebar_width: Signal::new(DEFAULT_RIGHT_SIDEBAR_WIDTH),
-            right_sidebar_tab: Signal::new(RightSidebarTab::default()),
-            right_sidebar_zoom_level: Signal::new(1.0),
+            right_sidebar: Signal::new(RightSidebar::default()),
             right_sidebar_headings: Signal::new(Vec::new()),
             position: Signal::new(Default::default()),
             size: Signal::new(Default::default()),
@@ -226,23 +221,26 @@ impl AppState {
         self.content_full_width.set(!was_full_width);
     }
 
-    /// Toggle right sidebar between pinned (flex layout) and unpinned (overlay/hover).
-    ///
-    /// - Pinned: visible in flex layout, pushes content aside
-    /// - Unpinned: accessible via hover as an overlay
-    pub fn toggle_right_sidebar(&mut self) {
-        let was_pinned = *self.right_sidebar_pinned.read();
-        self.right_sidebar_pinned.set(!was_pinned);
+    /// Zoom the content area in by one step.
+    pub fn zoom_in(&mut self) {
+        self.step_zoom(ZOOM_STEP);
     }
 
-    /// Set right sidebar width
-    pub fn set_right_sidebar_width(&mut self, width: f64) {
-        self.right_sidebar_width.set(width);
+    /// Zoom the content area out by one step.
+    pub fn zoom_out(&mut self) {
+        self.step_zoom(-ZOOM_STEP);
     }
 
-    /// Set right sidebar active tab
-    pub fn set_right_sidebar_tab(&mut self, tab: RightSidebarTab) {
-        self.right_sidebar_tab.set(tab);
+    /// Restore the content area to its neutral zoom level.
+    pub fn zoom_reset(&mut self) {
+        self.zoom_level.set(DEFAULT_ZOOM_LEVEL);
+    }
+
+    /// Move the content zoom by `delta`, normalizing before and after so the
+    /// level stays on the 0.1 grid even if it drifted.
+    fn step_zoom(&mut self, delta: f64) {
+        let current = normalize_content_zoom(*self.zoom_level.read());
+        self.zoom_level.set(normalize_content_zoom(current + delta));
     }
 
     /// Toggle search bar visibility

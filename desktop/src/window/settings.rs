@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::{
-    normalize_zoom_level as normalize_sidebar_zoom_level, NewWindowBehavior, StartupBehavior,
+    normalize_content_zoom, normalize_sidebar_zoom, NewWindowBehavior, StartupBehavior,
     WindowDimension, WindowDimensionUnit, WindowPosition, WindowPositionMode, WindowSize, CONFIG,
 };
 use crate::state::{PersistedState, Position, Size};
@@ -17,16 +17,6 @@ use crate::utils::screen::{
 use crate::window::main::get_last_focused_window_state;
 
 const MIN_WINDOW_DIMENSION: f64 = 100.0;
-
-// ============================================================================
-// Zoom Helpers
-// ============================================================================
-
-/// Normalize zoom level to the nearest 0.1 step to prevent precision drift
-/// and ensure consistent behavior with menu zoom in/out actions.
-pub fn normalize_zoom_level(zoom: f64) -> f64 {
-    ((zoom * 10.0).round() / 10.0).clamp(0.5, 5.0)
-}
 
 // ============================================================================
 // Preference Types
@@ -329,7 +319,7 @@ pub fn get_sidebar_preference(is_first_window: bool) -> SidebarPreference {
     );
     // Normalize zoom level to valid range with 0.1 step
     SidebarPreference {
-        zoom_level: normalize_sidebar_zoom_level(pref.zoom_level),
+        zoom_level: normalize_sidebar_zoom(pref.zoom_level),
         ..pref
     }
 }
@@ -348,11 +338,14 @@ pub fn get_right_sidebar_preference(is_first_window: bool) -> RightSidebarPrefer
         },
         || {
             resolve_from_state_or_persisted(
-                |state| RightSidebarPreference {
-                    pinned: *state.right_sidebar_pinned.read(),
-                    width: *state.right_sidebar_width.read(),
-                    tab: *state.right_sidebar_tab.read(),
-                    zoom_level: *state.right_sidebar_zoom_level.read(),
+                |state| {
+                    let right_sidebar = state.right_sidebar.read();
+                    RightSidebarPreference {
+                        pinned: right_sidebar.pinned,
+                        width: right_sidebar.width,
+                        tab: right_sidebar.tab,
+                        zoom_level: right_sidebar.zoom_level,
+                    }
                 },
                 |persisted| RightSidebarPreference {
                     pinned: persisted.right_sidebar_pinned,
@@ -365,7 +358,7 @@ pub fn get_right_sidebar_preference(is_first_window: bool) -> RightSidebarPrefer
     );
     // Normalize zoom level to valid range with 0.1 step
     RightSidebarPreference {
-        zoom_level: normalize_sidebar_zoom_level(pref.zoom_level),
+        zoom_level: normalize_sidebar_zoom(pref.zoom_level),
         ..pref
     }
 }
@@ -398,7 +391,7 @@ pub fn get_zoom_preference(is_first_window: bool) -> ZoomPreference {
     );
     // Normalize to 0.1 step grid and clamp to safe range
     ZoomPreference {
-        zoom_level: normalize_zoom_level(zoom_level),
+        zoom_level: normalize_content_zoom(zoom_level),
     }
 }
 
@@ -667,27 +660,5 @@ mod tests {
         let resolved = resolve_window_size(size, LogicalSize::new(1200, 900));
         assert_eq!(resolved.width, 1200);
         assert_eq!(resolved.height, 900);
-    }
-
-    #[test]
-    fn test_normalize_zoom_level_rounds_to_nearest_tenth() {
-        assert_eq!(normalize_zoom_level(1.05), 1.1);
-        assert_eq!(normalize_zoom_level(1.04), 1.0);
-        assert_eq!(normalize_zoom_level(1.95), 2.0);
-        assert_eq!(normalize_zoom_level(0.99), 1.0);
-    }
-
-    #[test]
-    fn test_normalize_zoom_level_clamps_to_range() {
-        assert_eq!(normalize_zoom_level(0.3), 0.5);
-        assert_eq!(normalize_zoom_level(10.0), 5.0);
-        assert_eq!(normalize_zoom_level(-1.0), 0.5);
-    }
-
-    #[test]
-    fn test_normalize_zoom_level_preserves_aligned_values() {
-        assert_eq!(normalize_zoom_level(1.0), 1.0);
-        assert_eq!(normalize_zoom_level(1.5), 1.5);
-        assert_eq!(normalize_zoom_level(2.0), 2.0);
     }
 }

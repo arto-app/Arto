@@ -40,7 +40,7 @@ impl AppState {
     pub fn open_preferences(&mut self) {
         // Unpin both sidebars and close overlays (preferences is a full-screen settings page)
         self.sidebar.write().pinned = false;
-        self.right_sidebar_pinned.set(false);
+        self.right_sidebar.write().pinned = false;
         self.left_hover_active.set(false);
         self.right_hover_active.set(false);
 
