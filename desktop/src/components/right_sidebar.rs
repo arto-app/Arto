@@ -30,9 +30,14 @@ pub struct RightSidebarProps {
 #[component]
 pub fn RightSidebar(props: RightSidebarProps) -> Element {
     let mut state = use_context::<AppState>();
-    let width = *state.right_sidebar_width.read();
-    let active_tab = *state.right_sidebar_tab.read();
-    let zoom_level = *state.right_sidebar_zoom_level.read();
+    let (width, active_tab, zoom_level) = {
+        let right_sidebar = state.right_sidebar.read();
+        (
+            right_sidebar.width,
+            right_sidebar.tab,
+            right_sidebar.zoom_level,
+        )
+    };
     let is_panel_focused = *state.focused_panel.read() == FocusedPanel::RightSidebar;
     let toc_cursor = *state.toc_cursor.read();
     let is_resizing = use_signal(|| false);
@@ -103,7 +108,7 @@ fn RightSidebarResizeHandle(
                     handler.call(true);
                 }
                 let start_x = evt.page_coordinates().x;
-                let start_width = *state.right_sidebar_width.read();
+                let start_width = state.right_sidebar.read().width;
 
                 spawn(async move {
                     #[derive(serde::Deserialize)]

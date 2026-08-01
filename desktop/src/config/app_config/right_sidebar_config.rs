@@ -1,19 +1,17 @@
 use super::behavior::{NewWindowBehavior, StartupBehavior};
+use super::zoom_config::DEFAULT_ZOOM_LEVEL;
 use crate::components::right_sidebar::RightSidebarTab;
 use serde::{Deserialize, Serialize};
 
 /// Default right sidebar panel width in pixels
 pub const DEFAULT_RIGHT_SIDEBAR_WIDTH: f64 = 220.0;
 
-/// Default right sidebar zoom level
-pub const DEFAULT_RIGHT_SIDEBAR_ZOOM_LEVEL: f64 = 1.0;
-
 fn default_right_sidebar_width() -> f64 {
     DEFAULT_RIGHT_SIDEBAR_WIDTH
 }
 
 fn default_right_sidebar_zoom_level() -> f64 {
-    DEFAULT_RIGHT_SIDEBAR_ZOOM_LEVEL
+    DEFAULT_ZOOM_LEVEL
 }
 
 /// Configuration for right sidebar panel settings

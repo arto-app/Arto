@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use std::path::PathBuf;
 
-use super::menu_item::{ContextMenuItem, ContextMenuSubmenu};
+use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
 
 /// "Copy As..." submenu: Text / Markdown
 #[component]

@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::components::icon::{Icon, IconName};
 
 #[derive(Props, Clone, PartialEq)]
-pub(super) struct ContextMenuItemProps {
+pub struct ContextMenuItemProps {
     #[props(into)]
     label: String,
     #[props(default)]
@@ -16,7 +16,7 @@ pub(super) struct ContextMenuItemProps {
 }
 
 #[component]
-pub(super) fn ContextMenuItem(props: ContextMenuItemProps) -> Element {
+pub fn ContextMenuItem(props: ContextMenuItemProps) -> Element {
     rsx! {
         div {
             class: if props.disabled { "context-menu-item disabled" } else { "context-menu-item" },
@@ -44,7 +44,7 @@ pub(super) fn ContextMenuItem(props: ContextMenuItemProps) -> Element {
 }
 
 #[component]
-pub(super) fn ContextMenuSeparator() -> Element {
+pub fn ContextMenuSeparator() -> Element {
     rsx! {
         div { class: "context-menu-separator" }
     }
@@ -52,7 +52,7 @@ pub(super) fn ContextMenuSeparator() -> Element {
 
 /// Reusable submenu component with hover-to-open behavior.
 #[component]
-pub(super) fn ContextMenuSubmenu(label: String, children: Element) -> Element {
+pub fn ContextMenuSubmenu(label: String, children: Element) -> Element {
     let mut show = use_signal(|| false);
 
     rsx! {

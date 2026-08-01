@@ -1,6 +1,9 @@
 use super::super::form_controls::{OptionCardItem, OptionCards, SliderInput};
 use crate::components::right_sidebar::RightSidebarTab as RightSidebarTabKind;
-use crate::config::{normalize_zoom_level, Config, NewWindowBehavior, StartupBehavior};
+use crate::config::{
+    normalize_sidebar_zoom, Config, NewWindowBehavior, StartupBehavior, MAX_SIDEBAR_ZOOM,
+    MIN_SIDEBAR_ZOOM, ZOOM_STEP,
+};
 use crate::state::AppState;
 use dioxus::prelude::*;
 
@@ -12,8 +15,8 @@ pub fn RightSidebarTab(
 ) -> Element {
     // Extract values upfront to avoid holding read guard across closures
     let right_sidebar_cfg = config.read().right_sidebar.clone();
-    let current_width = *state.right_sidebar_width.read();
-    let current_zoom = *state.right_sidebar_zoom_level.read();
+    let current_width = state.right_sidebar.read().width;
+    let current_zoom = state.right_sidebar.read().zoom_level;
 
     rsx! {
         div {
@@ -30,14 +33,14 @@ pub fn RightSidebarTab(
                 }
                 SliderInput {
                     value: current_zoom,
-                    min: 0.5,
-                    max: 2.0,
-                    step: 0.1,
+                    min: MIN_SIDEBAR_ZOOM,
+                    max: MAX_SIDEBAR_ZOOM,
+                    step: ZOOM_STEP,
                     unit: "x".to_string(),
                     decimals: 1,
                     on_change: move |new_zoom| {
                         // Normalize to 0.1 step and clamp to valid range
-                        state.right_sidebar_zoom_level.set(normalize_zoom_level(new_zoom));
+                        state.right_sidebar.write().zoom_level = normalize_sidebar_zoom(new_zoom);
                     },
                     default_value: Some(right_sidebar_cfg.default_zoom_level),
                 }
@@ -137,9 +140,9 @@ pub fn RightSidebarTab(
                 }
                 SliderInput {
                     value: right_sidebar_cfg.default_zoom_level,
-                    min: 0.5,
-                    max: 2.0,
-                    step: 0.1,
+                    min: MIN_SIDEBAR_ZOOM,
+                    max: MAX_SIDEBAR_ZOOM,
+                    step: ZOOM_STEP,
                     unit: "x".to_string(),
                     decimals: 1,
                     on_change: move |new_zoom| {

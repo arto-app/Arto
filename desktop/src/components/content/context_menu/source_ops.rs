@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use std::path::PathBuf;
 
-use super::menu_item::ContextMenuItem;
+use crate::components::context_menu::ContextMenuItem;
 use crate::components::icon::IconName;
 use crate::keybindings::dispatcher::dispatch_action;
 use crate::keybindings::{shortcut_hint_for_context_action, Action, KeyContext};

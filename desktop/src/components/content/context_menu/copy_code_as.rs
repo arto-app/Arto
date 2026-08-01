@@ -1,8 +1,8 @@
 use dioxus::prelude::*;
 use std::path::PathBuf;
 
-use super::menu_item::{ContextMenuItem, ContextMenuSubmenu};
 use super::source_ops::build_path_with_range;
+use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
 
 /// "Copy Code As..." submenu: Code / Markdown / Path with Range
 #[component]

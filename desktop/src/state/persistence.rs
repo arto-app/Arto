@@ -95,6 +95,7 @@ impl Default for PersistedState {
 impl From<&AppState> for PersistedState {
     fn from(state: &AppState) -> Self {
         let sidebar = state.sidebar.read();
+        let right_sidebar = state.right_sidebar.read();
         Self {
             directory: sidebar.root_directory.clone(),
             theme: *state.current_theme.read(),
@@ -103,10 +104,10 @@ impl From<&AppState> for PersistedState {
             sidebar_width: sidebar.width,
             sidebar_show_all_files: sidebar.show_all_files,
             sidebar_zoom_level: sidebar.zoom_level,
-            right_sidebar_pinned: *state.right_sidebar_pinned.read(),
-            right_sidebar_width: *state.right_sidebar_width.read(),
-            right_sidebar_tab: *state.right_sidebar_tab.read(),
-            right_sidebar_zoom_level: *state.right_sidebar_zoom_level.read(),
+            right_sidebar_pinned: right_sidebar.pinned,
+            right_sidebar_width: right_sidebar.width,
+            right_sidebar_tab: right_sidebar.tab,
+            right_sidebar_zoom_level: right_sidebar.zoom_level,
             window_position: (*state.position.read()).into(),
             window_size: (*state.size.read()).into(),
             zoom_level: *state.zoom_level.read(),
