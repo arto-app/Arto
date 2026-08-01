@@ -111,9 +111,10 @@ pub fn get_primary_display() -> Option<DisplayInfo> {
 /// cursor reads 1.5x too far, so every window hit test misses, the drag detaches
 /// immediately, and the preview window is positioned far off target.
 ///
-/// `scale_factor` is the drag source window's scale factor. With monitors on
-/// different DPIs, a cursor dragged onto another monitor is normalized with the
-/// source window's factor rather than the one it is over.
+/// `scale_factor` is the scale factor used to convert raw coordinates into
+/// logical coordinates. Ideally this comes from the display currently under the
+/// cursor; some call sites (e.g. drag tracking) may use the source window's scale
+/// factor, which can be inaccurate across mixed-DPI monitors.
 pub fn cursor_position_to_logical(x: f64, y: f64, scale_factor: f64) -> (f64, f64) {
     #[cfg(target_os = "windows")]
     {
