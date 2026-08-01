@@ -20,6 +20,7 @@ use crate::state::Tab;
 use crate::theme::Theme;
 use crate::utils::screen::get_current_display_bounds;
 
+use super::icon;
 use super::index::build_custom_index;
 use super::metrics::capture_window_metrics;
 use super::settings;
@@ -32,12 +33,12 @@ pub fn create_main_window_config(params: &CreateMainWindowConfigParams) -> Confi
     let initial_size = params.size;
 
     Config::new()
-        .with_window(
+        .with_window(icon::apply_app_icon(
             WindowBuilder::new()
                 .with_title("Arto")
                 .with_position(params.position)
                 .with_inner_size(params.size),
-        )
+        ))
         // Dioxus/tao can lose the requested inner height on macOS during window
         // construction, so apply the same size once the native window exists.
         .with_on_window(move |window, _| {
