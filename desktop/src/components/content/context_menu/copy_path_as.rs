@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use std::path::PathBuf;
 
-use super::menu_item::{ContextMenuItem, ContextMenuSubmenu};
+use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
 
 /// "Copy Path As..." submenu: Path / Path with Line / Path with Range
 #[component]

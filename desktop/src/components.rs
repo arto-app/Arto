@@ -1,6 +1,7 @@
 pub mod app;
 pub mod bookmark_button;
 pub mod content;
+pub mod context_menu;
 pub mod header;
 pub mod icon;
 pub mod image_window;

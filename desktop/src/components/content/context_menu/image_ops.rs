@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use super::menu_item::{ContextMenuItem, ContextMenuSubmenu};
+use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
 use crate::keybindings::{shortcut_hint_for_context_action, KeyContext};
 
 /// "Copy Image As..." submenu: Image / Image with Background / Markdown / Path

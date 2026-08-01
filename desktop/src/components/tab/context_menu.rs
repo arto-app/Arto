@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use dioxus::desktop::tao::window::WindowId;
 use dioxus::prelude::*;
 
-use crate::components::icon::{Icon, IconName};
+use crate::components::context_menu::{ContextMenuItem, ContextMenuSeparator};
+use crate::components::icon::IconName;
 use crate::keybindings::{shortcut_hint_for_context_action, KeyContext};
 
 #[component]
@@ -163,57 +164,5 @@ pub fn TabContextMenu(
                 on_click: move |_| on_reload.call(()),
             }
         }
-    }
-}
-
-// ============================================================================
-// Helper Components
-// ============================================================================
-
-#[derive(Props, Clone, PartialEq)]
-struct ContextMenuItemProps {
-    #[props(into)]
-    label: String,
-    #[props(default)]
-    shortcut: Option<String>,
-    #[props(default)]
-    icon: Option<IconName>,
-    #[props(default = false)]
-    disabled: bool,
-    on_click: EventHandler<()>,
-}
-
-#[component]
-fn ContextMenuItem(props: ContextMenuItemProps) -> Element {
-    rsx! {
-        div {
-            class: if props.disabled { "context-menu-item disabled" } else { "context-menu-item" },
-            onclick: move |_| {
-                if !props.disabled {
-                    props.on_click.call(());
-                }
-            },
-
-            if let Some(icon) = props.icon {
-                Icon {
-                    name: icon,
-                    size: 14,
-                    class: "context-menu-icon",
-                }
-            }
-
-            span { class: "context-menu-label", "{props.label}" }
-
-            if let Some(shortcut) = props.shortcut {
-                span { class: "context-menu-shortcut", "{shortcut}" }
-            }
-        }
-    }
-}
-
-#[component]
-fn ContextMenuSeparator() -> Element {
-    rsx! {
-        div { class: "context-menu-separator" }
     }
 }

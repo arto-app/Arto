@@ -4,7 +4,6 @@ mod copy_path_as;
 mod copy_table_as;
 mod data;
 mod image_ops;
-mod menu_item;
 mod source_ops;
 
 pub use data::*;
@@ -12,6 +11,7 @@ pub use data::*;
 use dioxus::document;
 use dioxus::prelude::*;
 
+use crate::components::context_menu::{ContextMenuItem, ContextMenuSeparator};
 use crate::components::icon::IconName;
 use crate::keybindings::dispatcher::dispatch_action;
 use crate::keybindings::{shortcut_hint_for_context_action, Action, KeyContext};
@@ -20,7 +20,6 @@ use copy_code_as::CopyCodeAsSubmenu;
 use copy_path_as::CopyPathAsSubmenu;
 use copy_table_as::CopyTableAsSubmenu;
 use image_ops::{CopyImageAsSubmenu, CopySpecialBlockAsSubmenu};
-use menu_item::{ContextMenuItem, ContextMenuSeparator};
 use source_ops::LinkContextItems;
 
 #[component]
