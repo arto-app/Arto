@@ -116,16 +116,28 @@ xattr -dr com.apple.quarantine /Applications/Arto.app
 
 ### Linux
 
-Download the `.deb` matching your architecture from the [releases] page and
-install it with `apt`, which pulls in the GTK/WebKit libraries it declares:
+On Debian and Ubuntu, download the `.deb` matching your architecture from the
+[releases] page and install it with `apt`, which pulls in the GTK/WebKit
+libraries it declares:
 
 ```
 sudo apt install ./arto_<version>_amd64.deb
 ```
 
-The package is built on Ubuntu 24.04, so it requires glibc 2.39 or newer
-(Ubuntu 24.04+, Debian 13+) and WebKitGTK 4.1. On older distributions, build
-from source or use the Nix package below.
+On every other distribution — Fedora, openSUSE, Arch — download the
+`.AppImage` instead, make it executable and run it:
+
+```
+chmod +x arto_<version>_x86_64.AppImage
+./arto_<version>_x86_64.AppImage
+```
+
+The AppImage needs WebKitGTK 4.1 present on the system; on Fedora that is
+`sudo dnf install webkit2gtk4.1`.
+
+Both artifacts are built on Ubuntu 24.04, so they require glibc 2.39 or newer
+(Ubuntu 24.04+, Debian 13+, Fedora 40+). On older distributions, build from
+source or use the Nix package below.
 
 ### Nix
 

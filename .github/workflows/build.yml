@@ -119,7 +119,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS produces a .dmg, Linux a .deb, Windows an NSIS installer
+          # macOS produces a .dmg, Linux a .deb plus an .AppImage (the .deb
+          # installs only on Debian/Ubuntu, so the AppImage is what every other
+          # distro runs), Windows an NSIS installer
           # (Arto_<version>_<arch>-setup.exe); see the justfile bundle recipes.
           - target: macos
             os: macos-latest
@@ -130,13 +132,17 @@ jobs:
             timeout: 60
           - target: ubuntu
             os: ubuntu-latest
-            artifacts: ./desktop/target/dx/arto/bundle/**/*.deb
+            artifacts: |
+              ./desktop/target/dx/arto/bundle/**/*.deb
+              ./desktop/target/dx/arto/bundle/**/*.AppImage
             # A cold cargo cache pushes the full release build past 30m on the
             # Linux runners (same class of build the nix-check job budgets 60m for).
             timeout: 60
           - target: ubuntu-arm64
             os: ubuntu-24.04-arm
-            artifacts: ./desktop/target/dx/arto/bundle/**/*.deb
+            artifacts: |
+              ./desktop/target/dx/arto/bundle/**/*.deb
+              ./desktop/target/dx/arto/bundle/**/*.AppImage
             timeout: 60
           - target: windows
             os: windows-latest
@@ -391,12 +397,12 @@ jobs:
         with:
           tag: ${{ github.event.release.tag_name }}
           allowUpdates: true
-          # Lenient so a missing Linux .deb or Windows installer (tolerated build
-          # failures) does not block the release. The macOS .dmg is still
+          # Lenient so a missing Linux artifact or Windows installer (tolerated
+          # build failures) does not block the release. The macOS .dmg is still
           # effectively required: the release only runs after the mandatory macOS
           # build, and the downstream dispatch job fails if the aarch64 DMG is absent.
           artifactErrorsFailBuild: false
-          artifacts: ./artifacts/**/*.dmg,./artifacts/**/*.deb,./artifacts/**/*-setup.exe
+          artifacts: ./artifacts/**/*.dmg,./artifacts/**/*.deb,./artifacts/**/*.AppImage,./artifacts/**/*-setup.exe
           removeArtifacts: true
           makeLatest: true
           bodyFile: release_body.md

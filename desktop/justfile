@@ -140,10 +140,27 @@ _package-dmg:
   rm -rf "$staging"
   echo "DMG with embedded Quick Look extension created at $dmg"
 
+# Two Linux artifacts are produced from the same build: a .deb for
+# Debian/Ubuntu, and an AppImage for everything else. The AppImage is not a
+# convenience — it is the only artifact a non-Debian distro (Fedora, openSUSE,
+# Arch) can run. An .rpm is deliberately not built: dx 0.7 has no RPM-specific
+# dependency settings and feeds `[bundle.deb] depends` straight into the RPM
+# `Requires`, so the package would demand Debian package names that no RPM
+# distro can resolve and would fail at install time.
 [linux]
 build:
-  @rm -rf target/dx/arto/release/linux/app/assets
-  dx bundle --release --linux --package-types deb
+  #!/usr/bin/env bash
+  set -euo pipefail
+  rm -rf target/dx/arto/release/linux/app/assets
+  # Drop every previously built Linux artifact first. CI caches
+  # `desktop/target` (which contains `bundle/`), and the build job also runs on
+  # non-release pushes where the version stays 0.0.0; without this sweep a
+  # restored `arto_0.0.0_*` package would be attached to a later release
+  # alongside the real one, since the upload glob matches on extension.
+  if [[ -d target/dx/arto/bundle ]]; then
+    find target/dx/arto/bundle -type f \( -name '*.deb' -o -name '*.AppImage' \) -delete
+  fi
+  dx bundle --release --linux --package-types deb --package-types appimage
 
 # Release artifacts are built with the platform's native toolchain, but a
 # bundle built inside the Nix devShell links against /nix/store paths and is
@@ -160,16 +177,24 @@ verify-bundle:
 verify-bundle:
   #!/usr/bin/env bash
   set -euo pipefail
-  # Every .deb under the bundle dir is checked, not just the newest: CI caches
-  # `desktop/target`, so a stale package from an earlier run can be sitting
-  # there, and the release upload glob would pick it up too.
+  # Every artifact under the bundle dir is checked, not just the newest: CI
+  # caches `desktop/target`, so a stale package from an earlier run can be
+  # sitting there, and the release upload glob would pick it up too.
   mapfile -t debs < <(find target/dx/arto/bundle -type f -name '*.deb')
+  mapfile -t appimages < <(find target/dx/arto/bundle -type f -name '*.AppImage')
+  # Both formats must be present. A missing one means the release would ship
+  # only half the Linux story — no .deb, or (worse, since it is the only
+  # artifact non-Debian distros can run) no AppImage.
   if [[ ${#debs[@]} -eq 0 ]]; then
     echo "Error: no .deb found under target/dx/arto/bundle" >&2
     exit 1
   fi
-  for deb in "${debs[@]}"; do
-    ../scripts/verify-linux-bundle.sh "$deb" arto
+  if [[ ${#appimages[@]} -eq 0 ]]; then
+    echo "Error: no .AppImage found under target/dx/arto/bundle" >&2
+    exit 1
+  fi
+  for artifact in "${debs[@]}" "${appimages[@]}"; do
+    ../scripts/verify-linux-bundle.sh "$artifact" arto
   done
 
 [macos]
