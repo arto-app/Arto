@@ -49,6 +49,13 @@ fn open_dropped_path(path: PathBuf, state: &mut AppState) {
 fn drag_pasteboard_paths() -> Vec<PathBuf> {
     use objc2_app_kit::NSPasteboard;
 
+    // NSPasteboard is not bound as MainThreadOnly, but AppKit is only
+    // documented safe from the main thread
+    if objc2::MainThreadMarker::new().is_none() {
+        tracing::warn!("Drag pasteboard must be read on the main thread");
+        return Vec::new();
+    }
+
     let pasteboard =
         NSPasteboard::pasteboardWithName(unsafe { objc2_app_kit::NSPasteboardNameDrag });
     let Some(items) = pasteboard.pasteboardItems() else {
