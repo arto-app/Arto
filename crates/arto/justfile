@@ -1,23 +1,25 @@
+# Workspace root and its shared cargo target directory. Recipes run with this
+# crate as the working directory, but `cargo` and `dx` write everything under
+# the workspace-level `target/`. `source_directory()` (not
+# `justfile_directory()`) because this file is loaded as a module of the root
+# justfile, and `justfile_directory()` then points at the root.
+root := source_directory() / "../.."
+target := root / "target"
+
 [private]
 default:
   @just --list
 
 fmt:
   cargo fmt --all
-  cd markdown && cargo fmt --all
-  cd ../ql-generator && cargo fmt --all
 
 check:
-  cargo check --all-targets --all-features
-  cargo clippy --all-targets --all-features -- -D warnings
-  cd markdown && cargo clippy --all-targets -- -D warnings
-  cd ../ql-generator && cargo clippy --all-targets -- -D warnings
+  cargo check --workspace --all-targets
+  cargo clippy --workspace --all-targets -- -D warnings
 
 test:
-  cargo test --all-features --all-targets
-  cargo test --doc --all-features
-  cd markdown && cargo test
-  cd ../ql-generator && cargo test
+  cargo test --workspace --all-targets
+  cargo test --workspace --doc
 
 verify: fmt check test
 
@@ -32,32 +34,32 @@ clean:
 # embed the extension into it, then package the DMG from the embedded app.
 [macos]
 build:
-  @rm -rf target/dx/arto/release/macos/Arto.app/Contents/Resources/assets
+  @rm -rf {{target}}/dx/arto/release/macos/Arto.app/Contents/Resources/assets
   dx bundle --release --macos --package-types macos
   just _apply-bundle-metadata
   just _embed-quicklook
   just _package-dmg
 
 # Deterministically install the canonical Info.plist and app icon, and stamp the
-# version from Cargo.toml. The dx toolchain does not reliably apply the
-# `[bundle]` icon or `[bundle.macos] info_plist_path` from Dioxus.toml — a clean
-# build otherwise ships an app with NO `.md`/`.txt` Finder associations, a
-# missing icon, and a version that ignores the release tag. This runs before
-# `_embed-quicklook`, whose final re-sign seals these edits.
+# version from the workspace Cargo.toml. The dx toolchain does not reliably
+# apply the `[bundle]` icon or `[bundle.macos] info_plist_path` from Dioxus.toml
+# — a clean build otherwise ships an app with NO `.md`/`.txt` Finder
+# associations, a missing icon, and a version that ignores the release tag. This
+# runs before `_embed-quicklook`, whose final re-sign seals these edits.
 [macos]
 [private]
 _apply-bundle-metadata:
   #!/usr/bin/env bash
   set -euo pipefail
-  app="target/dx/arto/release/macos/Arto.app"
-  version="$(perl -ne 'print $1 and exit if /^version = "(.*)"/' Cargo.toml)"
+  app="{{target}}/dx/arto/release/macos/Arto.app"
+  version="$(perl -ne 'print $1 and exit if /^version = "(.*)"/' "{{root}}/Cargo.toml")"
   # Canonical Info.plist carries the file-type associations and high-DPI flag.
-  cp ../extras/mac/Info.plist "$app/Contents/Info.plist"
+  cp "{{root}}/extras/mac/Info.plist" "$app/Contents/Info.plist"
   # Stamp the real version (CI patches Cargo.toml for releases; local stays 0.0.0).
   /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${version}" \
     "$app/Contents/Info.plist"
   # The plist references CFBundleIconFile = Arto → the bundle needs Arto.icns.
-  cp ../extras/mac/Arto.icns "$app/Contents/Resources/Arto.icns"
+  cp "{{root}}/extras/mac/Arto.icns" "$app/Contents/Resources/Arto.icns"
   echo "Applied canonical Info.plist (version ${version}) and app icon"
 
 # Build the Quick Look preview extension (Swift shim + Rust `arto_ql` static
@@ -75,27 +77,28 @@ _apply-bundle-metadata:
 _embed-quicklook:
   #!/usr/bin/env bash
   set -euo pipefail
-  app="target/dx/arto/release/macos/Arto.app"
+  app="{{target}}/dx/arto/release/macos/Arto.app"
   appex="$app/Contents/PlugIns/ArtoQuickLook.appex"
   arch="$(uname -m)"
+  ql="{{root}}/ql-extension"
   echo "Building arto_ql static library…"
-  ( cd ../ql-generator && cargo build --release )
+  cargo build --release -p arto-ql
   echo "Compiling Swift Quick Look preview extension…"
   mkdir -p "$appex/Contents/MacOS"
   # The nix devshell sets SDKROOT to a nixpkgs SDK that is incompatible with
   # Apple's /usr/bin/swiftc; unset it so swiftc uses the Command Line Tools SDK.
   env -u SDKROOT -u DEVELOPER_DIR -u MACOSX_DEPLOYMENT_TARGET /usr/bin/swiftc \
-    ../ql-extension/PreviewViewController.swift \
-    -import-objc-header ../ql-extension/arto_ql-Bridging.h \
+    "$ql/PreviewViewController.swift" \
+    -import-objc-header "$ql/arto_ql-Bridging.h" \
     -target "${arch}-apple-macos12.0" -O \
     -framework Cocoa -framework QuickLookUI -framework WebKit \
-    -L ../ql-generator/target/release -larto_ql \
+    -L "{{target}}/release" -larto_ql \
     -Xlinker -e -Xlinker _NSExtensionMain \
     -o "$appex/Contents/MacOS/ArtoQuickLook"
-  cp ../ql-extension/Info.plist "$appex/Contents/Info.plist"
+  cp "$ql/Info.plist" "$appex/Contents/Info.plist"
   echo "Signing extension (inside-out: extension first, then the app)…"
   codesign --force --sign - --timestamp=none \
-    --entitlements ../ql-extension/ArtoQuickLook.entitlements \
+    --entitlements "$ql/ArtoQuickLook.entitlements" \
     "$appex"
   codesign --force --sign - --timestamp=none "$app"
   echo "Quick Look preview extension embedded at Contents/PlugIns/ArtoQuickLook.appex"
@@ -108,9 +111,9 @@ _embed-quicklook:
 # (`bundle/**/*.dmg`) and the Homebrew asset name (`Arto_<version>_aarch64.dmg`)
 # keep matching. `dx` names the arch `aarch64`, not `uname -m`'s `arm64`.
 #
-# Every stale DMG under the bundle dir is removed first: CI caches
-# `desktop/target` (which contains `bundle/`) and the `build` job also runs on
-# non-release pushes, where the version stays `0.0.0`. Without this sweep a
+# Every stale DMG under the bundle dir is removed first: CI caches the
+# workspace `target/` (which contains `bundle/`) and the `build` job also runs
+# on non-release pushes, where the version stays `0.0.0`. Without this sweep a
 # cached `Arto_0.0.0_...dmg` would be restored on a later release build and the
 # `bundle/**/*.dmg` upload glob would attach it alongside the real release DMG.
 [macos]
@@ -118,14 +121,14 @@ _embed-quicklook:
 _package-dmg:
   #!/usr/bin/env bash
   set -euo pipefail
-  app="target/dx/arto/release/macos/Arto.app"
-  version="$(perl -ne 'print $1 and exit if /^version = "(.*)"/' Cargo.toml)"
+  app="{{target}}/dx/arto/release/macos/Arto.app"
+  version="$(perl -ne 'print $1 and exit if /^version = "(.*)"/' "{{root}}/Cargo.toml")"
   case "$(uname -m)" in
     arm64 | aarch64) arch="aarch64" ;;
     x86_64) arch="x86_64" ;;
     *) arch="$(uname -m)" ;;
   esac
-  bundle="target/dx/arto/bundle"
+  bundle="{{target}}/dx/arto/bundle"
   outdir="$bundle/macos/macos"
   dmg="$outdir/Arto_${version}_${arch}.dmg"
   mkdir -p "$outdir"
@@ -151,14 +154,14 @@ _package-dmg:
 build:
   #!/usr/bin/env bash
   set -euo pipefail
-  rm -rf target/dx/arto/release/linux/app/assets
-  # Drop every previously built Linux artifact first. CI caches
-  # `desktop/target` (which contains `bundle/`), and the build job also runs on
+  rm -rf "{{target}}/dx/arto/release/linux/app/assets"
+  # Drop every previously built Linux artifact first. CI caches the workspace
+  # `target/` (which contains `bundle/`), and the build job also runs on
   # non-release pushes where the version stays 0.0.0; without this sweep a
   # restored `arto_0.0.0_*` package would be attached to a later release
   # alongside the real one, since the upload glob matches on extension.
-  if [[ -d target/dx/arto/bundle ]]; then
-    find target/dx/arto/bundle -type f \( -name '*.deb' -o -name '*.AppImage' \) -delete
+  if [[ -d "{{target}}/dx/arto/bundle" ]]; then
+    find "{{target}}/dx/arto/bundle" -type f \( -name '*.deb' -o -name '*.AppImage' \) -delete
   fi
   dx bundle --release --linux --package-types deb --package-types appimage
 
@@ -171,45 +174,46 @@ build:
 # Reject a bundle that carries build-environment dependencies
 [macos]
 verify-bundle:
-  ../scripts/verify-macos-bundle.sh target/dx/arto/release/macos/Arto.app arto
+  "{{root}}/scripts/verify-macos-bundle.sh" "{{target}}/dx/arto/release/macos/Arto.app" arto
 
 [linux]
 verify-bundle:
   #!/usr/bin/env bash
   set -euo pipefail
+  bundle="{{target}}/dx/arto/bundle"
   # Every artifact under the bundle dir is checked, not just the newest: CI
-  # caches `desktop/target`, so a stale package from an earlier run can be
-  # sitting there, and the release upload glob would pick it up too.
-  mapfile -t debs < <(find target/dx/arto/bundle -type f -name '*.deb')
-  mapfile -t appimages < <(find target/dx/arto/bundle -type f -name '*.AppImage')
+  # caches the workspace `target/`, so a stale package from an earlier run can
+  # be sitting there, and the release upload glob would pick it up too.
+  mapfile -t debs < <(find "$bundle" -type f -name '*.deb')
+  mapfile -t appimages < <(find "$bundle" -type f -name '*.AppImage')
   # Both formats must be present. A missing one means the release would ship
   # only half the Linux story — no .deb, or (worse, since it is the only
   # artifact non-Debian distros can run) no AppImage.
   if [[ ${#debs[@]} -eq 0 ]]; then
-    echo "Error: no .deb found under target/dx/arto/bundle" >&2
+    echo "Error: no .deb found under $bundle" >&2
     exit 1
   fi
   if [[ ${#appimages[@]} -eq 0 ]]; then
-    echo "Error: no .AppImage found under target/dx/arto/bundle" >&2
+    echo "Error: no .AppImage found under $bundle" >&2
     exit 1
   fi
   for artifact in "${debs[@]}" "${appimages[@]}"; do
-    ../scripts/verify-linux-bundle.sh "$artifact" arto
+    "{{root}}/scripts/verify-linux-bundle.sh" "$artifact" arto
   done
 
 [macos]
 open:
-  ./target/dx/arto/release/macos/Arto.app/Contents/MacOS/arto
+  "{{target}}/dx/arto/release/macos/Arto.app/Contents/MacOS/arto"
 
 [linux]
 open:
-  ./target/dx/arto/release/linux/app/arto
+  "{{target}}/dx/arto/release/linux/app/arto"
 
 [confirm]
 [macos]
 install:
   @rm -rf /Applications/Arto.app
-  @cp -af target/dx/arto/release/macos/Arto.app /Applications/.
+  @cp -af "{{target}}/dx/arto/release/macos/Arto.app" /Applications/.
 
 [windows]
 build:
@@ -217,4 +221,4 @@ build:
 
 [windows]
 open:
-  ./target/dx/arto/release/windows/app/arto.exe
+  "{{target}}/dx/arto/release/windows/app/arto.exe"

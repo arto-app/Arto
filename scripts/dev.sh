@@ -10,7 +10,7 @@ set -o pipefail
 # Only build if expected outputs are missing (speeds up dev loop)
 cd "${ROOT}/../renderer"
 # Respect VITE_OUT_DIR override to match Vite's actual output directory
-DIST_DIR="${VITE_OUT_DIR:-${ROOT}/../desktop/assets/dist}"
+DIST_DIR="${VITE_OUT_DIR:-${ROOT}/../crates/arto/assets/dist}"
 if [ ! -f "${DIST_DIR}/main.js" ] || [ ! -f "${DIST_DIR}/main.css" ]; then
   echo "Building renderer artifacts..."
   pnpm exec vite build --mode development --minify false
@@ -26,7 +26,7 @@ VITE_PID=$!
 trap "kill $VITE_PID 2>/dev/null || true" EXIT
 
 # 3. Start Dioxus dev server
-cd "${ROOT}/../desktop"
+cd "${ROOT}/../crates/arto"
 dx serve
 
 # Kill Vite when dx serve exits

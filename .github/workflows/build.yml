@@ -44,8 +44,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            desktop/target
-          key: cargo-check-${{ matrix.target }}-${{ hashFiles('desktop/Cargo.lock') }}
+            target
+          key: cargo-check-${{ matrix.target }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: cargo-check-${{ matrix.target }}-
       - if: runner.os != 'Windows'
         run: nix develop -c just check
@@ -80,8 +80,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            desktop/target
-          key: cargo-test-${{ matrix.target }}-${{ hashFiles('desktop/Cargo.lock') }}
+            target
+          key: cargo-test-${{ matrix.target }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: cargo-test-${{ matrix.target }}-
       # Linux CI is headless: tests that touch display/GUI APIs (screen bounds,
       # window creation) SIGSEGV without an X server. Provide a virtual one via
@@ -132,7 +132,7 @@ jobs:
           # (Arto_<version>_<arch>-setup.exe); see the justfile bundle recipes.
           - target: macos
             os: macos-latest
-            artifacts: ./desktop/target/dx/arto/bundle/**/*.dmg
+            artifacts: ./target/dx/arto/bundle/**/*.dmg
             # The devShell used to supply a prebuilt `dx`; building natively
             # adds a ~10m `cargo install dioxus-cli` whenever the cache misses,
             # which no longer fits the old 30m budget.
@@ -140,24 +140,24 @@ jobs:
           - target: ubuntu
             os: ubuntu-latest
             artifacts: |
-              ./desktop/target/dx/arto/bundle/**/*.deb
-              ./desktop/target/dx/arto/bundle/**/*.AppImage
+              ./target/dx/arto/bundle/**/*.deb
+              ./target/dx/arto/bundle/**/*.AppImage
             # A cold cargo cache pushes the full release build past 30m on the
             # Linux runners (same class of build the nix-check job budgets 60m for).
             timeout: 60
           - target: ubuntu-arm64
             os: ubuntu-24.04-arm
             artifacts: |
-              ./desktop/target/dx/arto/bundle/**/*.deb
-              ./desktop/target/dx/arto/bundle/**/*.AppImage
+              ./target/dx/arto/bundle/**/*.deb
+              ./target/dx/arto/bundle/**/*.AppImage
             timeout: 60
           - target: windows
             os: windows-latest
-            artifacts: ./desktop/target/dx/arto/bundle/**/*-setup.exe
+            artifacts: ./target/dx/arto/bundle/**/*-setup.exe
             timeout: 60
           - target: windows-arm64
             os: windows-11-arm
-            artifacts: ./desktop/target/dx/arto/bundle/**/*-setup.exe
+            artifacts: ./target/dx/arto/bundle/**/*-setup.exe
             timeout: 60
     steps:
       - uses: actions/checkout@v7
@@ -179,8 +179,8 @@ jobs:
             # ~/.cargo/bin: restoring the whole directory could clobber the
             # rustup/cargo shims installed earlier in the job.
             ~/.cargo/bin/dx*
-            desktop/target
-          key: cargo-build-${{ matrix.target }}-${{ hashFiles('desktop/Cargo.lock') }}
+            target
+          key: cargo-build-${{ matrix.target }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: cargo-build-${{ matrix.target }}-
       # `just build` drives `dx bundle`, so every leg needs dioxus-cli.
       # Version-matched to the devShell's dioxus-cli so local and CI bundles
@@ -217,15 +217,15 @@ jobs:
         run: |
           VERSION="${{ github.event.release.tag_name }}"
           VERSION="${VERSION#v}"
-          perl -i -pe 's/^version = "0\.0\.0"/version = "'"${VERSION}"'"/' desktop/Cargo.toml
-          echo "${VERSION}" > desktop/VERSION
+          perl -i -pe 's/^version = "0\.0\.0"/version = "'"${VERSION}"'"/' Cargo.toml
+          echo "${VERSION}" > crates/arto/VERSION
       - name: Set package version (Windows)
         if: github.event_name == 'release' && runner.os == 'Windows'
         shell: pwsh
         run: |
           $v = "${{ github.event.release.tag_name }}" -replace '^v', ''
-          (Get-Content desktop/Cargo.toml) -replace '^version = "0\.0\.0"', "version = `"$v`"" | Set-Content desktop/Cargo.toml
-          Set-Content -NoNewline desktop/VERSION $v
+          (Get-Content Cargo.toml) -replace '^version = "0\.0\.0"', "version = `"$v`"" | Set-Content Cargo.toml
+          Set-Content -NoNewline crates/arto/VERSION $v
       - run: just build
       # Refuse to publish a bundle that carries build-environment dependencies
       # or that cannot start. Windows never sees a Nix toolchain, so there is
@@ -299,7 +299,7 @@ jobs:
       - name: Write version file
         run: |
           VERSION=$(git describe --tags --always)
-          echo "${VERSION#v}" > desktop/VERSION
+          echo "${VERSION#v}" > crates/arto/VERSION
       - run: nix build
     # A cold cache (e.g. after a source-hash bump invalidates `arto-deps`)
     # makes the full dependency + crate build exceed 30m on the ubuntu runner,

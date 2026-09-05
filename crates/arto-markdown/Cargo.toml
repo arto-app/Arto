@@ -1,8 +1,10 @@
 [package]
 name = "arto-markdown"
-version = "0.0.0"
-authors = ["Alisue <lambdalisue@gmail.com>"]
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 anyhow = "1"

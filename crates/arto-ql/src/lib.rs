@@ -30,7 +30,7 @@ use std::path::{Path, PathBuf};
 use std::ptr;
 
 /// The renderer stylesheet, embedded at compile time.
-const RENDERER_CSS: &str = include_str!("../../desktop/assets/dist/main.css");
+const RENDERER_CSS: &str = include_str!("../../arto/assets/dist/main.css");
 
 /// Quick Look-specific style overrides, applied after [`RENDERER_CSS`].
 ///
@@ -43,7 +43,7 @@ const QL_OVERRIDE_CSS: &str = "html,body{overflow:auto!important;height:auto!imp
 
 /// The renderer bundle (IIFE build exposing `window.ArtoRenderer`), embedded
 /// at compile time.
-const RENDERER_JS: &str = include_str!("../../desktop/assets/dist/main.iife.js");
+const RENDERER_JS: &str = include_str!("../../arto/assets/dist/main.iife.js");
 
 /// The inline bootstrap script. Picks the initial theme from
 /// `prefers-color-scheme` (the renderer reads `document.body`'s `data-theme`

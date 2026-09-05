@@ -1,0 +1,16 @@
+[package]
+name = "arto-ql"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "arto_ql"
+crate-type = ["staticlib"]
+
+[dependencies]
+arto-markdown = { path = "../arto-markdown" }
+base64 = "0.22"
+sha2 = "0.10"

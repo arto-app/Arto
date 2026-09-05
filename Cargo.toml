@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+# No `default-members`: dioxus-cli 0.7 canonicalizes those paths relative to
+# the directory it is invoked from, so `dx bundle` run inside crates/arto
+# panics when the list names `crates/arto`. Building every member by default
+# is cheap (the Quick Look static library is tiny) and keeps `dx` working.
+
+[workspace.package]
+# Stays 0.0.0 in git; CI stamps the release tag here before bundling
+# (see .github/workflows/build.yml and crates/arto/build.rs).
+version = "0.0.0"
+authors = ["Alisue <lambdalisue@gmail.com>"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/arto-app/Arto"
+
+[patch.crates-io]
+# Fix overlapping cfg conditions that cause duplicate function definitions on Linux.
+# https://github.com/DioxusLabs/sdk/pull/103
+dioxus-sdk-window = { git = "https://github.com/iynaix/dioxus-sdk", rev = "28fc2264" }
