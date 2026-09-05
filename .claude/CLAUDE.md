@@ -55,7 +55,7 @@ When a new Arto process launches:
 {"type":"reopen"}
 ```
 
-**Implementation:** See `desktop/src/ipc.rs` for detailed architecture documentation.
+**Implementation:** See `crates/arto/src/ipc.rs` for detailed architecture documentation.
 
 **Why single-instance:** Prevents multiple processes from conflicting over file watches, configuration writes, and persisted state management.
 
@@ -367,7 +367,7 @@ use_effect(move || {
 
 **Event-based coordination between windows using broadcast channels:**
 
-Arto uses broadcast channels for multi-window features. See `desktop/src/events.rs` for detailed architecture documentation.
+Arto uses broadcast channels for multi-window features. See `crates/arto/src/events.rs` for detailed architecture documentation.
 
 #### 1. Tab Transfers
 

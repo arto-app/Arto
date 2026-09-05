@@ -26,7 +26,7 @@ This skill guides you through adding a new icon from Tabler Icons to the project
    - Just run `just dev` or `cargo build`
 
 4. **Add Rust Enum Variant**
-   - Edit `desktop/src/components/icon.rs`
+   - Edit `crates/arto/src/components/icon.rs`
    - Add variant to `IconName` enum (use PascalCase)
    - Add case to `Display` implementation
 
@@ -41,7 +41,7 @@ This skill guides you through adding a new icon from Tabler Icons to the project
 ]
 ```
 
-**desktop/src/components/icon.rs:**
+**crates/arto/src/components/icon.rs:**
 ```rust
 pub enum IconName {
     Folder,

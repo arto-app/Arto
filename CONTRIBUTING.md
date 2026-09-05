@@ -70,10 +70,16 @@ The binary will be available at `target/release/arto` or `target/dx/arto/bundle/
 
 ```
 Arto/
-├── desktop/          # Main desktop application (Dioxus)
-│   ├── src/          # Rust source code
-│   └── assets/       # Static assets (CSS, images, welcome.md)
-├── extras/           # Additional resources (icons, README images)
+├── Cargo.toml        # Cargo workspace (members = crates/*)
+├── crates/
+│   ├── arto/         # Desktop application (Dioxus): src/, assets/, Dioxus.toml
+│   ├── arto-markdown/ # Markdown → HTML rendering library shared by the app and Quick Look
+│   └── arto-ql/      # Quick Look FFI static library (macOS)
+├── renderer/         # WebView-side TypeScript and CSS (pnpm + Vite)
+├── ql-extension/     # macOS Quick Look extension (Swift shim)
+├── extras/           # Bundle metadata (Info.plist, icons) and README images
+├── scripts/          # Dev loop and release verification scripts
+├── example/          # Sample Markdown files for manual testing
 └── flake.nix         # Nix flake for reproducible builds
 ```
 

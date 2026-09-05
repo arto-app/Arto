@@ -8,7 +8,7 @@
 ; the macOS bundle declares as CFBundleDocumentTypes in extras/mac/Info.plist;
 ; keep the two extension lists in step.
 ;
-; Wired up through `[bundle.windows.nsis] installer_hooks` in desktop/Dioxus.toml.
+; Wired up through `[bundle.windows.nsis] installer_hooks` in crates/arto/Dioxus.toml.
 ; The template `!include`s this file at top level, between the install and the
 ; uninstall section, so it may only define sections and macros — never bare
 ; statements. The installer shows no components page, so the section names here

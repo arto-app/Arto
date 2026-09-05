@@ -20,7 +20,7 @@ Practical lessons learned from developing Arto. These tips complement the archit
 
 **❌ Don't:**
 ```
-desktop/src/
+crates/arto/src/
   utils/
     mod.rs      # Old style
     helper.rs
@@ -28,7 +28,7 @@ desktop/src/
 
 **✅ Do:**
 ```
-desktop/src/
+crates/arto/src/
   utils.rs      # Module declaration
   utils/
     helper.rs   # Submodule
@@ -41,7 +41,7 @@ desktop/src/
 **When a module grows beyond ~300 lines, split it:**
 
 ```
-desktop/src/config/
+crates/arto/src/config/
   ├── config.rs       # Entry point (re-exports only)
   ├── types.rs        # Type definitions
   ├── persistence.rs  # File I/O
@@ -66,7 +66,7 @@ pub use getters::{get_startup_theme, get_new_window_theme};
 **❌ Don't create separate modules for closely related functionality:**
 
 ```
-desktop/src/
+crates/arto/src/
   session/        # Separate module for Session
     types.rs
     persistence.rs
@@ -78,7 +78,7 @@ desktop/src/
 **✅ Do group related functionality:**
 
 ```
-desktop/src/state/
+crates/arto/src/state/
   ├── types.rs        # AppState, Tab, etc.
   ├── globals.rs      # Global variables
   └── persistence.rs  # PersistedState (subset of AppState)
@@ -546,7 +546,7 @@ tracing::debug!("Processing batch of {} items", items.len());
 - Use request/response patterns for fire-and-forget operations
 - Implement acknowledgment systems for desktop app window communication
 
-**Note:** This refers to broadcast channels between windows WITHIN the same process. For inter-process IPC (secondary → primary instance), see `desktop/src/ipc.rs`.
+**Note:** This refers to broadcast channels between windows WITHIN the same process. For inter-process IPC (secondary → primary instance), see `crates/arto/src/ipc.rs`.
 
 **✅ Do:**
 ```rust
@@ -676,7 +676,7 @@ Adding new setting?
 **Moving fields between structs requires careful tracking:**
 - When moving `root_directory` from `Sidebar` to `AppState.directory`, update ALL usage sites
 - Boolean field renames with logic inversion (`hide_non_markdown` → `show_all_files`) are especially error-prone
-- Use grep to find all occurrences: `grep -r "hide_non_markdown" desktop/src/`
+- Use grep to find all occurrences: `grep -r "hide_non_markdown" crates/arto/src/`
 - Critical: Inverted logic means `true` → `false` and vice versa in conditions
 
 **Simplifying field names:**
@@ -850,13 +850,13 @@ use_drop(move || {
 
 **Anti-pattern: Grouping by concept**
 ```
-desktop/src/state/globals.rs    # ← Contains event channels because "global"
+crates/arto/src/state/globals.rs    # ← Contains event channels because "global"
 ```
 
 **Good pattern: Grouping by usage scope**
 ```
-desktop/src/events.rs                    # ← Broadcast channels (multiple files)
-desktop/src/components/main_app.rs       # ← OpenEvent + mpsc receiver (2 files only)
+crates/arto/src/events.rs                    # ← Broadcast channels (multiple files)
+crates/arto/src/components/main_app.rs       # ← OpenEvent + mpsc receiver (2 files only)
 ```
 
 **Decision tree for placement:**
