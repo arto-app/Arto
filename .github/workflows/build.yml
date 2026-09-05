@@ -5,6 +5,13 @@ on:
     branches:
       - "main"
   pull_request:
+    # Documentation-only pull requests have nothing for check/test to verify,
+    # and every leg is a cold Nix + cargo build. main has no required status
+    # checks, so skipping the run leaves the PR mergeable.
+    paths-ignore:
+      - "**.md"
+      - "example/**"
+      - "docs/**"
   release:
     types: [published]
   workflow_dispatch:
