@@ -1,5 +1,6 @@
 [package]
 name = "arto"
+description = "Arto, the Art of Reading Markdown"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -12,10 +13,11 @@ repository.workspace = true
 anyhow.workspace = true
 arboard = "3.6.1"
 arto-markdown = { path = "../arto-markdown" }
+arto-page = { path = "../arto-page" }
 base64.workspace = true
 dark-light = "3.0.0"
 chrono = { version = "0.4", features = ["serde"] }
-clap = { version = "4", features = ["derive"] }
+clap.workspace = true
 compile-time = "0.3"
 dirs = "7.0.0"
 interprocess = { version = "2.4", features = ["tokio"] }
@@ -35,7 +37,7 @@ rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal"] 
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0"
 sha2.workspace = true
-thiserror = "2.0.18"
+thiserror.workspace = true
 tokio = { version = "1.52.3", features = ["time"] }
 tracing.workspace = true
 ureq = "3.4"

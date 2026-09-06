@@ -1,5 +1,5 @@
 use arto::cli::{CliInvocation, CliOpenMode};
-use clap::{Parser, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 const VERSION: &str = concat!(
@@ -34,9 +34,16 @@ enum OpenModeArg {
         \x20 arto --open=new README.md\n\
         \x20 arto --directory=. README.md\n\
         \x20 arto docs/               Open a directory in the file explorer\n\
-        \x20 arto file1.md file2.md   Open multiple files in tabs"
+        \x20 arto file1.md file2.md   Open multiple files in tabs\n\
+        \x20 arto page README.md      Print README.md as a self-contained HTML page",
+    // Subcommands and the open-paths form are exclusive, so `arto page` is
+    // never mistaken for a request to open a file called `page` (use
+    // `arto ./page` for that).
+    args_conflicts_with_subcommands = true
 )]
 struct Cli {
+    #[command(subcommand)]
+    command: Option<Command>,
     /// Open target selection mode (default: use fileOpen setting from config.json)
     #[arg(long, value_enum)]
     open: Option<OpenModeArg>,
@@ -46,6 +53,12 @@ struct Cli {
     /// Files or directories to open
     #[arg()]
     paths: Vec<PathBuf>,
+}
+
+#[derive(Debug, Subcommand)]
+enum Command {
+    /// Render a Markdown file into a self-contained HTML page
+    Page(arto_page::cli::PageArgs),
 }
 
 fn main() {
@@ -81,6 +94,18 @@ fn main() {
     }
 
     let cli = Cli::parse();
+
+    // Subcommands run to completion here, before any of the single-instance
+    // machinery: rendering a page must not be forwarded to a running Arto.
+    if let Some(Command::Page(args)) = cli.command {
+        if let Err(err) = arto_page::cli::run(&args) {
+            // `{:#}` on an anyhow error prints the whole cause chain.
+            eprintln!("arto page: {:#}", anyhow::Error::from(err));
+            std::process::exit(1);
+        }
+        return;
+    }
+
     let open_mode = match cli.open {
         Some(OpenModeArg::Screen) => CliOpenMode::CurrentScreen,
         Some(OpenModeArg::New) => CliOpenMode::NewWindow,

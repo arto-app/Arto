@@ -186,6 +186,17 @@ Arto runs as a **single instance** — if Arto is already running, the command s
 - Positional directory arguments (e.g. `arto docs/`) also set the root directory.
 - Running `arto` without arguments shows/focuses an existing window if hidden, or opens one if none exists.
 
+### Rendering to a standalone HTML page
+
+`arto page` renders a Markdown file into a single HTML file that carries Arto's stylesheet and rendering code inline, so it opens in any browser without the app (Mermaid diagrams and math included):
+
+```
+arto page README.md > README.html
+arto page --output out.html docs/guide.md
+```
+
+The page ships with a Content-Security-Policy that blocks any script embedded in the Markdown; pass `--no-csp` only for input you trust. The same command is available as the standalone `arto-page` binary (the `arto-page` crate) for machines without the app.
+
 [Homebrew]: https://brew.sh/
 [homebrew-tap]: https://github.com/arto-app/homebrew-tap
 [releases]: https://github.com/arto-app/Arto/releases
