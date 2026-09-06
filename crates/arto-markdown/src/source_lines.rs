@@ -30,13 +30,19 @@ fn clamp_to_char_boundary(text: &str, offset: usize) -> usize {
 ///
 /// For code blocks, `<pre>` receives `data-source-line-start="N"` indicating where
 /// the code content begins.  The frontend counts newlines from there for per-line tracking.
+///
+/// `heading_ids` are written onto the headings in document order and take
+/// precedence over an explicit `{#id}` attribute; pass an empty list to
+/// leave headings without generated ids.
 pub(super) fn inject_source_lines_impl<'a, F>(
     parser: impl Iterator<Item = (Event<'a>, Range<usize>)> + 'a,
     line_fn: F,
+    heading_ids: Vec<String>,
 ) -> impl Iterator<Item = Event<'a>> + 'a
 where
     F: Fn(usize) -> usize + 'a,
 {
+    let mut heading_ids = heading_ids.into_iter();
     parser.map(move |(event, range)| {
         let line = || line_fn(range.start);
         let line_end = || line_fn(range.end.saturating_sub(1).max(range.start));
@@ -52,6 +58,9 @@ where
                 attrs,
             }) => {
                 let mut html = format!("<{} data-source-line=\"{}\"", level, line());
+                let id = heading_ids
+                    .next()
+                    .or_else(|| id.map(|explicit| explicit.to_string()));
                 if let Some(id) = id {
                     html.push_str(&format!(
                         " id=\"{}\"",
@@ -207,15 +216,20 @@ pub(super) fn inject_source_lines<'a>(
     processed_markdown: &'a str,
     line_origins: &'a [usize],
     frontmatter_lines: usize,
+    heading_ids: Vec<String>,
 ) -> impl Iterator<Item = Event<'a>> + 'a {
-    inject_source_lines_impl(parser, move |byte_offset| {
-        let processed_line = byte_offset_to_line(processed_markdown, byte_offset) - 1; // 0-based
-        let original_line = line_origins
-            .get(processed_line)
-            .copied()
-            .unwrap_or(processed_line);
-        original_line + 1 + frontmatter_lines // 1-based
-    })
+    inject_source_lines_impl(
+        parser,
+        move |byte_offset| {
+            let processed_line = byte_offset_to_line(processed_markdown, byte_offset) - 1; // 0-based
+            let original_line = line_origins
+                .get(processed_line)
+                .copied()
+                .unwrap_or(processed_line);
+            original_line + 1 + frontmatter_lines // 1-based
+        },
+        heading_ids,
+    )
 }
 
 /// Extract source-line ranges for table elements before `inject_source_lines` consumes

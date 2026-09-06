@@ -1,5 +1,6 @@
-use pulldown_cmark::{html, Options, Parser};
+use pulldown_cmark::{html, Parser};
 
+use super::parser_options;
 use super::source_lines::{byte_offset_to_line, inject_source_lines_impl};
 
 /// Get SVG icon placeholder for alert type (actual SVG injected by JavaScript)
@@ -78,16 +79,19 @@ fn process_alert_block(
     // Render the collected content as markdown with source line annotations
     if !content_lines.is_empty() {
         let content_markdown = content_lines.join("\n");
-        let options = Options::all();
-        let parser = Parser::new_ext(&content_markdown, options).into_offset_iter();
-        let parser = inject_source_lines_impl(parser, |byte_offset| {
-            let content_line = byte_offset_to_line(&content_markdown, byte_offset) - 1; // 0-based
-            let original_line = content_origins
-                .get(content_line)
-                .copied()
-                .unwrap_or(content_line);
-            original_line + 1 + frontmatter_lines // 1-based
-        });
+        let parser = Parser::new_ext(&content_markdown, parser_options()).into_offset_iter();
+        let parser = inject_source_lines_impl(
+            parser,
+            |byte_offset| {
+                let content_line = byte_offset_to_line(&content_markdown, byte_offset) - 1; // 0-based
+                let original_line = content_origins
+                    .get(content_line)
+                    .copied()
+                    .unwrap_or(content_line);
+                original_line + 1 + frontmatter_lines // 1-based
+            },
+            Vec::new(),
+        );
         let mut content_html = String::new();
         html::push_html(&mut content_html, parser);
         html_lines.push(content_html);

@@ -126,55 +126,65 @@ use alerts::process_github_alerts;
 use anyhow::Result;
 use event_processors::{extend_table_ranges, process_code_blocks, process_math_expressions};
 use frontmatter::extract_and_render_frontmatter;
-use headings::extract_headings;
-use post_process::{post_process_html_tags, post_process_html_with_headings};
+use headings::collect_headings;
+use post_process::post_process_html_tags;
 use pulldown_cmark::{html, Options, Parser};
 use source_lines::{extract_table_source_lines, inject_source_lines};
 use std::path::{Path, PathBuf};
 
-/// Intermediate result from the common markdown parsing pipeline.
+/// The parser configuration every parse in this crate uses.
 ///
-/// Contains all data needed for post-processing, allowing the two public
-/// render functions to share the parsing logic while differing only in
-/// how they post-process the raw HTML output.
+/// Rendering, alert bodies and the selection source map must parse the
+/// same way, or a selection in the rendered view maps onto a differently
+/// shaped document.
+pub(crate) fn parser_options() -> Options {
+    Options::all()
+}
+
+/// Everything the render functions need after the document was parsed.
 struct PipelineResult {
     raw_html: String,
     frontmatter_html: String,
     base_dir: PathBuf,
     table_source_lines: Vec<(usize, usize)>,
+    headings: Vec<HeadingInfo>,
 }
 
-/// Run the common markdown parsing pipeline: frontmatter extraction,
-/// GitHub alert preprocessing, pulldown-cmark parsing, source line
-/// injection, and HTML generation.
-fn run_pipeline(markdown: &str, base_path: &Path, auto_link_urls: bool) -> PipelineResult {
+/// Run the pipeline up to the raw HTML: frontmatter extraction, text
+/// pre-processing, one parse, source line injection and HTML generation.
+///
+/// With `with_toc`, the headings are collected from the same parse and
+/// their ids are written onto the rendered headings; without it, no
+/// heading work is done and `headings` comes back empty.
+fn run_pipeline(
+    markdown: &str,
+    base_path: &Path,
+    auto_link_urls: bool,
+    with_toc: bool,
+) -> PipelineResult {
     let base_dir = base_path
         .parent()
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| PathBuf::from("."));
 
-    // Extract frontmatter if present
     let (frontmatter_html, content, frontmatter_lines) = extract_and_render_frontmatter(markdown);
 
-    // Convert bare URLs to <URL> autolinks before any parsing (if enabled)
     let content = if auto_link_urls {
         autolinks::preprocess_autolinks(&content)
     } else {
         content
     };
 
-    // Process GitHub alerts (returns line origin mapping for correct source line tracking)
     let (processed_markdown, line_origins) = process_github_alerts(&content, frontmatter_lines);
 
-    // Parse Markdown with offset tracking and process blocks
-    let options = Options::all();
-    let parser = Parser::new_ext(&processed_markdown, options).into_offset_iter();
+    let parser = Parser::new_ext(&processed_markdown, parser_options()).into_offset_iter();
     let parser = extend_table_ranges(parser);
     let parser = process_code_blocks(parser, "mermaid");
     let parser = process_code_blocks(parser, "math");
     let parser = process_math_expressions(parser);
 
-    // Collect events to extract table source lines before inject_source_lines consumes ranges
+    // The events are needed twice: once to read positions and headings,
+    // once to render. Injection consumes the ranges.
     let events: Vec<_> = parser.collect();
     let table_source_lines = extract_table_source_lines(
         &events,
@@ -182,15 +192,22 @@ fn run_pipeline(markdown: &str, base_path: &Path, auto_link_urls: bool) -> Pipel
         &line_origins,
         frontmatter_lines,
     );
+    let (headings, heading_ids) = if with_toc {
+        let headings = collect_headings(&events);
+        let ids = headings.iter().map(|h| h.id.clone()).collect();
+        (headings, ids)
+    } else {
+        (Vec::new(), Vec::new())
+    };
 
     let parser = inject_source_lines(
         events.into_iter(),
         &processed_markdown,
         &line_origins,
         frontmatter_lines,
+        heading_ids,
     );
 
-    // Convert to HTML
     let mut raw_html = String::new();
     html::push_html(&mut raw_html, parser);
 
@@ -199,6 +216,7 @@ fn run_pipeline(markdown: &str, base_path: &Path, auto_link_urls: bool) -> Pipel
         frontmatter_html,
         base_dir,
         table_source_lines,
+        headings,
     }
 }
 
@@ -223,6 +241,7 @@ pub fn render_to_html(
         markdown.as_ref(),
         base_path.as_ref(),
         options.auto_link_urls,
+        false,
     );
 
     let html_output = post_process_html_tags(
@@ -242,20 +261,22 @@ pub fn render_to_html_with_toc(
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
 ) -> Result<(String, Vec<HeadingInfo>)> {
-    let markdown = markdown.as_ref();
-    let headings = extract_headings(markdown, options.auto_link_urls);
-    let pipeline = run_pipeline(markdown, base_path.as_ref(), options.auto_link_urls);
+    let pipeline = run_pipeline(
+        markdown.as_ref(),
+        base_path.as_ref(),
+        options.auto_link_urls,
+        true,
+    );
 
-    let html_output = post_process_html_with_headings(
+    let html_output = post_process_html_tags(
         &pipeline.raw_html,
         &pipeline.base_dir,
-        &headings,
         &pipeline.table_source_lines,
     );
 
     Ok((
         prepend_frontmatter(&pipeline.frontmatter_html, html_output),
-        headings,
+        pipeline.headings,
     ))
 }
 

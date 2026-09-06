@@ -366,6 +366,69 @@ fn duplicate_headings_get_numbered_ids() {
 }
 
 #[test]
+fn heading_ids_are_written_only_when_a_toc_is_requested() {
+    let markdown = "# Title\n\n## Section {#custom}\n";
+    let (with_toc, headings) = render_to_html_with_toc(
+        markdown,
+        Path::new("/nonexistent/test.md"),
+        &RenderOptions::default(),
+    )
+    .expect("renders");
+    let plain = render(markdown);
+
+    assert_eq!(headings.len(), 2);
+    assert!(
+        with_toc.contains(r#"<h1 data-source-line="1" id="title">"#),
+        "{with_toc}"
+    );
+    // The generated id replaces an explicit one, so the TOC always finds its target.
+    assert!(
+        with_toc.contains(r#"<h2 data-source-line="3" id="section">"#),
+        "{with_toc}"
+    );
+    assert!(plain.contains(r#"<h1 data-source-line="1">"#), "{plain}");
+    assert!(
+        plain.contains(r#"<h2 data-source-line="3" id="custom">"#),
+        "{plain}"
+    );
+}
+
+#[test]
+fn headings_inside_raw_html_do_not_shift_ids() {
+    // A heading written as HTML is not a Markdown heading: it gets no id
+    // and must not consume the id of the Markdown heading after it.
+    let markdown = "<h2>Raw</h2>\n\n## Real\n";
+    let (with_toc, headings) = render_to_html_with_toc(
+        markdown,
+        Path::new("/nonexistent/test.md"),
+        &RenderOptions::default(),
+    )
+    .expect("renders");
+
+    let texts: Vec<&str> = headings.iter().map(|h| h.text.as_str()).collect();
+    assert_eq!(texts, ["Real"]);
+    assert!(with_toc.contains("<h2>Raw</h2>"), "{with_toc}");
+    assert!(
+        with_toc.contains(r#"<h2 data-source-line="3" id="real">"#),
+        "{with_toc}"
+    );
+}
+
+#[test]
+fn a_document_without_headings_has_an_empty_toc() {
+    let (html, headings) = render_to_html_with_toc(
+        "Just text.",
+        Path::new("/nonexistent/test.md"),
+        &RenderOptions::default(),
+    )
+    .expect("renders");
+
+    assert!(headings.is_empty());
+    assert!(html.contains("Just text."));
+    assert!(!html.contains(" id="), "{html}");
+}
+
+#[test]
 fn frontmatter_is_not_a_heading() {
     let headings = headings(indoc! {"
         ---
