@@ -29,7 +29,7 @@ jobs:
   # Which parts of the tree a pull request touches. Everything is "true" on
   # pushes and manual runs.
   changes:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     outputs:
       code: ${{ steps.detect.outputs.code }}
@@ -88,7 +88,7 @@ jobs:
   frontend:
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     defaults:
       run:
@@ -135,9 +135,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { target: macos, os: macos-latest }
-          - { target: ubuntu, os: ubuntu-latest }
-          - { target: windows, os: windows-latest }
+          - { target: macos, os: blacksmith-6vcpu-macos-15 }
+          - { target: ubuntu, os: blacksmith-4vcpu-ubuntu-2404 }
+          - { target: windows, os: blacksmith-4vcpu-windows-2025 }
     steps:
       - uses: actions/checkout@v7
         with:
@@ -218,7 +218,7 @@ jobs:
   flake-eval:
     needs: changes
     if: needs.changes.outputs.code == 'true' || needs.changes.outputs.flake == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -232,7 +232,7 @@ jobs:
   docs:
     needs: changes
     if: needs.changes.outputs.docs == 'true' || needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -247,7 +247,7 @@ jobs:
   # The workflow files themselves: syntax and expression errors (actionlint),
   # then security smells such as template injection (zizmor).
   workflows:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -281,7 +281,7 @@ jobs:
   ci:
     needs: [changes, frontend, rust, flake-eval, docs, workflows, bundle, nix]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     steps:
       - env:
