@@ -1,3 +1,113 @@
+//! Arto's Markdown to HTML pipeline.
+//!
+//! One rendering path serves the desktop app, `arto page` and the Quick
+//! Look extension, so the HTML this crate produces is a contract: the
+//! frontend scripts, the app and the stylesheets read the attributes and
+//! class names listed below by name. Changing any of them means changing
+//! every reader in the same step, and the sample documents under
+//! `samples/` are snapshot-tested (`tests/samples.rs`) so that an unintended
+//! change shows up as a diff.
+//!
+//! # Pipeline
+//!
+//! 1. **Frontmatter.** A leading YAML block is cut off and rendered to a
+//!    `<details class="frontmatter">` table that is prepended to the
+//!    output at the very end. The lines it occupied are added to every
+//!    source line below it.
+//! 2. **Text pre-processing.** Bare URLs become `<URL>` autolinks (when
+//!    [`RenderOptions::auto_link_urls`] is set) and GitHub alerts
+//!    (`> [!NOTE]`) are rendered to HTML before the parser sees them. The
+//!    first keeps the line count; the second records which original line
+//!    each processed line came from, so source lines stay correct.
+//! 3. **Parsing and rendering.** pulldown-cmark with every extension.
+//!    Fenced `mermaid` and `math` blocks and `$…$` expressions are replaced
+//!    by the `preprocessed-*` containers described below, and block
+//!    elements receive their `data-source-line` attributes.
+//! 4. **Post-processing** with lol_html: local images are inlined as data
+//!    URLs, local Markdown links become `<span class="md-link">`, tables get
+//!    their source lines, and headings get their ids when a table of
+//!    contents was requested.
+//!
+//! # HTML contract
+//!
+//! ## Source lines
+//!
+//! Block elements carry `data-source-line="N"`, the 1-based line of the
+//! file where the block starts: `p`, `h1`–`h6`, `blockquote`, `hr`, `tr`
+//! and `div.markdown-alert`. Blocks that span several lines also carry
+//! `data-source-line-end="N"`: `ul`, `ol`, `li`, `table`, `pre` and
+//! `div.preprocessed-math-display`. Code blocks additionally carry
+//! `data-source-line-start="N"`, the line their content starts on (the
+//! line after the fence, or the same line for an indented block), so the
+//! frontend can count newlines inside `<code>` down to the exact line.
+//!
+//! Readers: `frontend/src/context-menu-handler.ts` (copy path with line)
+//! and `frontend/src/content-cursor.ts` (keyboard cursor) resolve line
+//! ranges from these; the app receives the range through
+//! `crates/arto/src/components/content/context_menu/data.rs` and turns it
+//! back into text in `crates/arto/src/utils/source_lines.rs`.
+//!
+//! ## Mermaid and math
+//!
+//! The frontend renders diagrams and formulas client-side, so the pipeline
+//! emits containers that hold the source text twice: escaped as the
+//! visible fallback, and in `data-original-content` for the renderer.
+//!
+//! - ` ```mermaid ` → `<pre class="preprocessed-mermaid" data-original-content="…">`
+//! - ` ```math ` → `<pre class="preprocessed-math" data-original-content="…">`
+//! - `$$…$$` → `<div class="preprocessed-math-display" data-original-content="…">`
+//! - `$…$` → `<span class="preprocessed-math-inline" data-original-content="…">`
+//!
+//! Readers: `frontend/src/mermaid-renderer.ts`, `frontend/src/math-renderer.ts`,
+//! `frontend/src/code-copy.ts` (copy as image), `frontend/src/content-cursor.ts`,
+//! `frontend/src/context-menu-handler.ts`, `frontend/src/render-coordinator.ts`
+//! and `crates/arto/src/keybindings/dispatcher.rs` (open in a window);
+//! styled by `frontend/style/components/content/markdown-viewer.css`,
+//! `frontend/style/components/mermaid-window.css`,
+//! `frontend/style/components/math-window.css` and `frontend/style/print.css`.
+//!
+//! ## GitHub alerts
+//!
+//! `> [!NOTE]` and the other kinds become
+//! `<div class="markdown-alert markdown-alert-<kind>" dir="auto">` with a
+//! `<p class="markdown-alert-title">` holding
+//! `<span class="alert-icon" data-alert-type="<kind>">` and the kind name.
+//! The class names are GitHub's, so `github-markdown-css` styles them; the
+//! icon span is filled in by the frontend.
+//!
+//! ## Frontmatter
+//!
+//! `<details class="frontmatter">` wraps `<summary class="frontmatter-summary">`
+//! and `<table class="frontmatter-table">`. Values are typed with
+//! `yaml-null`, `yaml-bool`, `yaml-number`, `yaml-empty`, `yaml-list` and
+//! `yaml-nested`; styled by `frontend/style/components/content/frontmatter.css`.
+//!
+//! ## Links and images
+//!
+//! A link to a local file becomes `<span class="md-link" data-md-link="…">`
+//! with an inline `onmousedown` that calls
+//! `window.handleMarkdownLinkClick(path, button)`, which the app installs
+//! in `crates/arto/src/components/content/file_viewer.rs`. Links to files
+//! that are not Markdown add `md-link-invalid`. `http(s)` links stay
+//! anchors. Local images are inlined as `data:` URLs so the page works
+//! offline and in Quick Look; readers of `data-md-link` and `.md-link` are
+//! the app and `frontend/style/components/content/markdown-viewer.css`.
+//!
+//! ## Headings
+//!
+//! [`render_to_html_with_toc`] returns [`HeadingInfo`] for every heading
+//! and sets the same `id` on the rendered `h1`–`h6`, so the table of
+//! contents (`crates/arto/src/components/right_sidebar/contents_tab.rs`)
+//! can scroll to it with `getElementById`. The id is derived from the
+//! heading text and replaces an explicit `{#id}` attribute.
+//! [`render_to_html`] adds no ids; only an explicit `{#id}` survives.
+//!
+//! ## Code blocks
+//!
+//! `<pre><code class="language-<lang>">` as pulldown-cmark writes it; the
+//! frontend highlights by that class and `frontend/src/code-copy.ts` adds
+//! the copy button to every `pre`.
+
 mod alerts;
 mod autolinks;
 mod event_processors;
