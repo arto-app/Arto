@@ -20,8 +20,6 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    /* Path resolution */
-    "baseUrl": ".",
     "types": [
       "node",
       "vite/client",
