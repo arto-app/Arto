@@ -34,13 +34,16 @@
           inherit (pkgs) lib;
           craneLib = crane.mkLib pkgs;
 
-          # Package metadata - version resolved from VERSION file (CI) or git rev (local)
-          cargoToml = builtins.fromTOML (builtins.readFile ./desktop/Cargo.toml);
-          versionFile = ./desktop/VERSION;
+          # Package metadata - version resolved from VERSION file (CI) or git rev (local).
+          # The version lives in the workspace manifest (`[workspace.package]`),
+          # the package name in the app crate's manifest.
+          workspaceToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+          cargoToml = builtins.fromTOML (builtins.readFile ./crates/arto/Cargo.toml);
+          versionFile = ./crates/arto/VERSION;
           artoVersion =
             if builtins.pathExists versionFile
             then builtins.replaceStrings [ "\n" ] [ "" ] (builtins.readFile versionFile)
-            else "${cargoToml.package.version}-${self.dirtyShortRev or self.shortRev or "unknown"}";
+            else "${workspaceToml.workspace.package.version}-${self.dirtyShortRev or self.shortRev or "unknown"}";
           packageMeta = {
             pname = cargoToml.package.name;
             version = artoVersion;
@@ -100,17 +103,25 @@
           });
 
           commonArgs = {
+            # The workspace root manifest is virtual (no `[package]`), so crane
+            # cannot derive a name for the dependency-only build; give it the
+            # app's.
+            inherit (packageMeta) pname version;
             src = lib.fileset.toSource rec {
-              root = ./desktop;
+              # The Cargo workspace root: every crate under crates/ plus the
+              # non-Rust files the app crate embeds or that Dioxus.toml points at.
+              root = ./.;
               fileset = lib.fileset.unions [
                 (craneLib.fileset.commonCargoSources root)
-                # The shared `arto-markdown` crate is a path dependency nested
-                # under desktop; include its sources for the sandboxed build.
-                (craneLib.fileset.commonCargoSources (root + /markdown))
-                (root + /assets)
-                (root + /Dioxus.toml)
-                (root + /src/keybindings/presets)
-                (lib.fileset.maybeMissing (root + /VERSION))
+                (root + /clippy.toml)
+                (root + /crates/arto/assets)
+                (root + /crates/arto/Dioxus.toml)
+                (root + /crates/arto/src/keybindings/presets)
+                (lib.fileset.maybeMissing (root + /crates/arto/VERSION))
+                # Dioxus.toml references the icon, Info.plist and LICENSE by
+                # relative path from the app crate.
+                (root + /extras)
+                (root + /LICENSE)
               ];
             };
             strictDeps = true;
@@ -150,7 +161,7 @@
 
           # NOTE: The macOS Quick Look preview extension (Swift shim + Rust
           # `arto_ql` static library) is assembled and embedded by the
-          # `dx bundle` path in `desktop/justfile` (`_embed-quicklook`), which
+          # `dx bundle` path in `crates/arto/justfile` (`_embed-quicklook`), which
           # runs on the macOS CI runner with the full Command Line Tools. The
           # Nix build intentionally does not build or embed it.
 
@@ -182,26 +193,24 @@
                 ];
 
               postPatch = ''
-                mkdir -p assets/dist
-                cp -r ${renderer-assets}/* assets/dist/
-
-                # Dioxus.toml references "../extras/mac/Arto.icns" and "../LICENSE"
-                # Copy them from project root to satisfy relative path requirements
-                cp -r ${./extras} ../extras
-                cp ${./LICENSE} ../LICENSE
+                mkdir -p crates/arto/assets/dist
+                cp -r ${renderer-assets}/* crates/arto/assets/dist/
               '';
 
               # Use buildPhaseCargoCommand instead of cargoBuildCommand because crane's
               # additional build argument `--message-format` cannot be passed to dioxus-cli properly.
               # https://crane.dev/API.html#cranelibbuildpackage
+              #
+              # `dx` is run from the app crate so it picks up that crate's
+              # Dioxus.toml; the output still lands in the workspace `target/`.
               buildPhaseCargoCommand =
                 if isDarwin then
                   ''
-                    dx bundle --release --platform desktop --package-types macos
+                    (cd crates/arto && dx bundle --release --platform desktop --package-types macos)
                   ''
                 else
                   ''
-                    dx build --release --platform desktop
+                    (cd crates/arto && dx build --release --platform desktop)
                   '';
 
               # The build output is a platform-specific bundle, and crane cannot infer the

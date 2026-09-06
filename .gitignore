@@ -7,4 +7,4 @@ package-lock.json
 .direnv/
 
 # Build-generated version file (CI only)
-desktop/VERSION
+crates/arto/VERSION

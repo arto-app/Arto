@@ -1,15 +1,17 @@
 [package]
 name = "arto"
-version = "0.0.0"
-authors = ["Alisue <lambdalisue@gmail.com>"]
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0.103"
 arboard = "3.6.1"
-arto-markdown = { path = "markdown" }
+arto-markdown = { path = "../arto-markdown" }
 base64 = "0.22.1"
 dark-light = "2.0.0"
 chrono = { version = "0.4", features = ["serde"] }
@@ -17,7 +19,7 @@ clap = { version = "4", features = ["derive"] }
 compile-time = "0.2"
 dirs = "6.0.0"
 interprocess = { version = "2.2", features = ["tokio"] }
-dioxus = { version = "0.7.9", features = [] }
+dioxus = { version = "0.7.9", features = ["desktop"] }
 dioxus-desktop = "0.7.9"
 dioxus-sdk-window = "0.7.0"
 dotenvy = "0.15.7"
@@ -57,24 +59,3 @@ tracing-oslog = "0.3.0"
 
 [dev-dependencies]
 tempfile = "3.27.0"
-
-[features]
-default = ["desktop"]
-web = ["dioxus/web"]
-desktop = ["dioxus/desktop"]
-mobile = ["dioxus/mobile"]
-
-[profile.wasm-dev]
-inherits = "dev"
-opt-level = 1
-
-[profile.server-dev]
-inherits = "dev"
-
-[profile.android-dev]
-inherits = "dev"
-
-[patch.crates-io]
-# Fix overlapping cfg conditions that cause duplicate function definitions on Linux.
-# https://github.com/DioxusLabs/sdk/pull/103
-dioxus-sdk-window = { git = "https://github.com/iynaix/dioxus-sdk", rev = "28fc2264" }

@@ -1,7 +1,7 @@
 #ifndef ARTO_QL_BRIDGING_H
 #define ARTO_QL_BRIDGING_H
 
-/* C ABI exported by the Rust `arto_ql` static library (see ql-generator). */
+/* C ABI exported by the Rust `arto_ql` static library (see crates/arto-ql). */
 
 /* Render the Markdown file at `path_utf8` to a self-contained HTML document.
  * Returns a Rust-allocated C string, or NULL on failure. Release it ONLY with

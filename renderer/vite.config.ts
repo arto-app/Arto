@@ -56,7 +56,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir:
       process.env.VITE_OUT_DIR ||
-      path.resolve(__dirname, "../desktop/assets/dist"),
+      path.resolve(__dirname, "../crates/arto/assets/dist"),
     // In dev mode, keep existing files for incremental updates
     // In production, clean the directory to avoid shipping stale artifacts
     emptyOutDir: mode === "production",

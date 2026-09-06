@@ -7,7 +7,7 @@ Design patterns and best practices for structuring configuration modules in Rust
 **Organize configuration and state into focused modules:**
 
 ```
-desktop/src/
+crates/arto/src/
 ├── config/
 │   ├── app_config.rs        # Submodule declarations, Config struct, tests
 │   ├── app_config/          # Config type definitions and enums

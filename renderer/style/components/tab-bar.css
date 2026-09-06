@@ -45,7 +45,7 @@
   padding-right: 28px;
   /* Fixed width for consistent sizing and placeholder matching.
    * IMPORTANT: This value must stay in sync with TAB_WIDTH constant
-   * in desktop/src/drag.rs. If you change this width, update that
+   * in crates/arto/src/drag.rs. If you change this width, update that
    * constant to the same value. */
   width: 140px;
   box-sizing: border-box;
@@ -102,7 +102,7 @@
 
 .tab.pinned {
   /* Keep the same fixed width as .tab to stay in sync with TAB_WIDTH in
-   * desktop/src/drag.rs. Adjust only internal layout (padding, content
+   * crates/arto/src/drag.rs. Adjust only internal layout (padding, content
    * max-width) for visual differences. */
   padding: 8px 10px;
 }
