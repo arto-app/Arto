@@ -1,7 +1,5 @@
-use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
-
-use super::alerts::process_github_alerts;
-use super::frontmatter::extract_and_render_frontmatter;
+use pulldown_cmark::{Event, HeadingLevel, Tag, TagEnd};
+use std::ops::Range;
 
 /// Information about a heading extracted from markdown
 #[derive(Debug, Clone, PartialEq)]
@@ -36,33 +34,18 @@ fn generate_slug(text: &str) -> String {
         .join("-")
 }
 
-/// Extract headings from markdown content
-pub(super) fn extract_headings(markdown: &str, auto_link_urls: bool) -> Vec<HeadingInfo> {
-    let options = Options::all();
-
-    // Reuse the renderer's frontmatter detection to stay in sync:
-    // invalid YAML frontmatter is NOT stripped (same as render pipeline).
-    let (_, content, _) = extract_and_render_frontmatter(markdown);
-
-    // Convert bare URLs to <URL> autolinks (consistent with render pipeline, if enabled)
-    let content = if auto_link_urls {
-        super::autolinks::preprocess_autolinks(&content)
-    } else {
-        content
-    };
-
-    // Process GitHub alerts (they contain their own parsing)
-    // frontmatter_lines=0 since extract_headings doesn't need source line tracking
-    let (processed, _) = process_github_alerts(&content, 0);
-    let parser = Parser::new_ext(&processed, options);
-
+/// Collect the headings of a parsed document in order, with unique ids.
+///
+/// Headings inside pre-rendered HTML (alert bodies) are not events and so
+/// are not listed, which matches the rendered output: they get no id.
+pub(super) fn collect_headings(events: &[(Event<'_>, Range<usize>)]) -> Vec<HeadingInfo> {
     let mut headings = Vec::new();
     let mut current_level: Option<u8> = None;
     let mut current_text = String::new();
     let mut slug_counts: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
 
-    for event in parser {
+    for (event, _) in events {
         match event {
             Event::Start(Tag::Heading { level, .. }) => {
                 current_level = Some(match level {
@@ -76,10 +59,10 @@ pub(super) fn extract_headings(markdown: &str, auto_link_urls: bool) -> Vec<Head
                 current_text.clear();
             }
             Event::Text(text) if current_level.is_some() => {
-                current_text.push_str(&text);
+                current_text.push_str(text);
             }
             Event::Code(code) if current_level.is_some() => {
-                current_text.push_str(&code);
+                current_text.push_str(code);
             }
             Event::SoftBreak | Event::HardBreak if current_level.is_some() => {
                 current_text.push(' ');

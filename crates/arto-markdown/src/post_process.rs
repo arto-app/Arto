@@ -3,8 +3,6 @@ use lol_html::{element, HtmlRewriter, Settings};
 use std::io::Read;
 use std::path::Path;
 
-use super::headings::HeadingInfo;
-
 /// Maximum byte size of a local image that will be inlined as a data URL.
 ///
 /// Prevents accidental misreferences (e.g. log files, device files like `/dev/zero`)
@@ -58,30 +56,10 @@ pub(super) fn get_mime_type(path: &Path) -> &'static str {
     }
 }
 
-/// Post-process HTML to handle img, anchor, and table tags using lol_html
-pub(super) fn post_process_html_tags(
-    html_str: &str,
-    base_dir: &Path,
-    table_source_lines: &[(usize, usize)],
-) -> String {
-    post_process_html_impl(html_str, base_dir, table_source_lines, None)
-}
-
-/// Post-process HTML to handle img, anchor, table tags, and add heading IDs using lol_html
-pub(super) fn post_process_html_with_headings(
-    html_str: &str,
-    base_dir: &Path,
-    headings: &[HeadingInfo],
-    table_source_lines: &[(usize, usize)],
-) -> String {
-    post_process_html_impl(html_str, base_dir, table_source_lines, Some(headings))
-}
-
-/// Common HTML post-processing implementation.
+/// Post-process HTML with lol_html.
 ///
 /// Handles:
 /// - `<table>`: inject `data-source-line` attributes for source mapping
-/// - `<h1>`–`<h6>`: inject `id` attributes for TOC navigation (when `headings` is Some)
 /// - `<img src="…">`: inline local images as data URLs. Supports `file:` URLs
 ///   (parsed via `url::Url`, handles percent-encoding and platform differences)
 ///   as well as absolute and relative filesystem paths. Relative paths resolve
@@ -90,11 +68,10 @@ pub(super) fn post_process_html_with_headings(
 ///   Reads are bounded by `MAX_INLINE_IMAGE_SIZE` to prevent misreferenced huge
 ///   files or device files from freezing the UI.
 /// - `<a href="…">`: convert local links to `<span data-md-link="…">` for in-app navigation
-fn post_process_html_impl(
+pub(super) fn post_process_html_tags(
     html_str: &str,
     base_dir: &Path,
     table_source_lines: &[(usize, usize)],
-    headings: Option<&[HeadingInfo]>,
 ) -> String {
     let canonical_base = base_dir
         .canonicalize()
@@ -102,8 +79,6 @@ fn post_process_html_impl(
     let mut output = Vec::new();
     let table_index = std::cell::RefCell::new(0usize);
     let table_source_lines = table_source_lines.to_vec();
-    let heading_index = std::cell::RefCell::new(0usize);
-    let headings = headings.map(|h| h.to_vec()).unwrap_or_default();
 
     let mut rewriter = HtmlRewriter::new(
         Settings::new()
@@ -113,19 +88,6 @@ fn post_process_html_impl(
                 if let Some(&(start, end)) = table_source_lines.get(*idx) {
                     el.set_attribute("data-source-line", &start.to_string())?;
                     el.set_attribute("data-source-line-end", &end.to_string())?;
-                }
-                *idx += 1;
-                Ok(())
-            }))
-            // Process heading tags: add IDs for TOC navigation
-            // No-op when headings is empty (called from post_process_html_tags)
-            .append_element_content_handler(element!("h1, h2, h3, h4, h5, h6", |el| {
-                if headings.is_empty() {
-                    return Ok(());
-                }
-                let mut idx = heading_index.borrow_mut();
-                if let Some(heading) = headings.get(*idx) {
-                    el.set_attribute("id", &heading.id)?;
                 }
                 *idx += 1;
                 Ok(())
@@ -471,71 +433,6 @@ mod tests {
         assert_eq!(
             click_handler_count, 2,
             "Should have click handlers for both links"
-        );
-    }
-
-    #[test]
-    fn test_post_process_html_with_headings_injects_ids() {
-        let html = r#"<h1 data-source-line="1">Title</h1><h2 data-source-line="3">Section</h2>"#;
-        let headings = vec![
-            HeadingInfo {
-                level: 1,
-                text: "Title".to_string(),
-                id: "title".to_string(),
-            },
-            HeadingInfo {
-                level: 2,
-                text: "Section".to_string(),
-                id: "section".to_string(),
-            },
-        ];
-
-        let result = post_process_html_with_headings(html, Path::new("."), &headings, &[]);
-
-        assert!(
-            result.contains(r#"id="title""#),
-            "H1 should get id from headings: {result}"
-        );
-        assert!(
-            result.contains(r#"id="section""#),
-            "H2 should get id from headings: {result}"
-        );
-    }
-
-    #[test]
-    fn test_post_process_html_with_headings_more_html_headings_than_info() {
-        // When HTML has more headings than HeadingInfo entries, extra headings are skipped
-        let html = r#"<h1>A</h1><h2>B</h2><h3>C</h3>"#;
-        let headings = vec![HeadingInfo {
-            level: 1,
-            text: "A".to_string(),
-            id: "a".to_string(),
-        }];
-
-        let result = post_process_html_with_headings(html, Path::new("."), &headings, &[]);
-
-        assert!(
-            result.contains(r#"id="a""#),
-            "First heading should get id: {result}"
-        );
-        // Remaining headings should still render without error
-        assert!(
-            result.contains("<h2>B</h2>") || result.contains("<h2 >B</h2>"),
-            "Extra headings should render without id: {result}"
-        );
-    }
-
-    #[test]
-    fn test_post_process_html_with_headings_empty_headings() {
-        let html = r#"<h1>Title</h1>"#;
-        let headings: Vec<HeadingInfo> = vec![];
-
-        let result = post_process_html_with_headings(html, Path::new("."), &headings, &[]);
-
-        // Should not crash, heading renders without id
-        assert!(
-            result.contains("Title"),
-            "Should still render heading text: {result}"
         );
     }
 

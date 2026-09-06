@@ -8,7 +8,9 @@
 
 use std::ops::Range;
 
-use pulldown_cmark::{Event, Options, Parser, TagEnd};
+use pulldown_cmark::{Event, Parser, TagEnd};
+
+use super::parser_options;
 
 /// A segment mapping between rendered plain text and markdown source byte positions.
 struct TextSegment {
@@ -22,7 +24,7 @@ struct TextSegment {
 /// "rendered" string while recording which source byte range each rendered
 /// segment came from.
 fn build_source_map(source: &str) -> (String, Vec<TextSegment>) {
-    let parser = Parser::new_ext(source, Options::all());
+    let parser = Parser::new_ext(source, parser_options());
     let mut rendered = String::new();
     let mut segments = Vec::new();
 
