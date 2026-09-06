@@ -14,7 +14,7 @@ Understanding the relationship between Config, PersistedState, and State modules
 
 **Why:** Prevents multiple processes from conflicting over file watches, config writes, and state persistence.
 
-**Implementation:** See `crates/arto/src/ipc.rs` for detailed documentation.
+**Implementation:** Protocol and socket live in `crates/arto-ipc/`; queueing, main-thread wake-up and window handling in `crates/arto/src/ipc.rs`.
 
 **Note:** This document focuses on the state management within the single running instance.
 

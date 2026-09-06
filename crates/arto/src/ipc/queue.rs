@@ -1,4 +1,8 @@
-use super::protocol::OpenEvent;
+//! The bridge between the IPC thread and the main thread: a queue of
+//! events waiting to be applied, and the shutdown flags a termination
+//! signal sets for the main thread to act on.
+
+use super::OpenEvent;
 use parking_lot::Mutex;
 use std::collections::VecDeque;
 #[cfg(unix)]
@@ -29,15 +33,61 @@ fn get_event_queue() -> &'static Mutex<VecDeque<OpenEvent>> {
     IPC_EVENT_QUEUE.get_or_init(|| Mutex::new(VecDeque::new()))
 }
 
+/// Register signal handlers for clean socket cleanup.
+///
+/// This complements the stale socket detection on startup by handling
+/// graceful shutdown cases like SIGINT and SIGTERM.
+///
+/// Uses signal-hook to allow multiple independent signal handlers to coexist,
+/// avoiding conflicts with other parts of the application that may need to
+/// handle signals.
 #[cfg(unix)]
-pub(super) fn request_shutdown(signal: i32) {
+pub(super) fn register_cleanup_handler() {
+    use signal_hook::{consts::signal::*, iterator::Signals};
+    use std::sync::Once;
+    use std::thread;
+
+    static REGISTER_ONCE: Once = Once::new();
+
+    REGISTER_ONCE.call_once(|| {
+        match Signals::new([SIGINT, SIGTERM]) {
+            Ok(mut signals) => {
+                // Spawn a dedicated thread to listen for termination signals and
+                // request graceful shutdown when they are received. This approach
+                // allows multiple independent signal handlers to coexist.
+                thread::spawn(move || {
+                    for signal in &mut signals {
+                        match signal {
+                            SIGINT | SIGTERM => {
+                                request_shutdown(signal);
+                            }
+                            _ => {}
+                        }
+                    }
+                });
+                tracing::debug!("IPC cleanup signal handler registered");
+            }
+            Err(e) => {
+                tracing::warn!(?e, "Failed to register IPC cleanup signal handler");
+            }
+        }
+    });
+}
+
+#[cfg(not(unix))]
+pub(super) fn register_cleanup_handler() {
+    // No-op on Windows
+}
+
+#[cfg(unix)]
+fn request_shutdown(signal: i32) {
     let was_requested = SHUTDOWN_REQUESTED.swap(true, Ordering::SeqCst);
     if was_requested {
         tracing::warn!(
             signal,
             "Second termination signal received during shutdown; forcing immediate exit"
         );
-        super::socket::cleanup_socket();
+        super::cleanup_socket();
         std::process::exit(128 + signal);
     }
     SHUTDOWN_SIGNAL.store(signal, Ordering::SeqCst);
@@ -69,7 +119,7 @@ pub(super) fn request_shutdown(signal: i32) {
                     signal,
                     "Main thread did not start graceful shutdown in time; forcing exit"
                 );
-                super::socket::cleanup_socket();
+                super::cleanup_socket();
                 std::process::exit(128 + signal);
             }
         });

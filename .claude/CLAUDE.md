@@ -50,12 +50,14 @@ When a new Arto process launches:
 
 **Protocol (JSON Lines):**
 ```json
-{"type":"file","path":"/path/to/file.md"}
-{"type":"directory","path":"/path/to/dir"}
-{"type":"reopen"}
+{"type":"open","files":["/path/to/file.md"],"directory":null,"behavior":"last_focused"}
+{"type":"open","files":[],"directory":"/path/to/dir","behavior":"new_window"}
+{"type":"reopen","behavior":"last_focused"}
 ```
 
-**Implementation:** See `crates/arto/src/ipc.rs` for detailed architecture documentation.
+The older `file` and `directory` messages are still accepted from a not-yet-upgraded secondary instance.
+
+**Implementation:** The protocol and the socket live in `crates/arto-ipc/` (`IpcMessage`, `OpenEvent`, `send_to_existing_instance`, `IpcServer`). The app side, `crates/arto/src/ipc.rs`, queues received events, wakes the main thread, and opens files in the right window.
 
 **Why single-instance:** Prevents multiple processes from conflicting over file watches, configuration writes, and persisted state management.
 

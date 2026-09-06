@@ -1,51 +1,119 @@
-//! Single-instance IPC module
+//! Single-instance IPC, the app's side.
 //!
-//! This module provides IPC functionality to ensure only one instance of Arto runs at a time.
-//! When a second instance is launched with paths, it sends those paths to the existing instance
-//! via a local socket and exits.
+//! The protocol and the socket live in the `arto-ipc` crate. This module
+//! connects them to the running app: it turns a CLI invocation into an
+//! event, runs the server on a background thread, queues what arrives for
+//! the main thread, wakes that thread, and finally opens files in the
+//! right window.
 //!
 //! # Architecture
 //!
 //! ```text
 //! 1st Instance (Primary):
-//!   main() → try_send_to_existing() fails → start_ipc_server()
-//!                                                 ↓
-//!                                           accept connections
-//!                                                 ↓
-//!                                           recv JSON Lines → IPC_EVENT_QUEUE
-//!                                                 ↓
-//!                                           GCD wake → process_pending_events()
+//!   main() → try_send_to_existing_instance() → NoExistingInstance → start_ipc_server()
+//!                                                                          ↓
+//!                                                   IpcServer::serve() on a thread
+//!                                                                          ↓
+//!                                                   events → IPC_EVENT_QUEUE
+//!                                                                          ↓
+//!                                                   GCD wake → process_pending_events()
 //!
 //! 2nd Instance (Secondary):
-//!   main() → try_send_to_existing() succeeds → exit(0)
-//! ```
-//!
-//! # Protocol
-//!
-//! Messages are sent as JSON Lines (one JSON object per line):
-//!
-//! ```json
-//! {"type":"open","files":["/path/to/file.md"],"directory":null,"behavior":"last_focused"}
-//! {"type":"open","files":[],"directory":"/path/to/dir","behavior":"new_window"}
-//! {"type":"reopen","behavior":"last_focused"}
+//!   main() → try_send_to_existing_instance() → Sent → exit(0)
 //! ```
 
-mod client;
-mod protocol;
 mod queue;
-mod server;
-pub(crate) mod socket;
+mod request;
 mod window_selection;
 
-pub use client::*;
-pub use protocol::*;
+// Listed rather than glob-imported: this module wraps `cleanup_socket` and
+// the server start-up with logging and shutdown handling, and the rest of
+// the app should reach the transport only through those wrappers.
+pub use arto_ipc::{OpenEvent, OpenRequest, SendResult};
 pub use queue::*;
-pub use server::*;
-pub use socket::cleanup_socket;
+pub use request::*;
 
+use crate::cli::CliInvocation;
 use queue::{drain_events, SHUTDOWN_REQUESTED, SHUTDOWN_SIGNAL, SHUTDOWN_STARTED};
 use std::sync::atomic::Ordering;
 use window_selection::{select_target_window, select_target_window_with_behavior};
+
+/// Try to hand this launch's request to an already running instance.
+///
+/// Returns only `Sent` or `NoExistingInstance`: a delivery failure is
+/// logged and folded into `NoExistingInstance` here, so a primary that died
+/// mid-handshake does not stop the user from opening anything and no call
+/// site has to remember that rule.
+pub fn try_send_to_existing_instance(invocation: &CliInvocation) -> SendResult {
+    let event = open_event_for_invocation(invocation);
+    match arto_ipc::send_to_existing_instance(&event) {
+        SendResult::Failed(error) => {
+            tracing::warn!(%error, "Failed to send to the primary instance; becoming primary");
+            SendResult::NoExistingInstance
+        }
+        result => result,
+    }
+}
+
+/// Start the IPC server to listen for connections from new instances.
+///
+/// This function spawns a background thread that accepts connections. Received
+/// events are pushed to the global IPC event queue and the main thread is woken
+/// via GCD to process them.
+///
+/// # Thread Lifecycle
+///
+/// The spawned thread runs indefinitely and is not explicitly joined on shutdown.
+/// Socket cleanup relies on:
+/// - Signal handlers (`register_cleanup_handler()`) to remove the socket on SIGTERM/SIGINT
+/// - Stale socket detection on next startup to handle crashes
+/// - OS-level cleanup when the process exits
+///
+/// This design trade-off avoids the complexity of coordinating graceful shutdown
+/// with Dioxus's lifecycle. Any leftover socket file is harmless and cleaned up on next launch.
+pub fn start_ipc_server() {
+    // Register cleanup handler for graceful shutdown
+    register_cleanup_handler();
+
+    std::thread::spawn(move || {
+        let server = match arto_ipc::IpcServer::bind() {
+            Ok(server) => server,
+            Err(error) => {
+                tracing::error!(
+                    %error,
+                    "IPC server failed to start; single-instance enforcement is broken. \
+                     Terminating to prevent duplicate instances."
+                );
+                // Fail fast: running without an IPC server breaks the single-instance guarantee,
+                // so terminate the process rather than continuing in a degraded state.
+                //
+                // NOTE: process::exit() does not run destructors (e.g. use_drop / PersistedState::save).
+                // This is acceptable because bind() fails during early startup, before any
+                // user-visible windows or unsaved state exist.
+                std::process::exit(1);
+            }
+        };
+        tracing::info!(socket_path = ?server.socket_path(), "IPC server ready for connections");
+
+        server.serve(|events| {
+            for event in events {
+                push_event(event);
+            }
+            // Wake main thread once per client connection.
+            wake_main_thread();
+        });
+    });
+}
+
+/// Remove the IPC socket file on clean exit.
+///
+/// This prevents stale socket detection on next startup.
+pub fn cleanup_socket() {
+    match arto_ipc::cleanup_socket() {
+        Ok(()) => tracing::debug!("IPC socket cleaned up"),
+        Err(error) => tracing::warn!(%error, "Failed to remove IPC socket on cleanup"),
+    }
+}
 
 // ============================================================================
 // GCD wake mechanism — wake main thread from IPC background thread
@@ -242,180 +310,10 @@ mod tests {
     use super::*;
     use crate::config::FileOpenBehavior;
     use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
-    use indoc::indoc;
     use std::path::{Path, PathBuf};
     use window_selection::{
         choose_open_target, is_window_on_display, OpenTarget, WindowBounds, WindowSelectionInput,
     };
-
-    // Re-import protocol types used by tests
-    use protocol::IpcMessage;
-    use socket::is_address_in_use;
-    #[cfg(unix)]
-    use socket::{get_socket_path, SOCKET_NAME};
-
-    #[test]
-    fn test_ipc_message_open_serialization() {
-        let msg = IpcMessage::Open {
-            files: vec![PathBuf::from("/path/to/file.md")],
-            directory: Some(PathBuf::from("/path/to/dir")),
-            behavior: Some(FileOpenBehavior::LastFocused),
-        };
-        let json = serde_json::to_string(&msg).unwrap();
-        assert_eq!(
-            json,
-            r#"{"type":"open","files":["/path/to/file.md"],"directory":"/path/to/dir","behavior":"last_focused"}"#
-        );
-    }
-
-    #[test]
-    fn test_ipc_message_reopen_serialization() {
-        let msg = IpcMessage::Reopen {
-            behavior: Some(FileOpenBehavior::LastFocused),
-        };
-        let json = serde_json::to_string(&msg).unwrap();
-        assert_eq!(json, r#"{"type":"reopen","behavior":"last_focused"}"#);
-    }
-
-    #[test]
-    fn test_ipc_message_open_deserialization() {
-        let json = r#"{"type":"open","files":["/path/to/file.md"],"directory":"/path/to/dir","behavior":"last_focused"}"#;
-        let msg: IpcMessage = serde_json::from_str(json).unwrap();
-        assert!(matches!(
-            msg,
-            IpcMessage::Open {
-                files,
-                directory,
-                behavior: Some(FileOpenBehavior::LastFocused)
-            } if files == vec![PathBuf::from("/path/to/file.md")] && directory == Some(PathBuf::from("/path/to/dir"))
-        ));
-    }
-
-    #[test]
-    fn test_ipc_message_reopen_deserialization() {
-        let json = r#"{"type":"reopen","behavior":"last_focused"}"#;
-        let msg: IpcMessage = serde_json::from_str(json).unwrap();
-        assert!(matches!(
-            msg,
-            IpcMessage::Reopen {
-                behavior: Some(FileOpenBehavior::LastFocused)
-            }
-        ));
-    }
-
-    #[test]
-    fn test_ipc_message_reopen_deserialization_legacy_without_behavior() {
-        let json = r#"{"type":"reopen"}"#;
-        let msg: IpcMessage = serde_json::from_str(json).unwrap();
-        assert!(matches!(msg, IpcMessage::Reopen { behavior: None }));
-    }
-
-    #[test]
-    fn test_ipc_message_into_open_event_open() {
-        let msg = IpcMessage::Open {
-            files: vec![PathBuf::from("/test.md")],
-            directory: Some(PathBuf::from("/test/dir")),
-            behavior: Some(FileOpenBehavior::CurrentScreen),
-        };
-        let event = msg.into_open_event();
-        assert!(matches!(
-            event,
-            OpenEvent::Open(OpenRequest {
-                files,
-                directory: Some(directory),
-                behavior: Some(FileOpenBehavior::CurrentScreen)
-            }) if files == vec![PathBuf::from("/test.md")] && directory == Path::new("/test/dir")
-        ));
-    }
-
-    #[test]
-    fn test_ipc_message_into_open_event_reopen() {
-        let msg = IpcMessage::Reopen {
-            behavior: Some(FileOpenBehavior::LastFocused),
-        };
-        let event = msg.into_open_event();
-        assert!(matches!(
-            event,
-            OpenEvent::Reopen {
-                behavior: Some(FileOpenBehavior::LastFocused)
-            }
-        ));
-    }
-
-    #[test]
-    fn test_json_lines_protocol() {
-        // Test that multiple messages can be parsed from newline-separated JSON
-        let input = indoc! {r#"
-            {"type":"open","files":["/file1.md"],"directory":null,"behavior":"last_focused"}
-            {"type":"open","files":[],"directory":"/dir","behavior":"new_window"}
-            {"type":"reopen","behavior":"current_screen"}
-        "#};
-
-        let messages: Vec<IpcMessage> = input
-            .lines()
-            .filter(|line| !line.is_empty())
-            .map(|line| serde_json::from_str(line).unwrap())
-            .collect();
-
-        assert_eq!(messages.len(), 3);
-        assert!(matches!(
-            &messages[0],
-            IpcMessage::Open { files, directory: None, behavior: Some(FileOpenBehavior::LastFocused) }
-            if files == &vec![PathBuf::from("/file1.md")]
-        ));
-        assert!(matches!(
-            &messages[1],
-            IpcMessage::Open { files, directory: Some(directory), behavior: Some(FileOpenBehavior::NewWindow) }
-            if files.is_empty() && directory == Path::new("/dir")
-        ));
-        assert!(matches!(
-            &messages[2],
-            IpcMessage::Reopen {
-                behavior: Some(FileOpenBehavior::CurrentScreen)
-            }
-        ));
-    }
-
-    #[test]
-    #[cfg(unix)]
-    fn test_socket_path_contains_user_id() {
-        let path = get_socket_path();
-
-        // Ensure the socket file name is exactly SOCKET_NAME
-        let file_name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .expect("Socket path should have a valid UTF-8 file name");
-        assert_eq!(
-            file_name, SOCKET_NAME,
-            "Socket file name should be '{}', got '{}'",
-            SOCKET_NAME, file_name
-        );
-
-        // Either XDG_RUNTIME_DIR or /tmp/arto-{uid}/
-        let parent = path
-            .parent()
-            .expect("Socket path should have a parent directory");
-
-        let xdg_runtime_dir = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from);
-        let parent_matches_xdg = xdg_runtime_dir.as_deref().is_some_and(|xdg| parent == xdg);
-
-        let parent_str = parent.to_string_lossy();
-        let parent_matches_tmp = parent_str.starts_with("/tmp/arto-");
-
-        assert!(
-            parent_matches_xdg || parent_matches_tmp,
-            "Socket directory should be XDG_RUNTIME_DIR ({:?}) or start with '/tmp/arto-'; got {}",
-            xdg_runtime_dir,
-            parent_str
-        );
-    }
-
-    #[test]
-    fn test_is_address_in_use_for_non_matching_error() {
-        let err = std::io::Error::new(std::io::ErrorKind::NotFound, "not found");
-        assert!(!is_address_in_use(&err));
-    }
 
     #[test]
     fn test_event_queue_fifo_ordering() {

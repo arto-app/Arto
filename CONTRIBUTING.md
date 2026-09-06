@@ -74,6 +74,7 @@ Arto/
 ├── crates/
 │   ├── arto/         # Desktop application (Dioxus): src/, assets/, Dioxus.toml
 │   ├── arto-config/  # config.json / mappings.json types, file locations, load and save
+│   ├── arto-ipc/     # Single-instance IPC: JSON Lines protocol and the local socket
 │   ├── arto-keybindings/ # Shortcut parsing, binding sets, presets, and the matching engine
 │   ├── arto-markdown/ # Markdown → HTML rendering library used by the app and arto-page
 │   └── arto-page/    # Self-contained HTML pages: CLI, `arto page`, Quick Look FFI (feature ffi)
