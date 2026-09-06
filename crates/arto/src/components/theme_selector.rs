@@ -1,33 +1,27 @@
 use dioxus::document;
 use dioxus::prelude::*;
-use dioxus_sdk_window::theme::use_system_theme;
 
 use crate::components::icon::{Icon, IconName};
-use crate::theme::{DioxusTheme, Theme};
+use crate::theme::{use_system_theme, ResolvedTheme, Theme};
 
 #[component]
 pub fn ThemeSelector(current_theme: Signal<Theme>) -> Element {
     let system_theme = use_system_theme();
     let resolved_theme = use_memo(move || match current_theme() {
-        Theme::Auto => system_theme().unwrap_or(DioxusTheme::Light),
-        Theme::Light => DioxusTheme::Light,
-        Theme::Dark => DioxusTheme::Dark,
+        Theme::Auto => system_theme(),
+        Theme::Light => ResolvedTheme::Light,
+        Theme::Dark => ResolvedTheme::Dark,
     });
 
     // Dispatch custom event when resolved theme changes
     use_effect(move || {
-        let theme = resolved_theme();
-        let theme_str = match theme {
-            DioxusTheme::Light => "light",
-            DioxusTheme::Dark => "dark",
-        };
+        let theme_str = resolved_theme().as_str();
         tracing::info!("Theme changed to: {}", theme_str);
-        let theme_str_owned = theme_str.to_string();
         spawn(async move {
-            tracing::info!("Dispatching theme-changed event: {}", theme_str_owned);
+            tracing::info!("Dispatching theme-changed event: {}", theme_str);
             let _ = document::eval(&format!(
                 "document.dispatchEvent(new CustomEvent('arto:theme-changed', {{ detail: '{}' }}))",
-                theme_str_owned
+                theme_str
             ))
             .await;
         });

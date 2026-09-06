@@ -1,25 +1,106 @@
 //! Resolving the user's theme preference against the system appearance.
 //!
 //! The preference itself (`Theme`) is a configuration type and lives in
-//! arto-config; this module turns `Auto` into light or dark.
+//! arto-config; this module turns `Auto` into light or dark, and reports the
+//! system appearance to the components that follow it.
+
+use dioxus::desktop::tao::event::{Event as TaoEvent, WindowEvent};
+use dioxus::desktop::tao::window::Theme as TaoTheme;
+use dioxus::desktop::{use_wry_event_handler, window};
+use dioxus::prelude::*;
 
 pub use crate::config::Theme;
-pub use dioxus_sdk_window::theme::Theme as DioxusTheme;
 
-pub fn resolve_theme(theme: Theme) -> DioxusTheme {
+/// A [`Theme`] with `Auto` already resolved: what actually gets rendered.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ResolvedTheme {
+    #[default]
+    Light,
+    Dark,
+}
+
+impl ResolvedTheme {
+    /// The name the frontend knows this theme by, in `data-theme` and in the
+    /// detail of the `arto:theme-changed` event.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Light => "light",
+            Self::Dark => "dark",
+        }
+    }
+}
+
+impl std::fmt::Display for ResolvedTheme {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+pub fn resolve_theme(theme: Theme) -> ResolvedTheme {
     match theme {
         // NOTE:
-        // We cannot use dioxus_sdk_window::theme::get_theme here because
-        // it requires a Dioxus runtime and cannot be called from outside
-        // of Dioxus context (this runs while building a window's index
-        // page). That's why we use the dark_light crate instead.
+        // This also runs while building a window's index page, outside any
+        // Dioxus or window context, so it cannot ask the window for its
+        // appearance. That is why the dark_light crate is used here.
         Theme::Auto => match detect_system_mode() {
-            Some(dark_light::Mode::Light) => DioxusTheme::Light,
-            Some(dark_light::Mode::Dark) => DioxusTheme::Dark,
-            Some(dark_light::Mode::Unspecified) | None => DioxusTheme::Light,
+            Some(dark_light::Mode::Dark) => ResolvedTheme::Dark,
+            Some(dark_light::Mode::Light | dark_light::Mode::Unspecified) | None => {
+                ResolvedTheme::Light
+            }
         },
-        Theme::Light => DioxusTheme::Light,
-        Theme::Dark => DioxusTheme::Dark,
+        Theme::Light => ResolvedTheme::Light,
+        Theme::Dark => ResolvedTheme::Dark,
+    }
+}
+
+/// A signal of the system appearance, kept current while the window lives.
+///
+/// Components use this to render `Theme::Auto` without knowing how the
+/// appearance is obtained. tao reports a change through `ThemeChanged` on
+/// macOS and Windows; on Linux it never does, so there the signal keeps the
+/// value it started with.
+pub fn use_system_theme() -> ReadSignal<ResolvedTheme> {
+    let mut theme = use_signal(current_system_theme);
+
+    use_wry_event_handler(move |event, _| {
+        if let TaoEvent::WindowEvent {
+            event: WindowEvent::ThemeChanged(changed),
+            window_id,
+            ..
+        } = event
+        {
+            // Every window registers this handler and tao delivers each
+            // event to all of them, so only the addressed window reacts.
+            if *window_id == window().id() {
+                theme.set(from_tao(*changed));
+            }
+        }
+    });
+
+    use_hook(|| ReadSignal::new(theme))
+}
+
+/// The system appearance right now.
+fn current_system_theme() -> ResolvedTheme {
+    // tao knows the appearance on macOS and Windows, and it is the same
+    // source the change events come from. Its Linux answer is guessed from
+    // the GTK theme name and misses the portal setting, so ask the same
+    // probe that window creation uses instead.
+    #[cfg(target_os = "linux")]
+    {
+        resolve_theme(Theme::Auto)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        from_tao(window().theme())
+    }
+}
+
+/// `tao::window::Theme` is `#[non_exhaustive]`; anything but dark renders light.
+fn from_tao(theme: TaoTheme) -> ResolvedTheme {
+    match theme {
+        TaoTheme::Dark => ResolvedTheme::Dark,
+        _ => ResolvedTheme::Light,
     }
 }
 
@@ -67,4 +148,23 @@ fn detect_system_mode() -> Option<dark_light::Mode> {
     // `recv_timeout` also returns an error when the thread panicked, because
     // dropping the sender disconnects the channel.
     rx.recv_timeout(SYSTEM_MODE_PROBE_TIMEOUT).ok().flatten()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The frontend switches on these exact strings, in `data-theme` and in
+    /// the `arto:theme-changed` detail.
+    #[test]
+    fn theme_names_match_the_frontend() {
+        assert_eq!(ResolvedTheme::Light.as_str(), "light");
+        assert_eq!(ResolvedTheme::Dark.as_str(), "dark");
+    }
+
+    #[test]
+    fn explicit_preferences_do_not_consult_the_system() {
+        assert_eq!(resolve_theme(Theme::Light), ResolvedTheme::Light);
+        assert_eq!(resolve_theme(Theme::Dark), ResolvedTheme::Dark);
+    }
 }

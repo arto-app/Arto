@@ -58,7 +58,6 @@ wildcards = "allow"
 
 [sources]
 unknown-registry = "deny"
+# Every dependency comes from crates.io; a git source in the lockfile means
+# a fork someone has to keep following, so it has to be argued for here.
 unknown-git = "deny"
-# The dioxus-sdk-window fork carried in [patch.crates-io] until
-# DioxusLabs/sdk#103 merges.
-allow-git = ["https://github.com/iynaix/dioxus-sdk"]
