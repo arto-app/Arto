@@ -120,9 +120,13 @@
                 (root + /crates/arto/Dioxus.toml)
                 (root + /crates/arto/src/keybindings/presets)
                 (lib.fileset.maybeMissing (root + /crates/arto/VERSION))
-                # Dioxus.toml references the icon, Info.plist and LICENSE by
-                # relative path from the app crate.
-                (root + /extras)
+                # Dioxus.toml references the icon, Info.plist, the NSIS hook
+                # and LICENSE by relative path from the app crate. Only those
+                # subtrees are included: the Quick Look shim and the bundle
+                # verifiers under platform/ play no part in the Nix build, so
+                # editing them must not invalidate the cargo artifacts.
+                (root + /platform/macos/bundle)
+                (root + /platform/windows)
                 (root + /LICENSE)
               ];
             };
@@ -149,16 +153,16 @@
           cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
           # Build-time wrappers for macOS commands
-          # See scripts/codesign-wrapper.sh and scripts/xattr-wrapper.sh for details
+          # See nix/codesign-wrapper.sh and nix/xattr-wrapper.sh for details
           codesignWrapper = pkgs.writeShellScriptBin "codesign" (
             builtins.replaceStrings
               [ "@CODESIGN_BIN@" ]
               [ "${pkgs.darwin.sigtool}/bin/codesign" ]
-              (builtins.readFile ./scripts/codesign-wrapper.sh)
+              (builtins.readFile ./nix/codesign-wrapper.sh)
           );
 
           xattrWrapper = pkgs.writeShellScriptBin "xattr" (
-            builtins.readFile ./scripts/xattr-wrapper.sh
+            builtins.readFile ./nix/xattr-wrapper.sh
           );
 
           # NOTE: The macOS Quick Look preview extension (Swift shim + Rust

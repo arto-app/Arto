@@ -5,7 +5,7 @@
 ; learns that Arto can open a document. Without the keys below Arto is missing
 ; from a Markdown file's "Open with" menu, from the "Choose another app" dialog
 ; and from Settings → Apps → Default apps. This is the registry spelling of what
-; the macOS bundle declares as CFBundleDocumentTypes in extras/mac/Info.plist;
+; the macOS bundle declares as CFBundleDocumentTypes in platform/macos/bundle/Info.plist;
 ; keep the two extension lists in step.
 ;
 ; Wired up through `[bundle.windows.nsis] installer_hooks` in crates/arto/Dioxus.toml.

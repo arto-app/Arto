@@ -16,8 +16,8 @@
 #      `--version` exercises that and exits immediately.
 set -euo pipefail
 
-app="${1:?usage: verify-macos-bundle.sh <path to .app> <executable name>}"
-executable="${2:?usage: verify-macos-bundle.sh <path to .app> <executable name>}"
+app="${1:?usage: platform/macos/verify-bundle.sh <path to .app> <executable name>}"
+executable="${2:?usage: platform/macos/verify-bundle.sh <path to .app> <executable name>}"
 
 status=0
 while IFS= read -r -d '' bin; do

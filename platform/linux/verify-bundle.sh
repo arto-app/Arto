@@ -21,7 +21,7 @@
 #      immediately and needs no display.
 set -euo pipefail
 
-usage="usage: verify-linux-bundle.sh <path to .deb or .AppImage> <executable name>"
+usage="usage: platform/linux/verify-bundle.sh <path to .deb or .AppImage> <executable name>"
 artifact="${1:?$usage}"
 executable="${2:?$usage}"
 

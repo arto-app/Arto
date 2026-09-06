@@ -71,7 +71,7 @@ jobs:
           # The bundle verifies packaging inputs, not application code, so
           # the full matrix runs only when those inputs (or a label) ask.
           # crates/arto/assets holds the icon Dioxus.toml embeds.
-          if matches '^(crates/arto/Dioxus\.toml|crates/arto/assets/|crates/arto/justfile|justfile|extras/|scripts/|flake\.nix|flake\.lock|\.github/workflows/bundle\.yml|\.github/actions/)'; then bundle=true; fi
+          if matches '^(crates/arto/Dioxus\.toml|crates/arto/assets/|crates/arto/justfile|justfile|platform/|flake\.nix|flake\.lock|\.github/workflows/bundle\.yml|\.github/actions/)'; then bundle=true; fi
           case ",$LABELS," in *,ci:bundle,*) bundle=true ;; esac
           if [ "$bundle" = true ]; then targets="$all"; else targets='["macos"]'; fi
           {

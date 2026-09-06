@@ -80,12 +80,12 @@ _apply-bundle-metadata:
   app="{{target}}/dx/arto/release/macos/Arto.app"
   version="$(perl -ne 'print $1 and exit if /^version = "(.*)"/' "{{root}}/Cargo.toml")"
   # Canonical Info.plist carries the file-type associations and high-DPI flag.
-  cp "{{root}}/extras/mac/Info.plist" "$app/Contents/Info.plist"
+  cp "{{root}}/platform/macos/bundle/Info.plist" "$app/Contents/Info.plist"
   # Stamp the real version (CI patches Cargo.toml for releases; local stays 0.0.0).
   /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${version}" \
     "$app/Contents/Info.plist"
   # The plist references CFBundleIconFile = Arto → the bundle needs Arto.icns.
-  cp "{{root}}/extras/mac/Arto.icns" "$app/Contents/Resources/Arto.icns"
+  cp "{{root}}/platform/macos/bundle/Arto.icns" "$app/Contents/Resources/Arto.icns"
   echo "Applied canonical Info.plist (version ${version}) and app icon"
 
 # Build the Quick Look preview extension (Swift shim + Rust `arto_ql` static
@@ -106,7 +106,7 @@ _embed-quicklook:
   app="{{target}}/dx/arto/release/macos/Arto.app"
   appex="$app/Contents/PlugIns/ArtoQuickLook.appex"
   arch="$(uname -m)"
-  ql="{{root}}/ql-extension"
+  ql="{{root}}/platform/macos/quicklook"
   echo "Building arto_ql static library…"
   cargo build --release -p arto-ql
   echo "Compiling Swift Quick Look preview extension…"
@@ -200,7 +200,7 @@ build:
 # Reject a bundle that carries build-environment dependencies
 [macos]
 verify-bundle:
-  "{{root}}/scripts/verify-macos-bundle.sh" "{{target}}/dx/arto/release/macos/Arto.app" arto
+  "{{root}}/platform/macos/verify-bundle.sh" "{{target}}/dx/arto/release/macos/Arto.app" arto
 
 [linux]
 verify-bundle:
@@ -224,7 +224,7 @@ verify-bundle:
     exit 1
   fi
   for artifact in "${debs[@]}" "${appimages[@]}"; do
-    "{{root}}/scripts/verify-linux-bundle.sh" "$artifact" arto
+    "{{root}}/platform/linux/verify-bundle.sh" "$artifact" arto
   done
 
 [macos]

@@ -2,7 +2,7 @@
 # Fail when documentation names a repository path that no longer exists.
 #
 # Scans Markdown files for inline code spans that look like repository paths
-# (`crates/arto/src/config.rs`, `extras/mac/`, ...) and checks
+# (`crates/arto/src/config.rs`, `platform/macos/quicklook/`, ...) and checks
 # that each one exists relative to the repository root. Paths that only rot
 # silently after a move are the whole reason this exists; a link checker
 # does not see them because they are code spans, not links.
@@ -28,7 +28,7 @@ if (!@files) {
 }
 
 # Top-level directories whose paths documentation is expected to name.
-my $roots = qr{(?:crates|renderer|extras|scripts|example|\.github|\.claude)};
+my $roots = qr{(?:crates|renderer|platform|nix|example|\.github|\.claude)};
 
 # Build output that a fresh checkout does not have.
 my $generated = qr{(?:^|/)(?:assets/dist|public/icons|target)(?:/|$)};
