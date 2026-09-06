@@ -1,0 +1,32 @@
+# Keeps Cargo, pnpm and GitHub Actions dependencies moving without a manual
+# sweep. Nix flake inputs are not covered by Dependabot; see
+# .github/workflows/update-flake-lock.yml for those.
+#
+# Minor and patch bumps are grouped into one PR per ecosystem so the review
+# cost stays flat; major bumps stay separate because each one needs its own
+# API check (see the dependency-update notes in CONTRIBUTING.md).
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      cargo-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /renderer
+    schedule:
+      interval: weekly
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        update-types: [minor, patch]

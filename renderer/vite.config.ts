@@ -2,22 +2,22 @@ import { defineConfig, type Plugin } from "vite";
 import path from "path";
 import fs from "fs";
 
-import icons from "./icons.json";
+import icons from "./icons.json" with { type: "json" };
 
 function iconSpritePlugin(): Plugin {
   return {
     name: "icon-sprite-generator",
     buildStart() {
       const outlineDir = path.join(
-        __dirname,
+        import.meta.dirname,
         "node_modules/@tabler/icons/icons/outline",
       );
       const filledDir = path.join(
-        __dirname,
+        import.meta.dirname,
         "node_modules/@tabler/icons/icons/filled",
       );
 
-      const outputPath = path.join(__dirname, "public/icons/tabler-sprite.svg");
+      const outputPath = path.join(import.meta.dirname, "public/icons/tabler-sprite.svg");
       const symbols = icons
         .map((name) => {
           // Check if this is a filled icon (e.g., "star-filled" -> filled/star.svg)
@@ -56,13 +56,13 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir:
       process.env.VITE_OUT_DIR ||
-      path.resolve(__dirname, "../crates/arto/assets/dist"),
+      path.resolve(import.meta.dirname, "../crates/arto/assets/dist"),
     // In dev mode, keep existing files for incremental updates
     // In production, clean the directory to avoid shipping stale artifacts
     emptyOutDir: mode === "production",
     cssCodeSplit: false,
     lib: {
-      entry: path.resolve(__dirname, "src/main.ts"),
+      entry: path.resolve(import.meta.dirname, "src/main.ts"),
       // ES build (`main.js`) drives the desktop app; the IIFE build
       // (`main.iife.js`) exposes `window.ArtoRenderer` for the Quick Look
       // preview extension, whose WebView loads HTML under an opaque origin

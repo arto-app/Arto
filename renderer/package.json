@@ -10,22 +10,22 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@types/node": "^26.0.1",
+    "@types/node": "^26.4.1",
     "github-markdown-css": "^5.9.0",
-    "highlight.js": "^11.11.1",
-    "katex": "^0.17.0",
+    "highlight.js": "^11.12.0",
     "html2canvas": "^1.4.1",
-    "mermaid": "^11.16.0"
+    "katex": "^0.18.6",
+    "mermaid": "^11.17.2"
   },
   "devDependencies": {
-    "@tabler/icons": "^3.44.0",
-    "happy-dom": "^20.10.6",
-    "oxfmt": "^0.57.0",
-    "oxlint": "^1.72.0",
-    "tsx": "^4.22.4",
-    "typescript": "^6.0.3",
-    "vite": "^8.1.2",
-    "vitest": "^4.1.9"
+    "@tabler/icons": "^3.46.0",
+    "happy-dom": "^20.14.0",
+    "oxfmt": "^0.66.0",
+    "oxlint": "^1.81.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
   },
   "packageManager": "pnpm@10.34.4"
 }

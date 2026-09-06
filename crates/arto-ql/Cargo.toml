@@ -12,5 +12,5 @@ crate-type = ["staticlib"]
 
 [dependencies]
 arto-markdown = { path = "../arto-markdown" }
-base64 = "0.22"
-sha2 = "0.10"
+base64.workspace = true
+sha2.workspace = true

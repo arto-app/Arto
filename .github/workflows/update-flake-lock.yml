@@ -1,0 +1,30 @@
+name: "Update flake.lock"
+
+# Dependabot does not understand Nix flakes, so the flake inputs (nixpkgs,
+# crane) are refreshed by this scheduled job instead. It opens a pull request
+# with the new flake.lock.
+#
+# The PR is created with the workflow's own GITHUB_TOKEN, and GitHub does not
+# start workflows for events caused by that token (a guard against recursive
+# runs). So the Build workflow, including nix-check, does NOT run on the PR by
+# itself: close and reopen it, or push to it, to get CI. Supplying a personal
+# access token via the action's `token` input would lift that restriction.
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-flake-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: nixbuild/nix-quick-install-action@v35
+      - uses: DeterminateSystems/update-flake-lock@v28
+        with:
+          pr-title: "chore(nix): update flake.lock"
+          pr-labels: dependencies
