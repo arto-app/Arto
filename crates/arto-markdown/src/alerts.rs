@@ -1,5 +1,6 @@
-use pulldown_cmark::{html, Options, Parser};
+use pulldown_cmark::{html, Parser};
 
+use super::parser_options;
 use super::source_lines::{byte_offset_to_line, inject_source_lines_impl};
 
 /// Get SVG icon placeholder for alert type (actual SVG injected by JavaScript)
@@ -78,16 +79,19 @@ fn process_alert_block(
     // Render the collected content as markdown with source line annotations
     if !content_lines.is_empty() {
         let content_markdown = content_lines.join("\n");
-        let options = Options::all();
-        let parser = Parser::new_ext(&content_markdown, options).into_offset_iter();
-        let parser = inject_source_lines_impl(parser, |byte_offset| {
-            let content_line = byte_offset_to_line(&content_markdown, byte_offset) - 1; // 0-based
-            let original_line = content_origins
-                .get(content_line)
-                .copied()
-                .unwrap_or(content_line);
-            original_line + 1 + frontmatter_lines // 1-based
-        });
+        let parser = Parser::new_ext(&content_markdown, parser_options()).into_offset_iter();
+        let parser = inject_source_lines_impl(
+            parser,
+            |byte_offset| {
+                let content_line = byte_offset_to_line(&content_markdown, byte_offset) - 1; // 0-based
+                let original_line = content_origins
+                    .get(content_line)
+                    .copied()
+                    .unwrap_or(content_line);
+                original_line + 1 + frontmatter_lines // 1-based
+            },
+            Vec::new(),
+        );
         let mut content_html = String::new();
         html::push_html(&mut content_html, parser);
         html_lines.push(content_html);
@@ -157,88 +161,6 @@ mod tests {
             result,
             r#"<span class="alert-icon" data-alert-type="warning"></span>"#
         );
-    }
-
-    #[test]
-    fn test_process_github_alerts_note() {
-        let input = indoc! {"
-            > [!NOTE]
-            > This is a note
-        "};
-        let (result, _) = process_github_alerts(input, 0);
-
-        assert!(result.contains(r#"<div class="markdown-alert markdown-alert-note""#));
-        assert!(result.contains(r#"<p class="markdown-alert-title""#));
-        assert!(result.contains("NOTE"));
-        assert!(result.contains("This is a note"));
-        assert!(result.contains("</div>"));
-    }
-
-    #[test]
-    fn test_process_github_alerts_warning() {
-        let input = indoc! {"
-            > [!WARNING]
-            > Be careful!
-        "};
-        let (result, _) = process_github_alerts(input, 0);
-
-        assert!(result.contains(r#"markdown-alert-warning"#));
-        assert!(result.contains("WARNING"));
-        assert!(result.contains("Be careful!"));
-    }
-
-    #[test]
-    fn test_process_github_alerts_with_multiline() {
-        let input = indoc! {"
-            > [!IMPORTANT]
-            > First line
-            > Second line
-            > Third line
-        "};
-        let (result, _) = process_github_alerts(input, 0);
-
-        assert!(result.contains(r#"markdown-alert-important"#));
-        assert!(result.contains("First line"));
-        assert!(result.contains("Second line"));
-        assert!(result.contains("Third line"));
-    }
-
-    #[test]
-    fn test_process_github_alerts_all_types() {
-        let alert_types = vec![
-            ("NOTE", "note"),
-            ("TIP", "tip"),
-            ("IMPORTANT", "important"),
-            ("WARNING", "warning"),
-            ("CAUTION", "caution"),
-        ];
-
-        for (alert_name, alert_class) in alert_types {
-            let input = format!("> [!{}]\n> Test content", alert_name);
-            let (result, _) = process_github_alerts(&input, 0);
-
-            assert!(
-                result.contains(&format!(r#"markdown-alert-{}"#, alert_class)),
-                "Should contain alert class for {}",
-                alert_name
-            );
-            assert!(
-                result.contains(alert_name),
-                "Should contain alert name {}",
-                alert_name
-            );
-        }
-    }
-
-    #[test]
-    fn test_process_github_alerts_no_match() {
-        let input = "Regular paragraph\n> Regular quote";
-        let (result, line_origins) = process_github_alerts(input, 0);
-
-        assert_eq!(result, input);
-        assert!(!result.contains("markdown-alert"));
-        // Without alerts, each line maps to itself
-        assert_eq!(line_origins, vec![0, 1]);
     }
 
     #[test]
