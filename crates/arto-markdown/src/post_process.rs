@@ -42,6 +42,18 @@ fn read_image_bounded(path: &Path, max_size: u64) -> Option<Vec<u8>> {
     Some(buf)
 }
 
+/// Whether the file a local link points at exists. The check is what the
+/// click handler will do with the same path, so a link that cannot open is
+/// shown as such before it is clicked.
+fn link_target_exists(base_dir: &Path, path: &str) -> bool {
+    let target = Path::new(path);
+    if target.is_absolute() {
+        target.is_file()
+    } else {
+        base_dir.join(target).is_file()
+    }
+}
+
 /// Infer MIME type from file extension
 pub(super) fn get_mime_type(path: &Path) -> &'static str {
     match path.extension().and_then(|e| e.to_str()) {
@@ -66,11 +78,13 @@ pub(super) fn get_mime_type(path: &Path) -> &'static str {
 ///   inlined (logged at `trace` level), matching standard Markdown viewer behavior.
 ///   Reads are bounded by `MAX_INLINE_IMAGE_SIZE` to prevent misreferenced huge
 ///   files or device files from freezing the UI.
-/// - `<a href="…">`: convert local links to `<span data-md-link="…">` for in-app navigation
+/// - `<a href="…">`: convert local links to `<span data-md-link="…">` for in-app
+///   navigation; a Markdown target that does not exist is marked `md-link-missing`
 pub(super) fn post_process_html_tags(html_str: &str, base_dir: &Path) -> String {
     let canonical_base = base_dir
         .canonicalize()
         .unwrap_or_else(|_| base_dir.to_path_buf());
+    let link_base = canonical_base.clone();
     let mut output = Vec::new();
 
     let mut rewriter = HtmlRewriter::new(
@@ -152,26 +166,32 @@ pub(super) fn post_process_html_tags(html_str: &str, base_dir: &Path) -> String 
                 Ok(())
             }))
             // Process anchor tags: convert markdown links to spans
-            .append_element_content_handler(element!("a[href]", |el| {
-                if let Some(href) = el.get_attribute("href") {
-                    if !href.starts_with("http://") && !href.starts_with("https://") {
-                        if let Some(ext) = std::path::Path::new(&href)
-                            .extension()
-                            .and_then(|e| e.to_str())
-                        {
-                            el.set_tag_name("span")?;
-                            el.remove_attribute("href");
-                            el.set_attribute("data-md-link", &href)?;
-                            if ext != "md" && ext != "markdown" {
-                                el.set_attribute("class", "md-link md-link-invalid")?;
-                            } else {
-                                el.set_attribute("class", "md-link")?;
-                            }
-                            el.set_attribute("onmousedown",
-                                "if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}")?;
-                        }
-                    }
+            .append_element_content_handler(element!("a[href]", move |el| {
+                let Some(href) = el.get_attribute("href") else {
+                    return Ok(());
+                };
+                if href.starts_with("http://") || href.starts_with("https://") {
+                    return Ok(());
                 }
+                // A fragment belongs to the target document, not to its file
+                // name; a link that is only a fragment stays an in-page anchor.
+                let path = href.split_once('#').map_or(href.as_str(), |(path, _)| path);
+                let Some(ext) = Path::new(path).extension().and_then(|e| e.to_str()) else {
+                    return Ok(());
+                };
+                let class = if ext != "md" && ext != "markdown" {
+                    "md-link md-link-invalid"
+                } else if !link_target_exists(&link_base, path) {
+                    "md-link md-link-missing"
+                } else {
+                    "md-link"
+                };
+                el.set_tag_name("span")?;
+                el.remove_attribute("href");
+                el.set_attribute("data-md-link", &href)?;
+                el.set_attribute("class", class)?;
+                el.set_attribute("onmousedown",
+                    "if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}")?;
                 Ok(())
             })),
         |chunk: &[u8]| {
@@ -342,10 +362,18 @@ mod tests {
         );
     }
 
+    /// A directory holding `doc.md`, for links whose target must exist.
+    fn dir_with_doc() -> TempDir {
+        let temp = TempDir::new().unwrap();
+        fs::write(temp.path().join("doc.md"), "# Doc").unwrap();
+        temp
+    }
+
     #[test]
     fn test_post_process_html_tags_anchor() {
+        let temp = dir_with_doc();
         let html = r#"<a href="doc.md">Link</a>"#;
-        let result = post_process_html_tags(html, Path::new("."));
+        let result = post_process_html_tags(html, temp.path());
 
         assert!(
             result.contains("<span ") && result.contains(r#"class="md-link""#),
@@ -360,6 +388,43 @@ mod tests {
             "Should add click handler: {result}"
         );
         assert!(!result.contains("<a "), "Should not contain anchor tag");
+    }
+
+    #[test]
+    fn missing_markdown_target_is_marked() {
+        let temp = TempDir::new().unwrap();
+        let html = r#"<a href="./does-not-exist.md">Missing</a>"#;
+        let result = post_process_html_tags(html, temp.path());
+
+        assert!(
+            result.contains(r#"class="md-link md-link-missing""#),
+            "{result}"
+        );
+        assert!(
+            result.contains(r#"data-md-link="./does-not-exist.md""#),
+            "{result}"
+        );
+    }
+
+    #[test]
+    fn fragment_does_not_hide_the_extension() {
+        let temp = dir_with_doc();
+        let html = r#"<a href="./doc.md#section">Section</a>"#;
+        let result = post_process_html_tags(html, temp.path());
+
+        assert!(result.contains(r#"class="md-link""#), "{result}");
+        assert!(
+            result.contains(r#"data-md-link="./doc.md#section""#),
+            "the fragment must reach the click handler: {result}"
+        );
+    }
+
+    #[test]
+    fn fragment_only_links_stay_anchors() {
+        let html = r##"<a href="#section">Here</a>"##;
+        let result = post_process_html_tags(html, Path::new("."));
+
+        assert_eq!(result, html);
     }
 
     #[test]
@@ -396,8 +461,9 @@ mod tests {
 
     #[test]
     fn test_post_process_html_tags_md_vs_other_files() {
+        let temp = dir_with_doc();
         let html = r#"<a href="doc.md">MD</a><a href="file.txt">TXT</a>"#;
-        let result = post_process_html_tags(html, Path::new("."));
+        let result = post_process_html_tags(html, temp.path());
 
         // MD file should have only md-link class
         assert!(
