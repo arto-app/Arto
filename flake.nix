@@ -268,10 +268,32 @@
               '';
             }
           );
+
+          # The standalone page renderer: a plain cargo binary, no Dioxus, no
+          # bundle. It embeds the same frontend stylesheet and IIFE bundle as
+          # the app, so it shares the frontend-assets derivation and the
+          # dependency artifacts; only the install step differs from `arto`.
+          arto-page = craneLib.buildPackage (
+            commonArgs
+            // {
+              pname = "arto-page";
+              inherit (packageMeta) version;
+              inherit cargoArtifacts;
+              doCheck = false;
+
+              postPatch = ''
+                mkdir -p crates/arto-page/assets/frontend
+                cp ${frontend-assets}/main.css ${frontend-assets}/main.iife.js \
+                  crates/arto-page/assets/frontend/
+              '';
+
+              cargoExtraArgs = "-p arto-page --bin arto-page";
+            }
+          );
         in
         {
           default = self.packages.${system}.arto;
-          inherit arto frontend-assets;
+          inherit arto arto-page frontend-assets;
         }
       );
 
@@ -279,7 +301,7 @@
         system:
         let
           # Access packageMeta from packages let-binding
-          inherit (self.packages.${system}) arto;
+          inherit (self.packages.${system}) arto arto-page;
           pkgs = nixpkgs.legacyPackages.${system};
           appBundleName = "Arto.app";
           appExecutableName = "arto";
@@ -292,6 +314,11 @@
                 "${arto}/Applications/${appBundleName}/Contents/MacOS/${appExecutableName}"
               else
                 "${arto}/bin/${appExecutableName}";
+          };
+          # `nix run github:arto-app/Arto#arto-page -- README.md > README.html`
+          arto-page = {
+            type = "app";
+            program = "${arto-page}/bin/arto-page";
           };
         }
       );

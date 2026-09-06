@@ -147,6 +147,32 @@ When updating by hand:
   nixpkgs must agree; check `nix develop -c dx --version` after
   `nix flake update`.
 
+## Publishing the Library Crates
+
+The version in git is always `0.0.0`; CI stamps the release version into
+the working copy at build time and never commits it. So a manual publish
+starts from the release tag and repeats that stamp locally:
+
+```bash
+git checkout vX.Y.Z
+perl -i -pe 's/^version = "0\.0\.0"/version = "X.Y.Z"/' Cargo.toml
+just frontend::assets   # arto-page embeds the stylesheet and bundle
+```
+
+Then publish leaf first; each crate depends on the ones before it:
+
+1. `arto-markdown`
+2. `arto-keybindings`
+3. `arto-config` (depends on the two above)
+4. `arto-ipc` (depends on `arto-config`)
+5. `arto-page` (depends on `arto-markdown` and `arto-config`; its
+   `include` list expects `crates/arto-page/assets/frontend/` to exist)
+
+Path dependencies between the crates need a `version` next to `path` before
+`cargo publish` accepts them. The `arto` app itself carries
+`publish = false`: its assets are resolved next to the executable at
+runtime, so `cargo install` would produce a binary that cannot find them.
+
 ## Code Style
 
 - **Rust**: Follow standard Rust formatting (`cargo fmt`)

@@ -6,6 +6,10 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+# Assets are resolved next to the executable at run time, so a `cargo
+# install`ed binary would start without its stylesheet and bundle. Keep the
+# app off crates.io until the assets are embedded.
+publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

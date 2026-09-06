@@ -161,6 +161,12 @@ Then add it to `environment.systemPackages` (nix-darwin) or `home.packages` (hom
 environment.systemPackages = [ inputs.arto.packages.${system}.default ];
 ```
 
+The standalone page renderer is a separate package, `arto-page`, for machines that only need `arto page` without the app:
+
+```
+nix run github:arto-app/Arto#arto-page -- README.md > README.html
+```
+
 Launch the application to see the welcome screen with keyboard shortcuts and usage instructions.
 
 ## Usage
