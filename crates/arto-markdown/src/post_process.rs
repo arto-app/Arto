@@ -59,7 +59,6 @@ pub(super) fn get_mime_type(path: &Path) -> &'static str {
 /// Post-process HTML with lol_html.
 ///
 /// Handles:
-/// - `<table>`: inject `data-source-line` attributes for source mapping
 /// - `<img src="…">`: inline local images as data URLs. Supports `file:` URLs
 ///   (parsed via `url::Url`, handles percent-encoding and platform differences)
 ///   as well as absolute and relative filesystem paths. Relative paths resolve
@@ -68,30 +67,14 @@ pub(super) fn get_mime_type(path: &Path) -> &'static str {
 ///   Reads are bounded by `MAX_INLINE_IMAGE_SIZE` to prevent misreferenced huge
 ///   files or device files from freezing the UI.
 /// - `<a href="…">`: convert local links to `<span data-md-link="…">` for in-app navigation
-pub(super) fn post_process_html_tags(
-    html_str: &str,
-    base_dir: &Path,
-    table_source_lines: &[(usize, usize)],
-) -> String {
+pub(super) fn post_process_html_tags(html_str: &str, base_dir: &Path) -> String {
     let canonical_base = base_dir
         .canonicalize()
         .unwrap_or_else(|_| base_dir.to_path_buf());
     let mut output = Vec::new();
-    let table_index = std::cell::RefCell::new(0usize);
-    let table_source_lines = table_source_lines.to_vec();
 
     let mut rewriter = HtmlRewriter::new(
         Settings::new()
-            // Process table tags: inject source line attributes
-            .append_element_content_handler(element!("table", |el| {
-                let mut idx = table_index.borrow_mut();
-                if let Some(&(start, end)) = table_source_lines.get(*idx) {
-                    el.set_attribute("data-source-line", &start.to_string())?;
-                    el.set_attribute("data-source-line-end", &end.to_string())?;
-                }
-                *idx += 1;
-                Ok(())
-            }))
             // Process img tags: convert local paths to data URLs
             .append_element_content_handler(element!("img[src]", move |el| {
                 if let Some(src) = el.get_attribute("src") {
@@ -228,7 +211,7 @@ mod tests {
         fs::write(&image, [0x89, 0x50, 0x4E, 0x47]).unwrap();
 
         let html = r#"<img src="../images/image.png">"#;
-        let result = post_process_html_tags(html, &sub, &[]);
+        let result = post_process_html_tags(html, &sub);
 
         // Relative path traversal should be resolved and image converted to data URL
         assert!(
@@ -247,7 +230,7 @@ mod tests {
         fs::write(&image, [0x89, 0x50, 0x4E, 0x47]).unwrap();
 
         let html = r#"<img src="image.png">"#;
-        let result = post_process_html_tags(html, &sub, &[]);
+        let result = post_process_html_tags(html, &sub);
 
         assert!(
             result.contains("data:image/png;base64,"),
@@ -259,7 +242,7 @@ mod tests {
     #[test]
     fn test_link_single_quote_in_data_attribute() {
         let html = r#"<a href="file's.md">link</a>"#;
-        let result = post_process_html_tags(html, Path::new("/tmp"), &[]);
+        let result = post_process_html_tags(html, Path::new("/tmp"));
         // href is stored in data-md-link, not interpolated into JS
         assert!(
             result.contains("data-md-link"),
@@ -275,7 +258,7 @@ mod tests {
     #[test]
     fn test_link_special_chars_safe_with_data_attribute() {
         let html = r#"<a href="test'-alert('xss').md">link</a>"#;
-        let result = post_process_html_tags(html, Path::new("/tmp"), &[]);
+        let result = post_process_html_tags(html, Path::new("/tmp"));
         // href is stored in data attribute, never interpolated into JS string
         assert!(
             result.contains("data-md-link"),
@@ -300,7 +283,7 @@ mod tests {
         // Payload with .md extension so the anchor handler converts the link,
         // plus quotes and JS that would be dangerous if interpolated into JS.
         let html = r#"<a href="evil');alert(1).md">link</a>"#;
-        let result = post_process_html_tags(html, Path::new("/tmp"), &[]);
+        let result = post_process_html_tags(html, Path::new("/tmp"));
 
         // The href must be stored in data-md-link, NOT spliced into inline JS
         assert!(
@@ -322,7 +305,7 @@ mod tests {
     #[test]
     fn test_http_urls_not_converted() {
         let html = r#"<img src="https://example.com/img.png">"#;
-        let result = post_process_html_tags(html, Path::new("/tmp"), &[]);
+        let result = post_process_html_tags(html, Path::new("/tmp"));
         assert!(result.contains("https://example.com/img.png"));
     }
 
@@ -347,7 +330,7 @@ mod tests {
         fs::write(&image_path, png_data).unwrap();
 
         let html = r#"<p><img src="test.png" alt="test" /></p>"#;
-        let result = post_process_html_tags(html, temp_dir.path(), &[]);
+        let result = post_process_html_tags(html, temp_dir.path());
 
         assert!(
             result.contains("data:image/png;base64,"),
@@ -362,7 +345,7 @@ mod tests {
     #[test]
     fn test_post_process_html_tags_anchor() {
         let html = r#"<a href="doc.md">Link</a>"#;
-        let result = post_process_html_tags(html, Path::new("."), &[]);
+        let result = post_process_html_tags(html, Path::new("."));
 
         assert!(
             result.contains("<span ") && result.contains(r#"class="md-link""#),
@@ -383,7 +366,7 @@ mod tests {
     fn test_post_process_html_tags_http_urls() {
         let html =
             r#"<img src="https://example.com/image.png" /><a href="https://example.com">Link</a>"#;
-        let result = post_process_html_tags(html, Path::new("."), &[]);
+        let result = post_process_html_tags(html, Path::new("."));
 
         assert!(
             result.contains(r#"src="https://example.com/image.png""#),
@@ -398,7 +381,7 @@ mod tests {
     #[test]
     fn test_post_process_html_tags_non_md_local_file() {
         let html = r#"<a href="file.txt">Text File</a>"#;
-        let result = post_process_html_tags(html, Path::new("."), &[]);
+        let result = post_process_html_tags(html, Path::new("."));
 
         assert!(
             result.contains("<span ") && result.contains(r#"class="md-link md-link-invalid""#),
@@ -414,7 +397,7 @@ mod tests {
     #[test]
     fn test_post_process_html_tags_md_vs_other_files() {
         let html = r#"<a href="doc.md">MD</a><a href="file.txt">TXT</a>"#;
-        let result = post_process_html_tags(html, Path::new("."), &[]);
+        let result = post_process_html_tags(html, Path::new("."));
 
         // MD file should have only md-link class
         assert!(
@@ -450,7 +433,7 @@ mod tests {
             .expect("valid file path")
             .to_string();
         let html = format!(r#"<img src="{}">"#, file_url);
-        let result = post_process_html_tags(&html, temp_dir.path(), &[]);
+        let result = post_process_html_tags(&html, temp_dir.path());
         assert!(
             result.contains("data:image/png;base64,"),
             "file:///... URL should be converted to data URL: {result}"
@@ -459,7 +442,7 @@ mod tests {
         // file://localhost/absolute/path form: replace the empty host with "localhost"
         let localhost_url = file_url.replacen("file:///", "file://localhost/", 1);
         let html2 = format!(r#"<img src="{}">"#, localhost_url);
-        let result2 = post_process_html_tags(&html2, temp_dir.path(), &[]);
+        let result2 = post_process_html_tags(&html2, temp_dir.path());
         assert!(
             result2.contains("data:image/png;base64,"),
             "file://localhost/... URL should be converted to data URL: {result2}"
@@ -505,7 +488,7 @@ mod tests {
 
         // ./../images/diagram.png resolves from docs/ to images/
         let html = r#"<img src="./../images/diagram.png">"#;
-        let result = post_process_html_tags(html, &docs, &[]);
+        let result = post_process_html_tags(html, &docs);
 
         assert!(
             result.contains("data:image/png;base64,"),

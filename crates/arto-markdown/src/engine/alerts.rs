@@ -1,7 +1,8 @@
-use pulldown_cmark::{html, Parser};
+use pulldown_cmark::Parser;
 
-use super::parser_options;
-use super::source_lines::{byte_offset_to_line, inject_source_lines_impl};
+use super::{parser_options, render_events};
+use crate::annotate::annotate;
+use crate::lines::LineTable;
 
 /// Get SVG icon placeholder for alert type (actual SVG injected by JavaScript)
 fn get_alert_icon_placeholder(alert_type: &str) -> String {
@@ -76,25 +77,16 @@ fn process_alert_block(
         i += 1;
     }
 
-    // Render the collected content as markdown with source line annotations
+    // The body is rendered here, ahead of the main parse, so its source
+    // lines are resolved here too: the spans are relative to the body text
+    // and the origin table points each body line back at its quoted line.
     if !content_lines.is_empty() {
         let content_markdown = content_lines.join("\n");
         let parser = Parser::new_ext(&content_markdown, parser_options()).into_offset_iter();
-        let parser = inject_source_lines_impl(
-            parser,
-            |byte_offset| {
-                let content_line = byte_offset_to_line(&content_markdown, byte_offset) - 1; // 0-based
-                let original_line = content_origins
-                    .get(content_line)
-                    .copied()
-                    .unwrap_or(content_line);
-                original_line + 1 + frontmatter_lines // 1-based
-            },
-            Vec::new(),
-        );
-        let mut content_html = String::new();
-        html::push_html(&mut content_html, parser);
-        html_lines.push(content_html);
+        let content_html = render_events(parser, Vec::new());
+        let lines =
+            LineTable::new(content_markdown, frontmatter_lines).with_origins(content_origins);
+        html_lines.push(annotate(&content_html, &lines));
     }
 
     html_lines.push("</div>".to_string());
@@ -106,8 +98,8 @@ fn process_alert_block(
 ///
 /// Returns `(processed_text, line_origins)` where `line_origins[i]` is the 0-based
 /// line index in the original `markdown` that corresponds to line `i` of the processed text.
-/// This mapping is used by `inject_source_lines` to compute correct original line numbers
-/// even when alert conversion changes the number of lines.
+/// The line table is built with this mapping so that source lines stay correct
+/// even though alert conversion changes the number of lines.
 pub(super) fn process_github_alerts(
     markdown: &str,
     frontmatter_lines: usize,
