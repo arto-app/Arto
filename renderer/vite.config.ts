@@ -8,14 +8,8 @@ function iconSpritePlugin(): Plugin {
   return {
     name: "icon-sprite-generator",
     buildStart() {
-      const outlineDir = path.join(
-        import.meta.dirname,
-        "node_modules/@tabler/icons/icons/outline",
-      );
-      const filledDir = path.join(
-        import.meta.dirname,
-        "node_modules/@tabler/icons/icons/filled",
-      );
+      const outlineDir = path.join(import.meta.dirname, "node_modules/@tabler/icons/icons/outline");
+      const filledDir = path.join(import.meta.dirname, "node_modules/@tabler/icons/icons/filled");
 
       const outputPath = path.join(import.meta.dirname, "public/icons/tabler-sprite.svg");
       const symbols = icons
@@ -33,9 +27,7 @@ function iconSpritePlugin(): Plugin {
             .trim();
 
           // Filled icons need fill & stroke attributes (lost when stripping <svg> wrapper)
-          const attrs = isFilled
-            ? ` fill="currentColor" stroke="none" stroke-width="0"`
-            : "";
+          const attrs = isFilled ? ` fill="currentColor" stroke="none" stroke-width="0"` : "";
 
           return `  <symbol id="tabler-${name}" viewBox="0 0 24 24"${attrs}>${content}</symbol>`;
         })
@@ -55,8 +47,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [iconSpritePlugin()],
   build: {
     outDir:
-      process.env.VITE_OUT_DIR ||
-      path.resolve(import.meta.dirname, "../crates/arto/assets/dist"),
+      process.env.VITE_OUT_DIR || path.resolve(import.meta.dirname, "../crates/arto/assets/dist"),
     // In dev mode, keep existing files for incremental updates
     // In production, clean the directory to avoid shipping stale artifacts
     emptyOutDir: mode === "production",

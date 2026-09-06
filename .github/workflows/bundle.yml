@@ -1,0 +1,167 @@
+name: "Bundle"
+
+# Package the desktop app the way a release does (dx bundle, bundle metadata,
+# the Quick Look extension on macOS, verify-bundle) and upload the installers
+# as artifacts. Called from ci.yml with the legs it wants, from release.yml
+# with every leg and the release version, or by hand.
+
+on:
+  workflow_call:
+    inputs:
+      targets:
+        description: JSON array of legs to build (macos, ubuntu, ubuntu-arm64, windows, windows-arm64)
+        type: string
+        default: '["macos","ubuntu","ubuntu-arm64","windows","windows-arm64"]'
+      version:
+        description: Version to stamp into the bundles (empty keeps 0.0.0)
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: JSON array of legs to build
+        type: string
+        default: '["macos","ubuntu","ubuntu-arm64","windows","windows-arm64"]'
+      version:
+        description: Version to stamp into the bundles (empty keeps 0.0.0)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  # Turn the requested leg names into matrix entries. Kept in one place so a
+  # caller only names legs and never repeats runner or artifact details.
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - id: plan
+        env:
+          TARGETS: ${{ inputs.targets }}
+        run: |
+          # macOS produces a .dmg, Linux a .deb plus an .AppImage (the .deb
+          # installs only on Debian/Ubuntu, so the AppImage is what every
+          # other distro runs), Windows an NSIS installer
+          # (Arto_<version>_<arch>-setup.exe); see the justfile bundle recipes.
+          legs='[
+            {"target":"macos","os":"macos-latest","artifacts":"./target/dx/arto/bundle/**/*.dmg"},
+            {"target":"ubuntu","os":"ubuntu-latest","artifacts":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage"},
+            {"target":"ubuntu-arm64","os":"ubuntu-24.04-arm","artifacts":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage"},
+            {"target":"windows","os":"windows-latest","artifacts":"./target/dx/arto/bundle/**/*-setup.exe"},
+            {"target":"windows-arm64","os":"windows-11-arm","artifacts":"./target/dx/arto/bundle/**/*-setup.exe"}
+          ]'
+          matrix="$(jq -c --argjson want "$TARGETS" '[.[] | select(.target as $t | $want | index($t))]' <<<"$legs")"
+          if [ "$(jq length <<<"$matrix")" = "0" ]; then
+            echo "no known legs in $TARGETS" >&2
+            exit 1
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "$matrix" | jq .
+
+  build:
+    needs: plan
+    runs-on: ${{ matrix.os }}
+    # macOS is the source of the notarized DMG and gates the Homebrew
+    # dispatch, so it must succeed. Linux and Windows bundling are newer and
+    # less proven, so their failures are tolerated (visible as red legs) and
+    # must not block the macOS release.
+    continue-on-error: ${{ matrix.target != 'macos' }}
+    # A cold cargo cache plus `cargo install dioxus-cli` (~10m) pushes a full
+    # release build well past 30m.
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # Native, never the Nix devShell: a devShell build bakes /nix/store
+      # paths into the binary (ELF interpreter and RUNPATH on Linux, the
+      # libiconv install name on macOS), which no machine without that store
+      # can resolve. The `verify bundle` step below enforces this.
+      - uses: ./.github/actions/setup-toolchain
+        with:
+          toolchain: native
+      # Release builds start cold: a cache written by a pull request must not
+      # be able to reach a published installer.
+      - uses: Swatinem/rust-cache@v2
+        if: inputs.version == ''
+        with:
+          key: bundle-${{ matrix.target }}
+      # Cache only the cargo-installed `dx` binary, not all of ~/.cargo/bin:
+      # restoring the whole directory could clobber the rustup/cargo shims
+      # installed earlier in the job.
+      - uses: actions/cache@v6
+        if: inputs.version == ''
+        with:
+          path: ~/.cargo/bin/dx*
+          key: dx-${{ matrix.target }}-0.7.10
+      # `just build` drives `dx bundle`, so every leg needs dioxus-cli.
+      # Version-matched to the devShell's dioxus-cli so local and CI bundles
+      # come out of the same tool. A cached `dx` is reused only when its
+      # version matches, so bumping the pin forces a reinstall.
+      - name: Install dioxus-cli (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          want='0.7.10'
+          if dx --version 2>/dev/null | grep -qF "$want"; then
+            echo "dx $want already present, skipping install"
+          else
+            cargo install dioxus-cli --version "$want" --locked --force
+          fi
+      - name: Install dioxus-cli (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $want = '0.7.10'
+          $have = if (Get-Command dx -ErrorAction SilentlyContinue) { (dx --version) } else { '' }
+          if ($have -match [regex]::Escape($want)) {
+            Write-Host "dx $want already present, skipping install"
+          } else {
+            cargo install dioxus-cli --version $want --locked --force
+          }
+      # Stamp the release version into the bundle filename. Split by
+      # toolchain so each runner uses its native shell (bash/perl on Unix,
+      # pwsh on Windows) rather than relying on Git Bash's perl on the
+      # otherwise-native Windows leg.
+      # Accepts the release tag as-is: a leading `v` is dropped here.
+      - name: Set package version (Unix)
+        if: inputs.version != '' && runner.os != 'Windows'
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          VERSION="${VERSION#v}"
+          perl -i -pe 's/^version = "0\.0\.0"/version = "'"${VERSION}"'"/' Cargo.toml
+          echo "${VERSION}" > crates/arto/VERSION
+      - name: Set package version (Windows)
+        if: inputs.version != '' && runner.os == 'Windows'
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          $v = $env:VERSION -replace '^v', ''
+          (Get-Content Cargo.toml) -replace '^version = "0\.0\.0"', "version = `"$v`"" | Set-Content Cargo.toml
+          Set-Content -NoNewline crates/arto/VERSION $v
+      - run: just build
+      # Refuse to publish a bundle that carries build-environment dependencies
+      # or that cannot start. Windows never sees a Nix toolchain, so there is
+      # nothing to check there.
+      - name: Verify bundle
+        if: runner.os != 'Windows'
+        run: just verify-bundle
+      - uses: actions/upload-artifact@v7
+        with:
+          name: arto-${{ matrix.target }}
+          path: ${{ matrix.artifacts }}
+          if-no-files-found: error
+          # Release bundles are attached to the release and can stay; a
+          # pull-request smoke test only needs to be downloadable for a while.
+          retention-days: ${{ inputs.version != '' && 90 || 7 }}

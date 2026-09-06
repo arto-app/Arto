@@ -5,7 +5,7 @@ description: >
   development), and the platform's native toolchain (so binaries published to a
   release link against the platform's own libraries, not the Nix store).
   Windows has no Nix and is always native. The flavour branch lives here once
-  instead of being duplicated across the check/test/build jobs.
+  instead of being duplicated across the jobs.
 
 inputs:
   toolchain:
@@ -18,7 +18,15 @@ inputs:
     required: false
     default: "nix"
   cachix-auth-token:
-    description: "Cachix auth token. Cachix is skipped on pull requests regardless."
+    description: >
+      Cachix auth token. Pull requests only pull from the cache (no token
+      needed); pushes to main and releases also push.
+    required: false
+    default: ""
+  tools:
+    description: >
+      Comma-separated cargo tools to install on a native toolchain (e.g.
+      "cargo-nextest,cargo-hack"). The devShell already carries them.
     required: false
     default: ""
 
@@ -31,11 +39,28 @@ runs:
       uses: chetan/git-restore-mtime-action@v2
     - if: inputs.toolchain == 'nix' && runner.os != 'Windows'
       uses: nixbuild/nix-quick-install-action@v35
-    - if: inputs.toolchain == 'nix' && runner.os != 'Windows' && github.event_name != 'pull_request'
+    # Pull requests pull from Cachix but never push: pushing needs the auth
+    # token, which fork PRs do not have, and a PR's artifacts should not
+    # populate the shared cache anyway.
+    - if: inputs.toolchain == 'nix' && runner.os != 'Windows'
       uses: cachix/cachix-action@v17
       with:
         name: arto
         authToken: ${{ inputs.cachix-auth-token }}
+        skipPush: ${{ github.event_name == 'pull_request' }}
+    # Expose the devShell's cargo and rustc on PATH. The commands themselves
+    # still run through `nix develop -c` (for the environment variables the
+    # shell sets), but Swatinem/rust-cache keys its cache on `rustc -vV` from
+    # a plain step, so the toolchain must be reachable without the shell.
+    # The PATH edits below are the point of this action and run only on
+    # trusted triggers (no pull_request_target anywhere), so the environment
+    # file audit is silenced for them.
+    - if: inputs.toolchain == 'nix' && runner.os != 'Windows'
+      shell: bash
+      run: | # zizmor: ignore[github-env]
+        cargo_dir="$(nix develop -c bash -c 'dirname "$(command -v cargo)"')"
+        echo "$cargo_dir" >> "$GITHUB_PATH"
+        echo "devShell toolchain: $cargo_dir"
 
     # --- Native toolchain (every platform) ---
     # Windows-only code paths (the cfg(windows) named-pipe IPC, the hamburger
@@ -44,7 +69,11 @@ runs:
     - if: inputs.toolchain == 'native' || runner.os == 'Windows'
       uses: dtolnay/rust-toolchain@stable
       with:
-        components: clippy
+        components: clippy, rustfmt
+    - if: (inputs.toolchain == 'native' || runner.os == 'Windows') && inputs.tools != ''
+      uses: taiki-e/install-action@v2
+      with:
+        tool: ${{ inputs.tools }}
     # The GTK/WebKit stack wry links against. The devShell provides these
     # through nixpkgs, so only native Linux builds need the distro packages.
     - name: Install GTK/WebKit development packages (Linux)
@@ -66,7 +95,7 @@ runs:
     - name: Install NASM (x86_64, required by ring)
       if: runner.os == 'Windows' && runner.arch == 'X64'
       shell: pwsh
-      run: |
+      run: | # zizmor: ignore[github-env]
         choco install nasm --no-progress -y
         "C:\Program Files\NASM" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
     - name: Install LLVM (clang, required by ring on aarch64)
@@ -91,7 +120,7 @@ runs:
     - name: Install just (Unix)
       if: inputs.toolchain == 'native' && runner.os != 'Windows'
       shell: bash
-      run: |
+      run: | # zizmor: ignore[github-env]
         ver='1.58.0'
         case "$RUNNER_OS-$RUNNER_ARCH" in
           macOS-ARM64) triple='aarch64-apple-darwin' ;;
@@ -107,7 +136,7 @@ runs:
     - name: Install just (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
-      run: |
+      run: | # zizmor: ignore[github-env]
         $ver = '1.58.0'
         $arch = if ($env:RUNNER_ARCH -eq 'ARM64') { 'aarch64' } else { 'x86_64' }
         $url = "https://github.com/casey/just/releases/download/$ver/just-$ver-$arch-pc-windows-msvc.zip"

@@ -1,0 +1,290 @@
+name: "CI"
+
+# The fast lane. Every pull request gets the checks that finish in minutes
+# (frontend, Rust per OS, flake evaluation, docs, workflow lint) and one
+# macOS bundle as the release-critical smoke test. The full five-leg bundle
+# matrix and the from-scratch Nix build run on pushes to main and on demand,
+# or on a pull request that touches what they verify.
+#
+# `ci` at the bottom is the single job to require in branch protection: it
+# always runs and fails if anything it depends on failed.
+
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+  workflow_dispatch:
+
+# A new push to the same ref supersedes the run in flight. Only for pull
+# requests: a run on main must finish so the caches and Cachix get populated.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # Which parts of the tree a pull request touches. Everything is "true" on
+  # pushes and manual runs.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.detect.outputs.code }}
+      flake: ${{ steps.detect.outputs.flake }}
+      docs: ${{ steps.detect.outputs.docs }}
+      bundle-targets: ${{ steps.detect.outputs.bundle-targets }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: detect
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          all='["macos","ubuntu","ubuntu-arm64","windows","windows-arm64"]'
+          if [ "$EVENT" != "pull_request" ]; then
+            {
+              echo "code=true"
+              echo "flake=true"
+              echo "docs=true"
+              echo "bundle-targets=$all"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          matches() { printf '%s\n' "$files" | grep -Eq "$1"; }
+          code=false; flake=false; docs=false; bundle=false
+          # Anything that is not documentation or sample data is code.
+          if printf '%s\n' "$files" | grep -Evq '(\.md$|^example/|^docs/)'; then code=true; fi
+          # Lockfiles count as flake changes: a new crate may need a native
+          # library the Nix build lacks, and a pnpm lockfile change moves the
+          # pnpmDeps hash, so both must go through the from-scratch build.
+          if matches '^(flake\.nix|flake\.lock|nix/|Cargo\.lock|renderer/pnpm-lock\.yaml|\.github/workflows/nix\.yml)'; then flake=true; fi
+          if matches '(\.md$|^docs/|^lychee\.toml$|^\.github/scripts/)'; then docs=true; fi
+          # The bundle verifies packaging inputs, not application code, so
+          # the full matrix runs only when those inputs (or a label) ask.
+          # crates/arto/assets holds the icon Dioxus.toml embeds.
+          if matches '^(crates/arto/Dioxus\.toml|crates/arto/assets/|crates/arto/justfile|justfile|extras/|scripts/|flake\.nix|flake\.lock|\.github/workflows/bundle\.yml|\.github/actions/)'; then bundle=true; fi
+          case ",$LABELS," in *,ci:bundle,*) bundle=true ;; esac
+          if [ "$bundle" = true ]; then targets="$all"; else targets='["macos"]'; fi
+          {
+            echo "code=$code"
+            echo "flake=$flake"
+            echo "docs=$docs"
+            echo "bundle-targets=$targets"
+          } >> "$GITHUB_OUTPUT"
+          echo "code=$code flake=$flake docs=$docs bundle-targets=$targets"
+
+  # TypeScript and CSS: lint, type-check, unit tests, and the production
+  # bundle. The bundle is handed to the Rust legs as an artifact so none of
+  # them needs pnpm; asset!() and include_str! only need the files to exist.
+  # The Quick Look crate embeds the same directory, so one upload covers both.
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: renderer
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # Reads the pnpm version from renderer/package.json's packageManager.
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: renderer/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: renderer/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # Formatting is gated here only: oxfmt on the Windows leg used to fail
+      # on git's CRLF conversion for reasons unrelated to the change.
+      - run: pnpm run fmt && git diff --exit-code
+      - run: pnpm run check
+      - run: pnpm run test
+      - run: pnpm run build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: frontend-assets
+          path: crates/arto/assets/dist
+          if-no-files-found: error
+          retention-days: 1
+
+  # Format, clippy, tests per OS. One job per OS (not separate check and
+  # test jobs) so the crates compile once and share the cache. The Linux leg
+  # also carries the checks that are OS-independent: rustdoc, feature
+  # combinations, advisories and licenses, unused dependencies.
+  rust:
+    needs: [changes, frontend]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: macos, os: macos-latest }
+          - { target: ubuntu, os: ubuntu-latest }
+          - { target: windows, os: windows-latest }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: frontend-assets
+          path: crates/arto/assets/dist
+      - uses: ./.github/actions/setup-toolchain
+        with:
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          tools: cargo-nextest
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      # Linux CI is headless: tests that touch display/GUI APIs (screen
+      # bounds, window creation) SIGSEGV without an X server. Provide a
+      # virtual one via Xvfb. macOS has a real window server and Windows runs
+      # natively, so neither needs it.
+      - name: Install Xvfb (Linux headless display)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      # `just` recipes run through the devShell on macOS/Linux and directly on
+      # Windows; the prefixes below keep the remaining steps identical.
+      - name: Choose command prefixes
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" != "Windows" ]; then
+            echo "NIX=nix develop -c" >> "$GITHUB_ENV"
+          fi
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            echo "XVFB=xvfb-run -a" >> "$GITHUB_ENV"
+          fi
+      # The prefixes are meant to split into words (SC2086).
+      - name: Format
+        shell: bash
+        run: |
+          # shellcheck disable=SC2086
+          $NIX cargo fmt --all --check
+      - name: Check and lint
+        shell: bash
+        run: |
+          # shellcheck disable=SC2086
+          $NIX just arto::check
+      - name: Test
+        shell: bash
+        run: |
+          # shellcheck disable=SC2086
+          $XVFB $NIX just arto::test-ci
+      - name: Documentation
+        if: matrix.target == 'ubuntu'
+        shell: bash
+        run: |
+          # shellcheck disable=SC2086
+          $NIX just arto::doc
+      - name: Feature combinations
+        if: matrix.target == 'ubuntu'
+        shell: bash
+        run: |
+          # shellcheck disable=SC2086
+          $NIX just arto::features
+      - name: Advisories and licenses
+        if: matrix.target == 'ubuntu'
+        shell: bash
+        run: |
+          # shellcheck disable=SC2086
+          $NIX just arto::deny
+      - name: Unused dependencies
+        if: matrix.target == 'ubuntu'
+        shell: bash
+        run: |
+          # shellcheck disable=SC2086
+          $NIX just arto::machete
+
+  # Evaluate every flake output without building. Catches a source fileset
+  # that names a moved file, a missing attribute, or a broken devShell in a
+  # minute or two; the full build is the separate nix workflow.
+  flake-eval:
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.flake == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: nixbuild/nix-quick-install-action@v35
+      - run: nix flake check --no-build --all-systems
+
+  # Documentation: relative links and anchors (offline), and repository paths
+  # named in code spans that no longer exist.
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true' || needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: --config lychee.toml '**/*.md'
+          fail: true
+      - run: perl .github/scripts/check-doc-paths.pl
+
+  # The workflow files themselves: syntax and expression errors (actionlint),
+  # then security smells such as template injection (zizmor).
+  workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: raven-actions/actionlint@v2
+      # Policy in .github/zizmor.yml. Findings below "low" are advice
+      # (self-repository syntax, superfluous actions), not failures.
+      - uses: zizmorcore/zizmor-action@v0.6.3
+        with:
+          advanced-security: false
+          min-severity: low
+          config: .github/zizmor.yml
+
+  bundle:
+    needs: [changes, rust]
+    if: needs.changes.outputs.code == 'true'
+    uses: ./.github/workflows/bundle.yml
+    with:
+      targets: ${{ needs.changes.outputs.bundle-targets }}
+
+  nix:
+    needs: [changes, rust]
+    if: needs.changes.outputs.code == 'true' && (github.event_name != 'pull_request' || needs.changes.outputs.flake == 'true')
+    uses: ./.github/workflows/nix.yml
+    secrets:
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+  # The one status to require. Skipped jobs are fine (a docs-only change has
+  # no Rust to build); failed or cancelled ones are not.
+  ci:
+    needs: [changes, frontend, rust, flake-eval, docs, workflows, bundle, nix]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$RESULTS" | jq -e '[.[] | select(.result == "failure" or .result == "cancelled")] | length == 0' > /dev/null

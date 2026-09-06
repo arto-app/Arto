@@ -31,7 +31,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   opacity: var(--opacity-hover);
-  transition: opacity var(--transition-fast), background var(--transition-fast);
+  transition:
+    opacity var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .right-sidebar-contents-item-button:hover {

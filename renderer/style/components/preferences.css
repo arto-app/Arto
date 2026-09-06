@@ -488,7 +488,9 @@
   border-radius: var(--radius-full);
   background: var(--accent-bg);
   cursor: pointer;
-  transition: transform var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
+  transition:
+    transform var(--transition-fast) ease,
+    box-shadow var(--transition-fast) ease;
 }
 
 .slider-input input[type="range"]::-webkit-slider-thumb:hover {

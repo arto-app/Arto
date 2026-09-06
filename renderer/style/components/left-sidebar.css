@@ -23,7 +23,9 @@
 
 /* Panel focus indicator — only visible during keyboard navigation */
 .keyboard-navigating .left-sidebar.panel-focused {
-  box-shadow: inset 0 0 0 2px var(--bg-secondary), inset 0 0 0 3px var(--accent-bg);
+  box-shadow:
+    inset 0 0 0 2px var(--bg-secondary),
+    inset 0 0 0 3px var(--accent-bg);
 }
 
 /* Inner wrapper with zoom applied */

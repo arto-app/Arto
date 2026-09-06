@@ -79,7 +79,8 @@
   border: 1px solid var(--border-color);
   border-radius: 0.25rem;
   font-size: 0.85rem;
-  font-family: ui-monospace, "SF Mono", Monaco, "Cascadia Mono", "Segoe UI Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, "SF Mono", Monaco, "Cascadia Mono", "Segoe UI Mono", "Courier New", monospace;
   color: var(--text-color);
   box-shadow: var(--shadow-xs);
 }
@@ -109,7 +110,8 @@
 .file-error .file-error-filename {
   color: var(--text-secondary);
   opacity: 0.75;
-  font-family: ui-monospace, "SF Mono", Monaco, "Cascadia Mono", "Segoe UI Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, "SF Mono", Monaco, "Cascadia Mono", "Segoe UI Mono", "Courier New", monospace;
   font-size: 0.95rem;
 }
 

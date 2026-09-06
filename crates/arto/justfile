@@ -21,6 +21,32 @@ test:
   cargo test --workspace --all-targets
   cargo test --workspace --doc
 
+# What CI runs instead of `test`: nextest retries only the tests that
+# failed (a few macOS tests depend on the window server and flake in a
+# headless run), and reports per-test timing. Doctests are not run by
+# nextest, so they follow separately.
+test-ci:
+  cargo nextest run --workspace --all-targets --all-features --retries 2 --no-fail-fast
+  cargo test --workspace --doc
+
+# Documentation must build without warnings: a broken intra-doc link or a
+# public item linking to a private one is an error here.
+doc:
+  RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
+
+# Every feature combination the library crates are consumed with must build
+# on its own; `check` only covers the default set.
+features:
+  cargo hack check --each-feature --no-dev-deps -p arto-markdown -p arto-ql
+
+# Advisories, licenses and duplicate majors, per deny.toml at the root.
+deny:
+  cargo deny --workspace check
+
+# Declared dependencies nothing imports.
+machete:
+  cargo machete
+
 verify: fmt check test
 
 clean:

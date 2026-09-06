@@ -18,4 +18,5 @@ url = "2"
 
 [dev-dependencies]
 indoc.workspace = true
+insta.workspace = true
 tempfile.workspace = true

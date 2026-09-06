@@ -115,10 +115,7 @@
 }
 
 /* Show file action buttons on header hover */
-.header:hover
-  .header-left
-  .file-action-buttons
-  .nav-button:hover:not(:disabled) {
+.header:hover .header-left .file-action-buttons .nav-button:hover:not(:disabled) {
   opacity: 1;
 }
 

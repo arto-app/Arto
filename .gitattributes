@@ -1,0 +1,5 @@
+# Images referenced from Markdown are inlined byte-for-byte as base64 data
+# URLs, so a checkout that rewrites their line endings changes the rendered
+# HTML. SVG is the only image format git would treat as text; keep it out of
+# the conversion so every platform renders the same bytes.
+*.svg -text

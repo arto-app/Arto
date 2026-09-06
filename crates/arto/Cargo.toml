@@ -26,7 +26,6 @@ dotenvy = "0.15.7"
 html-escape.workspace = true
 image = "0.25.10"
 indoc.workspace = true
-lol_html.workspace = true
 notify-debouncer-full = "0.7.0"
 open = "5.4.3"
 parking_lot = "0.12"

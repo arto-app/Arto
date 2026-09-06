@@ -11,6 +11,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Adopt a new release only after it has been public for a week, so a
+    # compromised or yanked release is usually caught upstream first.
+    cooldown:
+      default-days: 7
     groups:
       cargo-minor-and-patch:
         update-types: [minor, patch]
@@ -19,6 +23,10 @@ updates:
     directory: /renderer
     schedule:
       interval: weekly
+    # Adopt a new release only after it has been public for a week, so a
+    # compromised or yanked release is usually caught upstream first.
+    cooldown:
+      default-days: 7
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
@@ -27,6 +35,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Adopt a new release only after it has been public for a week, so a
+    # compromised or yanked release is usually caught upstream first.
+    cooldown:
+      default-days: 7
     groups:
       actions:
         update-types: [minor, patch]

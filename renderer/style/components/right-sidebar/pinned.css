@@ -131,8 +131,18 @@
   border-radius: var(--radius-xs);
 }
 
-.right-sidebar-pinned-highlight.highlight-green { background-color: var(--pinned-green); }
-.right-sidebar-pinned-highlight.highlight-blue { background-color: var(--pinned-blue); }
-.right-sidebar-pinned-highlight.highlight-pink { background-color: var(--pinned-pink); }
-.right-sidebar-pinned-highlight.highlight-orange { background-color: var(--pinned-orange); }
-.right-sidebar-pinned-highlight.highlight-purple { background-color: var(--pinned-purple); }
+.right-sidebar-pinned-highlight.highlight-green {
+  background-color: var(--pinned-green);
+}
+.right-sidebar-pinned-highlight.highlight-blue {
+  background-color: var(--pinned-blue);
+}
+.right-sidebar-pinned-highlight.highlight-pink {
+  background-color: var(--pinned-pink);
+}
+.right-sidebar-pinned-highlight.highlight-orange {
+  background-color: var(--pinned-orange);
+}
+.right-sidebar-pinned-highlight.highlight-purple {
+  background-color: var(--pinned-purple);
+}

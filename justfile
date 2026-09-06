@@ -15,6 +15,17 @@ test: renderer::assets arto::test renderer::test
 
 verify: fmt check test
 
+# Links in Markdown files (offline, see lychee.toml) and repository paths
+# named in documentation; the same checks the CI docs job runs.
+docs:
+  lychee --config lychee.toml '**/*.md'
+  perl .github/scripts/check-doc-paths.pl
+
+# Workflow files: syntax and expression errors, then security smells.
+workflows:
+  actionlint
+  zizmor --min-severity low --config .github/zizmor.yml .
+
 clean: arto::clean renderer::clean
 
 dev:

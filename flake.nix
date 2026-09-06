@@ -18,10 +18,12 @@
       crane,
     }:
     let
+      # No x86_64-darwin: nixpkgs dropped it in 26.11, so the pinned
+      # nixpkgs-unstable input cannot evaluate packages for it, and the
+      # release DMG has only ever been built for Apple silicon.
       systems = [
         "aarch64-darwin"
         "aarch64-linux"
-        "x86_64-darwin"
         "x86_64-linux"
       ];
       eachSystem = nixpkgs.lib.genAttrs systems;
@@ -294,9 +296,20 @@
           craneLib.devShell {
             inputsFrom = with self.packages.${system}; [ renderer-assets ];
             packages = [
-              # Rust tools (craneLib.devShell provides: cargo, rustc, rustfmt, clippy, cargo-nextest)
+              # Rust tools (craneLib.devShell provides: cargo, rustc, rustfmt, clippy)
               # We only add additional tools not included by default:
               pkgs.rust-analyzer # IDE support
+
+              # The same checks CI runs (see .github/workflows/ci.yml), so a
+              # failure there can be reproduced with the matching just recipe.
+              pkgs.cargo-nextest # `just arto::test-ci`
+              pkgs.cargo-hack # `just arto::features`
+              pkgs.cargo-deny # `just arto::deny`
+              pkgs.cargo-machete # `just arto::machete`
+              pkgs.cargo-insta # review rendering snapshots (`cargo insta review`)
+              pkgs.lychee # `just docs`
+              pkgs.actionlint # `just workflows`
+              pkgs.zizmor # `just workflows`
 
               # Dioxus desktop development
               pkgs.dioxus-cli

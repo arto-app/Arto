@@ -245,8 +245,9 @@
 }
 
 .shortcut-help-key {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
   font-size: 12px;
   border: 1px solid var(--border-color);
   background: var(--bg-secondary);

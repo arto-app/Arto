@@ -1,0 +1,103 @@
+---
+source: crates/arto-markdown/tests/samples.rs
+expression: html
+input_file: samples/05-beyond-gfm.md
+---
+<h1 data-source-line="1">Beyond GitHub Flavored Markdown</h1>
+<p data-source-line="3">Nothing on this page is part of CommonMark or the GFM specification, and
+viewers disagree on it: GitHub renders some of it (emoji shortcodes, bare
+autolinks, math in table cells), a plain GFM renderer renders none of it, and
+Arto renders whatever subset its Markdown engine supports. That makes this
+file the place where an engine change becomes visible: every section shows
+the source in a code span, the rendered form right below it, and what the
+other renderers show instead. Previous: <span data-md-link="./04-frontmatter.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Frontmatter</span>.</p>
+<p data-source-line="11">Use it in two ways. After changing the engine, walk through it once and note
+which sections switched. When writing documents meant to look the same on
+GitHub and in Arto, avoid everything on this page except the constructs both
+render.</p>
+<h2 data-source-line="16">Smart punctuation</h2>
+<p data-source-line="18">Source: <code>"double quotes" 'single quotes' -- en dash --- em dash ... ellipsis</code></p>
+<p data-source-line="20">“double quotes” ‘single quotes’ – en dash — em dash … ellipsis</p>
+<p data-source-line="22"><strong>Engine with smart punctuation:</strong> curly quotes “ ” ‘ ’, an en dash –, an em
+dash —, and a single ellipsis character ….
+<strong>Plain GFM:</strong> straight quotes and the literal <code>--</code>, <code>---</code>, <code>...</code>.</p>
+<p data-source-line="26">Apostrophes: it’s, don’t, the ’90s.</p>
+<h2 data-source-line="28">Superscript</h2>
+<p data-source-line="30">Source: <code>x^2^ + y^2^ = r^2^</code> and <code>E = mc^2^</code></p>
+<p data-source-line="32">x^2^ + y^2^ = r^2^ and E = mc^2^</p>
+<p data-source-line="34"><strong>Engine with superscript:</strong> the 2s are raised.
+<strong>Plain GFM:</strong> the carets stay visible. Compare with the raw HTML form
+x<sup>2</sup>, which every engine raises.</p>
+<h2 data-source-line="38">Subscript and single tildes</h2>
+<p data-source-line="40">Source: <code>H~2~O</code> and <code>CO~2~</code></p>
+<p data-source-line="42">H~2~O and CO~2~</p>
+<p data-source-line="44"><strong>Engine with subscript:</strong> the numbers are lowered.
+<strong>GitHub:</strong> treats single tildes as strikethrough, so it shows H<del>2</del>O with the
+digit struck through.
+<strong>Plain CommonMark:</strong> the tildes stay visible. Compare with the raw HTML form
+H<sub>2</sub>O, which every engine lowers.</p>
+<h2 data-source-line="50">Definition lists</h2>
+<p data-source-line="52">Source:</p>
+<pre data-source-line="54" data-source-line-end="61" data-source-line-start="55"><code class="language-markdown">Markdown
+: A lightweight markup language with plain text formatting syntax.
+
+CommonMark
+: A strongly defined, highly compatible specification of Markdown.
+: A second definition for the same term.
+</code></pre>
+<dl>
+<dt>Markdown</dt>
+<dd>A lightweight markup language with plain text formatting syntax.</dd>
+<dt>CommonMark</dt>
+<dd>A strongly defined, highly compatible specification of Markdown.</dd>
+<dd>A second definition for the same term.</dd>
+</dl>
+<p data-source-line="70"><strong>Engine with definition lists:</strong> each term on its own line with the
+definitions indented below it.
+<strong>Plain GFM:</strong> paragraphs beginning with a colon. Compare with the raw HTML
+form, which every engine renders:</p>
+<dl>
+<dt>Markdown</dt>
+<dd>A lightweight markup language with plain text formatting syntax.</dd>
+<dt>CommonMark</dt>
+<dd>A strongly defined, highly compatible specification of Markdown.</dd>
+</dl>
+<h2 data-source-line="82">Wiki links</h2>
+<p data-source-line="84">Source: <code>[[README]]</code> and <code>[[README|Back to the index]]</code></p>
+<p data-source-line="86"><a href="README">README</a> and <a href="README">Back to the index</a></p>
+<p data-source-line="88"><strong>Engine with wiki links:</strong> two links; the second shows the text after the bar.
+<strong>Plain GFM:</strong> the double brackets stay visible.</p>
+<h2 data-source-line="91">Heading attributes</h2>
+<p data-source-line="93">Source: <code>### Custom identifier {#custom-heading-id .highlight}</code></p>
+<h3 data-source-line="95" id="custom-heading-id" class="highlight">Custom identifier</h3>
+<p data-source-line="97"><strong>Engine with heading attributes:</strong> the braces disappear from the heading and
+the table of contents. Whether the anchor becomes <code>custom-heading-id</code> is up to
+the viewer; Arto derives anchors from the heading text, so
+<a href="#custom-heading-id">this link</a> scrolls nowhere while
+<a href="#custom-identifier">this one</a> does.
+<strong>Plain GFM:</strong> the braces are part of the heading text.</p>
+<h2 data-source-line="104">Math in table cells</h2>
+<p data-source-line="106">Source: a table whose cells contain <code>$E = mc^2$</code> and <code>$\sum_{i=1}^{n} i$</code></p>
+<table data-source-line="108" data-source-line-end="111"><thead><tr><th>Formula</th><th>Meaning</th></tr></thead><tbody>
+<tr data-source-line="110"><td><span class="preprocessed-math-inline" data-original-content="E = mc^2">E = mc^2</span></td><td>mass-energy</td></tr>
+<tr data-source-line="111"><td><span class="preprocessed-math-inline" data-original-content="\sum_{i=1}^{n} i">\sum_{i=1}^{n} i</span></td><td>a sum</td></tr>
+</tbody></table>
+<p data-source-line="113"><strong>Engine with math in cells:</strong> two typeset formulas.
+<strong>Otherwise:</strong> the dollar signs stay visible inside the cells while the same
+formulas in the Inline math section of
+<span data-md-link="./03-math-and-diagrams.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Math and diagrams</span> are typeset. GitHub typesets
+both.</p>
+<h2 data-source-line="119">Emoji shortcodes</h2>
+<p data-source-line="121">Source: <code>:tada: :rocket: :white_check_mark:</code></p>
+<p data-source-line="123">Shortcodes: :tada: :rocket: :white_check_mark:</p>
+<p data-source-line="125"><strong>GitHub:</strong> three emoji.
+<strong>Arto:</strong> the shortcodes stay as text; use the emoji characters 🎉 🚀 ✅
+directly.</p>
+<h2 data-source-line="129">Autolinks without a scheme</h2>
+<p data-source-line="131">Source: <code>www.example.com</code> and <code>contact@example.com</code></p>
+<p data-source-line="133">www.example.com and contact@example.com</p>
+<p data-source-line="135"><strong>GitHub and engines with GFM autolink literals:</strong> both become links.
+<strong>Otherwise:</strong> plain text, while <a href="https://example.com">https://example.com</a> on the same page is a
+link.</p>
+<hr data-source-line="139" />
+<p data-source-line="141">Previous: <span data-md-link="./04-frontmatter.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Frontmatter</span> · Back to the <span data-md-link="./README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">index</span></p>

@@ -33,7 +33,7 @@ This command runs:
 
 **Always check existing content files before writing descriptions:**
 
-- Welcome page content: `assets/welcome.md`
+- Welcome page content: `crates/arto/assets/welcome.md`
 - README: Project description and philosophy
 - Use actual project descriptions, not generic placeholders
 

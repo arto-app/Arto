@@ -173,14 +173,26 @@
   padding: 0 1px;
 }
 
-.pinned-highlight[data-color="green"] { background-color: var(--pinned-green); }
-.pinned-highlight[data-color="blue"] { background-color: var(--pinned-blue); }
-.pinned-highlight[data-color="pink"] { background-color: var(--pinned-pink); }
-.pinned-highlight[data-color="orange"] { background-color: var(--pinned-orange); }
-.pinned-highlight[data-color="purple"] { background-color: var(--pinned-purple); }
+.pinned-highlight[data-color="green"] {
+  background-color: var(--pinned-green);
+}
+.pinned-highlight[data-color="blue"] {
+  background-color: var(--pinned-blue);
+}
+.pinned-highlight[data-color="pink"] {
+  background-color: var(--pinned-pink);
+}
+.pinned-highlight[data-color="orange"] {
+  background-color: var(--pinned-orange);
+}
+.pinned-highlight[data-color="purple"] {
+  background-color: var(--pinned-purple);
+}
 
 /* Disabled: override github-markdown-css .markdown-body mark background */
-.markdown-body .pinned-highlight-disabled { background-color: transparent; }
+.markdown-body .pinned-highlight-disabled {
+  background-color: transparent;
+}
 
 /* Flash animation when scrolling to pinned match */
 .pinned-highlight-flash {

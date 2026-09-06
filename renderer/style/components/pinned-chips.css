@@ -27,11 +27,21 @@
 }
 
 /* Dim background color for disabled chips */
-.pinned-chip.disabled.highlight-green { background-color: color-mix(in srgb, var(--pinned-green) 35%, transparent); }
-.pinned-chip.disabled.highlight-blue { background-color: color-mix(in srgb, var(--pinned-blue) 35%, transparent); }
-.pinned-chip.disabled.highlight-pink { background-color: color-mix(in srgb, var(--pinned-pink) 35%, transparent); }
-.pinned-chip.disabled.highlight-orange { background-color: color-mix(in srgb, var(--pinned-orange) 35%, transparent); }
-.pinned-chip.disabled.highlight-purple { background-color: color-mix(in srgb, var(--pinned-purple) 35%, transparent); }
+.pinned-chip.disabled.highlight-green {
+  background-color: color-mix(in srgb, var(--pinned-green) 35%, transparent);
+}
+.pinned-chip.disabled.highlight-blue {
+  background-color: color-mix(in srgb, var(--pinned-blue) 35%, transparent);
+}
+.pinned-chip.disabled.highlight-pink {
+  background-color: color-mix(in srgb, var(--pinned-pink) 35%, transparent);
+}
+.pinned-chip.disabled.highlight-orange {
+  background-color: color-mix(in srgb, var(--pinned-orange) 35%, transparent);
+}
+.pinned-chip.disabled.highlight-purple {
+  background-color: color-mix(in srgb, var(--pinned-purple) 35%, transparent);
+}
 
 .pinned-chip-body {
   padding: 2px 4px 2px 8px;
@@ -62,11 +72,21 @@
 }
 
 /* Chip background colors */
-.pinned-chip.highlight-green { background-color: var(--pinned-green); }
-.pinned-chip.highlight-blue { background-color: var(--pinned-blue); }
-.pinned-chip.highlight-pink { background-color: var(--pinned-pink); }
-.pinned-chip.highlight-orange { background-color: var(--pinned-orange); }
-.pinned-chip.highlight-purple { background-color: var(--pinned-purple); }
+.pinned-chip.highlight-green {
+  background-color: var(--pinned-green);
+}
+.pinned-chip.highlight-blue {
+  background-color: var(--pinned-blue);
+}
+.pinned-chip.highlight-pink {
+  background-color: var(--pinned-pink);
+}
+.pinned-chip.highlight-orange {
+  background-color: var(--pinned-orange);
+}
+.pinned-chip.highlight-purple {
+  background-color: var(--pinned-purple);
+}
 
 /* ============================================
    Color Palette Popover
@@ -112,11 +132,21 @@
   box-shadow: 0 0 0 2px var(--text-color);
 }
 
-.color-palette-swatch.highlight-green { background-color: #4caf50; }
-.color-palette-swatch.highlight-blue { background-color: #00bcd4; }
-.color-palette-swatch.highlight-pink { background-color: #e91e63; }
-.color-palette-swatch.highlight-orange { background-color: #ff9800; }
-.color-palette-swatch.highlight-purple { background-color: #9c27b0; }
+.color-palette-swatch.highlight-green {
+  background-color: #4caf50;
+}
+.color-palette-swatch.highlight-blue {
+  background-color: #00bcd4;
+}
+.color-palette-swatch.highlight-pink {
+  background-color: #e91e63;
+}
+.color-palette-swatch.highlight-orange {
+  background-color: #ff9800;
+}
+.color-palette-swatch.highlight-purple {
+  background-color: #9c27b0;
+}
 
 .color-palette-separator {
   width: 1px;
