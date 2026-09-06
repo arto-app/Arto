@@ -1,3 +1,7 @@
+---
+paths: "crates/arto/src/window/**, crates/arto/src/state/**, crates/arto/src/config.rs, crates/arto/src/main.rs, crates/arto/src/components/app.rs, crates/arto/src/components/main_app.rs, crates/arto-config/**"
+---
+
 # Architecture Overview: Config, PersistedState, State
 
 Understanding the relationship between Config, PersistedState, and State modules.
