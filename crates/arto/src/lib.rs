@@ -4,6 +4,7 @@ mod cache;
 pub mod cli;
 mod components;
 mod config;
+mod document_link;
 mod drag;
 mod events;
 mod history;

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use super::context_menu::ContextMenuData;
 use super::context_menu_state::{open_context_menu, ContentContextMenuState};
+use crate::document_link::{open_document_link, scroll_to_heading_js, LinkOpen};
 use crate::markdown::render_to_html_with_toc;
 use crate::state::{AppState, TabContent};
 use crate::utils::file::is_markdown_file;
@@ -145,9 +146,51 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
 /// 1. Immediately when DOM content changes (MutationObserver, before browser paint)
 /// 2. After Mermaid/KaTeX rendering completes (adjusts for content height changes)
 ///
+/// A pending fragment (from a `file.md#heading` link) wins over both: the
+/// heading is scrolled into view once the document is in the DOM, and again
+/// after Mermaid/KaTeX rendering has settled the layout.
+///
 /// Otherwise, reset to top immediately (for new navigation like clicking a link).
 fn handle_scroll_position(state: &mut AppState) {
     let pending_scroll = state.pending_scroll_position.take();
+    let pending_fragment = state.pending_scroll_fragment.take();
+
+    if let Some(fragment) = pending_fragment {
+        let jump = scroll_to_heading_js(&fragment);
+        let fragment_js = format!(
+            r#"(() => {{
+                const jump = () => {{ {jump} }};
+                const container = document.querySelector('.markdown-body');
+                let observer;
+                if (container) {{
+                    observer = new MutationObserver(() => {{
+                        if (observer) {{
+                            observer.disconnect();
+                            observer = null;
+                        }}
+                        jump();
+                    }});
+                    observer.observe(container, {{ childList: true }});
+                    setTimeout(() => {{
+                        if (observer) {{
+                            observer.disconnect();
+                            observer = null;
+                        }}
+                    }}, 5000);
+                }}
+                window.Arto.render.onComplete(() => {{
+                    if (observer) {{
+                        observer.disconnect();
+                        observer = null;
+                    }}
+                    jump();
+                }});
+            }})();"#
+        );
+        let _ = document::eval(&fragment_js);
+        tracing::debug!(fragment, "Scheduled scroll to heading after render");
+        return;
+    }
 
     if let Some(scroll) = pending_scroll {
         // Fast path: scrolling to top doesn't need two-phase restoration
@@ -307,7 +350,7 @@ fn use_file_watcher(file: ReadSignal<PathBuf>, mut state: AppState) {
 /// Hook to setup JavaScript handler for markdown link clicks
 fn use_link_click_handler(file: ReadSignal<PathBuf>, state: AppState) {
     use_effect(move || {
-        let base_dir = base_dir_of(&file());
+        let file = file();
         let mut eval_provider = document::eval(indoc::indoc! {r#"
             window.handleMarkdownLinkClick = (path, button) => {
                 const scrollPosition = document.querySelector('.content')?.scrollTop || 0;
@@ -319,14 +362,14 @@ fn use_link_click_handler(file: ReadSignal<PathBuf>, state: AppState) {
 
         spawn(async move {
             while let Ok(click_data) = eval_provider.recv::<LinkClickData>().await {
-                handle_link_click(click_data, &base_dir, &mut state_clone);
+                handle_link_click(click_data, &file, &mut state_clone);
             }
         });
     });
 }
 
 /// Handle a markdown link click event
-fn handle_link_click(click_data: LinkClickData, base_dir: &Path, state: &mut AppState) {
+fn handle_link_click(click_data: LinkClickData, current_file: &Path, state: &mut AppState) {
     let LinkClickData {
         path,
         button,
@@ -335,30 +378,15 @@ fn handle_link_click(click_data: LinkClickData, base_dir: &Path, state: &mut App
 
     tracing::info!("Markdown link clicked: {} (button: {})", path, button);
 
-    // Resolve and normalize the path
-    let target_path = base_dir.join(&path);
-    let Ok(canonical_path) = target_path.canonicalize() else {
-        tracing::error!("Failed to resolve path: {:?}", target_path);
-        return;
-    };
-
-    tracing::info!("Opening file: {:?}", canonical_path);
-
-    match button {
-        MIDDLE_CLICK => {
-            // Open in new tab (always create a new tab for middle-click)
-            state.add_file_tab(canonical_path, true);
-        }
-        LEFT_CLICK => {
-            // Save current scroll position to history before navigating
-            state.save_current_scroll_position(scroll_position);
-            // Navigate in current tab (in-tab navigation, no existing tab check)
-            state.navigate_to_file(canonical_path);
-        }
+    let how = match button {
+        MIDDLE_CLICK => LinkOpen::NewTab,
+        LEFT_CLICK => LinkOpen::CurrentTab { scroll_position },
         _ => {
             tracing::debug!("Ignoring click with button: {}", button);
+            return;
         }
-    }
+    };
+    open_document_link(state, current_file, &path, how);
 }
 
 /// Hook to setup Mermaid window open handler

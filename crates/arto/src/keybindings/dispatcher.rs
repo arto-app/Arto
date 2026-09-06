@@ -2,6 +2,7 @@ use dioxus::document;
 use dioxus::prelude::*;
 
 use crate::components::right_sidebar::RightSidebarTab;
+use crate::document_link::{open_document_link, LinkOpen};
 use crate::pinned_search::add_pinned_search;
 use crate::state::sidebar_cursor;
 use crate::state::{AppState, FocusedPanel};
@@ -1033,8 +1034,7 @@ fn open_content_viewer_from_cursor(state: &AppState) {
 }
 
 fn open_link_from_cursor(state: &mut AppState, open_in_new_tab: bool) {
-    let Some(base_dir) = get_current_file(state).and_then(|f| f.parent().map(|p| p.to_path_buf()))
-    else {
+    let Some(current_file) = get_current_file(state) else {
         return;
     };
     let mut app_state = *state;
@@ -1055,14 +1055,14 @@ fn open_link_from_cursor(state: &mut AppState, open_in_new_tab: bool) {
             return;
         }
 
-        let target_path = base_dir.join(&href);
-        if let Ok(canonical) = target_path.canonicalize() {
-            if open_in_new_tab {
-                app_state.add_file_tab(canonical, true);
-            } else {
-                app_state.navigate_to_file(canonical);
+        let how = if open_in_new_tab {
+            LinkOpen::NewTab
+        } else {
+            LinkOpen::CurrentTab {
+                scroll_position: *app_state.current_scroll_position.read(),
             }
-        }
+        };
+        open_document_link(&mut app_state, &current_file, &href, how);
     });
 }
 

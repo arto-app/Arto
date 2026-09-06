@@ -87,6 +87,10 @@ pub struct AppState {
     /// Pending scroll position to restore after navigation (for back/forward).
     /// When Some, FileViewer will scroll to this position instead of resetting to top.
     pub pending_scroll_position: Signal<Option<f64>>,
+    /// Heading id to scroll to once the next document has rendered, from a
+    /// link such as `other.md#section`. Takes precedence over
+    /// `pending_scroll_position`.
+    pub pending_scroll_fragment: Signal<Option<String>>,
     /// Current scroll position of the content area.
     /// Updated by scroll events, used to save position before back/forward navigation.
     pub current_scroll_position: Signal<f64>,
@@ -146,6 +150,7 @@ impl AppState {
             search_matches: Signal::new(Vec::new()),
             pinned_matches: Signal::new(HashMap::new()),
             pending_scroll_position: Signal::new(None),
+            pending_scroll_fragment: Signal::new(None),
             current_scroll_position: Signal::new(0.0),
             reload_trigger: Signal::new(0),
             focused_panel: Signal::new(FocusedPanel::Content),

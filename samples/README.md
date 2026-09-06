@@ -42,9 +42,8 @@ Rendering is only half of it. With any of these files open:
   link and copy it as source. The `**` and `[…](…)` markers must come along.
 - **Document links**: the links between these files open in the same tab and
   the back button returns. The Links section of
-  [Inline syntax](./01-inline.md) also has a link to a missing file, which
-  looks like a normal document link and does nothing when clicked, and links
-  to a non-Markdown file and to a section anchor, which are styled as
-  unavailable.
+  [Inline syntax](./01-inline.md) also has a link with a section anchor,
+  which opens the other file scrolled to that heading, and links to a
+  missing file and to a non-Markdown file, which are styled as unavailable.
 - **Auto reload**: edit any of these files while it is open; the view updates
   without losing the scroll position.

@@ -22,7 +22,8 @@
         text-decoration: underline;
       }
 
-      &.md-link-invalid {
+      &.md-link-invalid,
+      &.md-link-missing {
         opacity: 0.8;
       }
     }
