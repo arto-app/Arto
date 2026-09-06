@@ -192,7 +192,7 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          want='0.7.9'
+          want='0.7.10'
           if dx --version 2>/dev/null | grep -qF "$want"; then
             echo "dx $want already present, skipping install"
           else
@@ -202,7 +202,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $want = '0.7.9'
+          $want = '0.7.10'
           $have = if (Get-Command dx -ErrorAction SilentlyContinue) { (dx --version) } else { '' }
           if ($have -match [regex]::Escape($want)) {
             Write-Host "dx $want already present, skipping install"
