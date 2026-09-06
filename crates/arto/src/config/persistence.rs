@@ -110,7 +110,7 @@ fn load_mappings(path: &PathBuf) -> Result<Option<crate::config::BindingSet>> {
 }
 
 fn resolve_keybindings(mappings: Option<crate::config::BindingSet>) -> crate::config::BindingSet {
-    mappings.unwrap_or_else(crate::keybindings::default_bindings)
+    mappings.unwrap_or_else(crate::keybindings::presets::default_bindings)
 }
 
 /// Global configuration instance
@@ -145,6 +145,6 @@ mod tests {
     #[test]
     fn resolve_keybindings_uses_defaults_when_mappings_missing() {
         let resolved = resolve_keybindings(None);
-        assert_eq!(resolved, crate::keybindings::default_bindings());
+        assert_eq!(resolved, crate::keybindings::presets::default_bindings());
     }
 }

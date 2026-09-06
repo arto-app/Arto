@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// - `menu_shortcuts`: native OS menu accelerators. Single-chord only, shown in
 ///   the menu bar, dispatched by the OS (so they work even when no window has
-///   keyboard focus). Keyed by a menu-backed [`crate::keybindings::Action`].
+///   keyboard focus). Keyed by a menu-backed [`crate::Action`].
 /// - Everything else (`global` + per-context): keybindings handled by the
 ///   in-window engine. Support chord sequences and per-context resolution but
 ///   only fire while a WebView has focus.

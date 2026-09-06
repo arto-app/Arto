@@ -12,6 +12,7 @@ repository.workspace = true
 [dependencies]
 anyhow.workspace = true
 arboard = "3.6.1"
+arto-keybindings = { path = "../arto-keybindings" }
 arto-markdown = { path = "../arto-markdown" }
 arto-page = { path = "../arto-page" }
 base64.workspace = true

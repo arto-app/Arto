@@ -1,13 +1,14 @@
-use crate::config::CONFIG;
-use crate::keybindings::KeyContext;
+use crate::bindings::{BindingSet, KeyAction};
+use crate::context::KeyContext;
 
-/// Return a formatted shortcut hint for the given action.
+/// Return a formatted shortcut hint for `action` from `bindings`.
 ///
 /// Lookup order: context binding → global keybinding → menu shortcut.
-pub fn shortcut_hint_for_action(action: &str, context: Option<KeyContext>) -> Option<String> {
-    let config = CONFIG.read();
-    let bindings = &config.keybindings;
-
+pub fn hint_for_action(
+    bindings: &BindingSet,
+    action: &str,
+    context: Option<KeyContext>,
+) -> Option<String> {
     let key = context
         .and_then(|ctx| find_key_for_action(bindings_for_context(bindings, ctx), action))
         .or_else(|| find_key_for_action(&bindings.global, action))
@@ -15,34 +16,14 @@ pub fn shortcut_hint_for_action(action: &str, context: Option<KeyContext>) -> Op
     Some(format_shortcut_hint(key))
 }
 
-/// Return a formatted shortcut hint from global (and menu) keybindings.
-///
-/// Only referenced by the Windows in-app menu (`win_hamburger`); platforms with
-/// a native menu (macOS/Linux) derive accelerators from `menu_shortcuts`.
-#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
-pub fn shortcut_hint_for_global_action(action: &str) -> Option<String> {
-    shortcut_hint_for_action(action, None)
-}
-
-/// Return a formatted shortcut hint in the given context.
-pub fn shortcut_hint_for_context_action(context: KeyContext, action: &str) -> Option<String> {
-    shortcut_hint_for_action(action, Some(context))
-}
-
-fn find_key_for_action<'a>(
-    bindings: &'a [crate::config::KeyAction],
-    action: &str,
-) -> Option<&'a str> {
+fn find_key_for_action<'a>(bindings: &'a [KeyAction], action: &str) -> Option<&'a str> {
     bindings
         .iter()
         .find(|ka| ka.action == action)
         .map(|ka| ka.key.as_str())
 }
 
-fn bindings_for_context(
-    bindings: &crate::config::BindingSet,
-    context: KeyContext,
-) -> &[crate::config::KeyAction] {
+fn bindings_for_context(bindings: &BindingSet, context: KeyContext) -> &[KeyAction] {
     match context {
         KeyContext::Content => &bindings.content,
         KeyContext::Sidebar => &bindings.sidebar,
@@ -202,14 +183,44 @@ mod tests {
     }
 
     #[test]
-    fn helper_wrappers_match_base_api() {
+    fn hint_prefers_context_then_global_then_menu() {
+        let bindings = BindingSet {
+            menu_shortcuts: vec![KeyAction {
+                key: "Cmd+w".to_string(),
+                action: "tab.close".to_string(),
+            }],
+            global: vec![KeyAction {
+                key: "x".to_string(),
+                action: "tab.close".to_string(),
+            }],
+            sidebar: vec![KeyAction {
+                key: "d".to_string(),
+                action: "tab.close".to_string(),
+            }],
+            ..Default::default()
+        };
+
         assert_eq!(
-            shortcut_hint_for_global_action("no.such.action"),
-            shortcut_hint_for_action("no.such.action", None)
+            hint_for_action(&bindings, "tab.close", Some(KeyContext::Sidebar)),
+            Some(format_shortcut_hint("d"))
         );
         assert_eq!(
-            shortcut_hint_for_context_action(KeyContext::Content, "no.such.action"),
-            shortcut_hint_for_action("no.such.action", Some(KeyContext::Content))
+            hint_for_action(&bindings, "tab.close", Some(KeyContext::Content)),
+            Some(format_shortcut_hint("x"))
         );
+        assert_eq!(
+            hint_for_action(&bindings, "tab.close", None),
+            Some(format_shortcut_hint("x"))
+        );
+
+        let menu_only = BindingSet {
+            menu_shortcuts: bindings.menu_shortcuts.clone(),
+            ..Default::default()
+        };
+        assert_eq!(
+            hint_for_action(&menu_only, "tab.close", None),
+            Some(format_shortcut_hint("Cmd+w"))
+        );
+        assert_eq!(hint_for_action(&menu_only, "no.such.action", None), None);
     }
 }

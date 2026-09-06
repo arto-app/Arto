@@ -1,14 +1,14 @@
-use dioxus::events::KeyboardEvent;
-use dioxus::html::{Key, Modifiers};
-use dioxus::prelude::ModifiersInteraction;
+use keyboard_types::{Key, Modifiers};
 use std::fmt;
 use std::str::FromStr;
 
 /// Normalized single key press: logical Key + modifier flags.
 ///
-/// Uses `dioxus::html::Key` (logical key, not physical `Code`) for correct
-/// international keyboard support. `Key::Character("j")` is the same on
-/// QWERTY, AZERTY, and QWERTZ layouts.
+/// Uses the logical `Key` (not the physical `Code`) for correct international
+/// keyboard support. `Key::Character("j")` is the same on QWERTY, AZERTY, and
+/// QWERTZ layouts. The types come from `keyboard-types`, which is what Dioxus
+/// reports in its keyboard events, so chords built from either side compare
+/// equal.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct KeyChord {
     pub key: Key,
@@ -216,19 +216,12 @@ impl fmt::Display for ShortcutSequence {
     }
 }
 
-impl From<&KeyboardEvent> for KeyChord {
-    fn from(event: &KeyboardEvent) -> Self {
-        KeyChord {
-            key: event.data().key(),
-            modifiers: event.data().modifiers(),
-        }
-        .normalize()
-    }
-}
-
-impl From<KeyboardEvent> for KeyChord {
-    fn from(event: KeyboardEvent) -> Self {
-        Self::from(&event)
+impl KeyChord {
+    /// Build a chord from a logical key and modifier flags as reported by a
+    /// keyboard event, applying the same normalization as config parsing so
+    /// the two representations compare equal.
+    pub fn new(key: Key, modifiers: Modifiers) -> Self {
+        KeyChord { key, modifiers }.normalize()
     }
 }
 
@@ -373,6 +366,15 @@ mod tests {
     }
 
     // --- KeyChord normalization tests ---
+
+    #[test]
+    fn new_normalizes_like_config_parsing() {
+        // The event-side constructor and the config parser must agree, or a
+        // physical Shift+J would never match a configured "Shift+j".
+        let from_event = KeyChord::new(Key::Character("J".to_string()), Modifiers::SHIFT);
+        let from_config = parse_chord("Shift+j").unwrap();
+        assert_eq!(from_event, from_config);
+    }
 
     #[test]
     fn normalize_uppercase_character() {
@@ -691,9 +693,9 @@ mod tests {
 
     #[test]
     fn js_modifier_bits_match_rust_modifiers() {
-        // Verify JS keyboard-interceptor.ts bit constants match
-        // dioxus Modifiers bitflags used in from_js_event().
-        // If dioxus changes its bit layout, this test will catch the mismatch.
+        // Verify JS keyboard-interceptor.ts bit constants match the
+        // keyboard-types Modifiers bitflags used in from_js_event().
+        // If keyboard-types changes its bit layout, this test will catch it.
         assert_eq!(Modifiers::ALT.bits(), 0x01);
         assert_eq!(Modifiers::CONTROL.bits(), 0x08);
         assert_eq!(Modifiers::META.bits(), 0x40);

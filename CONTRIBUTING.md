@@ -73,6 +73,7 @@ Arto/
 ├── Cargo.toml        # Cargo workspace (members = crates/*)
 ├── crates/
 │   ├── arto/         # Desktop application (Dioxus): src/, assets/, Dioxus.toml
+│   ├── arto-keybindings/ # Shortcut parsing, binding sets, presets, and the matching engine
 │   ├── arto-markdown/ # Markdown → HTML rendering library used by the app and arto-page
 │   └── arto-page/    # Self-contained HTML pages: CLI, `arto page`, Quick Look FFI (feature ffi)
 ├── frontend/         # WebView-side TypeScript and CSS (pnpm + Vite)

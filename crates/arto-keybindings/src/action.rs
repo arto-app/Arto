@@ -134,7 +134,7 @@ pub enum Action {
 /// Action groups for the preferences UI dropdown (`<optgroup>`).
 ///
 /// Each entry is `(group_label, &[Action])`. The order matches the enum definition.
-pub(crate) const ACTION_GROUPS: &[(&str, &[Action])] = &[
+pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
     (
         "Scroll",
         &[
@@ -290,8 +290,9 @@ pub(crate) const ACTION_GROUPS: &[(&str, &[Action])] = &[
 /// Actions that have a corresponding menu item and can therefore be bound as a
 /// native menu shortcut.
 ///
-/// Kept in sync with `menu::menu_action_for_id` (a drift-guard test in `menu.rs`
-/// asserts every menu item's action appears here).
+/// Kept in sync with the desktop app's menu module, which maps menu items to
+/// these actions and has a drift-guard test asserting every menu item's
+/// action appears here.
 pub const MENU_ACTIONS: &[Action] = &[
     Action::WindowNew,
     Action::TabNew,
@@ -321,11 +322,6 @@ pub const MENU_ACTIONS: &[Action] = &[
 ];
 
 /// Whether an action string corresponds to a menu item (native-menu eligible).
-///
-/// Reached only through the menu-accelerator skip list, which Windows compiles
-/// out (no native menu bar), so the lib target would otherwise trip `dead_code`.
-/// Tests still exercise it on every platform.
-#[cfg_attr(target_os = "windows", allow(dead_code))]
 pub fn is_menu_action(action: &str) -> bool {
     Action::from_str(action)
         .map(|a| MENU_ACTIONS.contains(&a))

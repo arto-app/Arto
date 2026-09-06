@@ -14,7 +14,6 @@ mod markdown;
 #[cfg(not(target_os = "windows"))]
 mod menu;
 mod pinned_search;
-mod shortcut;
 mod state;
 mod theme;
 pub mod utils;

@@ -118,7 +118,9 @@
                 (root + /clippy.toml)
                 (root + /crates/arto/assets)
                 (root + /crates/arto/Dioxus.toml)
-                (root + /crates/arto/src/keybindings/presets)
+                # Keybinding presets are JSON embedded with include_str!, which
+                # commonCargoSources (Rust sources only) leaves out.
+                (root + /crates/arto-keybindings/src/presets)
                 (lib.fileset.maybeMissing (root + /crates/arto/VERSION))
                 # Dioxus.toml references the icon, Info.plist, the NSIS hook
                 # and LICENSE by relative path from the app crate. Only those

@@ -1,11 +1,11 @@
 use std::time::{Duration, Instant};
 
-use crate::config::BindingSet;
+use crate::bindings::BindingSet;
 use crate::shortcut::KeyChord;
 
 use super::action::Action;
 use super::context::KeyContext;
-use super::presets::{resolve_bindings, ResolvedBinding};
+use crate::resolve::{BindingError, ResolvedBinding};
 
 /// Result of processing a key input through the engine.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,10 +40,22 @@ enum KeySequenceState {
 const DEFAULT_SEQUENCE_TIMEOUT: Duration = Duration::from_millis(1000);
 
 impl KeybindingEngine {
-    /// Create a new engine from a binding set.
+    /// Create a new engine from a binding set, dropping entries that fail to
+    /// resolve. Use [`KeybindingEngine::build`] to also learn which ones.
     pub fn new(bindings: &BindingSet) -> Self {
+        Self::build(bindings).0
+    }
+
+    /// Create a new engine from a binding set and report the entries it had
+    /// to skip, resolving the set only once.
+    pub fn build(bindings: &BindingSet) -> (Self, Vec<BindingError>) {
+        let (resolved, errors) = bindings.clone().resolve();
+        (Self::from_resolved(resolved), errors)
+    }
+
+    fn from_resolved(bindings: Vec<ResolvedBinding>) -> Self {
         Self {
-            bindings: resolve_bindings(bindings),
+            bindings,
             state: KeySequenceState::Idle,
             sequence_timeout: DEFAULT_SEQUENCE_TIMEOUT,
         }
@@ -132,13 +144,11 @@ impl KeybindingEngine {
     /// branches regardless of the host platform.
     #[cfg(test)]
     fn new_with_menu_folding(bindings: &BindingSet, fold_menu_shortcuts: bool) -> Self {
-        Self {
-            bindings: bindings
+        Self::from_resolved(
+            bindings
                 .clone()
                 .into_resolved_bindings_with(fold_menu_shortcuts),
-            state: KeySequenceState::Idle,
-            sequence_timeout: DEFAULT_SEQUENCE_TIMEOUT,
-        }
+        )
     }
 
     /// Reset the engine state (e.g., on focus change or cancel).
@@ -215,16 +225,16 @@ fn chords_match(a: &[KeyChord], b: &[KeyChord]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{BindingSet, KeyAction};
+    use crate::bindings::{BindingSet, KeyAction};
     use crate::shortcut::ShortcutSequence;
     use std::str::FromStr;
 
     fn vim_bindings() -> BindingSet {
-        crate::keybindings::presets::vim::bindings()
+        crate::presets::vim::bindings()
     }
 
     fn default_bindings() -> BindingSet {
-        crate::keybindings::default_bindings()
+        crate::presets::default_bindings()
     }
 
     fn chord(s: &str) -> KeyChord {
@@ -432,7 +442,7 @@ mod tests {
 
     #[test]
     fn emacs_ctrl_n_scroll() {
-        let bindings = crate::keybindings::presets::emacs::bindings();
+        let bindings = crate::presets::emacs::bindings();
         let mut engine = KeybindingEngine::new(&bindings);
         let result = engine.process_key(&chord("Ctrl+n"), false, KeyContext::Content);
         assert_eq!(result, KeyMatchResult::Matched(Action::ScrollDown));
@@ -441,7 +451,7 @@ mod tests {
     #[test]
     fn user_overrides_default_global_binding() {
         // User edits Cmd+r from window.reload to tab.new in their global config.
-        let mut custom = crate::keybindings::default_bindings();
+        let mut custom = crate::presets::default_bindings();
         let cmd_r = custom.global.iter_mut().find(|b| b.key == "Cmd+r").unwrap();
         cmd_r.action = "tab.new".to_string();
 

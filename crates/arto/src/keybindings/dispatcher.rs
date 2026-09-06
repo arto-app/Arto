@@ -7,7 +7,7 @@ use crate::state::sidebar_cursor;
 use crate::state::{AppState, FocusedPanel};
 use crate::theme::Theme;
 
-use super::action::Action;
+use super::Action;
 
 /// Execute an action by dispatching to the appropriate handler.
 ///

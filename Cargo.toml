@@ -27,6 +27,7 @@ clap = { version = "4.6.6", features = ["derive"] }
 html-escape = "0.2.15"
 indoc = "2.0.7"
 insta = { version = "1.48.0", features = ["glob"] }
+keyboard-types = "0.7.0"
 lol_html = "3.0.1"
 pulldown-cmark = "0.13.4"
 serde = { version = "1.0.229", features = ["derive"] }
