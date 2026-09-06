@@ -1,6 +1,5 @@
 use super::behavior::{NewWindowBehavior, StartupBehavior};
 use super::zoom_config::DEFAULT_ZOOM_LEVEL;
-use crate::components::right_sidebar::RightSidebarTab;
 use serde::{Deserialize, Serialize};
 
 /// Default right sidebar panel width in pixels
@@ -12,6 +11,18 @@ fn default_right_sidebar_width() -> f64 {
 
 fn default_right_sidebar_zoom_level() -> f64 {
     DEFAULT_ZOOM_LEVEL
+}
+
+/// The panels the right sidebar can show.
+///
+/// Defined here, with the configuration that names a default, so the
+/// setting does not depend on the UI that renders the tabs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RightSidebarTab {
+    #[default]
+    Contents,
+    Search,
 }
 
 /// Configuration for right sidebar panel settings

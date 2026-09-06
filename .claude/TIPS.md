@@ -41,25 +41,27 @@ crates/arto/src/
 **When a module grows beyond ~300 lines, split it:**
 
 ```
-crates/arto/src/config/
-  ├── config.rs       # Entry point (re-exports only)
-  ├── types.rs        # Type definitions
-  ├── persistence.rs  # File I/O
-  └── getters.rs      # Business logic
+crates/arto-config/src/
+  ├── lib.rs          # Entry point (module declarations, re-exports, Config)
+  ├── theme_config.rs # One file per configuration section
+  ├── ...
+  └── persistence.rs  # File I/O
 ```
 
 **Pattern for entry point:**
 ```rust
-// config.rs - NO implementation, only re-exports
-mod types;
-pub use types::*;
-
+// lib.rs - declarations and re-exports, no business logic
 mod persistence;
-pub use persistence::CONFIG;
+mod theme_config;
 
-mod getters;
-pub use getters::{get_startup_theme, get_new_window_theme};
+pub use persistence::*;
+pub use theme_config::*;
 ```
+
+When a section outgrows the app, promote it to a crate instead of a deeper
+module tree: the configuration types live in `arto-config` so consumers other
+than the app, such as `arto page` or the Quick Look extension, can load the
+same `config.json` without depending on the Dioxus app.
 
 ### Avoid Over-Abstraction
 

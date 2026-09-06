@@ -12,6 +12,7 @@ repository.workspace = true
 [dependencies]
 anyhow.workspace = true
 arboard = "3.6.1"
+arto-config = { path = "../arto-config" }
 arto-keybindings = { path = "../arto-keybindings" }
 arto-markdown = { path = "../arto-markdown" }
 arto-page = { path = "../arto-page" }
@@ -20,7 +21,7 @@ dark-light = "3.0.0"
 chrono = { version = "0.4", features = ["serde"] }
 clap.workspace = true
 compile-time = "0.3"
-dirs = "7.0.0"
+dirs.workspace = true
 interprocess = { version = "2.4", features = ["tokio"] }
 dioxus = { version = "0.7.10", features = ["desktop"] }
 dioxus-desktop = "0.7.10"

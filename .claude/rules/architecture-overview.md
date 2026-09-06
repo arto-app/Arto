@@ -51,7 +51,7 @@ Understanding the relationship between Config, PersistedState, and State modules
 
 ## Module Responsibilities
 
-### 1. Config Module (`crates/arto/src/config/`)
+### 1. Config Module (`crates/arto-config/`, wrapped by `crates/arto/src/config.rs`)
 
 **Purpose:** User preferences and default values
 

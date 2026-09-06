@@ -24,6 +24,7 @@ repository = "https://github.com/arto-app/Arto"
 anyhow = "1.0.104"
 base64 = "0.23.1"
 clap = { version = "4.6.6", features = ["derive"] }
+dirs = "7.0.0"
 html-escape = "0.2.15"
 indoc = "2.0.7"
 insta = { version = "1.48.0", features = ["glob"] }

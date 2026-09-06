@@ -1,11 +1,24 @@
-use arto_markdown::RenderOptions;
+//! Arto's user configuration.
+//!
+//! The types behind `config.json` (preferences) and `mappings.json`
+//! (keybindings), plus where those files live and how to load and save
+//! them. Sections that belong to another crate are borrowed from it rather
+//! than redefined: rendering options come from `arto-markdown`, the binding
+//! set from `arto-keybindings`, so every consumer of the configuration
+//! (the desktop app, `arto page`, Quick Look) reads the same definitions.
+//!
+//! What stays out of this crate is the runtime side: the desktop app holds
+//! the live `Config` behind a lock and broadcasts changes to its windows.
+
 use serde::{Deserialize, Serialize};
 
 mod behavior;
 mod directory_config;
 mod file_open_behavior;
+mod persistence;
 mod right_sidebar_config;
 mod sidebar_config;
+mod theme;
 mod theme_config;
 mod window_dimension;
 mod window_position_config;
@@ -13,21 +26,19 @@ mod window_size_config;
 mod zoom_config;
 
 pub use arto_keybindings::{BindingSet, KeyAction};
-pub use behavior::{NewWindowBehavior, StartupBehavior};
-pub use directory_config::DirectoryConfig;
-pub use file_open_behavior::FileOpenBehavior;
-pub use right_sidebar_config::{RightSidebarConfig, DEFAULT_RIGHT_SIDEBAR_WIDTH};
-pub use sidebar_config::SidebarConfig;
-pub use theme_config::ThemeConfig;
-pub use window_dimension::{WindowDimension, WindowDimensionUnit};
-pub use window_position_config::{
-    WindowPosition, WindowPositionConfig, WindowPositionMode, WindowPositionOffset,
-};
-pub use window_size_config::{WindowSize, WindowSizeConfig};
-pub use zoom_config::{
-    normalize_content_zoom, normalize_sidebar_zoom, ZoomConfig, DEFAULT_ZOOM_LEVEL,
-    MAX_SIDEBAR_ZOOM, MIN_SIDEBAR_ZOOM, ZOOM_STEP,
-};
+pub use arto_markdown::RenderOptions;
+pub use behavior::*;
+pub use directory_config::*;
+pub use file_open_behavior::*;
+pub use persistence::*;
+pub use right_sidebar_config::*;
+pub use sidebar_config::*;
+pub use theme::*;
+pub use theme_config::*;
+pub use window_dimension::*;
+pub use window_position_config::*;
+pub use window_size_config::*;
+pub use zoom_config::*;
 
 /// Global application configuration
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -44,15 +55,15 @@ pub struct Config {
     pub window_position: WindowPositionConfig,
     pub window_size: WindowSizeConfig,
     pub zoom: ZoomConfig,
+    /// Keybindings live in their own file (`mappings.json`), so they are
+    /// neither read from nor written to `config.json`.
     #[serde(skip_serializing, skip_deserializing, default)]
     pub keybindings: BindingSet,
 }
 
 #[cfg(test)]
 mod tests {
-    use super::window_position_config::WindowPositionOffset;
     use super::*;
-    use crate::theme::Theme;
     use std::path::PathBuf;
 
     fn assert_keybindings_empty(set: &BindingSet) {

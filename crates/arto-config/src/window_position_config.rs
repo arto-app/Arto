@@ -1,6 +1,5 @@
 use super::window_dimension::{WindowDimension, WindowDimensionUnit};
 use super::{NewWindowBehavior, StartupBehavior};
-use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -25,13 +24,16 @@ pub struct WindowPositionOffset {
 }
 
 impl WindowPosition {
-    /// Convert to a logical position within the available screen area.
+    /// Resolve to absolute coordinates within an area of the given size.
     /// Percent values are resolved against the available width/height
     /// (e.g., 50% x 50% centers the window in the usable space).
-    pub fn to_logical_position(self, screen_size: LogicalSize<i32>) -> LogicalPosition<i32> {
-        LogicalPosition::new(
-            self.x.clamp_percent().resolve(screen_size.width as f64) as i32,
-            self.y.clamp_percent().resolve(screen_size.height as f64) as i32,
+    ///
+    /// Returns plain numbers; the app wraps them in its window toolkit's
+    /// position type.
+    pub fn resolve(self, available_width: f64, available_height: f64) -> (f64, f64) {
+        (
+            self.x.clamp_percent().resolve(available_width),
+            self.y.clamp_percent().resolve(available_height),
         )
     }
 }
@@ -66,5 +68,40 @@ impl Default for WindowPositionConfig {
             on_startup: StartupBehavior::Default,
             on_new_window: NewWindowBehavior::Default,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn percent_position_resolves_against_available_area() {
+        let position = WindowPosition {
+            x: WindowDimension {
+                value: 50.0,
+                unit: WindowDimensionUnit::Percent,
+            },
+            y: WindowDimension {
+                value: 25.0,
+                unit: WindowDimensionUnit::Percent,
+            },
+        };
+        assert_eq!(position.resolve(1000.0, 800.0), (500.0, 200.0));
+    }
+
+    #[test]
+    fn pixel_position_is_kept_as_is() {
+        let position = WindowPosition {
+            x: WindowDimension {
+                value: 120.0,
+                unit: WindowDimensionUnit::Pixels,
+            },
+            y: WindowDimension {
+                value: 40.0,
+                unit: WindowDimensionUnit::Pixels,
+            },
+        };
+        assert_eq!(position.resolve(1000.0, 800.0), (120.0, 40.0));
     }
 }

@@ -155,6 +155,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "arboard",
+ "arto-config",
  "arto-keybindings",
  "arto-markdown",
  "arto-page",
@@ -197,6 +198,20 @@ dependencies = [
  "tracing-subscriber",
  "ureq",
  "uuid",
+]
+
+[[package]]
+name = "arto-config"
+version = "0.0.0"
+dependencies = [
+ "arto-keybindings",
+ "arto-markdown",
+ "dirs 7.0.0",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tracing",
 ]
 
 [[package]]

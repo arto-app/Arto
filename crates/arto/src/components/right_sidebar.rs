@@ -1,5 +1,4 @@
 use dioxus::prelude::*;
-use serde::{Deserialize, Serialize};
 
 mod contents_tab;
 mod search_tab;
@@ -12,13 +11,9 @@ use tab_bar::TabBar;
 use crate::markdown::HeadingInfo;
 use crate::state::{AppState, FocusedPanel};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RightSidebarTab {
-    #[default]
-    Contents,
-    Search,
-}
+// The tab enum is a configuration type (config.json names a default tab);
+// it is re-exported here so the sidebar keeps a local name for it.
+pub use crate::config::RightSidebarTab;
 
 #[derive(Props, Clone, PartialEq)]
 pub struct RightSidebarProps {

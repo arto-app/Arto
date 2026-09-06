@@ -1,6 +1,5 @@
 use super::window_dimension::{WindowDimension, WindowDimensionUnit};
 use super::{NewWindowBehavior, StartupBehavior};
-use dioxus::desktop::tao::dpi::LogicalSize;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -11,10 +10,14 @@ pub struct WindowSize {
 }
 
 impl WindowSize {
-    pub fn to_logical_size(self, screen_size: &LogicalSize<f64>) -> LogicalSize<f64> {
-        LogicalSize::new(
-            self.width.clamp_percent().resolve(screen_size.width),
-            self.height.clamp_percent().resolve(screen_size.height),
+    /// Resolve to a concrete size within a screen of the given size.
+    ///
+    /// Returns plain numbers; the app wraps them in its window toolkit's
+    /// size type.
+    pub fn resolve(self, screen_width: f64, screen_height: f64) -> (f64, f64) {
+        (
+            self.width.clamp_percent().resolve(screen_width),
+            self.height.clamp_percent().resolve(screen_height),
         )
     }
 }
@@ -45,5 +48,25 @@ impl Default for WindowSizeConfig {
             on_startup: StartupBehavior::Default,
             on_new_window: NewWindowBehavior::Default,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn percent_size_resolves_against_screen() {
+        let size = WindowSize {
+            width: WindowDimension {
+                value: 50.0,
+                unit: WindowDimensionUnit::Percent,
+            },
+            height: WindowDimension {
+                value: 100.0,
+                unit: WindowDimensionUnit::Percent,
+            },
+        };
+        assert_eq!(size.resolve(2000.0, 1000.0), (1000.0, 1000.0));
     }
 }

@@ -7,15 +7,17 @@ Design patterns and best practices for structuring configuration modules in Rust
 **Organize configuration and state into focused modules:**
 
 ```
+crates/arto-config/src/       # Library crate: types + file I/O, no runtime state
+├── lib.rs                   # Submodule declarations, Config struct, tests
+├── behavior.rs              # Section types and enums, one file per section
+├── directory_config.rs
+├── sidebar_config.rs
+├── theme.rs
+├── theme_config.rs
+└── persistence.rs           # Paths, load(), save(), ConfigError
+
 crates/arto/src/
-├── config/
-│   ├── app_config.rs        # Submodule declarations, Config struct, tests
-│   ├── app_config/          # Config type definitions and enums
-│   │   ├── behavior.rs
-│   │   ├── directory_config.rs
-│   │   ├── sidebar_config.rs
-│   │   └── theme_config.rs
-│   └── persistence.rs       # File I/O and global CONFIG instance
+├── config.rs                # `pub use arto_config::*` + CONFIG / CONFIG_CHANGED_BROADCAST
 ├── state/
 │   ├── app_state.rs         # Module entry point (re-exports only)
 │   ├── app_state/           # Per-window state types
@@ -32,16 +34,18 @@ crates/arto/src/
 **Entry point files typically declare modules and re-export public APIs:**
 
 ```rust
-// config/app_config.rs
+// crates/arto-config/src/lib.rs
 mod behavior;
 mod directory_config;
+mod persistence;
 mod sidebar_config;
 mod theme_config;
 
-pub use behavior::{NewWindowBehavior, StartupBehavior};
-pub use directory_config::DirectoryConfig;
-pub use sidebar_config::SidebarConfig;
-pub use theme_config::ThemeConfig;
+pub use behavior::*;
+pub use directory_config::*;
+pub use persistence::*;
+pub use sidebar_config::*;
+pub use theme_config::*;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Config {
@@ -55,7 +59,18 @@ pub struct Config {
 mod tests { ... }
 ```
 
-**Note:** In Arto's case, `app_config.rs` also contains the `Config` struct definition and tests. This is acceptable for configuration entry points. The key principle is to avoid complex business logic in entry point modules.
+**Note:** In Arto's case, `lib.rs` also contains the `Config` struct definition and tests. This is acceptable for configuration entry points. The key principle is to avoid complex business logic in entry point modules.
+
+### Library and App Split
+
+The crate owns everything that is true for every consumer of the
+configuration: the types, the file locations, and `Config::load()` /
+`Config::save()` returning a `ConfigError`. It never logs above debug and
+never holds a global. The desktop app wraps it in `crates/arto/src/config.rs`,
+where the loaded instance lives behind a lock (`CONFIG`) and changes are
+broadcast to windows (`CONFIG_CHANGED_BROADCAST`). Other consumers, such as
+`arto page` and the Quick Look extension, can call `Config::load()` directly
+without pulling in the app.
 
 ## Configuration vs State Separation
 

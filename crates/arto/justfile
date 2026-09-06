@@ -38,7 +38,7 @@ doc:
 # on its own. `check` only covers `--all-features`; the Quick Look static
 # library, for one, is built with `--no-default-features --features ffi`.
 features:
-  cargo hack check --each-feature --no-dev-deps -p arto-markdown -p arto-keybindings -p arto-page
+  cargo hack check --each-feature --no-dev-deps -p arto-markdown -p arto-keybindings -p arto-config -p arto-page
 
 # Advisories, licenses and duplicate majors, per deny.toml at the root.
 deny:
