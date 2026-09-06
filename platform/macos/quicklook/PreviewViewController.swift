@@ -5,7 +5,7 @@ import WebKit
 /// QuickLook preview extension principal class.
 ///
 /// Renders a Markdown file to a fully self-contained HTML document (produced by
-/// the Rust `arto_ql` static library) and displays it in a `WKWebView`. The
+/// the Rust `arto_page` static library) and displays it in a `WKWebView`. The
 /// extension runs sandboxed, so the HTML embeds all CSS/JS/fonts inline — it
 /// never reads sibling files or the network.
 @objc(ArtoPreviewViewController)
@@ -33,16 +33,16 @@ final class ArtoPreviewViewController: NSViewController, QLPreviewingController,
         completionHandler handler: @escaping (Error?) -> Void
     ) {
         // The Rust function returns a Rust-allocated C string (release it only
-        // with arto_ql_free_string, never libc free); it stays valid until we
+        // with arto_page_free_string, never libc free); it stays valid until we
         // free it, so returning it out of the closure is safe.
         let htmlPointer = url.withUnsafeFileSystemRepresentation { representation in
-            representation.flatMap { arto_ql_render_markdown_file($0) }
+            representation.flatMap { arto_page_render_markdown_file($0) }
         }
         guard let htmlPointer else {
             handler(ArtoPreviewError.renderFailed)
             return
         }
-        defer { arto_ql_free_string(htmlPointer) }
+        defer { arto_page_free_string(htmlPointer) }
 
         let html = String(cString: htmlPointer)
         completion = handler

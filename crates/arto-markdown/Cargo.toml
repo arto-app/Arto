@@ -1,5 +1,6 @@
 [package]
 name = "arto-markdown"
+description = "Arto's Markdown to HTML rendering pipeline"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

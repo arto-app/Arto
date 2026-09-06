@@ -166,7 +166,7 @@
           );
 
           # NOTE: The macOS Quick Look preview extension (Swift shim + Rust
-          # `arto_ql` static library) is assembled and embedded by the
+          # `arto_page` static library) is assembled and embedded by the
           # `dx bundle` path in `crates/arto/justfile` (`_embed-quicklook`), which
           # runs on the macOS CI runner with the full Command Line Tools. The
           # Nix build intentionally does not build or embed it.
@@ -199,8 +199,11 @@
                 ];
 
               postPatch = ''
-                mkdir -p crates/arto/assets/frontend
+                mkdir -p crates/arto/assets/frontend crates/arto-page/assets/frontend
                 cp -r ${frontend-assets}/* crates/arto/assets/frontend/
+                # The page crate embeds only the stylesheet and the IIFE bundle.
+                cp ${frontend-assets}/main.css ${frontend-assets}/main.iife.js \
+                  crates/arto-page/assets/frontend/
               '';
 
               # Use buildPhaseCargoCommand instead of cargoBuildCommand because crane's

@@ -85,7 +85,6 @@ jobs:
   # TypeScript and CSS: lint, type-check, unit tests, and the production
   # bundle. The bundle is handed to the Rust legs as an artifact so none of
   # them needs pnpm; asset!() and include_str! only need the files to exist.
-  # The Quick Look crate embeds the same directory, so one upload covers both.
   frontend:
     needs: changes
     if: needs.changes.outputs.code == 'true'
@@ -117,7 +116,9 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: frontend-assets
-          path: crates/arto/assets/frontend
+          path: |
+            crates/arto/assets/frontend
+            crates/arto-page/assets/frontend
           if-no-files-found: error
           retention-days: 1
 
@@ -144,7 +145,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: frontend-assets
-          path: crates/arto/assets/frontend
+          path: crates
       - uses: ./.github/actions/setup-toolchain
         with:
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}

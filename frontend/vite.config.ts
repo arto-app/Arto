@@ -54,7 +54,14 @@ function iconSpritePlugin(): Plugin {
  * A production build replaces the copies wholesale so nothing stale ships; a
  * development build only overwrites, matching `emptyOutDir` below.
  */
-function syncBundlePlugin(targets: string[], replace: boolean): Plugin {
+interface BundleConsumer {
+  /** Directory that receives the copy. */
+  dir: string;
+  /** Files to copy from `dist/`; everything when omitted. */
+  files?: string[];
+}
+
+function syncBundlePlugin(consumers: BundleConsumer[], replace: boolean): Plugin {
   let outDir = "";
   return {
     name: "sync-bundle-to-consumers",
@@ -63,19 +70,33 @@ function syncBundlePlugin(targets: string[], replace: boolean): Plugin {
       outDir = path.resolve(config.root, config.build.outDir);
     },
     closeBundle() {
-      for (const target of targets) {
+      for (const { dir, files } of consumers) {
         if (replace) {
-          fs.rmSync(target, { recursive: true, force: true });
+          fs.rmSync(dir, { recursive: true, force: true });
         }
-        fs.mkdirSync(target, { recursive: true });
-        fs.cpSync(outDir, target, { recursive: true });
+        fs.mkdirSync(dir, { recursive: true });
+        if (files) {
+          for (const file of files) {
+            fs.copyFileSync(path.join(outDir, file), path.join(dir, file));
+          }
+        } else {
+          fs.cpSync(outDir, dir, { recursive: true });
+        }
       }
     },
   };
 }
 
-/** Crates that embed the bundle; each gets a full copy of `dist/`. */
-const bundleConsumers = [path.resolve(import.meta.dirname, "../crates/arto/assets/frontend")];
+/** Crates that embed the bundle. */
+const bundleConsumers: BundleConsumer[] = [
+  // The app serves everything (ES module, stylesheet, icon sprite) as assets.
+  { dir: path.resolve(import.meta.dirname, "../crates/arto/assets/frontend") },
+  // The page crate inlines only the stylesheet and the IIFE bundle.
+  {
+    dir: path.resolve(import.meta.dirname, "../crates/arto-page/assets/frontend"),
+    files: ["main.css", "main.iife.js"],
+  },
+];
 
 export default defineConfig(({ mode }) => {
   // The Nix build sets VITE_OUT_DIR to its output path and copies the bundle

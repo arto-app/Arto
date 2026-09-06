@@ -73,8 +73,8 @@ Arto/
 ├── Cargo.toml        # Cargo workspace (members = crates/*)
 ├── crates/
 │   ├── arto/         # Desktop application (Dioxus): src/, assets/, Dioxus.toml
-│   ├── arto-markdown/ # Markdown → HTML rendering library shared by the app and Quick Look
-│   └── arto-ql/      # Quick Look FFI static library (macOS)
+│   ├── arto-markdown/ # Markdown → HTML rendering library used by the app and arto-page
+│   └── arto-page/    # Self-contained HTML pages: CLI, `arto page`, Quick Look FFI (feature ffi)
 ├── frontend/         # WebView-side TypeScript and CSS (pnpm + Vite)
 ├── platform/         # OS-specific files, one directory per OS
 │   ├── macos/        #   bundle/ (Info.plist, icon), quicklook/ (Swift shim), verify-bundle.sh

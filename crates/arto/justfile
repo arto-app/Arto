@@ -14,11 +14,11 @@ fmt:
   cargo fmt --all
 
 check:
-  cargo check --workspace --all-targets
-  cargo clippy --workspace --all-targets -- -D warnings
+  cargo check --workspace --all-targets --all-features
+  cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 test:
-  cargo test --workspace --all-targets
+  cargo test --workspace --all-targets --all-features
   cargo test --workspace --doc
 
 # What CI runs instead of `test`: nextest retries only the tests that
@@ -35,9 +35,10 @@ doc:
   RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
 
 # Every feature combination the library crates are consumed with must build
-# on its own; `check` only covers the default set.
+# on its own. `check` only covers `--all-features`; the Quick Look static
+# library, for one, is built with `--no-default-features --features ffi`.
 features:
-  cargo hack check --each-feature --no-dev-deps -p arto-markdown -p arto-ql
+  cargo hack check --each-feature --no-dev-deps -p arto-markdown -p arto-page
 
 # Advisories, licenses and duplicate majors, per deny.toml at the root.
 deny:
@@ -88,7 +89,7 @@ _apply-bundle-metadata:
   cp "{{root}}/platform/macos/bundle/Arto.icns" "$app/Contents/Resources/Arto.icns"
   echo "Applied canonical Info.plist (version ${version}) and app icon"
 
-# Build the Quick Look preview extension (Swift shim + Rust `arto_ql` static
+# Build the Quick Look preview extension (Swift shim + Rust `arto_page` static
 # library) and embed it at Contents/PlugIns/ArtoQuickLook.appex so macOS
 # discovers it for Quick Look and the Finder preview pane.
 #
@@ -107,18 +108,19 @@ _embed-quicklook:
   appex="$app/Contents/PlugIns/ArtoQuickLook.appex"
   arch="$(uname -m)"
   ql="{{root}}/platform/macos/quicklook"
-  echo "Building arto_ql static library…"
-  cargo build --release -p arto-ql
+  echo "Building arto_page static library…"
+  # Only the C ABI is wanted here; default features would add the clap CLI.
+  cargo build --release -p arto-page --lib --no-default-features --features ffi
   echo "Compiling Swift Quick Look preview extension…"
   mkdir -p "$appex/Contents/MacOS"
   # The nix devshell sets SDKROOT to a nixpkgs SDK that is incompatible with
   # Apple's /usr/bin/swiftc; unset it so swiftc uses the Command Line Tools SDK.
   env -u SDKROOT -u DEVELOPER_DIR -u MACOSX_DEPLOYMENT_TARGET /usr/bin/swiftc \
     "$ql/PreviewViewController.swift" \
-    -import-objc-header "$ql/arto_ql-Bridging.h" \
+    -import-objc-header "$ql/arto_page-Bridging.h" \
     -target "${arch}-apple-macos12.0" -O \
     -framework Cocoa -framework QuickLookUI -framework WebKit \
-    -L "{{target}}/release" -larto_ql \
+    -L "{{target}}/release" -larto_page \
     -Xlinker -e -Xlinker _NSExtensionMain \
     -o "$appex/Contents/MacOS/ArtoQuickLook"
   cp "$ql/Info.plist" "$appex/Contents/Info.plist"
