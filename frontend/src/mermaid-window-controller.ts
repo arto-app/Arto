@@ -165,9 +165,10 @@ class MermaidWindowController extends BaseViewerController {
 // Global instance
 let controller: MermaidWindowController | null = null;
 
+// `handleMermaidWindowOpen` is declared once, in main.ts, alongside the other
+// window-open callbacks the Rust side installs in the main viewer window.
 declare global {
   interface Window {
-    handleMermaidWindowOpen: (source: string) => void;
     mermaidWindowController?: MermaidWindowController;
     updateZoomLevel: (zoomPercent: number) => void;
   }
@@ -184,5 +185,7 @@ export async function initMermaidWindow(source: string, diagramId: string): Prom
 // Function called from main markdown viewer to open window
 export function openMermaidWindow(source: string): void {
   // Call Rust function via dioxus bridge
-  window.handleMermaidWindowOpen(source);
+  if (typeof window.handleMermaidWindowOpen === "function") {
+    window.handleMermaidWindowOpen(source);
+  }
 }

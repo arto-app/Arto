@@ -6,7 +6,7 @@
     "dev": "vite build --mode development --watch --minify false",
     "build": "vite build --minify",
     "fmt": "oxfmt --write \"**/*.{ts,tsx,js,jsx,css}\"",
-    "check": "oxlint",
+    "check": "oxlint && tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {

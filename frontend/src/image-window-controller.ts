@@ -92,6 +92,15 @@ export class ImageWindowController extends BaseViewerController {
     return this.#fitMode;
   }
 
+  /**
+   * Natural image size, for the module-level bridge that reports it to Rust.
+   * Kept separate from the protected template hook below so the base class
+   * contract stays the same across viewer controllers.
+   */
+  getDimensions(): { width: number; height: number } {
+    return this.getContentDimensions();
+  }
+
   protected getContentDimensions(): { width: number; height: number } {
     return {
       width: Math.max(this.#naturalWidth, 1),
@@ -188,7 +197,7 @@ export function getImageDimensions(): { width: number; height: number; mode: "fi
   if (!controller) {
     return { width: 0, height: 0, mode: "fit" };
   }
-  const dims = controller.getContentDimensions();
+  const dims = controller.getDimensions();
   return {
     width: dims.width,
     height: dims.height,

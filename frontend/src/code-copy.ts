@@ -199,7 +199,7 @@ async function copyMermaidAsImage(pre: HTMLPreElement, button: HTMLButtonElement
   try {
     const svg = findSvgElement(pre);
     const dimensions = getSvgDimensions(svg);
-    const canvas = createCanvasFromSvg(svg, dimensions);
+    const canvas = createCanvasFromSvg(dimensions);
     const svgDataUrl = convertSvgToDataUrl(svg, dimensions);
 
     // Rasterize SVG to PNG via canvas
@@ -219,7 +219,7 @@ async function copyMermaidAsImage(pre: HTMLPreElement, button: HTMLButtonElement
 }
 
 /** Find SVG element in a container */
-export function findSvgElement(container: Element): SVGElement {
+export function findSvgElement(container: Element): SVGSVGElement {
   const svg = container.querySelector("svg");
   if (!svg) {
     throw new Error("No SVG element found");
@@ -231,7 +231,7 @@ export function findSvgElement(container: Element): SVGElement {
  *  Mermaid sets viewBox to the full intended rendering area during diagram
  *  generation, whereas getBBox() returns only the tight content bounds which
  *  may be smaller (especially for Gantt charts). */
-export function getSvgDimensions(svg: SVGElement): { width: number; height: number } {
+export function getSvgDimensions(svg: SVGGraphicsElement): { width: number; height: number } {
   // Prefer viewBox dimensions (matches mermaid-window-controller approach)
   const viewBox = svg.getAttribute("viewBox");
   if (viewBox) {
@@ -250,11 +250,11 @@ export function getSvgDimensions(svg: SVGElement): { width: number; height: numb
   return { width: bbox.width, height: bbox.height };
 }
 
-/** Create a canvas with the SVG background color applied */
-export function createCanvasFromSvg(
-  svg: SVGElement,
-  dimensions: { width: number; height: number },
-): HTMLCanvasElement {
+/** Create a high-resolution canvas sized for rasterizing an SVG */
+export function createCanvasFromSvg(dimensions: {
+  width: number;
+  height: number;
+}): HTMLCanvasElement {
   const scale = 2; // High resolution
   const canvas = document.createElement("canvas");
   canvas.width = dimensions.width * scale;

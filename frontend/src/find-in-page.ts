@@ -440,8 +440,9 @@ function getTextBefore(element: HTMLElement, maxChars: number): string {
       text = content + text;
     } else {
       // Move up to parent and continue
-      node = node.parentElement;
-      if (node && node.closest(".markdown-body")) {
+      const parent: HTMLElement | null = node.parentElement;
+      node = parent;
+      if (parent && parent.closest(".markdown-body")) {
         continue;
       }
       break;
@@ -477,8 +478,9 @@ function getTextAfter(element: HTMLElement, maxChars: number): string {
       text = text + content;
     } else {
       // Move up to parent and continue
-      node = node.parentElement;
-      if (node && node.closest(".markdown-body")) {
+      const parent: HTMLElement | null = node.parentElement;
+      node = parent;
+      if (parent && parent.closest(".markdown-body")) {
         continue;
       }
       break;

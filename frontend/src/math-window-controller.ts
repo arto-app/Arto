@@ -75,7 +75,7 @@ export class MathWindowController extends BaseViewerController {
       this.#mathContainer.textContent = wrappedSource;
 
       // Dynamically import and use KaTeX auto-render
-      const { default: renderMathInElement } = await import("katex/dist/contrib/auto-render.mjs");
+      const { default: renderMathInElement } = await import("katex/contrib/auto-render");
 
       // Render all math in the container
       renderMathInElement(this.#mathContainer, {

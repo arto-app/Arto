@@ -1,7 +1,8 @@
+import type { MermaidConfig } from "mermaid";
 import type { Theme } from "./theme";
 
 export interface MermaidThemeConfig {
-  theme: string;
+  theme: MermaidConfig["theme"];
   themeVariables: Record<string, string>;
 }
 
