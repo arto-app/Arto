@@ -1,0 +1,16 @@
+---
+source: crates/arto-markdown/tests/samples.rs
+expression: outline(&headings)
+input_file: samples/01-inline.md
+---
+1 "Inline Syntax" #inline-syntax
+2 "Emphasis" #emphasis
+2 "Strikethrough" #strikethrough
+2 "Inline code" #inline-code
+2 "Links" #links
+3 "Bare URLs next to other syntax" #bare-urls-next-to-other-syntax
+2 "Images" #images
+2 "Line breaks" #line-breaks
+2 "Escapes and entities" #escapes-and-entities
+2 "Raw inline HTML" #raw-inline-html
+2 "Emoji and Unicode" #emoji-and-unicode

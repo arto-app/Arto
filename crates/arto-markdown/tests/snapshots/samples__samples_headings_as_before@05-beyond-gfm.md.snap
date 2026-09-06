@@ -1,0 +1,16 @@
+---
+source: crates/arto-markdown/tests/samples.rs
+expression: outline(&headings)
+input_file: samples/05-beyond-gfm.md
+---
+1 "Beyond GitHub Flavored Markdown" #beyond-github-flavored-markdown
+2 "Smart punctuation" #smart-punctuation
+2 "Superscript" #superscript
+2 "Subscript and single tildes" #subscript-and-single-tildes
+2 "Definition lists" #definition-lists
+2 "Wiki links" #wiki-links
+2 "Heading attributes" #heading-attributes
+3 "Custom identifier" #custom-identifier
+2 "Math in table cells" #math-in-table-cells
+2 "Emoji shortcodes" #emoji-shortcodes
+2 "Autolinks without a scheme" #autolinks-without-a-scheme
