@@ -1,4 +1,4 @@
-use serde_yaml::Value as YamlValue;
+use serde_yaml_ng::Value as YamlValue;
 
 /// Extract frontmatter from markdown and render it as an HTML table
 ///
@@ -29,7 +29,7 @@ pub(super) fn extract_and_render_frontmatter(markdown: &str) -> (String, String,
         .count();
 
     // Parse YAML
-    let Ok(yaml) = serde_yaml::from_str::<YamlValue>(frontmatter_str) else {
+    let Ok(yaml) = serde_yaml_ng::from_str::<YamlValue>(frontmatter_str) else {
         return (String::new(), markdown.to_string(), 0);
     };
 

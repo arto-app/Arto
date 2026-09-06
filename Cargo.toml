@@ -15,6 +15,22 @@ edition = "2021"
 license = "MIT"
 repository = "https://github.com/arto-app/Arto"
 
+# Versions for crates used by more than one member live here so the members
+# cannot drift apart again (arto and arto-ql once declared different `sha2`
+# majors). This only governs what our crates ask for; transitive dependencies
+# such as wry may still pull an older major alongside. Members reference these
+# with `<name>.workspace = true`.
+[workspace.dependencies]
+anyhow = "1.0.104"
+base64 = "0.23.1"
+html-escape = "0.2.15"
+indoc = "2.0.7"
+lol_html = "3.0.1"
+pulldown-cmark = "0.13.4"
+sha2 = "0.11.0"
+tempfile = "3.27.0"
+tracing = "0.1.44"
+
 [patch.crates-io]
 # Fix overlapping cfg conditions that cause duplicate function definitions on Linux.
 # https://github.com/DioxusLabs/sdk/pull/103
