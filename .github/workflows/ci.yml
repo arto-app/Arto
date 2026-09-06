@@ -62,7 +62,7 @@ jobs:
           matches() { printf '%s\n' "$files" | grep -Eq "$1"; }
           code=false; flake=false; docs=false; bundle=false
           # Anything that is not documentation or sample data is code.
-          if printf '%s\n' "$files" | grep -Evq '(\.md$|^example/|^docs/)'; then code=true; fi
+          if printf '%s\n' "$files" | grep -Evq '(\.md$|^samples/|^docs/)'; then code=true; fi
           # Lockfiles count as flake changes: a new crate may need a native
           # library the Nix build lacks, and a pnpm lockfile change moves the
           # pnpmDeps hash, so both must go through the from-scratch build.

@@ -76,10 +76,13 @@ Arto/
 │   ├── arto-markdown/ # Markdown → HTML rendering library shared by the app and Quick Look
 │   └── arto-ql/      # Quick Look FFI static library (macOS)
 ├── renderer/         # WebView-side TypeScript and CSS (pnpm + Vite)
-├── ql-extension/     # macOS Quick Look extension (Swift shim)
-├── extras/           # Bundle metadata (Info.plist, icons) and README images
-├── scripts/          # Dev loop and release verification scripts
-├── example/          # Sample Markdown files for manual testing
+├── platform/         # OS-specific files, one directory per OS
+│   ├── macos/        #   bundle/ (Info.plist, icon), quicklook/ (Swift shim), verify-bundle.sh
+│   ├── windows/      #   NSIS installer hook (file associations)
+│   └── linux/        #   verify-bundle.sh
+├── nix/              # Command wrappers used only by the Nix build
+├── docs/images/      # Brand images (README header, logo)
+├── samples/          # Sample Markdown files for manual testing
 └── flake.nix         # Nix flake for reproducible builds
 ```
 
@@ -114,7 +117,7 @@ inside the devShell:
 | flake evaluation | `nix flake check --no-build --all-systems` |
 
 Rendering is covered by snapshots: `crates/arto-markdown/tests/samples.rs`
-renders every numbered file under `example/` and compares it with
+renders every numbered file under `samples/` and compares it with
 `crates/arto-markdown/tests/snapshots/`. When a change to the output is
 intended, run the test, inspect the `.snap.new` files with
 `cargo insta review`, and commit the accepted snapshots.

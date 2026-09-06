@@ -28,7 +28,7 @@ if (!@files) {
 }
 
 # Top-level directories whose paths documentation is expected to name.
-my $roots = qr{(?:crates|renderer|platform|nix|example|\.github|\.claude)};
+my $roots = qr{(?:crates|renderer|platform|nix|docs|samples|\.github|\.claude)};
 
 # Build output that a fresh checkout does not have.
 my $generated = qr{(?:^|/)(?:assets/dist|public/icons|target)(?:/|$)};

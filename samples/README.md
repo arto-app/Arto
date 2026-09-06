@@ -1,7 +1,7 @@
 # Arto Rendering Samples
 
 These documents exercise every Markdown construct Arto renders. Open this
-directory in Arto (`arto example/`) and walk through the files in order. Each
+directory in Arto (`arto samples/`) and walk through the files in order. Each
 section states what you should see, so a wrong rendering stands out without
 comparing against another viewer.
 
