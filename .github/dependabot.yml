@@ -18,6 +18,15 @@ updates:
     groups:
       cargo-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # arto-keybindings shares Key / Code / Modifiers with dioxus-html, muda
+      # and global-hotkey, so keyboard-types has to stay on the version those
+      # crates use (0.7 as of dioxus 0.7.10 and muda 0.17). Drop this entry
+      # once they move; patch releases are still picked up.
+      - dependency-name: keyboard-types
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
 
   - package-ecosystem: npm
     directory: /frontend
