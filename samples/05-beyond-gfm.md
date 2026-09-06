@@ -86,6 +86,8 @@ Source: `[[README]]` and `[[README|Back to the index]]`
 [[README]] and [[README|Back to the index]]
 
 **Engine with wiki links:** two links; the second shows the text after the bar.
+A target without a file extension names a Markdown document, so both open
+`README.md` inside Arto.
 **Plain GFM:** the double brackets stay visible.
 
 ## Heading attributes
@@ -95,10 +97,9 @@ Source: `### Custom identifier {#custom-heading-id .highlight}`
 ### Custom identifier {#custom-heading-id .highlight}
 
 **Engine with heading attributes:** the braces disappear from the heading and
-the table of contents. Whether the anchor becomes `custom-heading-id` is up to
-the viewer; Arto derives anchors from the heading text, so
-[this link](#custom-heading-id) scrolls nowhere while
-[this one](#custom-identifier) does.
+the table of contents, and the anchor is the one the block names, so
+[this link](#custom-heading-id) scrolls here while
+[this one](#custom-identifier) does not.
 **Plain GFM:** the braces are part of the heading text.
 
 ## Math in table cells

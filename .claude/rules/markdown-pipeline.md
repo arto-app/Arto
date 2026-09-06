@@ -13,18 +13,35 @@ changing output; the frontend selectors in `frontend/src/` depend on them.
 Order of operations, which must not change:
 
 1. Extract YAML frontmatter (rendered as a `<details class="frontmatter">`
-   table, prepended at the end).
-2. Text pre-processing that keeps the line count: bare-URL autolinks.
-3. The engine (`src/engine/`, the only place that knows the parser):
-   GitHub alerts (`> [!NOTE]`) become `<div class="markdown-alert …">`,
-   Mermaid and math code blocks and `$…$` become `preprocessed-*`
-   containers that the frontend renders client-side, headings get their
-   ids, and every block element is marked with the byte range it came
-   from.
-4. Source line annotation: the byte ranges become the `data-source-line`
-   attributes, through the line table the engine returns.
-5. Post-process with `lol_html`: inline local images as data URLs, turn
+   table, prepended at the end). A leading `---` block is cut off only
+   when it parses as a YAML mapping; anything else is prose and stays in
+   the body.
+2. The engine (`src/engine/`, the only place that knows the parser and the
+   HTML it writes). It parses once and renders with hooks, then rewrites
+   the result into the crate's contract: Mermaid and math blocks and `$…$`
+   become the `preprocessed-*` containers the frontend renders
+   client-side, GitHub alerts (`> [!NOTE]`) become
+   `<div class="markdown-alert …">`, the byte range on every block element
+   becomes the `data-source-line` attributes, and heading ids survive only
+   when a table of contents was asked for.
+3. Post-process with `lol_html`: inline local images as data URLs, turn
    local Markdown links into `<span class="md-link" data-md-link="…">`.
+
+The engine is [ox-content](https://github.com/ubugeeei-prod/ox-content),
+pinned to an exact pre-release in `crates/arto-markdown/Cargo.toml`
+(`ox_content_allocator` / `_ast` / `_parser` / `_renderer` move together).
+Bare-URL autolinks, GitHub alerts, heading slugs and the GFM tag filter are
+all its work; anything missing there is an upstream issue rather than a
+local workaround.
+
+Three modules under `src/engine/` are the exception, each carrying a doc
+comment that says which upstream gap it stands in for and that it is meant
+to be deleted: `line_endings.rs` (CRLF, which ox-content reads as text),
+`attributes.rs` (`{#id .class}` on a heading) and `wiki.rs` (`[[Page]]`).
+The last two need different seams — the attribute block reaches the
+renderer inside one `Text` node, so a render hook lifts it onto the tag,
+while the parser splits `[[` into separate `Text` nodes, so wiki links are
+read off the rendered text in the annotation pass instead.
 
 Rules of thumb:
 

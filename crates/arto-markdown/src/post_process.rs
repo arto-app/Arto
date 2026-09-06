@@ -54,6 +54,42 @@ fn link_target_exists(base_dir: &Path, path: &str) -> bool {
     }
 }
 
+/// Whether `href` names a URL scheme that is not `file:`.
+///
+/// `http:`, `mailto:`, `tel:` and the like address something outside the
+/// file system, so they stay anchors instead of being resolved as document
+/// paths. A one-letter prefix is not read as a scheme, which keeps a Windows
+/// path such as `C:\notes\a.md` a path.
+fn has_foreign_scheme(href: &str) -> bool {
+    let Some(colon) = href.find(':') else {
+        return false;
+    };
+    let scheme = &href[..colon];
+    scheme.len() > 1
+        && scheme.starts_with(|c: char| c.is_ascii_alphabetic())
+        && scheme
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.'))
+        && !scheme.eq_ignore_ascii_case("file")
+}
+
+/// A `file:` URL as a filesystem path, or `None` when `href` is not one.
+///
+/// `file://`, `file://localhost/…` and `file:/…` all parse; percent-encoding
+/// and the platform's path shape are handled by `url`.
+fn file_url_to_path(href: &str) -> Option<String> {
+    if !href.starts_with("file:") {
+        return None;
+    }
+    let path = url::Url::parse(href)
+        .ok()
+        .and_then(|url| url.to_file_path().ok());
+    if path.is_none() {
+        tracing::debug!(?href, "file: URL could not be parsed; left as written");
+    }
+    Some(path?.to_string_lossy().into_owned())
+}
+
 /// Infer MIME type from file extension
 pub(super) fn get_mime_type(path: &Path) -> &'static str {
     match path.extension().and_then(|e| e.to_str()) {
@@ -170,25 +206,40 @@ pub(super) fn post_process_html_tags(html_str: &str, base_dir: &Path) -> String 
                 let Some(href) = el.get_attribute("href") else {
                     return Ok(());
                 };
-                if href.starts_with("http://") || href.starts_with("https://") {
+                if has_foreign_scheme(&href) {
                     return Ok(());
                 }
                 // A fragment belongs to the target document, not to its file
                 // name; a link that is only a fragment stays an in-page anchor.
-                let path = href.split_once('#').map_or(href.as_str(), |(path, _)| path);
-                let Some(ext) = Path::new(path).extension().and_then(|e| e.to_str()) else {
+                let (path, fragment) = href
+                    .split_once('#')
+                    .map_or((href.as_str(), None), |(path, fragment)| {
+                        (path, Some(fragment))
+                    });
+                // The app resolves the link as a filesystem path, so a
+                // `file:` URL is turned into one here rather than being
+                // joined onto the base directory as a literal string.
+                let path = match file_url_to_path(path) {
+                    Some(path) => path,
+                    None => path.to_string(),
+                };
+                let Some(ext) = Path::new(&path).extension().and_then(|e| e.to_str()) else {
                     return Ok(());
                 };
                 let class = if ext != "md" && ext != "markdown" {
                     "md-link md-link-invalid"
-                } else if !link_target_exists(&link_base, path) {
+                } else if !link_target_exists(&link_base, &path) {
                     "md-link md-link-missing"
                 } else {
                     "md-link"
                 };
+                let link = match fragment {
+                    Some(fragment) => format!("{path}#{fragment}"),
+                    None => path,
+                };
                 el.set_tag_name("span")?;
                 el.remove_attribute("href");
-                el.set_attribute("data-md-link", &href)?;
+                el.set_attribute("data-md-link", &link)?;
                 el.set_attribute("class", class)?;
                 el.set_attribute("onmousedown",
                     "if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}")?;
@@ -319,6 +370,48 @@ mod tests {
             !result.contains("handleMarkdownLinkClick('"),
             "Href must NOT be interpolated into JS string: {result}"
         );
+    }
+
+    #[test]
+    fn links_with_a_scheme_of_their_own_stay_anchors() {
+        // `mailto:contact@example.com` ends in something that looks like a
+        // file extension; it is an address, not a document.
+        let html = r#"<a href="mailto:contact@example.com">mail</a><a href="tel:+81-3-0000-0000">call</a>"#;
+        let result = post_process_html_tags(html, Path::new("/tmp"));
+
+        assert_eq!(result, html);
+    }
+
+    #[test]
+    fn a_file_url_link_is_resolved_to_a_path() {
+        let temp_dir = TempDir::new().unwrap();
+        let target = temp_dir.path().join("note.md");
+        fs::write(&target, "# Note").unwrap();
+        let url = url::Url::from_file_path(&target).unwrap();
+
+        let html = format!(r#"<a href="{url}#section">note</a>"#);
+        let result = post_process_html_tags(&html, temp_dir.path());
+
+        // The app opens `data-md-link` as a filesystem path, so the URL must
+        // not survive into it, and the target must be found rather than
+        // reported missing.
+        assert!(
+            result.contains(&format!(
+                r#"data-md-link="{}#section""#,
+                target.to_string_lossy()
+            )),
+            "{result}"
+        );
+        assert!(result.contains(r#"class="md-link""#), "{result}");
+        assert!(!result.contains("md-link-missing"), "{result}");
+    }
+
+    #[test]
+    fn a_windows_drive_letter_is_still_a_path() {
+        let html = r#"<a href="C:\notes\a.md">note</a>"#;
+        let result = post_process_html_tags(html, Path::new("/tmp"));
+
+        assert!(result.contains("data-md-link"), "{result}");
     }
 
     /// Characterization: HTTP URLs are not converted (this is correct behavior)
