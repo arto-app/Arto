@@ -85,13 +85,13 @@ behavior there depends on the engine.
 Links to other documents:
 
 - [Block syntax](./02-blocks.md) — opens in Arto
-- [A file that does not exist](./does-not-exist.md) — opens nothing
-- [A non-Markdown file](./assets/sample.svg) — styled as unavailable
-- [A section anchor](./02-blocks.md#tables) — styled as unavailable
+- [A file that does not exist](./does-not-exist.md) — dimmed, opens nothing
+- [A non-Markdown file](./assets/sample.svg) — dimmed
+- [A section anchor](./02-blocks.md#tables) — opens the Tables section
 
-**Expected:** the first one navigates inside Arto; the missing file looks like
-a normal document link but clicking it does nothing; the last two are dimmed.
-Anchors on document links are not followed.
+**Expected:** the first and the last navigate inside Arto, the last one
+landing on the Tables heading; the missing file and the non-Markdown file
+are dimmed, and clicking the missing one does nothing.
 
 ### Bare URLs next to other syntax
 

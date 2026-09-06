@@ -89,9 +89,13 @@
 //! A link to a local file becomes `<span class="md-link" data-md-link="…">`
 //! with an inline `onmousedown` that calls
 //! `window.handleMarkdownLinkClick(path, button)`, which the app installs
-//! in `crates/arto/src/components/content/file_viewer.rs`. Links to files
-//! that are not Markdown add `md-link-invalid`. `http(s)` links stay
-//! anchors. Local images are inlined as `data:` URLs so the page works
+//! in `crates/arto/src/components/content/file_viewer.rs`. `data-md-link`
+//! keeps the href as written, fragment included, and the app splits off
+//! the fragment and scrolls to that heading after opening the file. Links
+//! to files that are not Markdown add `md-link-invalid`; links to Markdown
+//! files that do not exist add `md-link-missing`. `http(s)` links and
+//! fragment-only links stay anchors. Local images are inlined as `data:`
+//! URLs so the page works
 //! offline and in Quick Look; readers of `data-md-link` and `.md-link` are
 //! the app and `frontend/style/components/content/markdown-viewer.css`.
 //!
@@ -355,6 +359,7 @@ mod tests {
         let image_path = temp_dir.path().join("image.png");
         let png_data = vec![0x89, 0x50, 0x4E, 0x47];
         fs::write(&image_path, png_data).unwrap();
+        fs::write(temp_dir.path().join("other.md"), "# Other").unwrap();
 
         let markdown = indoc! {"
             # Test Document

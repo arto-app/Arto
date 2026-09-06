@@ -60,13 +60,13 @@ behavior there depends on the engine.</p>
 <p data-source-line="85">Links to other documents:</p>
 <ul data-source-line="87" data-source-line-end="91">
 <li data-source-line="87" data-source-line-end="87"><span data-md-link="./02-blocks.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Block syntax</span> — opens in Arto</li>
-<li data-source-line="88" data-source-line-end="88"><span data-md-link="./does-not-exist.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">A file that does not exist</span> — opens nothing</li>
-<li data-source-line="89" data-source-line-end="89"><span data-md-link="./assets/sample.svg" class="md-link md-link-invalid" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">A non-Markdown file</span> — styled as unavailable</li>
-<li data-source-line="90" data-source-line-end="91"><span data-md-link="./02-blocks.md#tables" class="md-link md-link-invalid" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">A section anchor</span> — styled as unavailable</li>
+<li data-source-line="88" data-source-line-end="88"><span data-md-link="./does-not-exist.md" class="md-link md-link-missing" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">A file that does not exist</span> — dimmed, opens nothing</li>
+<li data-source-line="89" data-source-line-end="89"><span data-md-link="./assets/sample.svg" class="md-link md-link-invalid" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">A non-Markdown file</span> — dimmed</li>
+<li data-source-line="90" data-source-line-end="91"><span data-md-link="./02-blocks.md#tables" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">A section anchor</span> — opens the Tables section</li>
 </ul>
-<p data-source-line="92"><strong>Expected:</strong> the first one navigates inside Arto; the missing file looks like
-a normal document link but clicking it does nothing; the last two are dimmed.
-Anchors on document links are not followed.</p>
+<p data-source-line="92"><strong>Expected:</strong> the first and the last navigate inside Arto, the last one
+landing on the Tables heading; the missing file and the non-Markdown file
+are dimmed, and clicking the missing one does nothing.</p>
 <h3 data-source-line="96">Bare URLs next to other syntax</h3>
 <p data-source-line="98">Where a bare URL meets emphasis, link syntax, quotes or an indented code
 block, engines disagree. Each case below is written so that its correct

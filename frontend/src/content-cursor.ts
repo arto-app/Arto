@@ -364,12 +364,19 @@ export function getImageAsMarkdown(): string {
   return `![${alt}](${img.src})`;
 }
 
+/**
+ * The link under the cursor as written in the document: the href of an
+ * anchor, or the `data-md-link` of a document link (rendered as
+ * `span.md-link`, fragment included).
+ */
 export function getLinkHref(): string {
   const el = getCurrentElement();
   if (!el) return "";
-  const anchor = el.closest("a[href]") ?? el.querySelector("a[href]");
-  if (!(anchor instanceof HTMLAnchorElement)) return "";
-  return anchor.getAttribute("href") ?? "";
+  const selector = "a[href], span.md-link[data-md-link]";
+  const link = el.closest(selector) ?? el.querySelector(selector);
+  if (link instanceof HTMLAnchorElement) return link.getAttribute("href") ?? "";
+  if (link instanceof HTMLElement) return link.dataset.mdLink ?? "";
+  return "";
 }
 
 export function getSourceLineRange(): [number, number] | null {
