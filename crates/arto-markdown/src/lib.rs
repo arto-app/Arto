@@ -1010,16 +1010,8 @@ mod tests {
     // Autolink integration tests
     // ========================================================================
 
-    /// Render markdown through the full pipeline with an explicit auto_link_urls setting.
-    /// This avoids depending on the global CONFIG, preventing test interference.
     fn render_with_autolink(markdown: &str, base_path: &Path, auto_link_urls: bool) -> String {
-        let pipeline = run_pipeline(markdown, base_path, auto_link_urls);
-        let html_output = post_process_html_tags(
-            &pipeline.raw_html,
-            &pipeline.base_dir,
-            &pipeline.table_source_lines,
-        );
-        prepend_frontmatter(&pipeline.frontmatter_html, html_output)
+        render_to_html(markdown, base_path, &RenderOptions { auto_link_urls }).unwrap()
     }
 
     #[test]
