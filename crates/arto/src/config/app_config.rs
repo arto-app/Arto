@@ -1,10 +1,10 @@
+use arto_markdown::RenderOptions;
 use serde::{Deserialize, Serialize};
 
 mod behavior;
 mod directory_config;
 mod file_open_behavior;
 mod keybindings_config;
-mod markdown_config;
 mod right_sidebar_config;
 mod sidebar_config;
 mod theme_config;
@@ -17,7 +17,6 @@ pub use behavior::{NewWindowBehavior, StartupBehavior};
 pub use directory_config::DirectoryConfig;
 pub use file_open_behavior::FileOpenBehavior;
 pub use keybindings_config::{BindingSet, KeyAction};
-pub use markdown_config::MarkdownConfig;
 pub use right_sidebar_config::{RightSidebarConfig, DEFAULT_RIGHT_SIDEBAR_WIDTH};
 pub use sidebar_config::SidebarConfig;
 pub use theme_config::ThemeConfig;
@@ -37,7 +36,9 @@ pub use zoom_config::{
 pub struct Config {
     pub directory: DirectoryConfig,
     pub file_open: FileOpenBehavior,
-    pub markdown: MarkdownConfig,
+    /// Rendering choices, owned by the crate that renders (arto-markdown) so
+    /// every consumer of the pipeline shares one definition.
+    pub markdown: RenderOptions,
     pub theme: ThemeConfig,
     pub sidebar: SidebarConfig,
     pub right_sidebar: RightSidebarConfig,
@@ -155,7 +156,7 @@ mod tests {
                 on_new_window: NewWindowBehavior::LastFocused,
             },
             file_open: FileOpenBehavior::CurrentScreen,
-            markdown: MarkdownConfig {
+            markdown: RenderOptions {
                 auto_link_urls: true,
             },
             directory: DirectoryConfig {

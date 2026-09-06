@@ -32,10 +32,9 @@ notify-debouncer-full = "0.7.0"
 open = "5.4.3"
 parking_lot = "0.12"
 percent-encoding = "2.3"
-pulldown-cmark.workspace = true
 rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal"] }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0"
+serde.workspace = true
+serde_json.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
 tokio = { version = "1.52.3", features = ["time"] }

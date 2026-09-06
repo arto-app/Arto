@@ -13,6 +13,7 @@ base64.workspace = true
 html-escape.workspace = true
 lol_html.workspace = true
 pulldown-cmark.workspace = true
+serde.workspace = true
 serde_yaml_ng = "0.10"
 tracing.workspace = true
 url = "2"
@@ -20,4 +21,5 @@ url = "2"
 [dev-dependencies]
 indoc.workspace = true
 insta.workspace = true
+serde_json.workspace = true
 tempfile.workspace = true

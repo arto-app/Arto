@@ -397,7 +397,7 @@ fn copy_markdown_source_direct(
 ) {
     spawn(async move {
         let handle = std::thread::spawn(move || {
-            let source = crate::utils::source_extract::extract_source_lines(
+            let source = crate::utils::source_lines::extract_source_lines(
                 &file,
                 source_line,
                 source_line_end,
@@ -406,7 +406,7 @@ fn copy_markdown_source_direct(
                 return Some(source);
             }
             Some(
-                crate::utils::source_extract::extract_source_selection(&source, &selected_text)
+                crate::markdown::extract_source_selection(&source, &selected_text)
                     .unwrap_or(source),
             )
         });

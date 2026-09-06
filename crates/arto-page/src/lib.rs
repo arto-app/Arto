@@ -23,6 +23,8 @@
 //! first-party inline scripts embedded here. [`PageOptions`] can switch the
 //! policy off for callers that render trusted input.
 
+pub use arto_markdown::RenderOptions;
+
 use base64::Engine;
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -81,8 +83,9 @@ pub const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 /// How the page is rendered.
 #[derive(Debug, Clone)]
 pub struct PageOptions {
-    /// Turn bare URLs in the Markdown into links.
-    pub auto_link_urls: bool,
+    /// Markdown rendering choices, shared with every other consumer of
+    /// arto-markdown (the app reads the same struct from `config.json`).
+    pub render: RenderOptions,
     /// Emit the `Content-Security-Policy` that restricts script execution to
     /// the embedded frontend. Leave it on for untrusted input.
     pub content_security_policy: bool,
@@ -91,7 +94,7 @@ pub struct PageOptions {
 impl Default for PageOptions {
     fn default() -> Self {
         Self {
-            auto_link_urls: true,
+            render: RenderOptions::default(),
             content_security_policy: true,
         }
     }
@@ -145,7 +148,7 @@ pub fn render_markdown(
     base_path: impl AsRef<Path>,
     options: &PageOptions,
 ) -> Result<String, PageError> {
-    let body_html = arto_markdown::render_to_html(markdown, base_path, options.auto_link_urls)
+    let body_html = arto_markdown::render_to_html(markdown, base_path, &options.render)
         .map_err(PageError::Render)?;
     Ok(build_document(&body_html, options))
 }
@@ -326,7 +329,9 @@ mod tests {
         let plain = render_file(
             &path,
             &PageOptions {
-                auto_link_urls: false,
+                render: RenderOptions {
+                    auto_link_urls: false,
+                },
                 ..PageOptions::default()
             },
         )

@@ -881,12 +881,12 @@ fn copy_markdown_source(file: std::path::PathBuf) {
         }) = eval.recv::<MarkdownSourceRequest>().await
         {
             let handle = std::thread::spawn(move || {
-                let source = crate::utils::source_extract::extract_source_lines(&file, start, end)?;
+                let source = crate::utils::source_lines::extract_source_lines(&file, start, end)?;
                 if selected_text.trim().is_empty() {
                     return Some(source);
                 }
                 Some(
-                    crate::utils::source_extract::extract_source_selection(&source, &selected_text)
+                    crate::markdown::extract_source_selection(&source, &selected_text)
                         .unwrap_or(source),
                 )
             });

@@ -4,7 +4,7 @@
 //! the same flags. Errors are reported as [`PageError`]; the binaries decide
 //! how to print them.
 
-use crate::{render_file, PageError, PageOptions};
+use crate::{render_file, PageError, PageOptions, RenderOptions};
 use clap::Args;
 use std::io::Write;
 use std::path::PathBuf;
@@ -30,7 +30,9 @@ impl PageArgs {
     /// The rendering options these arguments describe.
     pub fn options(&self) -> PageOptions {
         PageOptions {
-            auto_link_urls: !self.no_auto_link_urls,
+            render: RenderOptions {
+                auto_link_urls: !self.no_auto_link_urls,
+            },
             content_security_policy: !self.no_csp,
         }
     }
