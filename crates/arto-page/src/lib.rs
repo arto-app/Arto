@@ -23,6 +23,7 @@
 //! first-party inline scripts embedded here. [`PageOptions`] can switch the
 //! policy off for callers that render trusted input.
 
+pub use arto_config::{Config, ConfigError, Theme};
 pub use arto_markdown::RenderOptions;
 
 use base64::Engine;
@@ -51,9 +52,14 @@ const FRONTEND_JS: &str = include_str!("../assets/frontend/main.iife.js");
 /// page unscrollable. Restore natural document scrolling.
 const STANDALONE_OVERRIDE_CSS: &str = "html,body{overflow:auto!important;height:auto!important;}";
 
-/// The inline bootstrap script. Picks the initial theme from
-/// `prefers-color-scheme` (the frontend reads `document.body`'s `data-theme`
-/// during initialization) and then starts the frontend.
+/// The inline bootstrap script. Settles the theme (the frontend reads
+/// `document.body`'s `data-theme` during initialization) and then starts the
+/// frontend.
+///
+/// The theme preference travels in `data-theme-preference` on `<body>` rather
+/// than in this script, so the script stays byte-identical across pages and
+/// its CSP hash can be a constant. `light` and `dark` are taken as-is;
+/// anything else follows `prefers-color-scheme`.
 const BOOTSTRAP_JS: &str = r#"(function(){
   // Quick Look loads this page from an opaque origin, which is not a secure
   // context, so crypto.randomUUID (used by Mermaid) is undefined. Polyfill it
@@ -69,8 +75,12 @@ const BOOTSTRAP_JS: &str = r#"(function(){
     }
   } catch (e) {}
   try {
-    var m = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.body.setAttribute('data-theme', m ? 'dark' : 'light');
+    var theme = document.body.getAttribute('data-theme-preference');
+    if (theme !== 'light' && theme !== 'dark') {
+      var m = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      theme = m ? 'dark' : 'light';
+    }
+    document.body.setAttribute('data-theme', theme);
   } catch (e) {}
   if (window.ArtoRenderer && typeof window.ArtoRenderer.init === 'function') { window.ArtoRenderer.init(); }
 })();"#;
@@ -86,6 +96,9 @@ pub struct PageOptions {
     /// Markdown rendering choices, shared with every other consumer of
     /// arto-markdown (the app reads the same struct from `config.json`).
     pub render: RenderOptions,
+    /// The colour theme the page opens in. `Auto` follows the viewer's
+    /// `prefers-color-scheme`.
+    pub theme: Theme,
     /// Emit the `Content-Security-Policy` that restricts script execution to
     /// the embedded frontend. Leave it on for untrusted input.
     pub content_security_policy: bool,
@@ -95,6 +108,20 @@ impl Default for PageOptions {
     fn default() -> Self {
         Self {
             render: RenderOptions::default(),
+            theme: Theme::default(),
+            content_security_policy: true,
+        }
+    }
+}
+
+impl PageOptions {
+    /// The options the user's configuration asks for: the app's rendering
+    /// options and its default theme. The policy stays on; a configuration
+    /// file must not be able to switch off the protection for untrusted input.
+    pub fn from_config(config: &Config) -> Self {
+        Self {
+            render: config.markdown.clone(),
+            theme: config.theme.default_theme,
             content_security_policy: true,
         }
     }
@@ -124,6 +151,9 @@ pub enum PageError {
     /// The page could not be written to standard output.
     #[error("cannot write to standard output: {0}")]
     WriteStdout(#[source] std::io::Error),
+    /// The user's configuration could not be read or parsed.
+    #[error("cannot load the configuration: {0}")]
+    Config(#[from] ConfigError),
 }
 
 /// Render the Markdown file at `path` into a self-contained HTML page.
@@ -223,12 +253,21 @@ fn build_document(body_html: &str, options: &PageOptions) -> String {
         String::new()
     };
 
+    // `data-theme` is what the stylesheet reads, so a fixed theme applies
+    // before any script runs (and with scripts blocked). `Auto` starts light
+    // and lets the bootstrap consult `prefers-color-scheme`.
+    let (initial_theme, theme_preference) = match options.theme {
+        Theme::Auto => ("light", "auto"),
+        Theme::Light => ("light", "light"),
+        Theme::Dark => ("dark", "dark"),
+    };
+
     format!(
         r#"<!DOCTYPE html><html><head><meta charset="utf-8">
 {csp_meta}<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>{css}</style>
 <style>{standalone_override}</style></head>
-<body data-theme="light">
+<body data-theme="{initial_theme}" data-theme-preference="{theme_preference}">
 <div class="markdown-viewer"><article class="markdown-body">{body}</article></div>
 <script>{bundle}</script>
 <script>{bootstrap}</script>
@@ -236,6 +275,8 @@ fn build_document(body_html: &str, options: &PageOptions) -> String {
         csp_meta = csp_meta,
         css = FRONTEND_CSS,
         standalone_override = STANDALONE_OVERRIDE_CSS,
+        initial_theme = initial_theme,
+        theme_preference = theme_preference,
         body = body_html,
         bundle = bundle,
         bootstrap = BOOTSTRAP_JS,
@@ -267,8 +308,9 @@ mod tests {
         assert!(html.contains("overflow:auto"));
         assert!(html.contains("<script>"));
         assert!(html.contains("</script>"));
-        // Theme defaults are present.
-        assert!(html.contains(r#"<body data-theme="light">"#));
+        // Theme defaults are present: start light, let the bootstrap follow
+        // the system.
+        assert!(html.contains(r#"<body data-theme="light" data-theme-preference="auto">"#));
         assert!(html.contains("prefers-color-scheme"));
         // Mermaid needs crypto.randomUUID, which an opaque origin lacks, so
         // the bootstrap must polyfill it.
@@ -313,6 +355,81 @@ mod tests {
         // The rest of the document is unchanged.
         assert!(html.contains("ArtoRenderer.init"));
         assert!(html.contains(r#"<meta name="viewport""#));
+    }
+
+    #[test]
+    fn test_build_document_applies_a_fixed_theme_before_scripts_run() {
+        let dark = build_document(
+            "<p>hi</p>",
+            &PageOptions {
+                theme: Theme::Dark,
+                ..PageOptions::default()
+            },
+        );
+        assert!(dark.contains(r#"<body data-theme="dark" data-theme-preference="dark">"#));
+
+        let light = build_document(
+            "<p>hi</p>",
+            &PageOptions {
+                theme: Theme::Light,
+                ..PageOptions::default()
+            },
+        );
+        assert!(light.contains(r#"<body data-theme="light" data-theme-preference="light">"#));
+
+        // The bootstrap is byte-identical whatever the theme, so its CSP hash
+        // stays valid.
+        let hash = format!("'sha256-{}'", sha256_base64(BOOTSTRAP_JS));
+        assert!(dark.contains(&hash));
+        assert!(light.contains(&hash));
+    }
+
+    #[test]
+    fn test_options_from_config_take_render_options_and_theme_but_keep_csp() {
+        let config = Config {
+            markdown: RenderOptions {
+                auto_link_urls: false,
+            },
+            theme: arto_config::ThemeConfig {
+                default_theme: Theme::Dark,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let options = PageOptions::from_config(&config);
+        assert!(!options.render.auto_link_urls);
+        assert_eq!(options.theme, Theme::Dark);
+        assert!(options.content_security_policy);
+    }
+
+    #[test]
+    fn test_every_sample_renders_to_a_well_formed_page() {
+        let samples = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../samples");
+        let mut rendered = 0;
+        for entry in fs::read_dir(&samples).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().is_none_or(|ext| ext != "md") {
+                continue;
+            }
+            let html = render_file(&path, &PageOptions::default())
+                .unwrap_or_else(|err| panic!("{}: {err}", path.display()));
+            assert!(
+                html.contains(r#"<article class="markdown-body">"#),
+                "{} lacks the article wrapper",
+                path.display()
+            );
+            // The body may legitimately mention `</script>` (a sample about
+            // raw HTML does), so only the tail is checked: both first-party
+            // scripts must still close the document.
+            assert!(
+                html.ends_with("</script>\n</body></html>"),
+                "{} does not end with the bootstrap script",
+                path.display()
+            );
+            rendered += 1;
+        }
+        assert!(rendered > 0, "no samples found under {}", samples.display());
     }
 
     #[test]

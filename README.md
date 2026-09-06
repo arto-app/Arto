@@ -193,7 +193,10 @@ Arto runs as a **single instance** — if Arto is already running, the command s
 ```
 arto page README.md > README.html
 arto page --output out.html docs/guide.md
+arto page --theme dark notes.md
 ```
+
+The page follows your `config.json` (rendering options and default theme), so it looks the way the app shows the file; `--theme`, `--no-auto-link-urls` and friends override individual settings, `--config FILE` reads another file, and `--no-config` starts from the built-in defaults. The Quick Look preview on macOS reads the same configuration when its sandbox allows.
 
 The page ships with a Content-Security-Policy that blocks any script embedded in the Markdown; pass `--no-csp` only for input you trust. The same command is available as the standalone `arto-page` binary (the `arto-page` crate) for machines without the app.
 

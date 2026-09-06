@@ -37,6 +37,20 @@ pub enum ConfigError {
     Serialize(#[source] serde_json::Error),
 }
 
+impl ConfigError {
+    /// Whether the file simply does not exist.
+    ///
+    /// Loaders fall back to defaults only in this case; a file that exists
+    /// but cannot be read (permissions, a directory in its place) is an
+    /// error the caller must see.
+    pub fn is_not_found(&self) -> bool {
+        matches!(
+            self,
+            ConfigError::Read { source, .. } if source.kind() == std::io::ErrorKind::NotFound
+        )
+    }
+}
+
 impl Config {
     /// Get the configuration file path based on the platform
     pub fn path() -> PathBuf {
@@ -65,23 +79,37 @@ impl Config {
     /// A missing `mappings.json` yields the default preset, so a fresh
     /// install has working shortcuts without writing anything first.
     pub fn load() -> Result<Self, ConfigError> {
-        let config_path = Self::path();
+        let mut config = Self::load_preferences()?;
         let mappings_path = Self::mappings_path();
-
-        let mut config = if config_path.exists() {
-            read_json(&config_path)?
-        } else {
-            Config::default()
-        };
-
         config.keybindings = resolve_keybindings(load_mappings(&mappings_path)?);
+        tracing::debug!(mappings_path = %mappings_path.display(), "Keybindings loaded");
+        Ok(config)
+    }
 
-        tracing::debug!(
-            config_path = %config_path.display(),
-            mappings_path = %mappings_path.display(),
-            "Configuration loaded"
-        );
+    /// Load `config.json` alone, or the defaults when it does not exist.
+    ///
+    /// Keybindings are the default preset; `mappings.json` is not read. For
+    /// consumers that only render (`arto page`, Quick Look) this keeps a
+    /// broken `mappings.json` from getting in the way of settings that have
+    /// nothing to do with it.
+    pub fn load_preferences() -> Result<Self, ConfigError> {
+        // Try the read rather than testing existence first: `Path::exists`
+        // answers false for a permission error too, which would silently
+        // turn an unreadable config.json into the defaults.
+        match Self::load_preferences_from(Self::path()) {
+            Err(error) if error.is_not_found() => Ok(Self::default_with_keybindings()),
+            result => result,
+        }
+    }
 
+    /// Load `config.json` from a specific file, which must exist.
+    ///
+    /// Like [`Config::load_preferences`], keybindings are the default preset.
+    pub fn load_preferences_from(config_path: impl AsRef<Path>) -> Result<Self, ConfigError> {
+        let config_path = config_path.as_ref();
+        let mut config: Config = read_json(config_path)?;
+        config.keybindings = resolve_keybindings(None);
+        tracing::debug!(config_path = %config_path.display(), "Configuration loaded");
         Ok(config)
     }
 
@@ -144,10 +172,11 @@ fn write_json<T: serde::Serialize>(path: &Path, value: &T) -> Result<(), ConfigE
 }
 
 fn load_mappings(path: &Path) -> Result<Option<BindingSet>, ConfigError> {
-    if !path.exists() {
-        return Ok(None);
+    match read_json(path) {
+        Ok(mappings) => Ok(Some(mappings)),
+        Err(error) if error.is_not_found() => Ok(None),
+        Err(error) => Err(error),
     }
-    read_json(path).map(Some)
 }
 
 fn resolve_keybindings(mappings: Option<BindingSet>) -> BindingSet {
@@ -190,6 +219,33 @@ mod tests {
     }
 
     #[test]
+    fn only_a_missing_file_counts_as_not_found() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let missing = read_json::<Config>(&dir.path().join("missing.json")).unwrap_err();
+        assert!(missing.is_not_found());
+
+        let malformed_path = dir.path().join("config.json");
+        fs::write(&malformed_path, "{ not json").unwrap();
+        let malformed = read_json::<Config>(&malformed_path).unwrap_err();
+        assert!(!malformed.is_not_found());
+
+        // A directory where the file should be exists but cannot be read.
+        let in_the_way = read_json::<Config>(dir.path()).unwrap_err();
+        assert!(!in_the_way.is_not_found());
+    }
+
+    #[test]
+    fn load_mappings_distinguishes_missing_from_unreadable() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            load_mappings(&dir.path().join("mappings.json")).unwrap(),
+            None
+        );
+        assert!(load_mappings(dir.path()).is_err());
+    }
+
+    #[test]
     fn read_json_reports_the_offending_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.json");
@@ -198,6 +254,34 @@ mod tests {
         let err = read_json::<Config>(&path).unwrap_err();
         assert!(matches!(err, ConfigError::Parse { .. }));
         assert!(err.to_string().contains("config.json"));
+    }
+
+    #[test]
+    fn load_preferences_from_reads_the_file_and_ignores_sibling_mappings() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("config.json");
+        fs::write(
+            &config_path,
+            r#"{"theme":{"defaultTheme":"dark","onStartup":"default","onNewWindow":"default"}}"#,
+        )
+        .unwrap();
+        // A broken mappings.json next to it must not matter to a consumer
+        // that only wants preferences.
+        fs::write(dir.path().join("mappings.json"), "{ not json").unwrap();
+
+        let config = Config::load_preferences_from(&config_path).unwrap();
+        assert_eq!(config.theme.default_theme, crate::Theme::Dark);
+        assert_eq!(
+            config.keybindings,
+            arto_keybindings::presets::default_bindings()
+        );
+    }
+
+    #[test]
+    fn load_preferences_from_requires_the_file_to_exist() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = Config::load_preferences_from(dir.path().join("missing.json")).unwrap_err();
+        assert!(matches!(err, ConfigError::Read { .. }));
     }
 
     #[test]

@@ -263,6 +263,7 @@ name = "arto-page"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "arto-config",
  "arto-markdown",
  "base64 0.23.1",
  "clap",

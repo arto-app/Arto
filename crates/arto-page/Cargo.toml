@@ -34,6 +34,9 @@ ffi = []
 [dependencies]
 # Only for `PageError::Render`, which carries arto-markdown's error as-is.
 anyhow.workspace = true
+# The page honours the user's config.json (rendering options, default theme)
+# so `arto page` and Quick Look look like the app does.
+arto-config = { path = "../arto-config" }
 arto-markdown = { path = "../arto-markdown" }
 base64.workspace = true
 clap = { workspace = true, optional = true }

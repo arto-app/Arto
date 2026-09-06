@@ -4,12 +4,17 @@
 //! shim under platform/macos/quicklook links. The extension passes a file
 //! path in and receives the finished page as a C string.
 
-use crate::PageOptions;
+use crate::{Config, PageOptions};
 use std::ffi::{c_char, CStr, CString};
 use std::path::PathBuf;
 use std::ptr;
 
 /// Render the Markdown file at `path_utf8` to a full self-contained HTML page.
+///
+/// The page follows the user's `config.json` when it can be read; the
+/// extension's sandbox may hide the app's configuration directory, in which
+/// case the built-in defaults apply. A preview must never fail because of a
+/// configuration problem, so those errors are swallowed here.
 ///
 /// Returns a Rust-allocated C string that the caller must release only with
 /// [`arto_page_free_string`] (never libc `free`). Returns null on any error
@@ -30,7 +35,10 @@ pub unsafe extern "C" fn arto_page_render_markdown_file(path_utf8: *const c_char
     // guaranteed to be valid UTF-8, so build the path from bytes directly.
     let path = path_from_ffi_bytes(CStr::from_ptr(path_utf8).to_bytes());
 
-    let Ok(document) = crate::render_file(&path, &PageOptions::default()) else {
+    let options = Config::load_preferences()
+        .map(|config| PageOptions::from_config(&config))
+        .unwrap_or_default();
+    let Ok(document) = crate::render_file(&path, &options) else {
         return ptr::null_mut();
     };
 

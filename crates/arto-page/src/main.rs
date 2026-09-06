@@ -7,10 +7,13 @@ use clap::Parser;
     about,
     long_about = "Render a Markdown file into a single HTML page that carries Arto's \
         stylesheet and frontend bundle inline, so it can be opened anywhere without \
-        the app: in a browser, in a Quick Look preview, or attached to a message.",
+        the app: in a browser, in a Quick Look preview, or attached to a message. \
+        Rendering options and the theme come from the app's config.json unless \
+        overridden by flags or disabled with --no-config.",
     after_long_help = "Examples:\n\
         \x20 arto-page README.md > README.html\n\
         \x20 arto-page --output out.html docs/guide.md\n\
+        \x20 arto-page --theme dark --no-config notes.md\n\
         \x20 arto-page --no-csp trusted.md"
 )]
 struct Cli {

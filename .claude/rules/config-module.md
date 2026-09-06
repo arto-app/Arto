@@ -64,8 +64,9 @@ mod tests { ... }
 ### Library and App Split
 
 The crate owns everything that is true for every consumer of the
-configuration: the types, the file locations, and `Config::load()` /
-`Config::save()` returning a `ConfigError`. It never logs above debug and
+configuration: the types, the file locations, and `Config::load()` (with keybindings),
+`Config::load_preferences()` (config.json alone, for consumers that only
+render) and `Config::save()`, all returning a `ConfigError`. It never logs above debug and
 never holds a global. The desktop app wraps it in `crates/arto/src/config.rs`,
 where the loaded instance lives behind a lock (`CONFIG`) and changes are
 broadcast to windows (`CONFIG_CHANGED_BROADCAST`). Other consumers, such as
