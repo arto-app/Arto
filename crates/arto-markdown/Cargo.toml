@@ -12,7 +12,13 @@ anyhow.workspace = true
 base64.workspace = true
 html-escape.workspace = true
 lol_html.workspace = true
-pulldown-cmark.workspace = true
+# ox-content is still in beta and its pre-releases move fast; pin exactly so a
+# `cargo update` cannot swap the parser or the HTML it writes unnoticed. The
+# four crates are one release train and must stay on the same version.
+ox_content_allocator = "=3.0.0-beta.16"
+ox_content_ast = "=3.0.0-beta.16"
+ox_content_parser = "=3.0.0-beta.16"
+ox_content_renderer = "=3.0.0-beta.16"
 serde.workspace = true
 serde_yaml_ng = "0.10"
 tracing.workspace = true

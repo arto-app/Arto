@@ -28,19 +28,19 @@ input_file: samples/04-frontmatter.md
 of as text. Previous: <span data-md-link="./03-math-and-diagrams.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Math and diagrams</span>.</p>
 <p data-source-line="32"><strong>Expected:</strong> a collapsed “Frontmatter” table at the very top of the document.
 Expanding it shows one row per key with values styled by type:</p>
-<ul data-source-line="35" data-source-line-end="42">
+<ul data-source-line="35" data-source-line-end="41">
 <li data-source-line="35" data-source-line-end="35"><strong>String</strong>: plain text (<code>title</code>, <code>author</code>, <code>date</code>, <code>description</code> as one line)</li>
 <li data-source-line="36" data-source-line-end="36"><strong>Boolean</strong>: highlighted (<code>draft</code>, <code>settings.sidebar</code>)</li>
 <li data-source-line="37" data-source-line-end="37"><strong>Number</strong>: highlighted (<code>version</code>, <code>count</code>, <code>settings.width</code>)</li>
 <li data-source-line="38" data-source-line-end="38"><strong>List of strings</strong>: bullet points (<code>tags</code>)</li>
 <li data-source-line="39" data-source-line-end="39"><strong>Object</strong>: a nested table (<code>settings</code>)</li>
 <li data-source-line="40" data-source-line-end="40"><strong>List of objects</strong>: nested tables (<code>authors</code>)</li>
-<li data-source-line="41" data-source-line-end="42"><strong>null</strong>: shown as <code>null</code> (<code>empty_value</code>)</li>
+<li data-source-line="41" data-source-line-end="41"><strong>null</strong>: shown as <code>null</code> (<code>empty_value</code>)</li>
 </ul>
 <h2 data-source-line="43">Source lines after frontmatter</h2>
 <p data-source-line="45">This paragraph is the first block after the heading.</p>
-<ul data-source-line="47" data-source-line-end="48">
-<li data-source-line="47" data-source-line-end="48">A list item</li>
+<ul data-source-line="47" data-source-line-end="47">
+<li data-source-line="47" data-source-line-end="47">A list item</li>
 </ul>
 <p data-source-line="49"><strong>Expected:</strong> right-click “copy path with line” on this paragraph and the list
 item reports their real line numbers in the file, counting the frontmatter
@@ -52,12 +52,12 @@ lines at the top.</p>
 line containing only <code>---</code>. A <code>---</code> later in the document is a horizontal
 rule, like the one below.</p>
 </div>
-<hr data-source-line="60" />
+<hr data-source-line="60">
 <pre data-source-line="62" data-source-line-end="66" data-source-line-start="63"><code class="language-rust">fn main() {
-    println!("Hello, Arto!");
+    println!(&quot;Hello, Arto!&quot;);
 }
 </code></pre>
 <p data-source-line="68"><strong>Expected:</strong> an alert, a horizontal rule, and a code block, exactly as in the
 other samples.</p>
-<hr data-source-line="71" />
+<hr data-source-line="71">
 <p data-source-line="73">Previous: <span data-md-link="./03-math-and-diagrams.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Math and diagrams</span> · Next: <span data-md-link="./05-beyond-gfm.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Beyond GFM</span></p>

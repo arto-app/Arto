@@ -11,7 +11,7 @@ page. Previous: <span data-md-link="./02-blocks.md" class="md-link" onmousedown=
 <span class="preprocessed-math-inline" data-original-content="x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}">x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}</span>. Euler: <span class="preprocessed-math-inline" data-original-content="e^{i\pi} + 1 = 0">e^{i\pi} + 1 = 0</span>.</p>
 <p data-source-line="11"><strong>Expected:</strong> four typeset formulas flowing with the text.</p>
 <h3 data-source-line="13">Math that contains Markdown punctuation</h3>
-<p data-source-line="15">Asterisks: <span class="preprocessed-math-inline" data-original-content="2*3*4 = 24">2*3*4 = 24</span>. Underscores: <span class="preprocessed-math-inline" data-original-content="a_1 + b_2 = c_3">a_1 + b_2 = c_3</span>. Tildes:
+<p data-source-line="15">Asterisks: $2<em>3</em>4 = 24$. Underscores: <span class="preprocessed-math-inline" data-original-content="a_1 + b_2 = c_3">a_1 + b_2 = c_3</span>. Tildes:
 <span class="preprocessed-math-inline" data-original-content="x \sim \mathcal{N}(0, 1)">x \sim \mathcal{N}(0, 1)</span>. Brackets: <span class="preprocessed-math-inline" data-original-content="[a, b] \times (c, d)">[a, b] \times (c, d)</span>. Backslashes:
 <span class="preprocessed-math-inline" data-original-content="\{x \mid x &gt; 0\}">\{x \mid x &gt; 0\}</span>.</p>
 <p data-source-line="19"><strong>Expected:</strong> five typeset formulas; no italics, no strikethrough, and no
@@ -21,87 +21,80 @@ links appear because of the punctuation inside the dollars.</p>
 Bold: <strong><span class="preprocessed-math-inline" data-original-content="\alpha + \beta">\alpha + \beta</span></strong>.</p>
 <p data-source-line="27"><strong>Expected:</strong> the formulas typeset inside the italic, link, and bold runs.</p>
 <h3 data-source-line="29">Not math</h3>
-<p data-source-line="31">Prices: costs $5 and $6, or $5.00 and <span class="preprocessed-math-inline" data-original-content="6.50. Escaped: \$100 and \$200. Code:
-`">6.50. Escaped: \$100 and \$200. Code:
-`</span>HOME<code>and</code>$PATH`. A lone dollar sign $ in a sentence.</p>
+<p data-source-line="31">Prices: costs $5 and $6, or $5.00 and $6.50. Escaped: $100 and $200. Code:
+<code>$HOME</code> and <code>$PATH</code>. A lone dollar sign $ in a sentence.</p>
 <p data-source-line="34"><strong>Expected:</strong> every dollar sign stays visible as text; nothing is typeset.</p>
 <h3 data-source-line="36">Math in table cells</h3>
-<table data-source-line="38" data-source-line-end="41"><thead><tr><th>Formula</th><th>Meaning</th></tr></thead><tbody>
-<tr data-source-line="40"><td><span class="preprocessed-math-inline" data-original-content="E = mc^2">E = mc^2</span></td><td>mass-energy</td></tr>
-<tr data-source-line="41"><td><span class="preprocessed-math-inline" data-original-content="\sum_{i=1}^{n} i">\sum_{i=1}^{n} i</span></td><td>a sum</td></tr>
-</tbody></table>
+<table data-source-line="38" data-source-line-end="41">
+<thead>
+<tr data-source-line="38">
+<th>Formula</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr data-source-line="40">
+<td><span class="preprocessed-math-inline" data-original-content="E = mc^2">E = mc^2</span></td>
+<td>mass-energy</td>
+</tr>
+<tr data-source-line="41">
+<td><span class="preprocessed-math-inline" data-original-content="\sum_{i=1}^{n} i">\sum_{i=1}^{n} i</span></td>
+<td>a sum</td>
+</tr>
+</tbody>
+</table>
 <p data-source-line="43"><strong>Expected:</strong> depends on the engine. See the Math in table cells section of
 <span data-md-link="./05-beyond-gfm.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Beyond GFM</span>.</p>
 <h2 data-source-line="46">Display math</h2>
 <p data-source-line="48">Double dollars on their own lines:</p>
-<p data-source-line="50"><div data-source-line="50" data-source-line-end="52" class="preprocessed-math-display" data-original-content="
+<div data-source-line="50" data-source-line-end="52" class="preprocessed-math-display" data-original-content="&#10;\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}&#10;">
 \int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}
-">
-\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}
-</div></p>
+</div>
 <p data-source-line="54">A <code>math</code> fence:</p>
-<pre data-source-line="56" data-source-line-end="58" class="preprocessed-math" data-original-content="\frac{d}{dx}\left( \int_{0}^{x} f(u)\,du\right) = f(x)
-">\frac{d}{dx}\left( \int_{0}^{x} f(u)\,du\right) = f(x)
-</pre><p data-source-line="60">Multi-line environments:</p>
-<p data-source-line="62"><div data-source-line="62" data-source-line-end="69" class="preprocessed-math-display" data-original-content="
+<pre data-source-line="56" data-source-line-end="58" class="preprocessed-math" data-original-content="\frac{d}{dx}\left( \int_{0}^{x} f(u)\,du\right) = f(x)&#10;">\frac{d}{dx}\left( \int_{0}^{x} f(u)\,du\right) = f(x)
+</pre>
+<p data-source-line="60">Multi-line environments:</p>
+<div data-source-line="62" data-source-line-end="69" class="preprocessed-math-display" data-original-content="&#10;\begin{aligned}&#10;\nabla \cdot \mathbf{E} &amp;= \frac{\rho}{\varepsilon_0} \\&#10;\nabla \cdot \mathbf{B} &amp;= 0 \\&#10;\nabla \times \mathbf{E} &amp;= -\frac{\partial \mathbf{B}}{\partial t} \\&#10;\nabla \times \mathbf{B} &amp;= \mu_0 \mathbf{J} + \mu_0 \varepsilon_0 \frac{\partial \mathbf{E}}{\partial t}&#10;\end{aligned}&#10;">
 \begin{aligned}
 \nabla \cdot \mathbf{E} &amp;= \frac{\rho}{\varepsilon_0} \\
 \nabla \cdot \mathbf{B} &amp;= 0 \\
 \nabla \times \mathbf{E} &amp;= -\frac{\partial \mathbf{B}}{\partial t} \\
 \nabla \times \mathbf{B} &amp;= \mu_0 \mathbf{J} + \mu_0 \varepsilon_0 \frac{\partial \mathbf{E}}{\partial t}
 \end{aligned}
-">
-\begin{aligned}
-\nabla \cdot \mathbf{E} &amp;= \frac{\rho}{\varepsilon_0} \\
-\nabla \cdot \mathbf{B} &amp;= 0 \\
-\nabla \times \mathbf{E} &amp;= -\frac{\partial \mathbf{B}}{\partial t} \\
-\nabla \times \mathbf{B} &amp;= \mu_0 \mathbf{J} + \mu_0 \varepsilon_0 \frac{\partial \mathbf{E}}{\partial t}
-\end{aligned}
-</div></p>
-<pre data-source-line="71" data-source-line-end="78" class="preprocessed-math" data-original-content="I_n = \begin{bmatrix}
+</div>
+<pre data-source-line="71" data-source-line-end="78" class="preprocessed-math" data-original-content="I_n = \begin{bmatrix}&#10;1 &amp; 0 &amp; \cdots &amp; 0 \\&#10;0 &amp; 1 &amp; \cdots &amp; 0 \\&#10;\vdots &amp; \vdots &amp; \ddots &amp; \vdots \\&#10;0 &amp; 0 &amp; \cdots &amp; 1&#10;\end{bmatrix}&#10;">I_n = \begin{bmatrix}
 1 &amp; 0 &amp; \cdots &amp; 0 \\
 0 &amp; 1 &amp; \cdots &amp; 0 \\
 \vdots &amp; \vdots &amp; \ddots &amp; \vdots \\
 0 &amp; 0 &amp; \cdots &amp; 1
 \end{bmatrix}
-">I_n = \begin{bmatrix}
-1 &amp; 0 &amp; \cdots &amp; 0 \\
-0 &amp; 1 &amp; \cdots &amp; 0 \\
-\vdots &amp; \vdots &amp; \ddots &amp; \vdots \\
-0 &amp; 0 &amp; \cdots &amp; 1
-\end{bmatrix}
-</pre><p data-source-line="80"><strong>Expected:</strong> four centered blocks; the aligned environment lines up its equals
+</pre>
+<p data-source-line="80"><strong>Expected:</strong> four centered blocks; the aligned environment lines up its equals
 signs; the matrix has square brackets.</p>
 <h3 data-source-line="83">Display math edge cases</h3>
-<p data-source-line="85">Inline double dollars: before <div data-source-line="85" data-source-line-end="85" class="preprocessed-math-display" data-original-content="x^2">x^2</div> after.</p>
+<p data-source-line="85">Inline double dollars: before <span class="preprocessed-math-inline" data-original-content="x^2">x^2</span> after.</p>
 <p data-source-line="87"><strong>Expected:</strong> typeset (as display or inline depending on the engine) without
 breaking the paragraph.</p>
 <p data-source-line="90">A formula KaTeX cannot parse:</p>
-<p data-source-line="92">$$
+<div data-source-line="92" data-source-line-end="94" class="preprocessed-math-display" data-original-content="&#10;\frac{a}{&#10;">
 \frac{a}{
-$$</p>
+</div>
 <p data-source-line="96"><strong>Expected:</strong> an error shown in place of the formula, and the rest of the
 document still renders.</p>
 <p data-source-line="99">Right-click a display formula: the context menu offers to open it in its own
 window and to copy the block.</p>
 <h2 data-source-line="102">Mermaid</h2>
 <h3 data-source-line="104">Flowchart</h3>
-<pre data-source-line="106" data-source-line-end="114" class="preprocessed-mermaid" data-original-content="flowchart TD
+<pre data-source-line="106" data-source-line-end="114" class="preprocessed-mermaid" data-original-content="flowchart TD&#10;    A[Start] --&gt; B{Is it working?}&#10;    B --&gt;|Yes| C[Great!]&#10;    B --&gt;|No| D[Debug]&#10;    D --&gt; E[Fix Issue]&#10;    E --&gt; B&#10;    C --&gt; F[End]&#10;">flowchart TD
     A[Start] --&gt; B{Is it working?}
     B --&gt;|Yes| C[Great!]
     B --&gt;|No| D[Debug]
     D --&gt; E[Fix Issue]
     E --&gt; B
     C --&gt; F[End]
-">flowchart TD
-    A[Start] --&gt; B{Is it working?}
-    B --&gt;|Yes| C[Great!]
-    B --&gt;|No| D[Debug]
-    D --&gt; E[Fix Issue]
-    E --&gt; B
-    C --&gt; F[End]
-</pre><h3 data-source-line="116">Sequence</h3>
-<pre data-source-line="118" data-source-line-end="127" class="preprocessed-mermaid" data-original-content="sequenceDiagram
+</pre>
+<h3 data-source-line="116">Sequence</h3>
+<pre data-source-line="118" data-source-line-end="127" class="preprocessed-mermaid" data-original-content="sequenceDiagram&#10;    participant User&#10;    participant Client&#10;    participant Server&#10;    User-&gt;&gt;Client: Open Application&#10;    Client-&gt;&gt;Server: Request Data&#10;    Server--&gt;&gt;Client: Send Response&#10;    Client--&gt;&gt;User: Display Data&#10;">sequenceDiagram
     participant User
     participant Client
     participant Server
@@ -109,16 +102,9 @@ window and to copy the block.</p>
     Client-&gt;&gt;Server: Request Data
     Server--&gt;&gt;Client: Send Response
     Client--&gt;&gt;User: Display Data
-">sequenceDiagram
-    participant User
-    participant Client
-    participant Server
-    User-&gt;&gt;Client: Open Application
-    Client-&gt;&gt;Server: Request Data
-    Server--&gt;&gt;Client: Send Response
-    Client--&gt;&gt;User: Display Data
-</pre><h3 data-source-line="129">Class</h3>
-<pre data-source-line="131" data-source-line-end="141" class="preprocessed-mermaid" data-original-content="classDiagram
+</pre>
+<h3 data-source-line="129">Class</h3>
+<pre data-source-line="131" data-source-line-end="141" class="preprocessed-mermaid" data-original-content="classDiagram&#10;    class Animal {&#10;        +String name&#10;        +makeSound()&#10;    }&#10;    class Dog {&#10;        +bark()&#10;    }&#10;    Animal &lt;|-- Dog&#10;">classDiagram
     class Animal {
         +String name
         +makeSound()
@@ -127,41 +113,24 @@ window and to copy the block.</p>
         +bark()
     }
     Animal &lt;|-- Dog
-">classDiagram
-    class Animal {
-        +String name
-        +makeSound()
-    }
-    class Dog {
-        +bark()
-    }
-    Animal &lt;|-- Dog
-</pre><h3 data-source-line="143">State</h3>
-<pre data-source-line="145" data-source-line-end="153" class="preprocessed-mermaid" data-original-content="stateDiagram-v2
+</pre>
+<h3 data-source-line="143">State</h3>
+<pre data-source-line="145" data-source-line-end="153" class="preprocessed-mermaid" data-original-content="stateDiagram-v2&#10;    [*] --&gt; Idle&#10;    Idle --&gt; Processing: Start&#10;    Processing --&gt; Success: Complete&#10;    Processing --&gt; Error: Fail&#10;    Success --&gt; [*]&#10;    Error --&gt; Idle: Retry&#10;">stateDiagram-v2
     [*] --&gt; Idle
     Idle --&gt; Processing: Start
     Processing --&gt; Success: Complete
     Processing --&gt; Error: Fail
     Success --&gt; [*]
     Error --&gt; Idle: Retry
-">stateDiagram-v2
-    [*] --&gt; Idle
-    Idle --&gt; Processing: Start
-    Processing --&gt; Success: Complete
-    Processing --&gt; Error: Fail
-    Success --&gt; [*]
-    Error --&gt; Idle: Retry
-</pre><h3 data-source-line="155">Entity relationship</h3>
-<pre data-source-line="157" data-source-line-end="162" class="preprocessed-mermaid" data-original-content="erDiagram
+</pre>
+<h3 data-source-line="155">Entity relationship</h3>
+<pre data-source-line="157" data-source-line-end="162" class="preprocessed-mermaid" data-original-content="erDiagram&#10;    USER ||--o{ ORDER : places&#10;    ORDER ||--|{ ORDER_ITEM : contains&#10;    PRODUCT ||--o{ ORDER_ITEM : referenced_by&#10;">erDiagram
     USER ||--o{ ORDER : places
     ORDER ||--|{ ORDER_ITEM : contains
     PRODUCT ||--o{ ORDER_ITEM : referenced_by
-">erDiagram
-    USER ||--o{ ORDER : places
-    ORDER ||--|{ ORDER_ITEM : contains
-    PRODUCT ||--o{ ORDER_ITEM : referenced_by
-</pre><h3 data-source-line="164">Gantt</h3>
-<pre data-source-line="166" data-source-line-end="175" class="preprocessed-mermaid" data-original-content="gantt
+</pre>
+<h3 data-source-line="164">Gantt</h3>
+<pre data-source-line="166" data-source-line-end="175" class="preprocessed-mermaid" data-original-content="gantt&#10;    title Project Timeline&#10;    dateFormat YYYY-MM-DD&#10;    section Planning&#10;    Requirements :a1, 2024-01-01, 7d&#10;    Design       :a2, after a1, 5d&#10;    section Development&#10;    Implementation :a3, after a2, 14d&#10;">gantt
     title Project Timeline
     dateFormat YYYY-MM-DD
     section Planning
@@ -169,39 +138,23 @@ window and to copy the block.</p>
     Design       :a2, after a1, 5d
     section Development
     Implementation :a3, after a2, 14d
-">gantt
-    title Project Timeline
-    dateFormat YYYY-MM-DD
-    section Planning
-    Requirements :a1, 2024-01-01, 7d
-    Design       :a2, after a1, 5d
-    section Development
-    Implementation :a3, after a2, 14d
-</pre><h3 data-source-line="177">Git graph</h3>
-<pre data-source-line="179" data-source-line-end="187" class="preprocessed-mermaid" data-original-content="gitGraph
+</pre>
+<h3 data-source-line="177">Git graph</h3>
+<pre data-source-line="179" data-source-line-end="187" class="preprocessed-mermaid" data-original-content="gitGraph&#10;    commit&#10;    branch develop&#10;    checkout develop&#10;    commit&#10;    checkout main&#10;    merge develop&#10;">gitGraph
     commit
     branch develop
     checkout develop
     commit
     checkout main
     merge develop
-">gitGraph
-    commit
-    branch develop
-    checkout develop
-    commit
-    checkout main
-    merge develop
-</pre><h3 data-source-line="189">Pie and mindmap</h3>
-<pre data-source-line="191" data-source-line-end="196" class="preprocessed-mermaid" data-original-content="pie title Time spent
+</pre>
+<h3 data-source-line="189">Pie and mindmap</h3>
+<pre data-source-line="191" data-source-line-end="196" class="preprocessed-mermaid" data-original-content="pie title Time spent&#10;    &quot;Reading&quot; : 60&#10;    &quot;Writing&quot; : 30&#10;    &quot;Meetings&quot; : 10&#10;">pie title Time spent
     &quot;Reading&quot; : 60
     &quot;Writing&quot; : 30
     &quot;Meetings&quot; : 10
-">pie title Time spent
-    "Reading" : 60
-    "Writing" : 30
-    "Meetings" : 10
-</pre><pre data-source-line="198" data-source-line-end="207" class="preprocessed-mermaid" data-original-content="mindmap
+</pre>
+<pre data-source-line="198" data-source-line-end="207" class="preprocessed-mermaid" data-original-content="mindmap&#10;  root((Arto))&#10;    Reading&#10;      Tabs&#10;      Windows&#10;    Rendering&#10;      Markdown&#10;      Mermaid&#10;">mindmap
   root((Arto))
     Reading
       Tabs
@@ -209,33 +162,23 @@ window and to copy the block.</p>
     Rendering
       Markdown
       Mermaid
-">mindmap
-  root((Arto))
-    Reading
-      Tabs
-      Windows
-    Rendering
-      Markdown
-      Mermaid
-</pre><p data-source-line="209"><strong>Expected:</strong> nine diagrams drawn in the current theme (dark diagrams on the
+</pre>
+<p data-source-line="209"><strong>Expected:</strong> nine diagrams drawn in the current theme (dark diagrams on the
 dark theme). Right-clicking a diagram offers to open it in its own window with
 zoom and pan, and to copy it as an image.</p>
 <h3 data-source-line="213">Wide diagram</h3>
-<pre data-source-line="215" data-source-line-end="218" class="preprocessed-mermaid" data-original-content="flowchart LR
+<pre data-source-line="215" data-source-line-end="218" class="preprocessed-mermaid" data-original-content="flowchart LR&#10;    A --&gt; B --&gt; C --&gt; D --&gt; E --&gt; F --&gt; G --&gt; H --&gt; I --&gt; J --&gt; K --&gt; L --&gt; M --&gt; N --&gt; O --&gt; P --&gt; Q --&gt; R --&gt; S --&gt; T --&gt; U --&gt; V --&gt; W --&gt; X --&gt; Y --&gt; Z&#10;">flowchart LR
     A --&gt; B --&gt; C --&gt; D --&gt; E --&gt; F --&gt; G --&gt; H --&gt; I --&gt; J --&gt; K --&gt; L --&gt; M --&gt; N --&gt; O --&gt; P --&gt; Q --&gt; R --&gt; S --&gt; T --&gt; U --&gt; V --&gt; W --&gt; X --&gt; Y --&gt; Z
-">flowchart LR
-    A --&gt; B --&gt; C --&gt; D --&gt; E --&gt; F --&gt; G --&gt; H --&gt; I --&gt; J --&gt; K --&gt; L --&gt; M --&gt; N --&gt; O --&gt; P --&gt; Q --&gt; R --&gt; S --&gt; T --&gt; U --&gt; V --&gt; W --&gt; X --&gt; Y --&gt; Z
-</pre><p data-source-line="220"><strong>Expected:</strong> the diagram scales or scrolls inside its box; the page does not
+</pre>
+<p data-source-line="220"><strong>Expected:</strong> the diagram scales or scrolls inside its box; the page does not
 scroll sideways.</p>
 <h3 data-source-line="223">Invalid diagram</h3>
-<pre data-source-line="225" data-source-line-end="229" class="preprocessed-mermaid" data-original-content="flowchart TD
+<pre data-source-line="225" data-source-line-end="229" class="preprocessed-mermaid" data-original-content="flowchart TD&#10;    A --&gt; B&#10;    this line is not valid mermaid ==&gt; [&#10;">flowchart TD
     A --&gt; B
     this line is not valid mermaid ==&gt; [
-">flowchart TD
-    A --&gt; B
-    this line is not valid mermaid ==&gt; [
-</pre><p data-source-line="231"><strong>Expected:</strong> an error message in place of the diagram; the diagrams above and
+</pre>
+<p data-source-line="231"><strong>Expected:</strong> an error message in place of the diagram; the diagrams above and
 the text below still render.</p>
 <p data-source-line="234">Text after the invalid diagram still shows.</p>
-<hr data-source-line="236" />
+<hr data-source-line="236">
 <p data-source-line="238">Previous: <span data-md-link="./02-blocks.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Block syntax</span> · Next: <span data-md-link="./04-frontmatter.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Frontmatter</span></p>

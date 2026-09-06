@@ -4,47 +4,76 @@ use serde_yaml_ng::Value as YamlValue;
 ///
 /// Returns (frontmatter_html, content, frontmatter_lines) where frontmatter_lines
 /// is the number of lines consumed by frontmatter (including delimiters and trailing whitespace).
+///
+/// A leading `---` … `---` block is only frontmatter when it holds a YAML
+/// mapping, which is what metadata is. Anything else stays in the body: a
+/// document may legitimately open with a `---` thematic break, and cutting
+/// to the next `---` would delete the prose between them.
 pub(super) fn extract_and_render_frontmatter(markdown: &str) -> (String, String, usize) {
     // Check if markdown starts with frontmatter delimiter
-    if !markdown.starts_with("---") {
-        return (String::new(), markdown.to_string(), 0);
-    }
-
-    // Find the closing delimiter
-    let rest = &markdown[3..];
-    let Some(end_pos) = rest.find("\n---") else {
+    let Some(rest) = markdown.strip_prefix("---") else {
         return (String::new(), markdown.to_string(), 0);
     };
 
-    let frontmatter_str = rest[..end_pos].trim();
-    let after_closing = &rest[end_pos + 4..];
-    let content = after_closing.trim_start();
+    // The opening delimiter owns its whole line: `----` and longer runs are
+    // thematic breaks, and reading one as an opening fence would drop the
+    // document down to the next `---` line.
+    let first_line_end = rest.find('\n').unwrap_or(rest.len());
+    if !rest[..first_line_end].trim().is_empty() {
+        return (String::new(), markdown.to_string(), 0);
+    }
+
+    // The closing delimiter owns its whole line too: cutting inside a longer
+    // run of dashes would leave the leftover ones at the head of the body.
+    let Some((yaml_end, closing_end)) = find_closing_delimiter(rest) else {
+        return (String::new(), markdown.to_string(), 0);
+    };
+
+    let frontmatter_str = rest[..yaml_end].trim();
+    let Ok(YamlValue::Mapping(mapping)) = serde_yaml_ng::from_str::<YamlValue>(frontmatter_str)
+    else {
+        return (String::new(), markdown.to_string(), 0);
+    };
+
+    let content = rest[closing_end..].trim_start();
 
     // Count lines consumed before content starts
-    let trimmed_len = after_closing.len() - content.len();
-    let consumed_bytes = 3 + end_pos + 4 + trimmed_len;
+    let consumed_bytes = markdown.len() - content.len();
     let frontmatter_lines = markdown[..consumed_bytes]
         .bytes()
         .filter(|&b| b == b'\n')
         .count();
 
-    // Parse YAML
-    let Ok(yaml) = serde_yaml_ng::from_str::<YamlValue>(frontmatter_str) else {
-        return (String::new(), markdown.to_string(), 0);
-    };
+    (
+        render_frontmatter_table(&mapping),
+        content.to_string(),
+        frontmatter_lines,
+    )
+}
 
-    // Render frontmatter as table
-    let html = render_frontmatter_table(&yaml);
-
-    (html, content.to_string(), frontmatter_lines)
+/// Locate the first line of `rest` that is exactly `---`, ignoring trailing
+/// whitespace.
+///
+/// Returns the offset of the newline that ends the YAML and the offset just
+/// past the closing line, or `None` when the block is never closed. A line of
+/// four or more dashes is a thematic break, not a closing fence.
+fn find_closing_delimiter(rest: &str) -> Option<(usize, usize)> {
+    let mut search = 0;
+    while let Some(index) = rest[search..].find("\n---") {
+        let line_start = search + index + 1;
+        let line_end = rest[line_start..]
+            .find('\n')
+            .map_or(rest.len(), |offset| line_start + offset);
+        if rest[line_start..line_end].trim_end() == "---" {
+            return Some((line_start - 1, line_end));
+        }
+        search = line_start;
+    }
+    None
 }
 
 /// Render YAML frontmatter as an HTML table
-fn render_frontmatter_table(yaml: &YamlValue) -> String {
-    let YamlValue::Mapping(mapping) = yaml else {
-        return String::new();
-    };
-
+fn render_frontmatter_table(mapping: &serde_yaml_ng::Mapping) -> String {
     if mapping.is_empty() {
         return String::new();
     }
@@ -228,7 +257,8 @@ mod tests {
 
     #[test]
     fn test_extract_and_render_frontmatter_invalid_yaml() {
-        // Unclosed bracket is invalid YAML — should fall back to returning original text
+        // Unclosed bracket is invalid YAML, so the block is not metadata and
+        // the text stays in the body rather than being deleted with it.
         let markdown = indoc! {"
             ---
             invalid: [unclosed
@@ -240,8 +270,80 @@ mod tests {
         let (html, content, frontmatter_lines) = extract_and_render_frontmatter(markdown);
 
         assert!(html.is_empty(), "Invalid YAML should produce no HTML");
-        assert_eq!(content, markdown, "Should return original markdown");
-        assert_eq!(frontmatter_lines, 0, "Should report 0 frontmatter lines");
+        assert_eq!(content, markdown);
+        assert_eq!(frontmatter_lines, 0);
+    }
+
+    #[test]
+    fn test_a_block_that_is_not_a_mapping_stays_in_the_body() {
+        // A document opening with a `---` rule: valid YAML (a scalar), but
+        // prose, not metadata.
+        let markdown = indoc! {"
+            ---
+
+            Just some prose.
+
+            ---
+
+            More prose.
+        "};
+
+        let (html, content, frontmatter_lines) = extract_and_render_frontmatter(markdown);
+
+        assert!(html.is_empty());
+        assert_eq!(content, markdown);
+        assert_eq!(frontmatter_lines, 0);
+    }
+
+    #[test]
+    fn test_a_longer_dash_run_is_a_rule_not_an_opening_fence() {
+        // `----` opens a thematic break. Reading it as frontmatter would cut
+        // the document down to the next rule.
+        let markdown = indoc! {"
+            ----
+
+            # Changelog
+
+            - fix: a line: with colons
+
+            ----
+        "};
+
+        let (html, content, frontmatter_lines) = extract_and_render_frontmatter(markdown);
+
+        assert!(html.is_empty());
+        assert_eq!(content, markdown);
+        assert_eq!(frontmatter_lines, 0);
+    }
+
+    #[test]
+    fn test_a_longer_dash_run_is_not_a_closing_fence_either() {
+        // Cutting at the first `---` inside `-----` would leave `--` at the
+        // head of the body, where it renders as an en dash.
+        let markdown = indoc! {"
+            ---
+            title: x
+            -----
+
+            body
+        "};
+
+        let (html, content, frontmatter_lines) = extract_and_render_frontmatter(markdown);
+
+        assert!(html.is_empty());
+        assert_eq!(content, markdown);
+        assert_eq!(frontmatter_lines, 0);
+    }
+
+    #[test]
+    fn test_closing_fence_tolerates_trailing_whitespace() {
+        let markdown = "---\ntitle: Test\n--- \n\nContent\n";
+
+        let (html, content, frontmatter_lines) = extract_and_render_frontmatter(markdown);
+
+        assert!(html.contains("<th>title</th>"), "{html}");
+        assert_eq!(content, "Content\n");
+        assert_eq!(frontmatter_lines, 4);
     }
 
     #[test]

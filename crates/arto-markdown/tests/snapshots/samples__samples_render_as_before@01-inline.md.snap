@@ -19,7 +19,7 @@ snake_case_name, and file_name_with_parts keeps its underscores.</p>
 <p data-source-line="24"><strong>Expected:</strong> “frigging” is italic.</p>
 <p data-source-line="26">Emphasis next to punctuation: <strong>“quoted”</strong> and <strong>(parenthesized)</strong> and <strong>bold</strong>.</p>
 <p data-source-line="28"><strong>Expected:</strong> all three bold.</p>
-<p data-source-line="30">Emphasis against CJK punctuation: これは**「重要」**です。</p>
+<p data-source-line="30">Emphasis against CJK punctuation: これは<strong>「重要」</strong>です。</p>
 <p data-source-line="32"><strong>Expected:</strong> depends on the engine. CommonMark’s flanking rules leave the
 asterisks visible here because <code>「</code> and <code>」</code> are punctuation. An engine with CJK
 emphasis support renders 「重要」 in bold.
@@ -40,7 +40,7 @@ inside the last two spans.</p>
 <p data-source-line="58">Code spans keep Markdown literal: <code>**not bold**</code>, <code>[not a link](x)</code>, <code>$not math$</code>.</p>
 <p data-source-line="60"><strong>Expected:</strong> all three shown verbatim with their punctuation.</p>
 <h2 data-source-line="62">Links</h2>
-<ul data-source-line="64" data-source-line-end="76">
+<ul data-source-line="64" data-source-line-end="73">
 <li data-source-line="64" data-source-line-end="64">Inline: <a href="https://www.rust-lang.org/">Rust</a></li>
 <li data-source-line="65" data-source-line-end="65">With title: <a href="https://github.com" title="GitHub Homepage">GitHub</a> (hover shows the title)</li>
 <li data-source-line="66" data-source-line-end="66">Reference style: <a href="https://spec.commonmark.org/">CommonMark spec</a> and <a href="https://spec.commonmark.org/0.31.2/#links">collapsed</a> and <a href="https://spec.commonmark.org/0.31.2/#reference-link">shortcut</a></li>
@@ -49,8 +49,8 @@ inside the last two spans.</p>
 <li data-source-line="69" data-source-line-end="69">Bare URL: <a href="https://spec.commonmark.org/0.31.2/#links">https://spec.commonmark.org/0.31.2/#links</a></li>
 <li data-source-line="70" data-source-line-end="70">Bare URL followed by punctuation: see <a href="https://example.com/page">https://example.com/page</a>. Trailing dot excluded.</li>
 <li data-source-line="71" data-source-line-end="71">Bare URL with parentheses: <a href="https://en.wikipedia.org/wiki/Rust_(programming_language)">https://en.wikipedia.org/wiki/Rust_(programming_language)</a></li>
-<li data-source-line="72" data-source-line-end="72"><code>www.</code> without scheme: www.example.com</li>
-<li data-source-line="73" data-source-line-end="74">Email: contact@example.com</li>
+<li data-source-line="72" data-source-line-end="72"><code>www.</code> without scheme: <a href="http://www.example.com">www.example.com</a></li>
+<li data-source-line="73" data-source-line-end="73">Email: <a href="mailto:contact@example.com">contact@example.com</a></li>
 </ul>
 <p data-source-line="79"><strong>Expected:</strong> every item except the last two is a link. The trailing dot after
 <code>page</code> and the closing parenthesis of the Wikipedia URL belong to the text and
@@ -58,11 +58,11 @@ the URL respectively.
 <strong>GitHub:</strong> also links <code>www.example.com</code> and the email address; Arto’s
 behavior there depends on the engine.</p>
 <p data-source-line="85">Links to other documents:</p>
-<ul data-source-line="87" data-source-line-end="91">
+<ul data-source-line="87" data-source-line-end="90">
 <li data-source-line="87" data-source-line-end="87"><span data-md-link="./02-blocks.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Block syntax</span> — opens in Arto</li>
 <li data-source-line="88" data-source-line-end="88"><span data-md-link="./does-not-exist.md" class="md-link md-link-missing" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">A file that does not exist</span> — dimmed, opens nothing</li>
 <li data-source-line="89" data-source-line-end="89"><span data-md-link="./assets/sample.svg" class="md-link md-link-invalid" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">A non-Markdown file</span> — dimmed</li>
-<li data-source-line="90" data-source-line-end="91"><span data-md-link="./02-blocks.md#tables" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">A section anchor</span> — opens the Tables section</li>
+<li data-source-line="90" data-source-line-end="90"><span data-md-link="./02-blocks.md#tables" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">A section anchor</span> — opens the Tables section</li>
 </ul>
 <p data-source-line="92"><strong>Expected:</strong> the first and the last navigate inside Arto, the last one
 landing on the Tables heading; the missing file and the non-Markdown file
@@ -71,16 +71,16 @@ are dimmed, and clicking the missing one does nothing.</p>
 <p data-source-line="98">Where a bare URL meets emphasis, link syntax, quotes or an indented code
 block, engines disagree. Each case below is written so that its correct
 rendering is unambiguous.</p>
-<ul data-source-line="102" data-source-line-end="108">
-<li data-source-line="102" data-source-line-end="102">Emphasized: <em>https://example.com/emphasized</em></li>
-<li data-source-line="103" data-source-line-end="103">Inside link text: [see <a href="https://example.com/inner%5D(https://example.com/outer)">https://example.com/inner](https://example.com/outer)</a></li>
-<li data-source-line="104" data-source-line-end="104">In double quotes: “https://example.com/quoted”</li>
-<li data-source-line="105" data-source-line-end="105">In single quotes: ‘https://example.com/single’</li>
+<ul data-source-line="102" data-source-line-end="107">
+<li data-source-line="102" data-source-line-end="102">Emphasized: <em><a href="https://example.com/emphasized">https://example.com/emphasized</a></em></li>
+<li data-source-line="103" data-source-line-end="103">Inside link text: <a href="https://example.com/outer">see https://example.com/inner</a></li>
+<li data-source-line="104" data-source-line-end="104">In double quotes: “<a href="https://example.com/quoted">https://example.com/quoted</a>”</li>
+<li data-source-line="105" data-source-line-end="105">In single quotes: ‘<a href="https://example.com/single">https://example.com/single</a>’</li>
 <li data-source-line="106" data-source-line-end="106">Followed by an ellipsis: <a href="https://example.com/ellipsis">https://example.com/ellipsis</a>…</li>
-<li data-source-line="107" data-source-line-end="108">Followed by a full-width comma: <a href="https://example.com/fullwidth%E3%80%81%E7%B6%9A%E3%81%8D">https://example.com/fullwidth、続き</a></li>
+<li data-source-line="107" data-source-line-end="107">Followed by a full-width comma: <a href="https://example.com/fullwidth">https://example.com/fullwidth</a>、続き</li>
 </ul>
 <p data-source-line="109">An indented code block containing a URL:</p>
-<pre data-source-line="111" data-source-line-end="111" data-source-line-start="111"><code>&lt;https://example.com/indented&gt;
+<pre data-source-line="111" data-source-line-end="111" data-source-line-start="111"><code>https://example.com/indented
 </code></pre>
 <p data-source-line="113"><strong>Expected:</strong> the emphasized URL is an italic link, the link text is
 plain text inside a single link to <code>example.com/outer</code>, the quoted URLs
@@ -93,20 +93,20 @@ of these depend on the engine and are fixed in the snapshot so a change is
 visible.</p>
 <h2 data-source-line="123">Images</h2>
 <p data-source-line="125">Remote image:</p>
-<p data-source-line="127"><img src="https://www.rust-lang.org/static/images/rust-logo-blk.svg" alt="Rust logo" /></p>
+<p data-source-line="127"><img src="https://www.rust-lang.org/static/images/rust-logo-blk.svg" alt="Rust logo"></p>
 <p data-source-line="129">Local image, relative path:</p>
-<p data-source-line="131"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiM0QTkwRTIiLz4KICA8dGV4dCB4PSIxMDAiIHk9IjUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj4KICAgIFNhbXBsZSBJbWFnZQogIDwvdGV4dD4KPC9zdmc+Cg==" alt="Local sample" /></p>
+<p data-source-line="131"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiM0QTkwRTIiLz4KICA8dGV4dCB4PSIxMDAiIHk9IjUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj4KICAgIFNhbXBsZSBJbWFnZQogIDwvdGV4dD4KPC9zdmc+Cg==" alt="Local sample"></p>
 <p data-source-line="133">Local image with a title and reference-style syntax:</p>
-<p data-source-line="135"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiM0QTkwRTIiLz4KICA8dGV4dCB4PSIxMDAiIHk9IjUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj4KICAgIFNhbXBsZSBJbWFnZQogIDwvdGV4dD4KPC9zdmc+Cg==" alt="Local sample again" title="Sample title" /></p>
+<p data-source-line="135"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiM0QTkwRTIiLz4KICA8dGV4dCB4PSIxMDAiIHk9IjUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj4KICAgIFNhbXBsZSBJbWFnZQogIDwvdGV4dD4KPC9zdmc+Cg==" alt="Local sample again" title="Sample title"></p>
 <p data-source-line="139">Missing local image:</p>
-<p data-source-line="141"><img src="./assets/missing.png" alt="This file does not exist" /></p>
-<p data-source-line="143">Image inside a link: <span data-md-link="./README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiM0QTkwRTIiLz4KICA8dGV4dCB4PSIxMDAiIHk9IjUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj4KICAgIFNhbXBsZSBJbWFnZQogIDwvdGV4dD4KPC9zdmc+Cg==" alt="Local sample" /></span></p>
+<p data-source-line="141"><img src="./assets/missing.png" alt="This file does not exist"></p>
+<p data-source-line="143">Image inside a link: <span data-md-link="./README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiM0QTkwRTIiLz4KICA8dGV4dCB4PSIxMDAiIHk9IjUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj4KICAgIFNhbXBsZSBJbWFnZQogIDwvdGV4dD4KPC9zdmc+Cg==" alt="Local sample"></span></p>
 <p data-source-line="145"><strong>Expected:</strong> the first three images render (the local one is inlined as a data
 URL, so it also shows offline); the missing one shows its alt text; the last
 one is clickable and opens the index.</p>
 <h2 data-source-line="149">Line breaks</h2>
-<p data-source-line="151">Two trailing spaces<br />
-force a hard break. So does a backslash<br />
+<p data-source-line="151">Two trailing spaces<br>
+force a hard break. So does a backslash<br>
 at the end of the line.
 A plain newline is a soft break and stays on the same line.</p>
 <p data-source-line="156"><strong>Expected:</strong> the first three lines are three visual lines; the fourth
@@ -115,7 +115,7 @@ continues the third on the same line.</p>
 <p data-source-line="161">Escaped punctuation: *not italic*, _not italic_, `not code`, # not a
 heading, [not a link](x), 1. not a list.</p>
 <p data-source-line="164"><strong>Expected:</strong> the characters are visible and nothing is formatted.</p>
-<p data-source-line="166">Entities: © &amp; &lt;tag&gt; "quoted"  non-breaking —
+<p data-source-line="166">Entities: © &amp; &lt;tag&gt; “quoted”  non-breaking —
 numeric — and hex 😀.</p>
 <p data-source-line="169"><strong>Expected:</strong> ©, &amp;, <tag>, “quoted”, a dash, another dash, and an emoji.</p>
 <p data-source-line="171">Backslash before a non-punctuation character stays: C:\Users\name and 3\4.</p>
@@ -126,8 +126,8 @@ Flavored Markdown">GFM</abbr>, <ins>inserted</ins>, <del>deleted</del>,
 <small>small print</small>, and <span style="color: tomato">inline style</span>.</p>
 <p data-source-line="180"><strong>Expected:</strong> subscript, superscript, key caps, highlight, dotted abbreviation,
 underline, strikethrough, smaller text, and a colored word.</p>
-<p data-source-line="183">Disallowed raw HTML: <script>alert(“x”)</script></p>
-<style>.tagfilter-probe { color: red }</style>
+<p data-source-line="183">Disallowed raw HTML: &lt;script>alert(“x”)&lt;/script></p>
+&lt;style>.tagfilter-probe { color: red }&lt;/style>
 <p data-source-line="185"><span class="tagfilter-probe">this sentence turns red if style tags are applied</span>.</p>
 <p data-source-line="187"><strong>Expected:</strong> no dialog appears. Whether the sentence turns red depends on
 the engine: GitHub’s tag filter escapes <code>&lt;script&gt;</code> and <code>&lt;style&gt;</code> so they show
@@ -142,5 +142,5 @@ shortcodes stay as text.
 combining marks: é (e + ◌́), ﬁ ligature.</p>
 <p data-source-line="204"><strong>Expected:</strong> every script displays with its own font; right-to-left runs are
 shaped correctly inside the left-to-right paragraph.</p>
-<hr data-source-line="207" />
+<hr data-source-line="207">
 <p data-source-line="209">Next: <span data-md-link="./02-blocks.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Block syntax</span></p>

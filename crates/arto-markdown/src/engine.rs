@@ -1,140 +1,126 @@
-//! The pulldown-cmark rendering engine.
+//! The ox-content rendering engine.
 //!
-//! Everything that knows the parser lives below this module: the parser
-//! configuration, the GitHub alert rewrite (whose bodies are rendered
-//! with the parser), the event transforms for Mermaid and math, the
-//! source span injection, the heading outline, and the selection source
-//! map. The rest of the crate sees [`render`] with its [`Rendered`]
-//! output and [`extract_source_selection`], none of which mention parser
-//! types, so replacing the engine is a change inside this directory.
+//! Everything that knows the parser, and the HTML the renderer writes, lives
+//! below this module: the parser and renderer options, the hooks that swap
+//! Mermaid and math for the containers the frontend renders client-side, the
+//! heading outline, the pass that turns the rendered markup into the crate's
+//! HTML contract, and the selection source map. The rest of the crate sees
+//! [`render`] with its [`Rendered`] output and [`extract_source_selection`],
+//! neither of which mentions an ox-content type, so replacing the engine is
+//! a change inside this directory.
 
-mod alerts;
-mod event_processors;
+mod annotate;
+mod attributes;
+mod hooks;
+mod lines;
 mod outline;
 mod source_map;
-mod spans;
+mod wiki;
 
 pub use source_map::*;
 
-use crate::lines::LineTable;
-use crate::HeadingInfo;
-use alerts::process_github_alerts;
-use event_processors::{extend_table_ranges, process_code_blocks, process_math_expressions};
-use outline::collect_headings;
-use pulldown_cmark::{html, Event, Options, Parser};
-use spans::{inject_source_spans, TABLE_MARKER};
+use crate::{HeadingInfo, RenderOptions};
+use anyhow::{anyhow, Result};
+use lines::LineTable;
+use ox_content_allocator::Allocator;
+use ox_content_parser::{Parser, ParserOptions};
+use ox_content_renderer::{HtmlRenderer, HtmlRendererOptions};
 
 /// The parser configuration every parse in the engine uses.
 ///
-/// Rendering, alert bodies and the selection source map must parse the
-/// same way, or a selection in the rendered view maps onto a differently
-/// shaped document.
-pub(super) fn parser_options() -> Options {
-    Options::all()
+/// Rendering and the selection source map must agree on the text of a
+/// document and on where each piece of it came from, or a selection in the
+/// rendered view maps onto a different document. Everything here is fixed
+/// for that reason; only `auto_link_urls` varies, and the map is built so
+/// that it cannot see the difference (see [`source_map`]).
+///
+/// GFM is the baseline; the extensions on top of it are the ones Arto's
+/// documents rely on.
+fn parser_options(auto_link_urls: bool) -> ParserOptions {
+    ParserOptions {
+        autolinks: auto_link_urls,
+        // `**強調。**` against CJK punctuation is ordinary Japanese prose;
+        // CommonMark's flanking rules would leave the delimiters literal.
+        cjk_emphasis: true,
+        math: true,
+        superscript: true,
+        subscript: true,
+        smart_punctuation: true,
+        definition_lists: true,
+        ..ParserOptions::gfm()
+    }
+}
+
+/// The renderer configuration, which the crate's HTML contract depends on.
+fn renderer_options(auto_link_urls: bool) -> HtmlRendererOptions {
+    HtmlRendererOptions {
+        autolink_urls: auto_link_urls,
+        // Arto opens links itself, in the window the user asked for; a
+        // `target` would only confuse the webview's click handling.
+        autolink_target_blank: false,
+        link_target_blank: false,
+        // GFM's tagfilter: `<style>`, `<script>` and friends show as text
+        // instead of restyling the page around the document.
+        disallow_raw_html: true,
+        // Footnotes as GitHub writes them — one `<section class="footnotes">`
+        // with a numbered list — which is the shape `github-markdown-css`
+        // styles and the shape that numbers a named footnote.
+        semantic_footnotes: true,
+        // The byte ranges the annotation pass turns into source lines.
+        source_spans: true,
+        ..HtmlRendererOptions::default()
+    }
 }
 
 /// What the engine produces for one document body.
 pub(crate) struct Rendered {
-    /// HTML of the body. Every block element carries
-    /// `data-source-span="start-end"`, byte offsets into the text `lines`
-    /// was built over.
+    /// HTML of the body, in the shape the crate documentation describes.
     pub html: String,
     /// Headings in document order, with the ids the rendered headings
     /// carry; empty unless a table of contents was requested.
     pub headings: Vec<HeadingInfo>,
-    /// Converts the spans in `html` to lines of the original file.
-    pub lines: LineTable,
 }
 
-/// Render a document body (the Markdown after the frontmatter was cut off
-/// and bare URLs were turned into autolinks).
+/// Render a document body (the Markdown after the frontmatter was cut off).
 ///
-/// `frontmatter_lines` is the offset the line table adds so that lines
-/// point into the original file. Heading ids are written onto the
-/// rendered headings only when `with_toc` is set; without it no heading
-/// work is done and `headings` comes back empty.
-pub(crate) fn render(markdown: &str, frontmatter_lines: usize, with_toc: bool) -> Rendered {
-    let (processed_markdown, line_origins) = process_github_alerts(markdown, frontmatter_lines);
+/// `frontmatter_lines` is the offset the source lines are shifted by so they
+/// point into the original file. Heading ids stay on the rendered headings
+/// only when `with_toc` is set; without it no outline is returned.
+pub(crate) fn render(
+    body: &str,
+    frontmatter_lines: usize,
+    options: &RenderOptions,
+    with_toc: bool,
+) -> Result<Rendered> {
+    let allocator = Allocator::new();
+    let document = Parser::with_options(&allocator, body, parser_options(options.auto_link_urls))
+        .parse()
+        .map_err(|error| anyhow!("failed to parse Markdown: {error}"))?;
 
-    let parser = Parser::new_ext(&processed_markdown, parser_options()).into_offset_iter();
-    let parser = extend_table_ranges(parser);
-    let parser = process_code_blocks(parser, "mermaid");
-    let parser = process_code_blocks(parser, "math");
-    let parser = process_math_expressions(parser);
+    let html = HtmlRenderer::with_options(renderer_options(options.auto_link_urls))
+        .render_with_hooks(&document, &mut hooks::ArtoHooks::default());
 
-    // The events are needed twice: once for the outline, once to render.
-    let events: Vec<_> = parser.collect();
-    let (headings, heading_ids) = if with_toc {
-        let headings = collect_headings(&events);
-        let ids = headings.iter().map(|h| h.id.clone()).collect();
-        (headings, ids)
+    let lines = LineTable::new(body, frontmatter_lines);
+    let annotated = annotate::annotate(&html, &lines, with_toc);
+
+    let headings = if with_toc {
+        // The ids come back from the rendered headings, so the outline and
+        // the anchors cannot disagree even about a repeated slug.
+        outline::collect(&document)
+            .into_iter()
+            .zip(annotated.heading_ids)
+            .map(|(heading, id)| HeadingInfo {
+                level: heading.level,
+                text: heading.text,
+                id,
+            })
+            .collect()
     } else {
-        (Vec::new(), Vec::new())
+        Vec::new()
     };
 
-    let html = render_events(events.into_iter(), heading_ids);
-
-    Rendered {
-        html,
+    Ok(Rendered {
+        html: annotated.html,
         headings,
-        lines: LineTable::new(processed_markdown, frontmatter_lines).with_origins(line_origins),
-    }
-}
-
-/// Write the events as HTML with `data-source-span` on every block element.
-pub(super) fn render_events<'a>(
-    events: impl Iterator<Item = (Event<'a>, std::ops::Range<usize>)> + 'a,
-    heading_ids: Vec<String>,
-) -> String {
-    let mut html = String::new();
-    html::push_html(&mut html, inject_source_spans(events, heading_ids));
-    attach_table_spans(&html)
-}
-
-/// Fold the table marker comments into the `<table>` tags that follow them.
-///
-/// `Start(Table)` has to reach `push_html` untouched so the writer knows
-/// the column alignments, which leaves no way to put an attribute on the
-/// tag from the event stream. The span injection writes
-/// `<!--arto-table S-E-->` right before it instead, and this turns the
-/// pair into `<table data-source-span="S-E">`.
-fn attach_table_spans(html: &str) -> String {
-    let mut out = String::with_capacity(html.len());
-    let mut rest = html;
-    while let Some(pos) = rest.find(TABLE_MARKER) {
-        out.push_str(&rest[..pos]);
-        let after = &rest[pos + TABLE_MARKER.len()..];
-        match after.split_once("--><table>") {
-            Some((span, tail)) => {
-                out.push_str(&format!("<table data-source-span=\"{span}\">"));
-                rest = tail;
-            }
-            None => {
-                out.push_str(TABLE_MARKER);
-                rest = after;
-            }
-        }
-    }
-    out.push_str(rest);
-    out
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn table_markers_become_span_attributes() {
-        let html = "<p>x</p>\n<!--arto-table 9-27--><table><thead>";
-        assert_eq!(
-            attach_table_spans(html),
-            "<p>x</p>\n<table data-source-span=\"9-27\"><thead>"
-        );
-    }
-
-    #[test]
-    fn a_marker_without_a_table_is_left_alone() {
-        let html = "<!--arto-table 1-2-->text";
-        assert_eq!(attach_table_spans(html), html);
-    }
+    })
 }
