@@ -15,14 +15,14 @@
 //!    output at the very end. The lines it occupied are added to every
 //!    source line below it.
 //! 2. **Text pre-processing.** Bare URLs become `<URL>` autolinks (when
-//!    [`RenderOptions::auto_link_urls`] is set) and GitHub alerts
-//!    (`> [!NOTE]`) are rendered to HTML before the parser sees them. The
-//!    first keeps the line count; the second records which original line
-//!    each processed line came from, so source lines stay correct.
-//! 3. **Parsing and rendering.** pulldown-cmark with every extension.
-//!    Fenced `mermaid` and `math` blocks and `$…$` expressions are replaced
-//!    by the `preprocessed-*` containers described below, and block
-//!    elements receive their `data-source-line` attributes.
+//!    [`RenderOptions::auto_link_urls`] is set); the line count is kept.
+//! 3. **The engine** (`engine` module: everything that knows the parser).
+//!    GitHub alerts (`> [!NOTE]`) are rendered to HTML before the parser
+//!    sees them, recording which original line each processed line came
+//!    from so source lines stay correct. Fenced `mermaid` and `math`
+//!    blocks and `$…$` expressions are replaced by the `preprocessed-*`
+//!    containers described below, and block elements receive their
+//!    `data-source-line` attributes.
 //! 4. **Post-processing** with lol_html: local images are inlined as data
 //!    URLs, local Markdown links become `<span class="md-link">`, tables get
 //!    their source lines, and headings get their ids when a table of
@@ -108,40 +108,23 @@
 //! frontend highlights by that class and `frontend/src/code-copy.ts` adds
 //! the copy button to every `pre`.
 
-mod alerts;
 mod autolinks;
-mod event_processors;
+mod engine;
 mod frontmatter;
 mod headings;
 mod options;
 mod post_process;
-mod source_extract;
-mod source_lines;
 
+pub use engine::*;
 pub use headings::*;
 pub use options::*;
-pub use source_extract::*;
 
-use alerts::process_github_alerts;
 use anyhow::Result;
-use event_processors::{extend_table_ranges, process_code_blocks, process_math_expressions};
 use frontmatter::extract_and_render_frontmatter;
-use headings::collect_headings;
 use post_process::post_process_html_tags;
-use pulldown_cmark::{html, Options, Parser};
-use source_lines::{extract_table_source_lines, inject_source_lines};
 use std::path::{Path, PathBuf};
 
-/// The parser configuration every parse in this crate uses.
-///
-/// Rendering, alert bodies and the selection source map must parse the
-/// same way, or a selection in the rendered view maps onto a differently
-/// shaped document.
-pub(crate) fn parser_options() -> Options {
-    Options::all()
-}
-
-/// Everything the render functions need after the document was parsed.
+/// Everything the render functions need after the document was rendered.
 struct PipelineResult {
     raw_html: String,
     frontmatter_html: String,
@@ -151,7 +134,7 @@ struct PipelineResult {
 }
 
 /// Run the pipeline up to the raw HTML: frontmatter extraction, text
-/// pre-processing, one parse, source line injection and HTML generation.
+/// pre-processing and the engine.
 ///
 /// With `with_toc`, the headings are collected from the same parse and
 /// their ids are written onto the rendered headings; without it, no
@@ -175,48 +158,14 @@ fn run_pipeline(
         content
     };
 
-    let (processed_markdown, line_origins) = process_github_alerts(&content, frontmatter_lines);
-
-    let parser = Parser::new_ext(&processed_markdown, parser_options()).into_offset_iter();
-    let parser = extend_table_ranges(parser);
-    let parser = process_code_blocks(parser, "mermaid");
-    let parser = process_code_blocks(parser, "math");
-    let parser = process_math_expressions(parser);
-
-    // The events are needed twice: once to read positions and headings,
-    // once to render. Injection consumes the ranges.
-    let events: Vec<_> = parser.collect();
-    let table_source_lines = extract_table_source_lines(
-        &events,
-        &processed_markdown,
-        &line_origins,
-        frontmatter_lines,
-    );
-    let (headings, heading_ids) = if with_toc {
-        let headings = collect_headings(&events);
-        let ids = headings.iter().map(|h| h.id.clone()).collect();
-        (headings, ids)
-    } else {
-        (Vec::new(), Vec::new())
-    };
-
-    let parser = inject_source_lines(
-        events.into_iter(),
-        &processed_markdown,
-        &line_origins,
-        frontmatter_lines,
-        heading_ids,
-    );
-
-    let mut raw_html = String::new();
-    html::push_html(&mut raw_html, parser);
+    let rendered = engine::render(&content, frontmatter_lines, with_toc);
 
     PipelineResult {
-        raw_html,
+        raw_html: rendered.html,
         frontmatter_html,
         base_dir,
-        table_source_lines,
-        headings,
+        table_source_lines: rendered.table_source_lines,
+        headings: rendered.headings,
     }
 }
 
