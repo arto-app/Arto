@@ -1,109 +1,80 @@
 //! The heading outline of a parsed document.
+//!
+//! Levels and text come from the AST. The `id` each heading ends up with is
+//! read back from the rendered HTML in [`super::annotate`], so the table of
+//! contents always agrees with the anchors the renderer wrote, including its
+//! `-1` suffix for a repeated slug.
 
-use crate::HeadingInfo;
-use pulldown_cmark::{Event, HeadingLevel, Tag, TagEnd};
-use std::ops::Range;
+use ox_content_ast::{Document, Node};
 
-/// Generate a URL-safe slug from heading text
-fn generate_slug(text: &str) -> String {
-    text.to_lowercase()
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() {
-                c
-            } else if c.is_whitespace() || c == '-' || c == '_' || c == '.' {
-                '-'
-            } else {
-                // Skip other characters (including non-ASCII)
-                '\0'
-            }
-        })
-        .filter(|&c| c != '\0')
-        .collect::<String>()
-        .split('-')
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join("-")
+/// One heading, in document order.
+pub(super) struct Heading {
+    pub level: u8,
+    pub text: String,
 }
 
-/// Collect the headings of a parsed document in order, with unique ids.
+/// Collect every heading, including those nested in quotes, list items and
+/// definition lists — the renderer gives those an `id` too, so the outline
+/// has to list them in the same order.
 ///
-/// Headings inside pre-rendered HTML (alert bodies) are not events and so
-/// are not listed, which matches the rendered output: they get no id.
-pub(super) fn collect_headings(events: &[(Event<'_>, Range<usize>)]) -> Vec<HeadingInfo> {
+/// Footnote definitions are the one place where document order and render
+/// order disagree: the renderer moves their bodies into the trailing
+/// `<section class="footnotes">`. A heading inside one is part of a note,
+/// not a section of the document, so it stays out of the outline — and
+/// [`super::annotate`] leaves its `id` out for the same reason, which is
+/// what keeps the two lists aligned.
+pub(super) fn collect(document: &Document<'_>) -> Vec<Heading> {
     let mut headings = Vec::new();
-    let mut current_level: Option<u8> = None;
-    let mut current_text = String::new();
-    let mut slug_counts: std::collections::HashMap<String, usize> =
-        std::collections::HashMap::new();
-
-    for (event, _) in events {
-        match event {
-            Event::Start(Tag::Heading { level, .. }) => {
-                current_level = Some(match level {
-                    HeadingLevel::H1 => 1,
-                    HeadingLevel::H2 => 2,
-                    HeadingLevel::H3 => 3,
-                    HeadingLevel::H4 => 4,
-                    HeadingLevel::H5 => 5,
-                    HeadingLevel::H6 => 6,
-                });
-                current_text.clear();
-            }
-            Event::Text(text) if current_level.is_some() => {
-                current_text.push_str(text);
-            }
-            Event::Code(code) if current_level.is_some() => {
-                current_text.push_str(code);
-            }
-            Event::SoftBreak | Event::HardBreak if current_level.is_some() => {
-                current_text.push(' ');
-            }
-            Event::End(TagEnd::Heading(_)) if current_level.is_some() => {
-                let level = current_level.take().unwrap();
-                let base_slug = generate_slug(&current_text);
-
-                // Handle duplicate slugs by appending a number
-                let id = if let Some(count) = slug_counts.get(&base_slug) {
-                    let new_count = count + 1;
-                    slug_counts.insert(base_slug.clone(), new_count);
-                    format!("{}-{}", base_slug, new_count)
-                } else {
-                    slug_counts.insert(base_slug.clone(), 0);
-                    base_slug
-                };
-
-                headings.push(HeadingInfo {
-                    level,
-                    text: current_text.trim().to_string(),
-                    id,
-                });
-            }
-            _ => {}
-        }
-    }
-
+    collect_blocks(&document.children, &mut headings);
     headings
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+fn collect_blocks(nodes: &[Node<'_>], headings: &mut Vec<Heading>) {
+    for node in nodes {
+        match node {
+            Node::Heading(heading) => headings.push(Heading {
+                level: heading.depth.clamp(1, 6),
+                text: heading_text(&heading.children),
+            }),
+            Node::BlockQuote(node) => collect_blocks(&node.children, headings),
+            Node::List(list) => {
+                for item in list.children.iter() {
+                    collect_blocks(&item.children, headings);
+                }
+            }
+            Node::DefinitionList(node) => collect_blocks(&node.children, headings),
+            Node::DefinitionListDefinition(node) => collect_blocks(&node.children, headings),
+            _ => {}
+        }
+    }
+}
 
-    #[test]
-    fn test_generate_slug() {
-        assert_eq!(generate_slug("Hello World"), "hello-world");
-        assert_eq!(generate_slug("My Heading"), "my-heading");
-        assert_eq!(
-            generate_slug("Heading with  Multiple   Spaces"),
-            "heading-with-multiple-spaces"
-        );
-        assert_eq!(
-            generate_slug("Special: Characters! Here?"),
-            "special-characters-here"
-        );
-        assert_eq!(generate_slug("日本語"), ""); // Non-ASCII characters are stripped
-        assert_eq!(generate_slug("Code `example`"), "code-example");
-        assert_eq!(generate_slug("under_score"), "under-score");
+/// Plain text of a heading: inline markup is flattened, line breaks become
+/// spaces, and math keeps its TeX source.
+pub(super) fn heading_text(children: &[Node<'_>]) -> String {
+    let mut text = String::new();
+    push_text(children, &mut text);
+    let text = text.replace('\n', " ").trim().to_string();
+    // A `{#id .class}` block is markup, not part of the title.
+    match super::attributes::split_trailing(&text) {
+        Some((stripped, _)) => stripped.to_string(),
+        None => text,
+    }
+}
+
+fn push_text(nodes: &[Node<'_>], out: &mut String) {
+    for node in nodes {
+        match node {
+            Node::Text(text) => out.push_str(text.value),
+            Node::InlineCode(code) => out.push_str(code.value),
+            Node::InlineMath(math) => out.push_str(math.value),
+            Node::Emphasis(node) => push_text(&node.children, out),
+            Node::Strong(node) => push_text(&node.children, out),
+            Node::Delete(node) => push_text(&node.children, out),
+            Node::Link(node) => push_text(&node.children, out),
+            Node::Superscript(node) => push_text(&node.children, out),
+            Node::Subscript(node) => push_text(&node.children, out),
+            _ => {}
+        }
     }
 }
