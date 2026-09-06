@@ -2,6 +2,7 @@ import hljs from "highlight.js";
 import hljsLightTheme from "highlight.js/styles/github.css?inline";
 import hljsDarkTheme from "highlight.js/styles/github-dark.css?inline";
 import { createThemeStyle, type Theme } from "./theme";
+import { whenNearViewport } from "./viewport-queue";
 
 // Remove some languages that other libraries handle better
 if (hljs.getLanguage("mermaid")) hljs.unregisterLanguage("mermaid");
@@ -37,10 +38,14 @@ export function highlightCodeBlocks(container: Element): void {
     return;
   }
 
-  console.debug(`Highlighting ${codeBlocks.length} code blocks`);
+  console.debug(`Queueing ${codeBlocks.length} code blocks`);
 
   codeBlocks.forEach((block) => {
-    highlightCodeBlock(block as HTMLElement);
+    const element = block as HTMLElement;
+    // Highlighting walks the whole token stream of a block, so it waits for
+    // the reader like the diagrams and formulas do. The code is already
+    // readable as plain text until then.
+    whenNearViewport(element, () => highlightCodeBlock(element));
   });
 }
 

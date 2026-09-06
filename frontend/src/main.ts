@@ -18,6 +18,7 @@ import * as keyboardInterceptor from "./keyboard-interceptor";
 import * as scrollController from "./scroll-controller";
 import * as contentCursor from "./content-cursor";
 import * as actionFeedback from "./action-feedback";
+import * as viewportQueue from "./viewport-queue";
 
 // Declare global Arto namespace
 declare global {
@@ -149,19 +150,31 @@ let printSavedTheme: Theme | null = null;
  * the generated SVG, so the diagrams have to be re-rendered with the light
  * theme before the print dialog captures the page. Resolves once that
  * re-render completes (with a timeout fallback so printing never hangs).
+ *
+ * A print job also has no reader and no scrolling, so everything the reader
+ * never scrolled to has to be rendered first. This is the only place that
+ * can do it: the caller awaits this promise before opening the dialog,
+ * whereas a `beforeprint` listener cannot delay the capture.
  */
 async function preparePrint(): Promise<void> {
   if (getCurrentTheme() === "light") {
+    await viewportQueue.flush();
     return;
   }
   printSavedTheme = getCurrentTheme();
 
+  // Flushing before the switch would draw every diagram in the dark theme
+  // only for the switch to throw it away, so the queue is drained once, after
+  // the theme is already light. A diagram still waiting in the queue renders
+  // from the Mermaid config current when its job runs, which is the light one
+  // by then.
   const rendered = new Promise<void>((resolve) => {
     renderCoordinator.onRenderComplete(resolve);
     setTimeout(resolve, 2000);
   });
   setCurrentTheme("light");
   await rendered;
+  await viewportQueue.flush();
 }
 
 /** Restore the theme that was active before `preparePrint()`. */
