@@ -83,6 +83,28 @@ Arto/
 └── flake.nix         # Nix flake for reproducible builds
 ```
 
+## Dependency Updates
+
+Dependabot opens weekly pull requests for Cargo, pnpm and GitHub Actions
+(`.github/dependabot.yml`); a scheduled workflow does the same for the Nix
+flake inputs (`.github/workflows/update-flake-lock.yml`). Minor and patch
+bumps arrive grouped; major bumps arrive one per PR because each one needs its
+own API check. The flake.lock PR is opened with the workflow's own token, so
+CI does not start on it automatically: close and reopen the PR to run the
+Build workflow.
+
+When updating by hand:
+
+- Versions shared by more than one crate live in `[workspace.dependencies]`
+  in the root `Cargo.toml`; bump them there, then run `cargo update`.
+- After any change to `renderer/pnpm-lock.yaml`, refresh the `pnpmDeps` hash
+  in `flake.nix`: set it to `lib.fakeHash`, run `nix build .#renderer-assets`,
+  and copy the hash from the mismatch error.
+- The `dioxus` crate version, the `dioxus-cli` pin in
+  `.github/workflows/build.yml` and the `dioxus-cli` shipped by the pinned
+  nixpkgs must agree; check `nix develop -c dx --version` after
+  `nix flake update`.
+
 ## Code Style
 
 - **Rust**: Follow standard Rust formatting (`cargo fmt`)
