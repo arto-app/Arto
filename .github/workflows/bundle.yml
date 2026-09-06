@@ -34,7 +34,7 @@ jobs:
   # Turn the requested leg names into matrix entries. Kept in one place so a
   # caller only names legs and never repeats runner or artifact details.
   plan:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
