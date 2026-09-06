@@ -133,20 +133,13 @@ pub enum CopyStatus {
     Error,
 }
 
-/// Props for the CopyImageButton component.
-#[derive(Props, Clone, PartialEq)]
-pub struct CopyImageButtonProps {
-    /// JavaScript function to call for copy (e.g., "copyImageToClipboard", "copyMathAsImage")
-    pub js_function: String,
-    /// Aria label for accessibility
-    pub label: String,
-}
-
 /// Reusable copy image button that calls a JS function and shows feedback.
+///
+/// `js_function` names the frontend export to call (e.g.
+/// "copyImageToClipboard", "copyMathAsImage"); `label` is the aria label.
 #[component]
-pub fn CopyImageButton(props: CopyImageButtonProps) -> Element {
+pub fn CopyImageButton(js_function: String, label: String) -> Element {
     let mut copy_status = use_signal(|| CopyStatus::Idle);
-    let js_function = props.js_function.clone();
 
     let handle_click = move |_| {
         let js_function = js_function.clone();
@@ -197,8 +190,8 @@ pub fn CopyImageButton(props: CopyImageButtonProps) -> Element {
     rsx! {
         button {
             class: "viewer-control-btn {extra_class}",
-            "aria-label": "{props.label}",
-            title: "{props.label}",
+            "aria-label": "{label}",
+            title: "{label}",
             disabled: is_copying,
             onclick: handle_click,
             Icon { name: icon, size: 18 }

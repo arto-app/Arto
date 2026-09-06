@@ -112,7 +112,7 @@ pub(super) fn setup_keybinding_engine(
     let initial_config = CONFIG.read().keybindings.clone();
     let engine = use_signal(|| RefCell::new(crate::keybindings::engine_for(&initial_config)));
 
-    // spawn/spawn_forever wrapped in use_hook to run only once
+    // The keyboard loop is spawned from use_hook so it starts exactly once
     use_hook(move || {
         // Keyboard event processing loop
         spawn(async move {
@@ -220,19 +220,21 @@ pub(super) fn setup_keybinding_engine(
                 tracing::warn!("Keybinding engine: JS keyboard interceptor failed to initialize");
             }
         });
-
-        // Config change listener: rebuild engine when keybindings are saved
-        dioxus_core::spawn_forever(async move {
-            let mut rx = CONFIG_CHANGED_BROADCAST.subscribe();
-            while rx.recv().await.is_ok() {
-                let new_config = CONFIG.read().keybindings.clone();
-                *engine.read().borrow_mut() = crate::keybindings::engine_for(&new_config);
-                push_menu_accelerators_to_js();
-                push_reserved_key_overrides_to_js();
-                tracing::debug!("Keybinding engine rebuilt after config change");
-            }
-        });
     }); // use_hook
+
+    // Config change listener: rebuild engine when keybindings are saved.
+    // `use_future` ties the task to this component, so it stops when the
+    // window closes instead of outliving the `engine` signal it writes to.
+    use_future(move || async move {
+        let mut rx = CONFIG_CHANGED_BROADCAST.subscribe();
+        while rx.recv().await.is_ok() {
+            let new_config = CONFIG.read().keybindings.clone();
+            *engine.read().borrow_mut() = crate::keybindings::engine_for(&new_config);
+            push_menu_accelerators_to_js();
+            push_reserved_key_overrides_to_js();
+            tracing::debug!("Keybinding engine rebuilt after config change");
+        }
+    });
 }
 
 #[cfg(test)]

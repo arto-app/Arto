@@ -22,26 +22,30 @@ struct LinkClickData {
 const LEFT_CLICK: u32 = 0;
 const MIDDLE_CLICK: u32 = 1;
 
+/// The directory relative links in `file` resolve against.
+fn base_dir_of(file: &Path) -> PathBuf {
+    file.parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
+/// `file` is a `ReadSignal` so the hooks below re-run when the parent passes
+/// a different path: reading it inside an effect subscribes the effect, which
+/// is what `use_reactive!` used to emulate for a plain value.
 #[component]
-pub fn FileViewer(file: PathBuf) -> Element {
+pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
     let state = use_context::<AppState>();
     let html = use_signal(String::new);
 
-    // Get base directory for link resolution
-    let base_dir = file
-        .parent()
-        .map(|p| p.to_path_buf())
-        .unwrap_or_else(|| PathBuf::from("."));
-
     // Setup component hooks
-    use_file_loader(file.clone(), html, state);
-    use_file_watcher(file.clone(), state);
-    use_link_click_handler(file.clone(), state);
+    use_file_loader(file, html, state);
+    use_file_watcher(file, state);
+    use_link_click_handler(file, state);
     use_mermaid_window_handler();
     use_math_window_handler();
     use_image_window_handler();
     use_clipboard_handlers();
-    use_context_menu_handler(file.clone(), base_dir);
+    use_context_menu_handler(file);
 
     rsx! {
         div {
@@ -57,17 +61,13 @@ pub fn FileViewer(file: PathBuf) -> Element {
 }
 
 /// Hook to load and render file content
-fn use_file_loader(file: PathBuf, html: Signal<String>, mut state: AppState) {
-    use_effect(use_reactive!(|file| {
+fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: AppState) {
+    use_effect(move || {
+        let file = file();
         let mut html = html;
-        // Subscribe to reload_trigger via Dioxus auto-subscription so this
-        // effect re-runs when the counter changes (manual reload or file watcher).
-        // NOTE: We intentionally read() here instead of adding reload_trigger to the
-        // use_reactive!(|...|) argument list, because use_reactive! compares Signal
-        // by pointer identity — the same Signal object is always "equal" to itself,
-        // so value changes would never be detected.
+        // Reading reload_trigger subscribes this effect to it, so a manual
+        // reload or a file-watcher event re-runs the load as well.
         let _ = state.reload_trigger.read();
-        let file = file.clone();
 
         // Handle scroll position SYNCHRONOUSLY before spawning async task.
         // This ensures the onRenderComplete callback is registered before
@@ -135,7 +135,7 @@ fn use_file_loader(file: PathBuf, html: Signal<String>, mut state: AppState) {
                 }
             }
         });
-    }));
+    });
 }
 
 /// Handle scroll position when navigating to a file.
@@ -270,9 +270,9 @@ async fn reapply_search() {
 }
 
 /// Hook to watch file for changes and trigger reload
-fn use_file_watcher(file: PathBuf, mut state: AppState) {
-    use_effect(use_reactive!(|file| {
-        let file = file.clone();
+fn use_file_watcher(file: ReadSignal<PathBuf>, mut state: AppState) {
+    use_effect(move || {
+        let file = file();
 
         spawn(async move {
             let file_path = file.clone();
@@ -301,24 +301,19 @@ fn use_file_watcher(file: PathBuf, mut state: AppState) {
                 );
             }
         });
-    }));
+    });
 }
 
 /// Hook to setup JavaScript handler for markdown link clicks
-fn use_link_click_handler(file: PathBuf, state: AppState) {
-    use_effect(use_reactive!(|file| {
-        let file = file.clone();
+fn use_link_click_handler(file: ReadSignal<PathBuf>, state: AppState) {
+    use_effect(move || {
+        let base_dir = base_dir_of(&file());
         let mut eval_provider = document::eval(indoc::indoc! {r#"
             window.handleMarkdownLinkClick = (path, button) => {
                 const scrollPosition = document.querySelector('.content')?.scrollTop || 0;
                 dioxus.send({ path, button, scroll_position: scrollPosition });
             };
         "#});
-
-        let base_dir = file
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("."));
 
         let mut state_clone = state;
 
@@ -327,7 +322,7 @@ fn use_link_click_handler(file: PathBuf, state: AppState) {
                 handle_link_click(click_data, &base_dir, &mut state_clone);
             }
         });
-    }));
+    });
 }
 
 /// Handle a markdown link click event
@@ -496,10 +491,10 @@ fn use_clipboard_handlers() {
 ///
 /// Uses global state to avoid re-rendering FileViewer when menu state changes.
 /// This preserves text selection in the content.
-fn use_context_menu_handler(file: PathBuf, base_dir: PathBuf) {
-    use_effect(use_reactive!(|file, base_dir| {
-        let file = file.clone();
-        let base_dir = base_dir.clone();
+fn use_context_menu_handler(file: ReadSignal<PathBuf>) {
+    use_effect(move || {
+        let file = file();
+        let base_dir = base_dir_of(&file);
 
         // Setup JS context menu handler using the exported function
         // Wait for window.Arto to be available (init() is async)
@@ -525,5 +520,5 @@ fn use_context_menu_handler(file: PathBuf, base_dir: PathBuf) {
                 });
             }
         });
-    }));
+    });
 }

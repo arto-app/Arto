@@ -138,12 +138,6 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
 }
 
 fn init_tracing() {
-    let silence_filter = tracing_subscriber::filter::filter_fn(|metadata| {
-        // Filter out specific error from dioxus_core::properties:136
-        // Known issue: https://github.com/DioxusLabs/dioxus/issues/3872
-        metadata.target() != "dioxus_core::properties::__component_called_as_function"
-    });
-
     let env_filter_layer =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(DEFAULT_LOGLEVEL));
 
@@ -153,8 +147,7 @@ fn init_tracing() {
         .with_target(false)
         .with_thread_ids(false)
         .with_file(true)
-        .with_line_number(true)
-        .with_filter(silence_filter.clone());
+        .with_line_number(true);
 
     let registry = tracing_subscriber::registry()
         .with(env_filter_layer)
@@ -162,9 +155,10 @@ fn init_tracing() {
 
     // On macOS, log to Console.app via oslog
     #[cfg(target_os = "macos")]
-    let registry = registry.with(
-        tracing_oslog::OsLogger::new("com.lambdalisue.Arto", "default").with_filter(silence_filter),
-    );
+    let registry = registry.with(tracing_oslog::OsLogger::new(
+        "com.lambdalisue.Arto",
+        "default",
+    ));
 
     registry.init();
 }

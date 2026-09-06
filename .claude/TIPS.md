@@ -225,14 +225,12 @@ use_effect(move || {
     });
 });
 
-// ✓ spawn_forever() - Infinite event loop (NEVER returns)
-use_effect(move || {
+// ✓ use_future() - Listener that lives as long as the component
+use_future(move || async move {
     let mut rx = BROADCAST.subscribe();
-    spawn_forever(async move {
-        while let Ok(event) = rx.recv().await {
-            handle(event);
-        }
-    });
+    while let Ok(event) = rx.recv().await {
+        handle(event);
+    }
 });
 
 // ✓ use_drop() - Cleanup (synchronous only!)
@@ -242,7 +240,7 @@ use_drop(move || {
 });
 ```
 
-**Critical:** `spawn_forever()` is for infinite loops that should never block. Use for broadcast channel listeners.
+**Critical:** `use_future()` is cancelled when the component drops, so a broadcast listener stops with its window. `spawn_forever()` would keep running and write to dropped signals; do not use it in components.
 
 ### Dynamic Text in RSX
 
@@ -1007,9 +1005,9 @@ div {
 ### Dioxus Signal Lifetime Issues
 
 - **spawn_forever Warning**: Using `spawn_forever` with component-scoped signals causes lifetime warnings because task outlives component
-- **Solution**: Use `use_hook` + `spawn` instead - task is automatically cancelled when component drops
-- **When spawn_forever IS correct**: Only for app-lifetime components like MainApp that live until app quits
-- **Pattern**: `use_effect` + `spawn` for reactive listeners, `use_hook` + `spawn` for one-time infinite loops
+- **Solution**: Use `use_future` (or `use_hook` + `spawn`) instead - task is automatically cancelled when component drops
+- **Pattern**: `use_effect` + `spawn` for reactive work, `use_future` for listeners that run for the component's lifetime
+- **Changing props in effects**: take the prop as `ReadSignal<T>` and read it inside the effect; that subscribes the effect without `use_reactive!`
 
 ### JavaScript Initialization
 

@@ -4,6 +4,17 @@ use dioxus::prelude::*;
 pub static MAIN_SCRIPT: Asset = asset!("/assets/frontend/main.js");
 pub static MAIN_STYLE: Asset = asset!("/assets/frontend/main.css");
 
+/// The `<head>` markup that loads the main stylesheet, for
+/// `Config::with_custom_head` on every window.
+///
+/// Kept as static head markup on purpose. `document::Stylesheet {}` would be
+/// the idiomatic rsx form, but it is inserted by the runtime after the first
+/// render, so the window would paint unstyled for a moment on every open.
+/// Head markup is parsed with the page and applies before anything shows.
+pub fn main_stylesheet_head() -> String {
+    format!(r#"<link rel="stylesheet" href="{MAIN_STYLE}">"#)
+}
+
 static ARTO_HEADER_IMAGE: Asset = asset!("/assets/arto-header-welcome.png");
 static WELCOME_TEMPLATE: Asset = asset!("/assets/welcome.md");
 

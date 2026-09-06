@@ -105,25 +105,20 @@ impl fmt::Display for IconName {
     }
 }
 
-#[derive(Props, Clone, PartialEq)]
-pub struct IconProps {
-    pub name: IconName,
-    #[props(default = 20)]
-    pub size: u32,
-    #[props(default = "")]
-    pub class: &'static str,
-}
-
 #[component]
-pub fn Icon(props: IconProps) -> Element {
+pub fn Icon(
+    name: IconName,
+    #[props(default = 20)] size: u32,
+    #[props(default = "")] class: &'static str,
+) -> Element {
     let sprite_url = TABLER_SPRITE.to_string();
-    let icon_id = format!("tabler-{}", props.name);
+    let icon_id = format!("tabler-{}", name);
 
     rsx! {
         svg {
-            class: "icon {props.class}",
-            width: "{props.size}",
-            height: "{props.size}",
+            class: "icon {class}",
+            width: "{size}",
+            height: "{size}",
             "aria-hidden": "true",
             r#use {
                 href: "{sprite_url}#{icon_id}"

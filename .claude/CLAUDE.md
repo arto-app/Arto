@@ -170,11 +170,11 @@ use_drop(move || {
 **Key patterns (see TIPS.md for details):**
 
 - `spawn()` - Event handlers, one-time async
-- `use_effect()` - React to state changes
-- `spawn_forever()` - Infinite loops (broadcast listeners)
+- `use_effect()` - React to state changes (reads inside the closure subscribe it; take changing props as `ReadSignal<T>` instead of `use_reactive!`)
+- `use_future()` - Long-running listeners tied to the component (broadcast subscriptions); cancelled when the component drops
 - `use_drop()` - Cleanup (synchronous only!)
 
-**Critical:** `spawn_forever()` never returns. `use_drop()` is synchronous - use `persisted.save()` for blocking operations.
+**Critical:** avoid `spawn_forever()` in components: the task outlives the window and keeps writing to dropped signals. `use_drop()` is synchronous - use `persisted.save()` for blocking operations.
 
 ### Markdown Rendering Pipeline
 
@@ -340,26 +340,39 @@ pub fn handle_menu_event_global(event: MenuEvent) {
 }
 ```
 
-**2. State-Dependent Handler** (in App component):
+**2. State-Dependent Handler** (in App component, one per window):
 ```rust
 // In app.rs
-use_effect(move || {
-    spawn_forever(async move {
-        while let Ok(event) = rx.recv().await {
-            match event.id.as_ref().parse::<MenuId>() {
-                MenuId::CloseTab => {
-                    state.close_current_tab();
-                }
-                MenuId::Preferences => {
-                    state.open_preferences();
-                }
-                // Other state actions...
-                _ => {}
-            }
-        }
-    });
+#[cfg(not(target_os = "windows"))]
+use_muda_event_handler(move |event| {
+    menu::handle_menu_event_with_state(&event, &mut state);
 });
+
+// In menu.rs
+pub fn handle_menu_event_with_state(event: &MenuEvent, state: &mut AppState) -> bool {
+    // Every window registers this handler; only the focused one acts.
+    if !window().is_focused() {
+        return false;
+    }
+    match event.id.as_ref().parse::<MenuId>() {
+        MenuId::CloseTab => {
+            state.close_current_tab();
+            true
+        }
+        MenuId::Preferences => {
+            state.open_preferences();
+            true
+        }
+        // Other state actions...
+        _ => false,
+    }
+}
 ```
+
+Both handlers are plain `use_muda_event_handler` callbacks; there is no
+channel between them. Every window registers the state-dependent one, muda
+delivers each event to every registered handler, and the focus check keeps
+only the focused window from acting on it.
 
 **Why split:** Some actions don't need state (new window), others do (close tab, preferences).
 

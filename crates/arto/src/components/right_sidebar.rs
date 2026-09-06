@@ -15,15 +15,12 @@ use crate::state::{AppState, FocusedPanel};
 // it is re-exported here so the sidebar keeps a local name for it.
 pub use crate::config::RightSidebarTab;
 
-#[derive(Props, Clone, PartialEq)]
-pub struct RightSidebarProps {
-    pub headings: Vec<HeadingInfo>,
-    pub on_pin_toggle: Option<EventHandler<()>>,
-    pub on_resize_change: Option<EventHandler<bool>>,
-}
-
 #[component]
-pub fn RightSidebar(props: RightSidebarProps) -> Element {
+pub fn RightSidebar(
+    headings: Vec<HeadingInfo>,
+    on_pin_toggle: Option<EventHandler<()>>,
+    on_resize_change: Option<EventHandler<bool>>,
+) -> Element {
     let mut state = use_context::<AppState>();
     let (width, active_tab, zoom_level) = {
         let right_sidebar = state.right_sidebar.read();
@@ -37,9 +34,6 @@ pub fn RightSidebar(props: RightSidebarProps) -> Element {
     let toc_cursor = *state.toc_cursor.read();
     let is_resizing = use_signal(|| false);
 
-    // Get data for each tab
-    let headings = props.headings.clone();
-
     let outer_style = format!("width: {}px;", width);
     let inner_style = format!("zoom: {};", zoom_level);
 
@@ -51,7 +45,7 @@ pub fn RightSidebar(props: RightSidebarProps) -> Element {
             style: "{outer_style}",
 
             // Resize handle
-            RightSidebarResizeHandle { is_resizing, on_resize_change: props.on_resize_change }
+            RightSidebarResizeHandle { is_resizing, on_resize_change }
 
             // Inner wrapper with zoom applied
             div {
@@ -62,7 +56,7 @@ pub fn RightSidebar(props: RightSidebarProps) -> Element {
                 TabBar {
                     active_tab,
                     on_change: move |tab| state.set_right_sidebar_tab(tab),
-                    on_pin_toggle: props.on_pin_toggle,
+                    on_pin_toggle,
                 }
 
                 // Tab content

@@ -1,6 +1,4 @@
-use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 /// Context type for right-click detection
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -61,22 +59,4 @@ pub struct ContextMenuData {
     /// Table source line end (1-based)
     #[serde(default)]
     pub table_source_line_end: Option<u32>,
-}
-
-#[derive(Props, Clone, PartialEq)]
-pub struct ContentContextMenuProps {
-    pub position: (i32, i32),
-    pub context: ContentContext,
-    pub has_selection: bool,
-    pub selected_text: String,
-    pub current_file: Option<PathBuf>,
-    pub base_dir: PathBuf,
-    pub source_line: Option<u32>,
-    pub source_line_end: Option<u32>,
-    pub table_csv: Option<String>,
-    pub table_tsv: Option<String>,
-    pub table_markdown: Option<String>,
-    pub table_source_line: Option<u32>,
-    pub table_source_line_end: Option<u32>,
-    pub on_close: EventHandler<()>,
 }

@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 use crate::state::AppState;
 
-use crate::assets::MAIN_STYLE;
+use crate::assets::main_stylesheet_head;
 use crate::components::app::{App, AppProps};
 use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::{WindowPositionOffset, CONFIG};
@@ -46,7 +46,7 @@ pub fn create_main_window_config(params: &CreateMainWindowConfigParams) -> Confi
         })
         // Add main style in config. Otherwise the style takes time to load and
         // the window appears unstyled for a brief moment.
-        .with_custom_head(indoc::formatdoc! {r#"<link rel="stylesheet" href="{MAIN_STYLE}">"#})
+        .with_custom_head(main_stylesheet_head())
         // Use a custom index to set the initial theme correctly
         .with_custom_index(build_custom_index(params.theme))
 }

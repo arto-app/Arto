@@ -10,6 +10,7 @@ pub use data::*;
 
 use dioxus::document;
 use dioxus::prelude::*;
+use std::path::PathBuf;
 
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSeparator};
 use crate::components::icon::IconName;
@@ -23,12 +24,27 @@ use image_ops::{CopyImageAsSubmenu, CopySpecialBlockAsSubmenu};
 use source_ops::LinkContextItems;
 
 #[component]
-pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
+pub fn ContentContextMenu(
+    position: (i32, i32),
+    context: ContentContext,
+    has_selection: bool,
+    selected_text: String,
+    current_file: Option<PathBuf>,
+    base_dir: PathBuf,
+    source_line: Option<u32>,
+    source_line_end: Option<u32>,
+    table_csv: Option<String>,
+    table_tsv: Option<String>,
+    table_markdown: Option<String>,
+    table_source_line: Option<u32>,
+    table_source_line_end: Option<u32>,
+    on_close: EventHandler<()>,
+) -> Element {
     let shortcut = |action| shortcut_hint_for_context_action(KeyContext::Content, action);
     let state = use_context::<crate::state::AppState>();
 
     // Extract copyable source from context (code blocks, mermaid, math)
-    let (copy_code_source, code_block_line, code_block_line_end) = match &props.context {
+    let (copy_code_source, code_block_line, code_block_line_end) = match &context {
         ContentContext::CodeBlock {
             content,
             source_line,
@@ -36,26 +52,22 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
             ..
         } => (Some(content.clone()), *source_line, *source_line_end),
         ContentContext::Mermaid { source } | ContentContext::MathBlock { source } => {
-            // The renderer sets props.source_line/source_line_end to the block's
+            // The renderer sets source_line/source_line_end to the block's
             // line range for mermaid/math (via detectContext's block-level override)
-            (
-                Some(source.clone()),
-                props.source_line,
-                props.source_line_end,
-            )
+            (Some(source.clone()), source_line, source_line_end)
         }
         _ => (None, None, None),
     };
 
     // Extract image info for smart default and submenu
-    let image_info = match &props.context {
+    let image_info = match &context {
         ContentContext::Image { src, alt } => Some((src.clone(), alt.clone())),
         _ => None,
     };
     let is_image = image_info.is_some();
 
     // Detect special blocks (Mermaid/Math) for image operations
-    let (is_mermaid, is_math) = match &props.context {
+    let (is_mermaid, is_math) = match &context {
         ContentContext::Mermaid { .. } => (true, false),
         ContentContext::MathBlock { .. } => (false, true),
         _ => (false, false),
@@ -63,16 +75,16 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
     let is_special_block = is_mermaid || is_math;
 
     let has_context_specific = matches!(
-        props.context,
+        context,
         ContentContext::Link { .. }
             | ContentContext::Image { .. }
             | ContentContext::Mermaid { .. }
             | ContentContext::MathBlock { .. }
     );
 
-    let has_table = props.table_csv.is_some();
-    let has_file = props.current_file.is_some();
-    let has_any_submenu = props.has_selection
+    let has_table = table_csv.is_some();
+    let has_file = current_file.is_some();
+    let has_any_submenu = has_selection
         || has_file
         || copy_code_source.is_some()
         || has_table
@@ -80,31 +92,28 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
         || is_special_block;
 
     // Determine smart default for Copy Path label and value
-    let (copy_path_label, copy_path_value) = match (
-        props.current_file.as_ref(),
-        props.source_line,
-        props.source_line_end,
-    ) {
-        (Some(f), Some(start), Some(end)) if start != end => {
-            let path_str = f.display().to_string();
-            (
-                format!("Copy Path with Range ({start}-{end})"),
-                Some(format!("{path_str}:{start}-{end}")),
-            )
-        }
-        (Some(f), Some(line), _) => {
-            let path_str = f.display().to_string();
-            (
-                format!("Copy Path with Line ({line})"),
-                Some(format!("{path_str}:{line}")),
-            )
-        }
-        (Some(f), None, _) => {
-            let path_str = f.display().to_string();
-            ("Copy Path".to_string(), Some(path_str))
-        }
-        (None, _, _) => ("Copy Path".to_string(), None),
-    };
+    let (copy_path_label, copy_path_value) =
+        match (current_file.as_ref(), source_line, source_line_end) {
+            (Some(f), Some(start), Some(end)) if start != end => {
+                let path_str = f.display().to_string();
+                (
+                    format!("Copy Path with Range ({start}-{end})"),
+                    Some(format!("{path_str}:{start}-{end}")),
+                )
+            }
+            (Some(f), Some(line), _) => {
+                let path_str = f.display().to_string();
+                (
+                    format!("Copy Path with Line ({line})"),
+                    Some(format!("{path_str}:{line}")),
+                )
+            }
+            (Some(f), None, _) => {
+                let path_str = f.display().to_string();
+                ("Copy Path".to_string(), Some(path_str))
+            }
+            (None, _, _) => ("Copy Path".to_string(), None),
+        };
 
     rsx! {
         // Backdrop to close menu on outside click
@@ -113,26 +122,26 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
             // Prevent mousedown from clearing text selection
             onmousedown: move |evt| evt.prevent_default(),
             onclick: move |_| {
-                props.on_close.call(());
+                on_close.call(());
             },
         }
 
         // Context menu
         div {
             class: "context-menu content-context-menu",
-            style: "left: {props.position.0}px; top: {props.position.1}px;",
+            style: "left: {position.0}px; top: {position.1}px;",
             // Prevent mousedown from clearing text selection
             onmousedown: move |evt| evt.prevent_default(),
             onclick: move |evt| evt.stop_propagation(),
 
             // === Section 1: Smart default copy operations ===
-            if props.has_selection {
+            if has_selection {
                 ContextMenuItem {
                     label: "Copy",
                     icon: Some(IconName::Copy),
                     on_click: {
-                        let on_close = props.on_close;
-                        let text = props.selected_text.clone();
+                        let on_close = on_close;
+                        let text = selected_text.clone();
                         move |_| {
                             crate::utils::clipboard::copy_text(&text);
                             on_close.call(());
@@ -147,7 +156,7 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
                     shortcut: shortcut("clipboard.copy_code"),
                     icon: Some(IconName::Copy),
                     on_click: {
-                        let on_close = props.on_close;
+                        let on_close = on_close;
                         move |_| {
                             crate::utils::clipboard::copy_text(&code_content);
                             crate::keybindings::dispatcher::show_action_feedback("Copied");
@@ -158,13 +167,13 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
             }
 
             // Copy Table (smart default: TSV)
-            if let Some(tsv) = props.table_tsv.clone() {
+            if let Some(tsv) = table_tsv.clone() {
                 ContextMenuItem {
                     label: "Copy Table",
                     shortcut: shortcut("clipboard.copy_table_as_tsv"),
                     icon: Some(IconName::Copy),
                     on_click: {
-                        let on_close = props.on_close;
+                        let on_close = on_close;
                         move |_| {
                             crate::utils::clipboard::copy_text(&tsv);
                             crate::keybindings::dispatcher::show_action_feedback("Copied");
@@ -181,7 +190,7 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
                     shortcut: shortcut("clipboard.copy_image"),
                     icon: Some(IconName::Photo),
                     on_click: {
-                        let on_close = props.on_close;
+                        let on_close = on_close;
                         let src = src.clone();
                         move |_| {
                             let src = src.clone();
@@ -201,7 +210,7 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
                     shortcut: shortcut("clipboard.copy_image"),
                     icon: Some(IconName::Photo),
                     on_click: {
-                        let on_close = props.on_close;
+                        let on_close = on_close;
                         move |_| {
                             copy_special_block_image(is_mermaid, false);
                             on_close.call(());
@@ -214,10 +223,10 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
             if let Some(value) = copy_path_value.clone() {
                 ContextMenuItem {
                     label: copy_path_label.clone(),
-                    shortcut: shortcut(copy_path_shortcut_action_str(props.source_line, props.source_line_end)),
+                    shortcut: shortcut(copy_path_shortcut_action_str(source_line, source_line_end)),
                     icon: Some(IconName::Copy),
                     on_click: {
-                        let on_close = props.on_close;
+                        let on_close = on_close;
                         move |_| {
                             crate::utils::clipboard::copy_text(&value);
                             crate::keybindings::dispatcher::show_action_feedback("Copied");
@@ -234,7 +243,7 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
                 label: "Select All",
                 icon: Some(IconName::SelectAll),
                 on_click: {
-                    let on_close = props.on_close;
+                    let on_close = on_close;
                     move |_| {
                         exec_edit_command("selectAll");
                         on_close.call(());
@@ -247,7 +256,7 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
                 shortcut: shortcut("search.open"),
                 icon: Some(IconName::Search),
                 on_click: {
-                    let on_close = props.on_close;
+                    let on_close = on_close;
                     move |_| {
                         dispatch_action(&Action::SearchOpen, state);
                         on_close.call(());
@@ -261,23 +270,23 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
             }
 
             // Copy As... (Text / Markdown)
-            if props.has_selection {
+            if has_selection {
                 CopyAsSubmenu {
-                    selected_text: props.selected_text.clone(),
-                    current_file: props.current_file.clone(),
-                    source_line: props.source_line,
-                    source_line_end: props.source_line_end,
-                    on_close: props.on_close,
+                    selected_text: selected_text.clone(),
+                    current_file: current_file.clone(),
+                    source_line: source_line,
+                    source_line_end: source_line_end,
+                    on_close: on_close,
                 }
             }
 
             // Copy Path As... (Path / Path with Line / Path with Range)
             if has_file {
                 CopyPathAsSubmenu {
-                    current_file: props.current_file.clone().unwrap(),
-                    source_line: props.source_line,
-                    source_line_end: props.source_line_end,
-                    on_close: props.on_close,
+                    current_file: current_file.clone().unwrap(),
+                    source_line: source_line,
+                    source_line_end: source_line_end,
+                    on_close: on_close,
                 }
             }
 
@@ -285,23 +294,23 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
             if let Some(code_content) = copy_code_source.clone() {
                 CopyCodeAsSubmenu {
                     code_content,
-                    current_file: props.current_file.clone(),
+                    current_file: current_file.clone(),
                     block_source_line: code_block_line,
                     block_source_line_end: code_block_line_end,
-                    on_close: props.on_close,
+                    on_close: on_close,
                 }
             }
 
             // Copy Table As... (TSV / CSV / Markdown)
             if has_table {
                 CopyTableAsSubmenu {
-                    table_tsv: props.table_tsv.clone(),
-                    table_csv: props.table_csv.clone(),
-                    table_markdown: props.table_markdown.clone(),
-                    current_file: props.current_file.clone(),
-                    table_source_line: props.table_source_line,
-                    table_source_line_end: props.table_source_line_end,
-                    on_close: props.on_close,
+                    table_tsv: table_tsv.clone(),
+                    table_csv: table_csv.clone(),
+                    table_markdown: table_markdown.clone(),
+                    current_file: current_file.clone(),
+                    table_source_line: table_source_line,
+                    table_source_line_end: table_source_line_end,
+                    on_close: on_close,
                 }
             }
 
@@ -310,7 +319,7 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
                 CopyImageAsSubmenu {
                     src: src.clone(),
                     alt: alt.clone(),
-                    on_close: props.on_close,
+                    on_close: on_close,
                 }
             }
 
@@ -318,7 +327,7 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
             if is_special_block {
                 CopySpecialBlockAsSubmenu {
                     is_mermaid,
-                    on_close: props.on_close,
+                    on_close: on_close,
                 }
             }
 
@@ -327,11 +336,11 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
                 ContextMenuSeparator {}
             }
 
-            match &props.context {
+            match &context {
                 ContentContext::Link { href } => rsx! {
                     LinkContextItems {
                         href: href.clone(),
-                        on_close: props.on_close,
+                        on_close: on_close,
                     }
                 },
                 ContentContext::Image { .. } => rsx! {
@@ -340,7 +349,7 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
                         shortcut: shortcut("file.save_image_as"),
                         icon: Some(IconName::Download),
                         on_click: {
-                            let on_close = props.on_close;
+                            let on_close = on_close;
                             move |_| {
                                 dispatch_action(&Action::FileSaveImageAs, state);
                                 on_close.call(());
@@ -354,7 +363,7 @@ pub fn ContentContextMenu(props: ContentContextMenuProps) -> Element {
                         shortcut: shortcut("file.save_image_as"),
                         icon: Some(IconName::Download),
                         on_click: {
-                            let on_close = props.on_close;
+                            let on_close = on_close;
                             move |_| {
                                 dispatch_action(&Action::FileSaveImageAs, state);
                                 on_close.call(());
