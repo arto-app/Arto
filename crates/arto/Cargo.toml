@@ -29,7 +29,6 @@ compile-time = "0.3"
 dirs.workspace = true
 dioxus = { version = "0.7.10", features = ["desktop"] }
 dioxus-desktop = "0.7.10"
-dioxus-sdk-window = "0.7.0"
 dotenvy = "0.15.7"
 html-escape.workspace = true
 image = "0.25.10"

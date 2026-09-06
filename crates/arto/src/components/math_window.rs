@@ -57,10 +57,7 @@ pub fn MathWindow(props: MathWindowProps) -> Element {
         let source_json = serde_json::to_string(&props.source).unwrap_or_default();
         let math_id_json = serde_json::to_string(&props.math_id).unwrap_or_default();
         // Resolve "auto" to actual light/dark before passing to JS
-        let theme_str = match crate::theme::resolve_theme(*current_theme.read()) {
-            crate::theme::DioxusTheme::Light => "light",
-            crate::theme::DioxusTheme::Dark => "dark",
-        };
+        let theme_str = crate::theme::resolve_theme(*current_theme.read()).as_str();
 
         spawn(async move {
             let eval_result = document::eval(&indoc::formatdoc! {r#"

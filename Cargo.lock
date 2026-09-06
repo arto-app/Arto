@@ -169,7 +169,6 @@ dependencies = [
  "dark-light",
  "dioxus",
  "dioxus-desktop",
- "dioxus-sdk-window",
  "dirs 7.0.0",
  "display-info",
  "dotenvy",
@@ -1612,18 +1611,6 @@ dependencies = [
  "quote",
  "rustversion",
  "syn 2.0.119",
-]
-
-[[package]]
-name = "dioxus-sdk-window"
-version = "0.7.0"
-source = "git+https://github.com/iynaix/dioxus-sdk?rev=28fc2264#28fc22642f726b98ac89c92dd3813a8d51e3a33c"
-dependencies = [
- "dioxus",
- "dioxus-config-macro",
- "dioxus-desktop",
- "wasm-bindgen",
- "web-sys",
 ]
 
 [[package]]
