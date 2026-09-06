@@ -18,7 +18,7 @@ This skill guides you through adding a new icon from Tabler Icons to the project
    - Note the icon name (e.g., `folder-open`, `info-circle`)
 
 2. **Add to icons.json**
-   - Edit `renderer/icons.json`
+   - Edit `frontend/icons.json`
    - Add the icon name to the JSON array (in alphabetical order)
 
 3. **Build Icon Sprite (Automatic)**
@@ -32,7 +32,7 @@ This skill guides you through adding a new icon from Tabler Icons to the project
 
 ### Example
 
-**renderer/icons.json:**
+**frontend/icons.json:**
 ```json
 [
   "folder",
@@ -64,17 +64,17 @@ impl std::fmt::Display for IconName {
 
 | File | Purpose | Git Tracked |
 |------|---------|-------------|
-| `renderer/icons.json` | Icon list configuration | ✅ Yes |
-| `renderer/vite.config.ts` | Icon sprite plugin | ✅ Yes |
-| `renderer/public/icons/tabler-sprite.svg` | Generated sprite (Vite source) | ❌ No |
-| `assets/dist/icons/tabler-sprite.svg` | Build output (Dioxus asset) | ❌ No |
+| `frontend/icons.json` | Icon list configuration | ✅ Yes |
+| `frontend/vite.config.ts` | Icon sprite plugin | ✅ Yes |
+| `frontend/public/icons/tabler-sprite.svg` | Generated sprite (Vite source) | ❌ No |
+| `assets/frontend/icons/tabler-sprite.svg` | Build output (Dioxus asset) | ❌ No |
 
 ### Important
 
 - **NEVER** edit generated SVG files directly
-- The `assets/dist/` directory is `.gitignore`d as build output
+- The `assets/frontend/` directory is `.gitignore`d as build output
 - Icon sprite generation is automatic via Vite plugin (`buildStart` hook)
-- Rust code references icons via `asset!("/assets/dist/icons/tabler-sprite.svg")`
+- Rust code references icons via `asset!("/assets/frontend/icons/tabler-sprite.svg")`
 - Icons come from `@tabler/icons` npm package (outline style only)
 
 ### Build Process
@@ -84,11 +84,11 @@ icons.json
     ↓
 Vite plugin (buildStart hook)
     ↓
-renderer/public/icons/tabler-sprite.svg
+frontend/public/icons/tabler-sprite.svg
     ↓
 Vite build
     ↓
-assets/dist/icons/tabler-sprite.svg
+assets/frontend/icons/tabler-sprite.svg
     ↓
 Rust asset!() macro
 ```

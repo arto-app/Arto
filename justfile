@@ -1,17 +1,17 @@
 mod arto 'crates/arto'
-mod renderer
+mod frontend
 
 [private]
 default:
   @just --list
 
-setup: renderer::setup
+setup: frontend::setup
 
-fmt: arto::fmt renderer::fmt
+fmt: arto::fmt frontend::fmt
 
-check: renderer::assets arto::check renderer::check
+check: frontend::assets arto::check frontend::check
 
-test: renderer::assets arto::test renderer::test
+test: frontend::assets arto::test frontend::test
 
 verify: fmt check test
 
@@ -26,9 +26,9 @@ workflows:
   actionlint
   zizmor --min-severity low --config .github/zizmor.yml .
 
-clean: arto::clean renderer::clean
+clean: arto::clean frontend::clean
 
-# Vite rebuilds the renderer bundle in the background while `dx serve` runs
+# Vite rebuilds the frontend bundle in the background while `dx serve` runs
 # the app with hot reload. The bundle is built up front only when it is
 # missing, so restarting the loop stays fast.
 #
@@ -37,14 +37,14 @@ dev:
   #!/usr/bin/env bash
   set -euo pipefail
   root="{{justfile_directory()}}"
-  cd "$root/renderer"
+  cd "$root/frontend"
   # Respect VITE_OUT_DIR so the existence check matches where Vite writes.
-  dist="${VITE_OUT_DIR:-$root/crates/arto/assets/dist}"
+  dist="${VITE_OUT_DIR:-$root/crates/arto/assets/frontend}"
   if [ ! -f "$dist/main.js" ] || [ ! -f "$dist/main.css" ]; then
-    echo "Building renderer artifacts..."
+    echo "Building frontend bundle..."
     pnpm exec vite build --mode development --minify false
   else
-    echo "Renderer artifacts found, skipping initial build..."
+    echo "Frontend bundle found, skipping initial build..."
   fi
   pnpm run dev --logLevel silent >/dev/null 2>&1 &
   vite_pid=$!
@@ -52,7 +52,7 @@ dev:
   cd "$root/crates/arto"
   dx serve
 
-build: renderer::assets arto::build
+build: frontend::assets arto::build
 
 # Gate for release artifacts; see the arto recipe for what it rejects.
 [macos]

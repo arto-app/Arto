@@ -1,5 +1,5 @@
 {
-  "name": "arto-renderer",
+  "name": "arto-frontend",
   "private": true,
   "type": "module",
   "scripts": {

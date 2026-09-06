@@ -2,9 +2,9 @@
 //!
 //! Rendering adjustments for paper output (hiding the app chrome, fitting
 //! Mermaid diagrams and images into an A4 page, etc.) live in the renderer's
-//! `@media print` stylesheet (`renderer/style/print.css`). The renderer is
+//! `@media print` stylesheet (`frontend/style/print.css`). The renderer is
 //! also switched to the light theme while the print dialog is open (see
-//! `window.Arto.print` in `renderer/src/main.ts`) so printed output is
+//! `window.Arto.print` in `frontend/src/main.ts`) so printed output is
 //! always light regardless of the UI theme.
 
 use std::path::PathBuf;

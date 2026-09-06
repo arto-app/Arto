@@ -24,14 +24,14 @@ chdir $root or die "cannot chdir to $root: $!";
 
 my @files = @ARGV;
 if (!@files) {
-    @files = grep { length } split /\n/, qx(git ls-files '*.md' ':!renderer/node_modules');
+    @files = grep { length } split /\n/, qx(git ls-files '*.md' ':!frontend/node_modules');
 }
 
 # Top-level directories whose paths documentation is expected to name.
-my $roots = qr{(?:crates|renderer|platform|nix|docs|samples|\.github|\.claude)};
+my $roots = qr{(?:crates|frontend|platform|nix|docs|samples|\.github|\.claude)};
 
 # Build output that a fresh checkout does not have.
-my $generated = qr{(?:^|/)(?:assets/dist|public/icons|target)(?:/|$)};
+my $generated = qr{(?:^|/)(?:assets/frontend|frontend/dist|public/icons|target)(?:/|$)};
 
 my $failures = 0;
 for my $file (@files) {

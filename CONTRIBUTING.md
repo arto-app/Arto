@@ -75,7 +75,7 @@ Arto/
 │   ├── arto/         # Desktop application (Dioxus): src/, assets/, Dioxus.toml
 │   ├── arto-markdown/ # Markdown → HTML rendering library shared by the app and Quick Look
 │   └── arto-ql/      # Quick Look FFI static library (macOS)
-├── renderer/         # WebView-side TypeScript and CSS (pnpm + Vite)
+├── frontend/         # WebView-side TypeScript and CSS (pnpm + Vite)
 ├── platform/         # OS-specific files, one directory per OS
 │   ├── macos/        #   bundle/ (Info.plist, icon), quicklook/ (Swift shim), verify-bundle.sh
 │   ├── windows/      #   NSIS installer hook (file associations)
@@ -111,7 +111,7 @@ inside the devShell:
 | Rust tests | `just arto::test-ci` (nextest) or `just arto::test` |
 | rustdoc, feature combinations | `just arto::doc`, `just arto::features` |
 | advisories and licenses, unused dependencies | `just arto::deny`, `just arto::machete` |
-| frontend | `just renderer::check`, `just renderer::test` |
+| frontend | `just frontend::check`, `just frontend::test` |
 | documentation links and paths | `just docs` |
 | workflow files | `just workflows` |
 | flake evaluation | `nix flake check --no-build --all-systems` |
@@ -136,8 +136,8 @@ When updating by hand:
 
 - Versions shared by more than one crate live in `[workspace.dependencies]`
   in the root `Cargo.toml`; bump them there, then run `cargo update`.
-- After any change to `renderer/pnpm-lock.yaml`, refresh the `pnpmDeps` hash
-  in `flake.nix`: set it to `lib.fakeHash`, run `nix build .#renderer-assets`,
+- After any change to `frontend/pnpm-lock.yaml`, refresh the `pnpmDeps` hash
+  in `flake.nix`: set it to `lib.fakeHash`, run `nix build .#frontend-assets`,
   and copy the hash from the mismatch error.
 - The `dioxus` crate version, the `dioxus-cli` pin in
   `.github/workflows/bundle.yml` and the `dioxus-cli` shipped by the pinned

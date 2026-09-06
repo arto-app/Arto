@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use std::fmt;
 
-const TABLER_SPRITE: Asset = asset!("/assets/dist/icons/tabler-sprite.svg");
+const TABLER_SPRITE: Asset = asset!("/assets/frontend/icons/tabler-sprite.svg");
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum IconName {

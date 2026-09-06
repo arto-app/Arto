@@ -20,7 +20,7 @@ updates:
         update-types: [minor, patch]
 
   - package-ecosystem: npm
-    directory: /renderer
+    directory: /frontend
     schedule:
       interval: weekly
     # Adopt a new release only after it has been public for a week, so a

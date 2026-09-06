@@ -66,7 +66,7 @@ jobs:
           # Lockfiles count as flake changes: a new crate may need a native
           # library the Nix build lacks, and a pnpm lockfile change moves the
           # pnpmDeps hash, so both must go through the from-scratch build.
-          if matches '^(flake\.nix|flake\.lock|nix/|Cargo\.lock|renderer/pnpm-lock\.yaml|\.github/workflows/nix\.yml)'; then flake=true; fi
+          if matches '^(flake\.nix|flake\.lock|nix/|Cargo\.lock|frontend/pnpm-lock\.yaml|\.github/workflows/nix\.yml)'; then flake=true; fi
           if matches '(\.md$|^docs/|^lychee\.toml$|^\.github/scripts/)'; then docs=true; fi
           # The bundle verifies packaging inputs, not application code, so
           # the full matrix runs only when those inputs (or a label) ask.
@@ -93,20 +93,20 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: renderer
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      # Reads the pnpm version from renderer/package.json's packageManager.
+      # Reads the pnpm version from frontend/package.json's packageManager.
       - uses: pnpm/action-setup@v6
         with:
-          package_json_file: renderer/package.json
+          package_json_file: frontend/package.json
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: renderer/pnpm-lock.yaml
+          cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       # Formatting is gated here only: oxfmt on the Windows leg used to fail
       # on git's CRLF conversion for reasons unrelated to the change.
@@ -117,7 +117,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: frontend-assets
-          path: crates/arto/assets/dist
+          path: crates/arto/assets/frontend
           if-no-files-found: error
           retention-days: 1
 
@@ -144,7 +144,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: frontend-assets
-          path: crates/arto/assets/dist
+          path: crates/arto/assets/frontend
       - uses: ./.github/actions/setup-toolchain
         with:
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}

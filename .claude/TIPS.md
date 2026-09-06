@@ -1011,7 +1011,7 @@ div {
 
 ### JavaScript Initialization
 
-- **Problem**: `init()` in renderer/src/main.ts only called when opening files, not on window creation
+- **Problem**: `init()` in frontend/src/main.ts only called when opening files, not on window creation
 - **Fix**: Call `init()` in App component's `use_hook` to ensure theme listeners are registered in all windows
 - **Cleanup**: Remove redundant `init()` calls from FileViewer and InlineViewer (DRY principle)
 - **Result**: 90 lines of code removed by centralizing initialization

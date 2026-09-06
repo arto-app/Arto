@@ -1,8 +1,8 @@
 use dioxus::asset_resolver::asset_path;
 use dioxus::prelude::*;
 
-pub static MAIN_SCRIPT: Asset = asset!("/assets/dist/main.js");
-pub static MAIN_STYLE: Asset = asset!("/assets/dist/main.css");
+pub static MAIN_SCRIPT: Asset = asset!("/assets/frontend/main.js");
+pub static MAIN_STYLE: Asset = asset!("/assets/frontend/main.css");
 
 static ARTO_HEADER_IMAGE: Asset = asset!("/assets/arto-header-welcome.png");
 static WELCOME_TEMPLATE: Asset = asset!("/assets/welcome.md");

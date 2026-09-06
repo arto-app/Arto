@@ -66,10 +66,10 @@
             else
               "target/dx/${packageMeta.pname}/release/linux/app";
 
-          renderer-assets = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
-            pname = "${packageMeta.pname}-renderer-assets";
+          frontend-assets = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
+            pname = "${packageMeta.pname}-frontend-assets";
             inherit (packageMeta) version;
-            src = ./renderer;
+            src = ./frontend;
 
             nativeBuildInputs = [
               pkgs.nodejs-slim
@@ -80,9 +80,9 @@
             pnpmDeps = pkgs.fetchPnpmDeps {
               inherit (finalAttrs) pname version src;
               pnpm = pkgs.pnpm_10;
-              # To update this hash when renderer dependencies change:
+              # To update this hash when frontend dependencies change:
               # 1. Change hash to: lib.fakeHash or ""
-              # 2. Run: nix build .#renderer-assets
+              # 2. Run: nix build .#frontend-assets
               # 3. Copy the expected hash from error message
               # 4. Update hash value below
               hash = "sha256-mUf4Evst7LEEtZC+ANGhu/1HTmmyBtCVwL9z9XQ0krs=";
@@ -199,8 +199,8 @@
                 ];
 
               postPatch = ''
-                mkdir -p crates/arto/assets/dist
-                cp -r ${renderer-assets}/* crates/arto/assets/dist/
+                mkdir -p crates/arto/assets/frontend
+                cp -r ${frontend-assets}/* crates/arto/assets/frontend/
               '';
 
               # Use buildPhaseCargoCommand instead of cargoBuildCommand because crane's
@@ -266,7 +266,7 @@
         in
         {
           default = self.packages.${system}.arto;
-          inherit arto renderer-assets;
+          inherit arto frontend-assets;
         }
       );
 
@@ -298,7 +298,7 @@
             craneLib = crane.mkLib pkgs;
           in
           craneLib.devShell {
-            inputsFrom = with self.packages.${system}; [ renderer-assets ];
+            inputsFrom = with self.packages.${system}; [ frontend-assets ];
             packages = [
               # Rust tools (craneLib.devShell provides: cargo, rustc, rustfmt, clippy)
               # We only add additional tools not included by default:
@@ -318,7 +318,7 @@
               # Dioxus desktop development
               pkgs.dioxus-cli
 
-              # TypeScript/renderer development (renderer/)
+              # TypeScript/frontend development (frontend/)
               pkgs.nodejs-slim
               pkgs.pnpm_10
 
