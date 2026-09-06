@@ -1,0 +1,8 @@
+---
+source: crates/arto-markdown/tests/samples.rs
+expression: outline(&headings)
+input_file: samples/04-frontmatter.md
+---
+1 "Frontmatter" #frontmatter
+2 "Source lines after frontmatter" #source-lines-after-frontmatter
+2 "Body content is unaffected" #body-content-is-unaffected

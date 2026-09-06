@@ -93,6 +93,33 @@ Links to other documents:
 a normal document link but clicking it does nothing; the last two are dimmed.
 Anchors on document links are not followed.
 
+### Bare URLs next to other syntax
+
+Where a bare URL meets emphasis, link syntax, quotes or an indented code
+block, engines disagree. Each case below is written so that its correct
+rendering is unambiguous.
+
+- Emphasized: *https://example.com/emphasized*
+- Inside link text: [see https://example.com/inner](https://example.com/outer)
+- In double quotes: "https://example.com/quoted"
+- In single quotes: 'https://example.com/single'
+- Followed by an ellipsis: https://example.com/ellipsis...
+- Followed by a full-width comma: https://example.com/fullwidth、続き
+
+An indented code block containing a URL:
+
+    https://example.com/indented
+
+**Expected:** the emphasized URL is an italic link, the link text is
+plain text inside a single link to `example.com/outer`, the quoted URLs
+link without the closing quote, the ellipsis and the comma stay outside the
+link, and the indented block shows the URL as plain code.
+**Arto:** the emphasized and quoted forms may render as text or as a link
+with the closing punctuation inside it, the link-in-link-text form may break
+the outer link, and the indented block may show `<…>` around the URL; all
+of these depend on the engine and are fixed in the snapshot so a change is
+visible.
+
 ## Images
 
 Remote image:

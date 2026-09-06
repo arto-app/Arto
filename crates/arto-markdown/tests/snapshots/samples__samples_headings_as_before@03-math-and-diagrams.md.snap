@@ -1,0 +1,24 @@
+---
+source: crates/arto-markdown/tests/samples.rs
+expression: outline(&headings)
+input_file: samples/03-math-and-diagrams.md
+---
+1 "Math and Diagrams" #math-and-diagrams
+2 "Inline math" #inline-math
+3 "Math that contains Markdown punctuation" #math-that-contains-markdown-punctuation
+3 "Math inside other inline syntax" #math-inside-other-inline-syntax
+3 "Not math" #not-math
+3 "Math in table cells" #math-in-table-cells
+2 "Display math" #display-math
+3 "Display math edge cases" #display-math-edge-cases
+2 "Mermaid" #mermaid
+3 "Flowchart" #flowchart
+3 "Sequence" #sequence
+3 "Class" #class
+3 "State" #state
+3 "Entity relationship" #entity-relationship
+3 "Gantt" #gantt
+3 "Git graph" #git-graph
+3 "Pie and mindmap" #pie-and-mindmap
+3 "Wide diagram" #wide-diagram
+3 "Invalid diagram" #invalid-diagram
