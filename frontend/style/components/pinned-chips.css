@@ -1,0 +1,188 @@
+/* ============================================
+   Pinned Chips Component
+   ============================================ */
+
+.pinned-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Pinned chip */
+.pinned-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.pinned-chip.disabled .pinned-chip-body,
+.pinned-chip.disabled .pinned-chip-remove {
+  opacity: 0.35;
+}
+
+.pinned-chip.disabled .pinned-chip-body {
+  text-decoration: line-through;
+}
+
+/* Dim background color for disabled chips */
+.pinned-chip.disabled.highlight-green {
+  background-color: color-mix(in srgb, var(--pinned-green) 35%, transparent);
+}
+.pinned-chip.disabled.highlight-blue {
+  background-color: color-mix(in srgb, var(--pinned-blue) 35%, transparent);
+}
+.pinned-chip.disabled.highlight-pink {
+  background-color: color-mix(in srgb, var(--pinned-pink) 35%, transparent);
+}
+.pinned-chip.disabled.highlight-orange {
+  background-color: color-mix(in srgb, var(--pinned-orange) 35%, transparent);
+}
+.pinned-chip.disabled.highlight-purple {
+  background-color: color-mix(in srgb, var(--pinned-purple) 35%, transparent);
+}
+
+.pinned-chip-body {
+  padding: 2px 4px 2px 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: inherit;
+}
+
+.pinned-chip-body:hover {
+  opacity: var(--opacity-hover);
+}
+
+.pinned-chip-remove {
+  padding: 2px 6px 2px 2px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: var(--opacity-muted);
+  font-size: var(--font-size-base);
+  line-height: 1;
+  color: inherit;
+}
+
+.pinned-chip-remove:hover {
+  opacity: 1;
+}
+
+/* Chip background colors */
+.pinned-chip.highlight-green {
+  background-color: var(--pinned-green);
+}
+.pinned-chip.highlight-blue {
+  background-color: var(--pinned-blue);
+}
+.pinned-chip.highlight-pink {
+  background-color: var(--pinned-pink);
+}
+.pinned-chip.highlight-orange {
+  background-color: var(--pinned-orange);
+}
+.pinned-chip.highlight-purple {
+  background-color: var(--pinned-purple);
+}
+
+/* ============================================
+   Color Palette Popover
+   ============================================ */
+
+.color-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-pinned-chips);
+}
+
+.color-palette-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  padding: 6px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.color-palette-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.color-palette-swatch:hover {
+  transform: scale(1.1);
+}
+
+.color-palette-swatch.selected {
+  border-color: var(--bg-color);
+  box-shadow: 0 0 0 2px var(--text-color);
+}
+
+.color-palette-swatch.highlight-green {
+  background-color: #4caf50;
+}
+.color-palette-swatch.highlight-blue {
+  background-color: #00bcd4;
+}
+.color-palette-swatch.highlight-pink {
+  background-color: #e91e63;
+}
+.color-palette-swatch.highlight-orange {
+  background-color: #ff9800;
+}
+.color-palette-swatch.highlight-purple {
+  background-color: #9c27b0;
+}
+
+.color-palette-separator {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color);
+  margin: 0 2px;
+  align-self: center;
+}
+
+.color-palette-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-primary);
+  opacity: var(--opacity-secondary);
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.color-palette-action .icon {
+  display: block;
+}
+
+.color-palette-action:hover {
+  background: var(--hover-bg);
+  opacity: 1;
+}
+
+.color-palette-remove:hover {
+  background: rgba(220, 53, 69, 0.15);
+  color: var(--error-color);
+}

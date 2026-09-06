@@ -41,25 +41,27 @@ crates/arto/src/
 **When a module grows beyond ~300 lines, split it:**
 
 ```
-crates/arto/src/config/
-  ├── config.rs       # Entry point (re-exports only)
-  ├── types.rs        # Type definitions
-  ├── persistence.rs  # File I/O
-  └── getters.rs      # Business logic
+crates/arto-config/src/
+  ├── lib.rs          # Entry point (module declarations, re-exports, Config)
+  ├── theme_config.rs # One file per configuration section
+  ├── ...
+  └── persistence.rs  # File I/O
 ```
 
 **Pattern for entry point:**
 ```rust
-// config.rs - NO implementation, only re-exports
-mod types;
-pub use types::*;
-
+// lib.rs - declarations and re-exports, no business logic
 mod persistence;
-pub use persistence::CONFIG;
+mod theme_config;
 
-mod getters;
-pub use getters::{get_startup_theme, get_new_window_theme};
+pub use persistence::*;
+pub use theme_config::*;
 ```
+
+When a section outgrows the app, promote it to a crate instead of a deeper
+module tree: the configuration types live in `arto-config` so consumers other
+than the app, such as `arto page` or the Quick Look extension, can load the
+same `config.json` without depending on the Dioxus app.
 
 ### Avoid Over-Abstraction
 
@@ -223,14 +225,12 @@ use_effect(move || {
     });
 });
 
-// ✓ spawn_forever() - Infinite event loop (NEVER returns)
-use_effect(move || {
+// ✓ use_future() - Listener that lives as long as the component
+use_future(move || async move {
     let mut rx = BROADCAST.subscribe();
-    spawn_forever(async move {
-        while let Ok(event) = rx.recv().await {
-            handle(event);
-        }
-    });
+    while let Ok(event) = rx.recv().await {
+        handle(event);
+    }
 });
 
 // ✓ use_drop() - Cleanup (synchronous only!)
@@ -240,7 +240,7 @@ use_drop(move || {
 });
 ```
 
-**Critical:** `spawn_forever()` is for infinite loops that should never block. Use for broadcast channel listeners.
+**Critical:** `use_future()` is cancelled when the component drops, so a broadcast listener stops with its window. `spawn_forever()` would keep running and write to dropped signals; do not use it in components.
 
 ### Dynamic Text in RSX
 
@@ -546,7 +546,7 @@ tracing::debug!("Processing batch of {} items", items.len());
 - Use request/response patterns for fire-and-forget operations
 - Implement acknowledgment systems for desktop app window communication
 
-**Note:** This refers to broadcast channels between windows WITHIN the same process. For inter-process IPC (secondary → primary instance), see `crates/arto/src/ipc.rs`.
+**Note:** This refers to broadcast channels between windows WITHIN the same process. For inter-process IPC (secondary → primary instance), see the `arto-ipc` crate (protocol and socket) and `crates/arto/src/ipc.rs` (queueing and window handling).
 
 **✅ Do:**
 ```rust
@@ -1005,13 +1005,13 @@ div {
 ### Dioxus Signal Lifetime Issues
 
 - **spawn_forever Warning**: Using `spawn_forever` with component-scoped signals causes lifetime warnings because task outlives component
-- **Solution**: Use `use_hook` + `spawn` instead - task is automatically cancelled when component drops
-- **When spawn_forever IS correct**: Only for app-lifetime components like MainApp that live until app quits
-- **Pattern**: `use_effect` + `spawn` for reactive listeners, `use_hook` + `spawn` for one-time infinite loops
+- **Solution**: Use `use_future` (or `use_hook` + `spawn`) instead - task is automatically cancelled when component drops
+- **Pattern**: `use_effect` + `spawn` for reactive work, `use_future` for listeners that run for the component's lifetime
+- **Changing props in effects**: take the prop as `ReadSignal<T>` and read it inside the effect; that subscribes the effect without `use_reactive!`
 
 ### JavaScript Initialization
 
-- **Problem**: `init()` in renderer/src/main.ts only called when opening files, not on window creation
+- **Problem**: `init()` in frontend/src/main.ts only called when opening files, not on window creation
 - **Fix**: Call `init()` in App component's `use_hook` to ensure theme listeners are registered in all windows
 - **Cleanup**: Remove redundant `init()` calls from FileViewer and InlineViewer (DRY principle)
 - **Result**: 90 lines of code removed by centralizing initialization

@@ -1,0 +1,17 @@
+# zizmor policy for `just workflows` and the CI workflows job.
+# https://docs.zizmor.sh/configuration/
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # Actions are pinned to release tags, which Dependabot keeps current;
+        # a hash pin would need a comment per line to stay reviewable and
+        # buys little for the first-party and widely used actions in use.
+        "*": ref-pin
+  # `./.github/...` is the documented way to call a local action or reusable
+  # workflow; the `$/` spelling zizmor suggests is left until it is the norm.
+  self-repository:
+    ignore:
+      - ci.yml
+      - bundle.yml
+      - release.yml

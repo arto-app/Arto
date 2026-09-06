@@ -90,10 +90,6 @@ pub fn SearchBar() -> Element {
     let is_open = *state.search_open.read();
     let match_count = *state.search_match_count.read();
     let current_index = *state.search_current_index.read();
-    let initial_text = state.search_initial_text.read().clone();
-    // Bumped on every open-search request so re-pressing the shortcut refocuses
-    // the input even when the bar is already open.
-    let focus_request = *state.search_focus_request.read();
     let mut has_input = use_signal(|| false);
 
     // Local signal for pinned searches (updated via broadcast)
@@ -119,11 +115,14 @@ pub fn SearchBar() -> Element {
         }
     });
 
-    // Handle focus and initial text when search bar opens.
-    // `focus_request` is a reactive trigger: it re-runs this effect on every
-    // open-search request, even when `is_open`/`initial_text` are unchanged.
-    use_effect(use_reactive!(|is_open, initial_text, focus_request| {
-        let _ = focus_request;
+    // Handle focus and initial text when search bar opens. The effect
+    // subscribes to the signals it reads; `search_focus_request` is bumped on
+    // every open-search request so re-pressing the shortcut refocuses the
+    // input even when the bar is already open with the same text.
+    use_effect(move || {
+        let is_open = *state.search_open.read();
+        let initial_text = state.search_initial_text.read().clone();
+        let _ = state.search_focus_request.read();
         if is_open {
             if let Some(ref text) = initial_text {
                 if !text.is_empty() {
@@ -160,18 +159,18 @@ pub fn SearchBar() -> Element {
                 });
             }
         }
-    }));
+    });
 
     // Move focus away from search input after closing the search bar.
     // Without explicit body focus, keyboard shortcuts stop working because
     // keydown events may not reach the document-level interceptor.
-    use_effect(use_reactive!(|is_open| {
-        if !is_open {
+    use_effect(move || {
+        if !*state.search_open.read() {
             spawn(async move {
                 let _ = document::eval(JS_BLUR_TO_BODY).await;
             });
         }
-    }));
+    });
 
     rsx! {
         div {

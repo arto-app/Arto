@@ -14,12 +14,39 @@ fmt:
   cargo fmt --all
 
 check:
-  cargo check --workspace --all-targets
-  cargo clippy --workspace --all-targets -- -D warnings
+  cargo check --workspace --all-targets --all-features
+  cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 test:
-  cargo test --workspace --all-targets
+  cargo test --workspace --all-targets --all-features
   cargo test --workspace --doc
+
+# What CI runs instead of `test`: nextest retries only the tests that
+# failed (a few macOS tests depend on the window server and flake in a
+# headless run), and reports per-test timing. Doctests are not run by
+# nextest, so they follow separately.
+test-ci:
+  cargo nextest run --workspace --all-targets --all-features --retries 2 --no-fail-fast
+  cargo test --workspace --doc
+
+# Documentation must build without warnings: a broken intra-doc link or a
+# public item linking to a private one is an error here.
+doc:
+  RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
+
+# Every feature combination the library crates are consumed with must build
+# on its own. `check` only covers `--all-features`; the Quick Look static
+# library, for one, is built with `--no-default-features --features ffi`.
+features:
+  cargo hack check --each-feature --no-dev-deps -p arto-markdown -p arto-keybindings -p arto-config -p arto-ipc -p arto-page
+
+# Advisories, licenses and duplicate majors, per deny.toml at the root.
+deny:
+  cargo deny --workspace check
+
+# Declared dependencies nothing imports.
+machete:
+  cargo machete
 
 verify: fmt check test
 
@@ -54,15 +81,15 @@ _apply-bundle-metadata:
   app="{{target}}/dx/arto/release/macos/Arto.app"
   version="$(perl -ne 'print $1 and exit if /^version = "(.*)"/' "{{root}}/Cargo.toml")"
   # Canonical Info.plist carries the file-type associations and high-DPI flag.
-  cp "{{root}}/extras/mac/Info.plist" "$app/Contents/Info.plist"
+  cp "{{root}}/platform/macos/bundle/Info.plist" "$app/Contents/Info.plist"
   # Stamp the real version (CI patches Cargo.toml for releases; local stays 0.0.0).
   /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${version}" \
     "$app/Contents/Info.plist"
   # The plist references CFBundleIconFile = Arto → the bundle needs Arto.icns.
-  cp "{{root}}/extras/mac/Arto.icns" "$app/Contents/Resources/Arto.icns"
+  cp "{{root}}/platform/macos/bundle/Arto.icns" "$app/Contents/Resources/Arto.icns"
   echo "Applied canonical Info.plist (version ${version}) and app icon"
 
-# Build the Quick Look preview extension (Swift shim + Rust `arto_ql` static
+# Build the Quick Look preview extension (Swift shim + Rust `arto_page` static
 # library) and embed it at Contents/PlugIns/ArtoQuickLook.appex so macOS
 # discovers it for Quick Look and the Finder preview pane.
 #
@@ -80,19 +107,20 @@ _embed-quicklook:
   app="{{target}}/dx/arto/release/macos/Arto.app"
   appex="$app/Contents/PlugIns/ArtoQuickLook.appex"
   arch="$(uname -m)"
-  ql="{{root}}/ql-extension"
-  echo "Building arto_ql static library…"
-  cargo build --release -p arto-ql
+  ql="{{root}}/platform/macos/quicklook"
+  echo "Building arto_page static library…"
+  # Only the C ABI is wanted here; default features would add the clap CLI.
+  cargo build --release -p arto-page --lib --no-default-features --features ffi
   echo "Compiling Swift Quick Look preview extension…"
   mkdir -p "$appex/Contents/MacOS"
   # The nix devshell sets SDKROOT to a nixpkgs SDK that is incompatible with
   # Apple's /usr/bin/swiftc; unset it so swiftc uses the Command Line Tools SDK.
   env -u SDKROOT -u DEVELOPER_DIR -u MACOSX_DEPLOYMENT_TARGET /usr/bin/swiftc \
     "$ql/PreviewViewController.swift" \
-    -import-objc-header "$ql/arto_ql-Bridging.h" \
+    -import-objc-header "$ql/arto_page-Bridging.h" \
     -target "${arch}-apple-macos12.0" -O \
     -framework Cocoa -framework QuickLookUI -framework WebKit \
-    -L "{{target}}/release" -larto_ql \
+    -L "{{target}}/release" -larto_page \
     -Xlinker -e -Xlinker _NSExtensionMain \
     -o "$appex/Contents/MacOS/ArtoQuickLook"
   cp "$ql/Info.plist" "$appex/Contents/Info.plist"
@@ -174,7 +202,7 @@ build:
 # Reject a bundle that carries build-environment dependencies
 [macos]
 verify-bundle:
-  "{{root}}/scripts/verify-macos-bundle.sh" "{{target}}/dx/arto/release/macos/Arto.app" arto
+  "{{root}}/platform/macos/verify-bundle.sh" "{{target}}/dx/arto/release/macos/Arto.app" arto
 
 [linux]
 verify-bundle:
@@ -198,7 +226,7 @@ verify-bundle:
     exit 1
   fi
   for artifact in "${debs[@]}" "${appimages[@]}"; do
-    "{{root}}/scripts/verify-linux-bundle.sh" "$artifact" arto
+    "{{root}}/platform/linux/verify-bundle.sh" "$artifact" arto
   done
 
 [macos]

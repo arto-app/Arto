@@ -6,7 +6,7 @@ name: "Update flake.lock"
 #
 # The PR is created with the workflow's own GITHUB_TOKEN, and GitHub does not
 # start workflows for events caused by that token (a guard against recursive
-# runs). So the Build workflow, including nix-check, does NOT run on the PR by
+# runs). So the CI workflow, including the Nix build, does NOT run on the PR by
 # itself: close and reopen it, or push to it, to get CI. Supplying a personal
 # access token via the action's `token` input would lift that restriction.
 on:
@@ -23,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: nixbuild/nix-quick-install-action@v35
       - uses: DeterminateSystems/update-flake-lock@v28
         with:

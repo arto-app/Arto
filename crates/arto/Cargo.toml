@@ -1,24 +1,32 @@
 [package]
 name = "arto"
+description = "Arto, the Art of Reading Markdown"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+# Assets are resolved next to the executable at run time, so a `cargo
+# install`ed binary would start without its stylesheet and bundle. Keep the
+# app off crates.io until the assets are embedded.
+publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow.workspace = true
 arboard = "3.6.1"
+arto-config = { path = "../arto-config" }
+arto-ipc = { path = "../arto-ipc" }
+arto-keybindings = { path = "../arto-keybindings" }
 arto-markdown = { path = "../arto-markdown" }
+arto-page = { path = "../arto-page" }
 base64.workspace = true
 dark-light = "3.0.0"
 chrono = { version = "0.4", features = ["serde"] }
-clap = { version = "4", features = ["derive"] }
+clap.workspace = true
 compile-time = "0.3"
-dirs = "7.0.0"
-interprocess = { version = "2.4", features = ["tokio"] }
+dirs.workspace = true
 dioxus = { version = "0.7.10", features = ["desktop"] }
 dioxus-desktop = "0.7.10"
 dioxus-sdk-window = "0.7.0"
@@ -26,17 +34,15 @@ dotenvy = "0.15.7"
 html-escape.workspace = true
 image = "0.25.10"
 indoc.workspace = true
-lol_html.workspace = true
 notify-debouncer-full = "0.7.0"
 open = "5.4.3"
 parking_lot = "0.12"
 percent-encoding = "2.3"
-pulldown-cmark.workspace = true
 rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal"] }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0"
+serde.workspace = true
+serde_json.workspace = true
 sha2.workspace = true
-thiserror = "2.0.18"
+thiserror.workspace = true
 tokio = { version = "1.52.3", features = ["time"] }
 tracing.workspace = true
 ureq = "3.4"
@@ -47,7 +53,6 @@ mouse_position = "0.1.4"
 
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.4"
-libc = "0.2.186"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.4"

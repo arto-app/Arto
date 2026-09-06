@@ -79,7 +79,9 @@ fn read_sorted_entries(path: &PathBuf) -> Vec<FileEntry> {
 #[component]
 pub fn FileExplorer(on_pin_toggle: Option<EventHandler<()>>) -> Element {
     let state = use_context::<AppState>();
-    let root_directory = state.sidebar.read().root_directory.clone();
+    // A memo rather than a plain read: the watcher below must restart only
+    // when the root changes, not on every other sidebar field update.
+    let root_directory = use_memo(move || state.sidebar.read().root_directory.clone());
 
     // Refresh counter to force DirectoryTree re-render. Sourced from AppState
     // (not a local signal) so the hoisted context menu's "Reload" action can
@@ -87,14 +89,14 @@ pub fn FileExplorer(on_pin_toggle: Option<EventHandler<()>>) -> Element {
     let refresh_counter = state.sidebar_refresh_counter;
 
     // Watch directory for file system changes
-    use_directory_watcher(root_directory.clone(), refresh_counter);
+    use_directory_watcher(root_directory.into(), refresh_counter);
 
     rsx! {
         div {
             class: "left-sidebar-explorer",
             key: "{refresh_counter}",
 
-            if let Some(root) = root_directory {
+            if let Some(root) = root_directory() {
                 DirectoryNavigation { current_dir: root.clone(), on_pin_toggle }
                 DirectoryTree { path: root, refresh_counter }
             } else {
@@ -380,13 +382,19 @@ fn DirectoryTree(path: PathBuf, refresh_counter: Signal<u32>) -> Element {
 /// - `path` changes (user navigates to a different directory)
 /// - `refresh_counter` increments (file watcher detects filesystem changes)
 #[component]
-fn DirectoryChildren(path: PathBuf, depth: usize, refresh_counter: Signal<u32>) -> Element {
+fn DirectoryChildren(
+    path: ReadSignal<PathBuf>,
+    depth: usize,
+    refresh_counter: Signal<u32>,
+) -> Element {
     // Watch expanded directories only (non-recursive) to avoid broad permission access.
-    use_directory_watcher(Some(path.clone()), refresh_counter);
+    let watched = use_memo(move || Some(path()));
+    use_directory_watcher(watched.into(), refresh_counter);
 
     // Subscribe to the signal so Dioxus re-runs this component when the
     // counter increments (file watcher detected filesystem changes).
     let _ = refresh_counter.read();
+    let path = path();
     let children = read_sorted_entries(&path);
     rsx! {
         for child in children {
@@ -784,11 +792,12 @@ pub fn SidebarContextMenuHost() -> Element {
 }
 
 /// Hook to watch a directory for file system changes and trigger refresh
-fn use_directory_watcher(directory: Option<PathBuf>, mut refresh_counter: Signal<u32>) {
+fn use_directory_watcher(directory: ReadSignal<Option<PathBuf>>, mut refresh_counter: Signal<u32>) {
     // Cancellation signal for the currently active watcher task.
     let mut stop_tx = use_signal(|| None::<oneshot::Sender<()>>);
 
-    use_effect(use_reactive!(|directory| {
+    use_effect(move || {
+        let directory = directory();
         // Cancel previous watcher when target directory changes.
         if let Some(tx) = stop_tx.write().take() {
             let _ = tx.send(());
@@ -829,7 +838,7 @@ fn use_directory_watcher(directory: Option<PathBuf>, mut refresh_counter: Signal
 
             let _ = FILE_WATCHER.unwatch_directory_non_recursive(dir).await;
         });
-    }));
+    });
 
     // Ensure watcher task gets cancelled when component unmounts.
     use_drop(move || {

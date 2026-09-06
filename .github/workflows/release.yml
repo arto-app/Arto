@@ -1,0 +1,163 @@
+name: "Release"
+
+# On a published GitHub release: bundle every leg with the release version,
+# attach the installers to the release, and tell the Homebrew tap.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    uses: ./.github/workflows/bundle.yml
+    with:
+      version: ${{ github.event.release.tag_name }}
+
+  release:
+    needs: bundle
+    runs-on: macos-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          path: ./artifacts
+      - run: find .
+      - name: Build release body
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          # Get existing release notes (handle null case)
+          gh release view "$TAG" --json body -q '.body // ""' > release_body.md
+
+          # Remove existing installation block if present (for idempotency)
+          perl -i -0777 -pe 's/<!-- ARTO_INSTALLATION_START -->.*?<!-- ARTO_INSTALLATION_END -->//gs' release_body.md
+
+          # Append fresh installation instructions with markers
+          cat >> release_body.md << BODY_EOF
+
+          ---
+
+          <!-- ARTO_INSTALLATION_START -->
+          ## macOS Installation
+
+          ### Installation Steps (2 Security Approvals Required)
+
+          Due to Apple's security requirements, you'll need to approve **both the DMG file and the app itself**.
+
+          #### Step 1: Open the DMG File
+
+          1. **Download** the \`Arto_*.dmg\` file from the Assets section below
+          2. **Double-click the DMG file**
+             - Security warning appears: *"Apple cannot verify that this disk image does not contain malware"*
+             - Click "OK" to dismiss
+          3. **Open System Settings**
+             - Apple menu () → System Settings → Privacy & Security
+          4. **Allow the DMG** (in Security section at bottom)
+             - You'll see: *"Arto_*.dmg" was blocked from use*
+             - Click **"Open Anyway"** button
+             - Enter your password
+             - The DMG will now open
+
+          #### Step 2: Install and Open the App
+
+          5. **Copy the app**
+             - Drag **Arto.app** from the DMG to your **Applications** folder
+          6. **Double-click Arto.app** to launch
+             - Security warning appears again: *"Arto cannot be opened because..."*
+             - Click "OK" to dismiss
+          7. **Allow the app** (same process as DMG)
+             - Open System Settings → Privacy & Security
+             - Scroll to Security section
+             - Find: *"Arto" was blocked from use*
+             - Click **"Open Anyway"**
+             - Enter your password
+          8. **Launch complete**
+             - Arto will now start normally
+             - Future launches won't require approval
+
+          ### Why Two Approvals Are Needed
+
+          macOS treats the DMG container and the app inside separately. Since both are unsigned,
+          each requires manual approval through System Settings. This is standard macOS security
+          for applications without Apple Developer ID certificates.
+
+          ### Quick Method (Terminal - for advanced users)
+
+          \`\`\`bash
+          # Remove quarantine from DMG
+          xattr -d com.apple.quarantine Arto_*.dmg
+          open Arto_*.dmg
+
+          # After copying to Applications, remove quarantine from app
+          xattr -cr /Applications/Arto.app
+          open /Applications/Arto.app
+          \`\`\`
+
+          ### Note for macOS Sequoia (15.0+) Users
+
+          The right-click → "Open" shortcut no longer works for unsigned apps.
+          You must use System Settings → Privacy & Security as described above.
+
+          ---
+
+          For more information, see the [README](https://github.com/${REPO}).
+          <!-- ARTO_INSTALLATION_END -->
+          BODY_EOF
+      - uses: ncipollo/release-action@v1.21.0
+        with:
+          tag: ${{ github.event.release.tag_name }}
+          allowUpdates: true
+          # Lenient so a missing Linux artifact or Windows installer (tolerated
+          # build failures) does not block the release. The macOS .dmg is
+          # still effectively required: the release only runs after the
+          # mandatory macOS build, and the dispatch job fails if the aarch64
+          # DMG is absent.
+          artifactErrorsFailBuild: false
+          artifacts: ./artifacts/**/*.dmg,./artifacts/**/*.deb,./artifacts/**/*.AppImage,./artifacts/**/*-setup.exe
+          removeArtifacts: true
+          makeLatest: true
+          bodyFile: release_body.md
+
+  dispatch:
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download release asset
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          VERSION_NO_V="${TAG#v}"
+          ASSET_NAME="Arto_${VERSION_NO_V}_aarch64.dmg"
+          DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/${ASSET_NAME}"
+
+          echo "Downloading ${ASSET_NAME} from ${DOWNLOAD_URL}"
+          # --fail: an HTTP error must stop the job, or the tap would be
+          # handed the checksum of an error page.
+          curl --fail --location --retry 3 --retry-delay 5 -o "${ASSET_NAME}" "${DOWNLOAD_URL}"
+
+          # Calculate SHA256
+          SHA256=$(sha256sum "${ASSET_NAME}" | cut -d' ' -f1)
+          echo "SHA256: ${SHA256}"
+
+          # Export for next step
+          echo "VERSION=${TAG}" >> "$GITHUB_ENV"
+          echo "SHA256=${SHA256}" >> "$GITHUB_ENV"
+      - name: Dispatch to Homebrew tap
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
+          repository: arto-app/homebrew-tap
+          event-type: update
+          client-payload: '{"version": "${{ env.VERSION }}", "sha256": "${{ env.SHA256 }}"}'

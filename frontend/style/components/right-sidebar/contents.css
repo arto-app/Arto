@@ -1,0 +1,80 @@
+/* ========================================
+   Right Sidebar Contents Tab (TOC)
+   ======================================== */
+
+.right-sidebar-contents {
+  padding-top: 8px;
+  padding-bottom: 16px;
+}
+
+.right-sidebar-contents-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.right-sidebar-contents-item {
+  padding: 0;
+}
+
+.right-sidebar-contents-item-button {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: var(--opacity-hover);
+  transition:
+    opacity var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.right-sidebar-contents-item-button:hover {
+  opacity: 1;
+  background: var(--hover-bg);
+}
+
+/* Heading level indentation */
+.right-sidebar-contents-item[data-level="1"] .right-sidebar-contents-item-button {
+  padding-left: 16px;
+  font-weight: 600;
+}
+.right-sidebar-contents-item[data-level="2"] .right-sidebar-contents-item-button {
+  padding-left: 24px;
+  font-weight: 500;
+}
+.right-sidebar-contents-item[data-level="3"] .right-sidebar-contents-item-button {
+  padding-left: 32px;
+}
+.right-sidebar-contents-item[data-level="4"] .right-sidebar-contents-item-button {
+  padding-left: 40px;
+  font-size: var(--font-size-sm);
+}
+.right-sidebar-contents-item[data-level="5"] .right-sidebar-contents-item-button {
+  padding-left: 48px;
+  font-size: var(--font-size-sm);
+}
+.right-sidebar-contents-item[data-level="6"] .right-sidebar-contents-item-button {
+  padding-left: 56px;
+  font-size: var(--font-size-sm);
+}
+
+/* Keyboard cursor highlight */
+.right-sidebar-contents-item.keyboard-focused > .right-sidebar-contents-item-button {
+  background-color: color-mix(in srgb, var(--accent-bg) 12%, transparent);
+  opacity: 1;
+}
+
+/* Empty state */
+.right-sidebar-contents-empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--text-secondary);
+}

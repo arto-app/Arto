@@ -18,10 +18,12 @@
       crane,
     }:
     let
+      # No x86_64-darwin: nixpkgs dropped it in 26.11, so the pinned
+      # nixpkgs-unstable input cannot evaluate packages for it, and the
+      # release DMG has only ever been built for Apple silicon.
       systems = [
         "aarch64-darwin"
         "aarch64-linux"
-        "x86_64-darwin"
         "x86_64-linux"
       ];
       eachSystem = nixpkgs.lib.genAttrs systems;
@@ -64,10 +66,10 @@
             else
               "target/dx/${packageMeta.pname}/release/linux/app";
 
-          renderer-assets = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
-            pname = "${packageMeta.pname}-renderer-assets";
+          frontend-assets = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
+            pname = "${packageMeta.pname}-frontend-assets";
             inherit (packageMeta) version;
-            src = ./renderer;
+            src = ./frontend;
 
             nativeBuildInputs = [
               pkgs.nodejs-slim
@@ -78,9 +80,9 @@
             pnpmDeps = pkgs.fetchPnpmDeps {
               inherit (finalAttrs) pname version src;
               pnpm = pkgs.pnpm_10;
-              # To update this hash when renderer dependencies change:
+              # To update this hash when frontend dependencies change:
               # 1. Change hash to: lib.fakeHash or ""
-              # 2. Run: nix build .#renderer-assets
+              # 2. Run: nix build .#frontend-assets
               # 3. Copy the expected hash from error message
               # 4. Update hash value below
               hash = "sha256-mUf4Evst7LEEtZC+ANGhu/1HTmmyBtCVwL9z9XQ0krs=";
@@ -116,11 +118,17 @@
                 (root + /clippy.toml)
                 (root + /crates/arto/assets)
                 (root + /crates/arto/Dioxus.toml)
-                (root + /crates/arto/src/keybindings/presets)
+                # Keybinding presets are JSON embedded with include_str!, which
+                # commonCargoSources (Rust sources only) leaves out.
+                (root + /crates/arto-keybindings/src/presets)
                 (lib.fileset.maybeMissing (root + /crates/arto/VERSION))
-                # Dioxus.toml references the icon, Info.plist and LICENSE by
-                # relative path from the app crate.
-                (root + /extras)
+                # Dioxus.toml references the icon, Info.plist, the NSIS hook
+                # and LICENSE by relative path from the app crate. Only those
+                # subtrees are included: the Quick Look shim and the bundle
+                # verifiers under platform/ play no part in the Nix build, so
+                # editing them must not invalidate the cargo artifacts.
+                (root + /platform/macos/bundle)
+                (root + /platform/windows)
                 (root + /LICENSE)
               ];
             };
@@ -147,20 +155,20 @@
           cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
           # Build-time wrappers for macOS commands
-          # See scripts/codesign-wrapper.sh and scripts/xattr-wrapper.sh for details
+          # See nix/codesign-wrapper.sh and nix/xattr-wrapper.sh for details
           codesignWrapper = pkgs.writeShellScriptBin "codesign" (
             builtins.replaceStrings
               [ "@CODESIGN_BIN@" ]
               [ "${pkgs.darwin.sigtool}/bin/codesign" ]
-              (builtins.readFile ./scripts/codesign-wrapper.sh)
+              (builtins.readFile ./nix/codesign-wrapper.sh)
           );
 
           xattrWrapper = pkgs.writeShellScriptBin "xattr" (
-            builtins.readFile ./scripts/xattr-wrapper.sh
+            builtins.readFile ./nix/xattr-wrapper.sh
           );
 
           # NOTE: The macOS Quick Look preview extension (Swift shim + Rust
-          # `arto_ql` static library) is assembled and embedded by the
+          # `arto_page` static library) is assembled and embedded by the
           # `dx bundle` path in `crates/arto/justfile` (`_embed-quicklook`), which
           # runs on the macOS CI runner with the full Command Line Tools. The
           # Nix build intentionally does not build or embed it.
@@ -193,8 +201,11 @@
                 ];
 
               postPatch = ''
-                mkdir -p crates/arto/assets/dist
-                cp -r ${renderer-assets}/* crates/arto/assets/dist/
+                mkdir -p crates/arto/assets/frontend crates/arto-page/assets/frontend
+                cp -r ${frontend-assets}/* crates/arto/assets/frontend/
+                # The page crate embeds only the stylesheet and the IIFE bundle.
+                cp ${frontend-assets}/main.css ${frontend-assets}/main.iife.js \
+                  crates/arto-page/assets/frontend/
               '';
 
               # Use buildPhaseCargoCommand instead of cargoBuildCommand because crane's
@@ -257,10 +268,32 @@
               '';
             }
           );
+
+          # The standalone page renderer: a plain cargo binary, no Dioxus, no
+          # bundle. It embeds the same frontend stylesheet and IIFE bundle as
+          # the app, so it shares the frontend-assets derivation and the
+          # dependency artifacts; only the install step differs from `arto`.
+          arto-page = craneLib.buildPackage (
+            commonArgs
+            // {
+              pname = "arto-page";
+              inherit (packageMeta) version;
+              inherit cargoArtifacts;
+              doCheck = false;
+
+              postPatch = ''
+                mkdir -p crates/arto-page/assets/frontend
+                cp ${frontend-assets}/main.css ${frontend-assets}/main.iife.js \
+                  crates/arto-page/assets/frontend/
+              '';
+
+              cargoExtraArgs = "-p arto-page --bin arto-page";
+            }
+          );
         in
         {
           default = self.packages.${system}.arto;
-          inherit arto renderer-assets;
+          inherit arto arto-page frontend-assets;
         }
       );
 
@@ -268,7 +301,7 @@
         system:
         let
           # Access packageMeta from packages let-binding
-          inherit (self.packages.${system}) arto;
+          inherit (self.packages.${system}) arto arto-page;
           pkgs = nixpkgs.legacyPackages.${system};
           appBundleName = "Arto.app";
           appExecutableName = "arto";
@@ -282,6 +315,11 @@
               else
                 "${arto}/bin/${appExecutableName}";
           };
+          # `nix run github:arto-app/Arto#arto-page -- README.md > README.html`
+          arto-page = {
+            type = "app";
+            program = "${arto-page}/bin/arto-page";
+          };
         }
       );
 
@@ -292,16 +330,27 @@
             craneLib = crane.mkLib pkgs;
           in
           craneLib.devShell {
-            inputsFrom = with self.packages.${system}; [ renderer-assets ];
+            inputsFrom = with self.packages.${system}; [ frontend-assets ];
             packages = [
-              # Rust tools (craneLib.devShell provides: cargo, rustc, rustfmt, clippy, cargo-nextest)
+              # Rust tools (craneLib.devShell provides: cargo, rustc, rustfmt, clippy)
               # We only add additional tools not included by default:
               pkgs.rust-analyzer # IDE support
+
+              # The same checks CI runs (see .github/workflows/ci.yml), so a
+              # failure there can be reproduced with the matching just recipe.
+              pkgs.cargo-nextest # `just arto::test-ci`
+              pkgs.cargo-hack # `just arto::features`
+              pkgs.cargo-deny # `just arto::deny`
+              pkgs.cargo-machete # `just arto::machete`
+              pkgs.cargo-insta # review rendering snapshots (`cargo insta review`)
+              pkgs.lychee # `just docs`
+              pkgs.actionlint # `just workflows`
+              pkgs.zizmor # `just workflows`
 
               # Dioxus desktop development
               pkgs.dioxus-cli
 
-              # TypeScript/renderer development (renderer/)
+              # TypeScript/frontend development (frontend/)
               pkgs.nodejs-slim
               pkgs.pnpm_10
 

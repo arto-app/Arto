@@ -1,5 +1,5 @@
 ---
-paths: "renderer/style/**/*.css, crates/arto/src/components/**/*.rs"
+paths: "frontend/style/**/*.css, crates/arto/src/components/**/*.rs"
 ---
 
 # UI/UX Design Patterns

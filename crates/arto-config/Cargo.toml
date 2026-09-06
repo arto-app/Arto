@@ -1,0 +1,21 @@
+[package]
+name = "arto-config"
+description = "Arto's user configuration: the config.json and mappings.json types and their on-disk location"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Sections owned by the crates that consume them.
+arto-keybindings = { path = "../arto-keybindings" }
+arto-markdown = { path = "../arto-markdown" }
+dirs.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

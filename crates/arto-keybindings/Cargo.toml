@@ -1,0 +1,16 @@
+[package]
+name = "arto-keybindings"
+description = "Arto's keybinding model: shortcut parsing, binding sets, presets, and the sequence-matching engine"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# The same crate Dioxus and muda re-export their `Key`, `Code` and
+# `Modifiers` from, so chords built here compare equal to the app's events.
+keyboard-types.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

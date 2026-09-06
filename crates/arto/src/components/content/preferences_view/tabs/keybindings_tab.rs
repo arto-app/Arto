@@ -9,7 +9,7 @@ use crate::keybindings::{
     accelerator_for_key, presets, resolve_bindings, KeyContext, ResolvedBinding, ACTION_GROUPS,
     MENU_ACTIONS,
 };
-use crate::shortcut::{KeyChord, ShortcutSequence};
+use crate::keybindings::{KeyChord, ShortcutSequence};
 
 /// Which shortcut table a section edits.
 ///
@@ -596,7 +596,7 @@ fn BindingForm(
                             }
                             evt.prevent_default();
                             evt.stop_propagation();
-                            let chord = KeyChord::from(&evt);
+                            let chord = crate::keybindings::chord_from_event(&evt);
                             if chord.is_modifier_only() {
                                 return;
                             }

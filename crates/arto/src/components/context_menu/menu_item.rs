@@ -2,31 +2,24 @@ use dioxus::prelude::*;
 
 use crate::components::icon::{Icon, IconName};
 
-#[derive(Props, Clone, PartialEq)]
-pub struct ContextMenuItemProps {
-    #[props(into)]
-    label: String,
-    #[props(default)]
-    shortcut: Option<String>,
-    #[props(default)]
-    icon: Option<IconName>,
-    #[props(default = false)]
-    disabled: bool,
-    on_click: EventHandler<()>,
-}
-
 #[component]
-pub fn ContextMenuItem(props: ContextMenuItemProps) -> Element {
+pub fn ContextMenuItem(
+    #[props(into)] label: String,
+    #[props(default)] shortcut: Option<String>,
+    #[props(default)] icon: Option<IconName>,
+    #[props(default = false)] disabled: bool,
+    on_click: EventHandler<()>,
+) -> Element {
     rsx! {
         div {
-            class: if props.disabled { "context-menu-item disabled" } else { "context-menu-item" },
+            class: if disabled { "context-menu-item disabled" } else { "context-menu-item" },
             onclick: move |_| {
-                if !props.disabled {
-                    props.on_click.call(());
+                if !disabled {
+                    on_click.call(());
                 }
             },
 
-            if let Some(icon) = props.icon {
+            if let Some(icon) = icon {
                 Icon {
                     name: icon,
                     size: 14,
@@ -34,9 +27,9 @@ pub fn ContextMenuItem(props: ContextMenuItemProps) -> Element {
                 }
             }
 
-            span { class: "context-menu-label", "{props.label}" }
+            span { class: "context-menu-label", "{label}" }
 
-            if let Some(shortcut) = props.shortcut {
+            if let Some(shortcut) = shortcut {
                 span { class: "context-menu-shortcut", "{shortcut}" }
             }
         }

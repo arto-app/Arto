@@ -1,0 +1,48 @@
+name: "Nix"
+
+# Build the flake's packages from scratch (`nix build`) on the Nix-capable
+# platforms. A clean, non-incremental build of 20 minutes or more per leg, so
+# ci.yml calls it on every push to main and only on pull requests that change
+# the flake; evaluation alone is covered by the cheap flake-eval job there.
+
+on:
+  workflow_call:
+    secrets:
+      CACHIX_AUTH_TOKEN:
+        description: Cachix write token; pushes happen only outside pull requests
+        required: false
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    # A cold cache (e.g. after a source-hash bump invalidates `arto-deps`)
+    # makes the full dependency + crate build exceed 30m on the ubuntu runner.
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: macos, os: macos-latest }
+          - { target: ubuntu, os: ubuntu-latest }
+          - { target: ubuntu-arm64, os: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: nixbuild/nix-quick-install-action@v35
+      # Pull requests pull from the cache but do not push into it.
+      - uses: cachix/cachix-action@v17
+        with:
+          name: arto
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: ${{ github.event_name == 'pull_request' }}
+      - name: Write version file
+        run: |
+          VERSION=$(git describe --tags --always)
+          echo "${VERSION#v}" > crates/arto/VERSION
+      - run: nix build .#arto .#arto-page

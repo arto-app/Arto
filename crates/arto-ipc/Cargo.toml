@@ -1,0 +1,30 @@
+[package]
+name = "arto-ipc"
+description = "Arto's single-instance IPC: the JSON Lines protocol and the local socket a second launch hands its paths to"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# `FileOpenBehavior` travels on the wire exactly as it is spelled in
+# config.json, so the protocol borrows the configuration type rather than
+# keeping a copy that could drift. This pulls the whole configuration crate
+# (and through it the Markdown and keybinding types) into the dependency
+# graph; that is accepted because any client of a running instance also
+# wants the user's configured default behavior, which lives in that crate.
+arto-config = { path = "../arto-config" }
+dirs.workspace = true
+interprocess = "2.4"
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.186"
+
+[dev-dependencies]
+indoc.workspace = true
+tempfile.workspace = true

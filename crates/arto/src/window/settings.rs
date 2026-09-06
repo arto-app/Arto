@@ -95,15 +95,12 @@ fn resolve_from_state_or_persisted<T>(
 }
 
 fn resolve_window_size(config: WindowSize, max_size: LogicalSize<u32>) -> LogicalSize<u32> {
-    let max_size_f64 = LogicalSize::new(max_size.width as f64, max_size.height as f64);
-    let size = config.to_logical_size(&max_size_f64);
-    let width = size
-        .width
+    let (width, height) = config.resolve(max_size.width as f64, max_size.height as f64);
+    let width = width
         .max(MIN_WINDOW_DIMENSION)
         .min(max_size.width as f64)
         .round() as u32;
-    let height = size
-        .height
+    let height = height
         .max(MIN_WINDOW_DIMENSION)
         .min(max_size.height as f64)
         .round() as u32;
@@ -121,8 +118,8 @@ fn resolve_window_position(
     let available_height_u32 = screen_size.height.saturating_sub(window_size.height);
     let available_width = available_width_u32.min(i32::MAX as u32) as i32;
     let available_height = available_height_u32.min(i32::MAX as u32) as i32;
-    let available_size = LogicalSize::new(available_width, available_height);
-    let position = config.to_logical_position(available_size);
+    let (x, y) = config.resolve(available_width as f64, available_height as f64);
+    let position = LogicalPosition::new(x as i32, y as i32);
     let absolute_position =
         LogicalPosition::new(screen_origin.x + position.x, screen_origin.y + position.y);
 

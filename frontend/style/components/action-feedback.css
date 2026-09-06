@@ -1,0 +1,24 @@
+.action-feedback {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 5000;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.action-feedback.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}

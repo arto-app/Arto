@@ -1,0 +1,230 @@
+@import url("./header/theme-selector.css");
+
+.header {
+  flex-shrink: 0;
+  align-items: center;
+  background: var(--bg-color);
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 20px;
+  /* Stay above search bar */
+  position: relative;
+  z-index: var(--z-header);
+}
+
+.header-left {
+  color: var(--text-color);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: var(--opacity-muted);
+  transition: opacity 0.4s;
+}
+
+.header:hover .header-left {
+  opacity: 0.7;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.header-left .left-sidebar-toggle-button,
+.header-left .nav-button {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  transition: all var(--transition-normal);
+  width: 28px;
+  height: 28px;
+
+  &:hover:not(:disabled) {
+    border-color: var(--border-color);
+    background: var(--bg-secondary);
+  }
+
+  &:disabled {
+    opacity: var(--opacity-subtle);
+    cursor: not-allowed;
+  }
+
+  .icon {
+    color: var(--text-color);
+  }
+}
+
+.header-left .left-sidebar-toggle-button {
+  margin-right: 4px;
+
+  .icon {
+    opacity: var(--opacity-muted);
+  }
+
+  &.active .icon {
+    opacity: 1;
+  }
+}
+
+.header-left .file-name {
+  margin-left: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* File action buttons (copy & reload) - hidden by default */
+.header-left .file-action-buttons {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.header:hover .header-left .file-action-buttons {
+  opacity: 1;
+}
+
+.header .header-left .file-action-buttons .nav-button {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 3px;
+  opacity: var(--opacity-muted);
+  transition:
+    opacity var(--transition-normal),
+    color var(--transition-normal);
+}
+
+/* Show file action buttons on header hover */
+.header:hover .header-left .file-action-buttons .nav-button:hover:not(:disabled) {
+  opacity: 1;
+}
+
+/* Copy button success state - always visible when copied (higher specificity) */
+.header .header-left .file-action-buttons {
+  .copy-button.copied {
+    opacity: 1;
+    color: var(--copy-button-success-fg);
+  }
+
+  /* Reload button animation - always visible when reloading (higher specificity) */
+  .reload-button.reloading {
+    opacity: 1;
+  }
+
+  .reload-button.reloading .icon {
+    animation: spin 0.6s ease-in-out;
+  }
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.header-right .nav-button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  transition: all var(--transition-normal);
+  width: 28px;
+  height: 28px;
+
+  &:hover:not(:disabled) {
+    border-color: var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-color);
+  }
+
+  &.active {
+    color: var(--text-color);
+  }
+
+  &:disabled {
+    opacity: var(--opacity-subtle);
+    cursor: not-allowed;
+  }
+
+  .icon {
+    color: inherit;
+  }
+}
+
+/* TOC toggle button - matches sidebar toggle style */
+.header-right .right-sidebar-toggle-button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  transition: all var(--transition-normal);
+  width: 28px;
+  height: 28px;
+
+  &:hover {
+    border-color: var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-color);
+  }
+
+  .icon {
+    opacity: var(--opacity-muted);
+  }
+
+  &.active .icon {
+    opacity: 1;
+  }
+}
+
+/* ========================================
+   Header Bookmark Button Context Styles
+   ======================================== */
+
+/* Header bookmark button */
+.file-action-buttons .bookmark-button {
+  opacity: 0;
+}
+
+.header-left:hover .file-action-buttons .bookmark-button {
+  opacity: var(--opacity-muted);
+}
+
+.file-action-buttons .bookmark-button:hover {
+  opacity: 1 !important;
+}
+
+.file-action-buttons .bookmark-button.bookmarked {
+  opacity: var(--opacity-hover);
+  color: var(--accent-bg);
+}

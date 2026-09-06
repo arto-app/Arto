@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./extras/arto-header-readme.png" alt="Arto" />
+  <img src="./docs/images/arto-header-readme.png" alt="Arto" />
 </p>
 
 **Arto — the Art of Reading Markdown.**
@@ -161,6 +161,12 @@ Then add it to `environment.systemPackages` (nix-darwin) or `home.packages` (hom
 environment.systemPackages = [ inputs.arto.packages.${system}.default ];
 ```
 
+The standalone page renderer is a separate package, `arto-page`, for machines that only need `arto page` without the app:
+
+```
+nix run github:arto-app/Arto#arto-page -- README.md > README.html
+```
+
 Launch the application to see the welcome screen with keyboard shortcuts and usage instructions.
 
 ## Usage
@@ -185,6 +191,20 @@ Arto runs as a **single instance** — if Arto is already running, the command s
 - `--directory=DIR` sets the FileExplorer root directory for that invocation.
 - Positional directory arguments (e.g. `arto docs/`) also set the root directory.
 - Running `arto` without arguments shows/focuses an existing window if hidden, or opens one if none exists.
+
+### Rendering to a standalone HTML page
+
+`arto page` renders a Markdown file into a single HTML file that carries Arto's stylesheet and rendering code inline, so it opens in any browser without the app (Mermaid diagrams and math included):
+
+```
+arto page README.md > README.html
+arto page --output out.html docs/guide.md
+arto page --theme dark notes.md
+```
+
+The page follows your `config.json` (rendering options and default theme), so it looks the way the app shows the file; `--theme`, `--no-auto-link-urls` and friends override individual settings, `--config FILE` reads another file, and `--no-config` starts from the built-in defaults. The Quick Look preview on macOS reads the same configuration when its sandbox allows.
+
+The page ships with a Content-Security-Policy that blocks any script embedded in the Markdown; pass `--no-csp` only for input you trust. The same command is available as the standalone `arto-page` binary (the `arto-page` crate) for machines without the app.
 
 [Homebrew]: https://brew.sh/
 [homebrew-tap]: https://github.com/arto-app/homebrew-tap

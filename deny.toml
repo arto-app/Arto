@@ -1,0 +1,64 @@
+# cargo-deny policy for `just arto::deny` and the CI rust job.
+# https://embarkstudios.github.io/cargo-deny/checks/index.html
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+# Unmaintained crates nothing here can replace directly. Most arrive through
+# the Dioxus desktop stack (wry, tao, gtk on Linux); two come through direct
+# dependencies of the app (image, display-info). Reviewed 2026-09; drop an
+# entry once the named dependency moves off the crate.
+ignore = [
+  { id = "RUSTSEC-2024-0370", reason = "proc-macro-error via glib-macros/gtk3-macros, i.e. the gtk-rs chain below" },
+  { id = "RUSTSEC-2024-0411", reason = "gtk-rs GTK3 bindings via wry/tao on Linux" },
+  { id = "RUSTSEC-2024-0412", reason = "gtk-rs GTK3 bindings via wry/tao on Linux" },
+  { id = "RUSTSEC-2024-0413", reason = "gtk-rs GTK3 bindings via wry/tao on Linux" },
+  { id = "RUSTSEC-2024-0414", reason = "gtk-rs GTK3 bindings via wry/tao on Linux" },
+  { id = "RUSTSEC-2024-0415", reason = "gtk-rs GTK3 bindings via wry/tao on Linux" },
+  { id = "RUSTSEC-2024-0416", reason = "gtk-rs GTK3 bindings via wry/tao on Linux" },
+  { id = "RUSTSEC-2024-0418", reason = "gtk-rs GTK3 bindings via wry/tao on Linux" },
+  { id = "RUSTSEC-2024-0419", reason = "gtk-rs GTK3 bindings via wry/tao on Linux" },
+  { id = "RUSTSEC-2024-0420", reason = "gtk-rs GTK3 bindings via wry/tao on Linux" },
+  { id = "RUSTSEC-2024-0436", reason = "paste via pulp/exr under the image crate (arto and arboard)" },
+  { id = "RUSTSEC-2025-0057", reason = "fxhash via display-info (arto) and selectors/kuchikiki (wry)" },
+]
+
+[licenses]
+version = 2
+# Permissive licenses only; anything else fails until it is reviewed and
+# added here deliberately.
+allow = [
+  "0BSD",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "CC0-1.0",
+  "CDLA-Permissive-2.0",
+  "ISC",
+  "MIT",
+  "MPL-2.0",
+  "NCSA",
+  "Unicode-3.0",
+  "Unlicense",
+  "Zlib",
+]
+confidence-threshold = 0.9
+
+[bans]
+# Duplicate majors are common below wry and dioxus and are not ours to fix,
+# so they are reported, not failed. Our own direct dependencies are kept in
+# step through [workspace.dependencies].
+multiple-versions = "warn"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+# The dioxus-sdk-window fork carried in [patch.crates-io] until
+# DioxusLabs/sdk#103 merges.
+allow-git = ["https://github.com/iynaix/dioxus-sdk"]

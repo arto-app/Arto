@@ -1,0 +1,491 @@
+/* Left Sidebar container */
+.left-sidebar {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 1;
+  width: 0;
+  min-width: 0;
+  max-width: 70vw;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  overflow: hidden;
+  transition: width var(--transition-slow) ease;
+  position: relative;
+}
+
+.left-sidebar.visible {
+  min-width: 200px;
+}
+
+.left-sidebar.resizing {
+  transition: none; /* Disable transition during resize */
+}
+
+/* Panel focus indicator — only visible during keyboard navigation */
+.keyboard-navigating .left-sidebar.panel-focused {
+  box-shadow:
+    inset 0 0 0 2px var(--bg-secondary),
+    inset 0 0 0 3px var(--accent-bg);
+}
+
+/* Inner wrapper with zoom applied */
+.left-sidebar-inner {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+/* Resize handle */
+.left-sidebar-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  background-color: transparent;
+  transition: background-color var(--transition-normal) ease;
+  z-index: var(--z-resize-handle);
+}
+
+.left-sidebar-resize-handle:hover,
+.left-sidebar-resize-handle.resizing {
+  background-color: var(--primary-color);
+  opacity: var(--opacity-subtle);
+}
+
+.left-sidebar-resize-handle::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 60px;
+  background-color: var(--text-secondary);
+  opacity: 0.4;
+  border-radius: 1px;
+}
+
+/* File explorer container */
+.left-sidebar-explorer {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.left-sidebar:not(.visible) .left-sidebar-explorer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.left-sidebar-explorer-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* ========================================
+   Left Sidebar Header Section
+   ======================================== */
+
+.left-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0px;
+  margin: 0 0 8px 0;
+}
+
+/* History navigation buttons */
+.left-sidebar-header-history {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: var(--opacity-muted);
+  transition: opacity var(--transition-normal) ease;
+}
+
+.left-sidebar-header:hover .left-sidebar-header-history {
+  opacity: 1;
+}
+
+.left-sidebar-header-history-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  width: 24px;
+  height: 24px;
+  transition:
+    opacity var(--transition-normal) ease,
+    background-color var(--transition-fast) ease;
+}
+
+.left-sidebar-header-history-button:hover:not(:disabled) {
+  background-color: var(--hover-bg);
+}
+
+.left-sidebar-header-history-button:disabled,
+.left-sidebar-header-history-button.disabled {
+  opacity: var(--opacity-subtle);
+  cursor: default;
+}
+
+/* Header navigation (parent directory) */
+.left-sidebar-header-nav {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  opacity: var(--opacity-muted);
+  transition: opacity var(--transition-normal) ease;
+}
+
+.left-sidebar-header:hover .left-sidebar-header-nav {
+  opacity: 0.7;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.left-sidebar-header-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity var(--transition-normal) ease;
+}
+
+.left-sidebar-header-icon {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.left-sidebar-header-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-color);
+}
+
+/* Header action buttons (copy & reload) */
+.left-sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--transition-normal) ease;
+}
+
+.left-sidebar-header:hover .left-sidebar-header-actions {
+  opacity: 1;
+}
+
+.left-sidebar-action-button {
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  opacity: var(--opacity-muted);
+  transition:
+    opacity var(--transition-normal),
+    color var(--transition-normal),
+    background-color var(--transition-fast) ease;
+}
+
+.left-sidebar-action-button:hover {
+  background-color: var(--hover-bg);
+  opacity: 1;
+}
+
+/* Copy button success state */
+.left-sidebar-action-button.copy-button.copied {
+  opacity: 1;
+  color: var(--copy-button-success-fg);
+}
+
+/* Reload button animation */
+.left-sidebar-action-button.reload-button.reloading {
+  opacity: 1;
+}
+
+.left-sidebar-action-button.reload-button.reloading .icon {
+  animation: spin 0.6s ease-in-out;
+}
+
+/* Header toolbar */
+.left-sidebar-header-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.left-sidebar-header-toolbar-button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  transition: all var(--transition-normal);
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.left-sidebar-header-toolbar-button:hover {
+  border-color: var(--border-color);
+  background: var(--bg-color);
+}
+
+.left-sidebar-header-toolbar-button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.left-sidebar-header-toolbar-button .icon {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.left-sidebar-header-toolbar-button:hover .icon {
+  opacity: 1;
+}
+
+/* ========================================
+   Left Sidebar Tree Section
+   ======================================== */
+
+.left-sidebar-tree {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0; /* Allow shrinking in flex container */
+  overflow: hidden auto;
+}
+
+/* Webkit (Chrome, Safari, Edge) */
+.left-sidebar-tree::-webkit-scrollbar {
+  width: 2px;
+  height: 2px;
+}
+
+/* Tree node */
+.left-sidebar-tree-node {
+  position: relative;
+}
+
+.left-sidebar-tree-node-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  height: 26px;
+  box-sizing: border-box;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  opacity: var(--opacity-muted);
+  transition:
+    background-color var(--transition-fast) ease,
+    opacity var(--transition-normal) ease;
+}
+
+.left-sidebar-tree-node-content:hover {
+  background-color: var(--hover-bg);
+  opacity: 1;
+}
+
+.left-sidebar-tree-node.active > .left-sidebar-tree-node-content {
+  opacity: var(--opacity-hover);
+}
+
+/* Tree icons */
+.left-sidebar-tree-icon {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.left-sidebar-tree-chevron {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: transform var(--transition-normal) ease;
+}
+
+/* Chevron wrapper - clickable area for expand/collapse */
+.left-sidebar-tree-chevron-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.left-sidebar-tree-chevron-wrapper.expanded .left-sidebar-tree-chevron {
+  transform: rotate(90deg);
+}
+
+/* Directory/File link - clickable area for folder icon + label */
+.left-sidebar-tree-dir-link,
+.left-sidebar-tree-file-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Spacer for alignment */
+.left-sidebar-tree-spacer {
+  width: 16px;
+  flex-shrink: 0;
+}
+
+/* Tree label */
+.left-sidebar-tree-label {
+  flex: 1;
+  font-size: 0.9rem;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-color);
+}
+
+.left-sidebar-tree-label.disabled {
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+/* Tree action buttons - only visible on hover */
+.left-sidebar-tree-copy-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 4px;
+  margin-left: auto;
+  opacity: 0;
+  transition:
+    opacity var(--transition-fast) ease,
+    background-color var(--transition-fast) ease;
+  flex-shrink: 0;
+}
+
+.left-sidebar-tree-node-content:hover .left-sidebar-tree-copy-button {
+  opacity: var(--opacity-secondary);
+}
+
+.left-sidebar-tree-copy-button:hover {
+  opacity: 1 !important;
+  background-color: var(--hover-bg);
+}
+
+.left-sidebar-tree-copy-button.copied {
+  opacity: 1 !important;
+  color: var(--copy-button-success-fg);
+}
+
+/* ========================================
+   Left Sidebar Keyboard Cursor Highlight
+   ======================================== */
+
+.left-sidebar-tree-node.keyboard-focused > .left-sidebar-tree-node-content {
+  background-color: color-mix(in srgb, var(--accent-bg) 12%, transparent);
+  opacity: 1;
+}
+
+/* ========================================
+   Left Sidebar Bookmark Button Context Styles
+   ======================================== */
+
+/* Sidebar tree bookmark button - smaller, matches copy button */
+.left-sidebar-tree-node-content .bookmark-button {
+  padding: 2px 4px;
+  width: auto;
+  height: auto;
+  margin-left: auto;
+  opacity: 0;
+}
+
+.left-sidebar-tree-node-content:hover .bookmark-button {
+  opacity: var(--opacity-secondary);
+}
+
+.left-sidebar-tree-node-content .bookmark-button:hover {
+  opacity: 1 !important;
+}
+
+.left-sidebar-tree-node-content .bookmark-button.bookmarked {
+  opacity: var(--opacity-hover);
+  color: var(--accent-bg);
+}
+
+/* Sidebar header bookmark button - independent of actions container */
+.left-sidebar-header-content > .bookmark-button {
+  padding: 2px 4px;
+  width: auto;
+  height: auto;
+  opacity: 0;
+}
+
+.left-sidebar-header-content:hover > .bookmark-button {
+  opacity: var(--opacity-secondary);
+}
+
+.left-sidebar-header-content > .bookmark-button:hover {
+  opacity: 1 !important;
+}
+
+.left-sidebar-header-content > .bookmark-button.bookmarked {
+  opacity: var(--opacity-hover);
+  color: var(--accent-bg);
+}
+
+/* Overlay mode: full height + drop shadow for depth */
+.sidebar-overlay-wrapper .left-sidebar {
+  height: 100%;
+  box-shadow: var(--shadow-lg);
+  min-width: 0; /* Override base min-width so configured inline width works in overlay */
+}

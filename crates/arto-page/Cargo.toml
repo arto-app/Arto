@@ -1,0 +1,47 @@
+[package]
+name = "arto-page"
+description = "Render Markdown into a self-contained HTML page with Arto's styling"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# The frontend bundle under assets/ is build output copied in by the frontend
+# build (see frontend/vite.config.ts); list it so a package cannot be
+# published without it.
+include = ["src/**", "assets/frontend/main.css", "assets/frontend/main.iife.js"]
+
+[lib]
+name = "arto_page"
+# `staticlib` is what the macOS Quick Look extension links; it only carries
+# the C ABI when the `ffi` feature is on.
+crate-type = ["lib", "staticlib"]
+
+[[bin]]
+name = "arto-page"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[features]
+default = ["cli"]
+# The clap argument surface shared by the `arto-page` binary and `arto page`.
+# A consumer that only wants `render_file` can turn it off to skip clap.
+cli = ["dep:clap"]
+# C ABI for the Quick Look preview extension. Off by default so the symbols
+# never end up in binaries that merely depend on this crate.
+ffi = []
+
+[dependencies]
+# Only for `PageError::Render`, which carries arto-markdown's error as-is.
+anyhow.workspace = true
+# The page honours the user's config.json (rendering options, default theme)
+# so `arto page` and Quick Look look like the app does.
+arto-config = { path = "../arto-config" }
+arto-markdown = { path = "../arto-markdown" }
+base64.workspace = true
+clap = { workspace = true, optional = true }
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

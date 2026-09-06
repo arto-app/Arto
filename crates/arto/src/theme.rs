@@ -1,23 +1,10 @@
+//! Resolving the user's theme preference against the system appearance.
+//!
+//! The preference itself (`Theme`) is a configuration type and lives in
+//! arto-config; this module turns `Auto` into light or dark.
+
+pub use crate::config::Theme;
 pub use dioxus_sdk_window::theme::Theme as DioxusTheme;
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Theme {
-    #[default]
-    Auto,
-    Light,
-    Dark,
-}
-
-impl From<&str> for Theme {
-    fn from(s: &str) -> Self {
-        match s {
-            "light" => Theme::Light,
-            "dark" => Theme::Dark,
-            _ => Theme::Auto,
-        }
-    }
-}
 
 pub fn resolve_theme(theme: Theme) -> DioxusTheme {
     match theme {

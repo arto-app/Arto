@@ -1,0 +1,10 @@
+# Link checker settings for `just docs` and the docs job in CI.
+#
+# Offline on purpose: the point is to catch a relative link or anchor that
+# rotted when a file moved, not to depend on third-party sites being up.
+offline = true
+no_progress = true
+include_fragments = "anchor-only"
+exclude_path = ["target", "frontend/node_modules", "frontend/dist", ".git"]
+# Placeholders that are not links.
+exclude = ["^mailto:", "^file://"]

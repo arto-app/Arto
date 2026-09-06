@@ -5,7 +5,7 @@ use dioxus::prelude::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use crate::assets::MAIN_STYLE;
+use crate::assets::main_stylesheet_head;
 use crate::components::image_window::{generate_image_id, ImageWindow, ImageWindowProps};
 use crate::components::math_window::{generate_math_id, MathWindow, MathWindowProps};
 use crate::components::mermaid_window::{generate_diagram_id, MermaidWindow, MermaidWindowProps};
@@ -183,7 +183,7 @@ pub fn open_or_focus_mermaid_window(source: String, theme: Theme) {
             .with_window(super::icon::apply_app_icon(
                 WindowBuilder::new().with_title("Mermaid Viewer"),
             ))
-            .with_custom_head(indoc::formatdoc! {r#"<link rel="stylesheet" href="{MAIN_STYLE}">"#})
+            .with_custom_head(main_stylesheet_head())
             .with_custom_index(build_mermaid_window_index(theme));
 
         dioxus_core::spawn(create_and_register_child_window(
@@ -210,7 +210,7 @@ pub fn open_or_focus_math_window(source: String, theme: Theme) {
             .with_window(super::icon::apply_app_icon(
                 WindowBuilder::new().with_title("Math Viewer"),
             ))
-            .with_custom_head(indoc::formatdoc! {r#"<link rel="stylesheet" href="{MAIN_STYLE}">"#})
+            .with_custom_head(main_stylesheet_head())
             .with_custom_index(build_math_window_index(theme));
 
         dioxus_core::spawn(create_and_register_child_window(
@@ -238,7 +238,7 @@ pub fn open_or_focus_image_window(src: String, alt: Option<String>, theme: Theme
             .with_window(super::icon::apply_app_icon(
                 WindowBuilder::new().with_title("Image Viewer"),
             ))
-            .with_custom_head(indoc::formatdoc! {r#"<link rel="stylesheet" href="{MAIN_STYLE}">"#})
+            .with_custom_head(main_stylesheet_head())
             .with_custom_index(build_image_window_index(theme));
 
         dioxus_core::spawn(create_and_register_child_window(

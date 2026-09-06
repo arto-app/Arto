@@ -1,0 +1,38 @@
+.markdown-viewer {
+  box-sizing: border-box;
+  height: auto;
+  padding: 24px;
+  background-color: var(--content-bg);
+
+  &.full-width .markdown-body {
+    max-width: none;
+  }
+
+  .markdown-body {
+    margin: 0 auto;
+    max-width: 960px;
+
+    /* Style markdown file links (span.md-link) to look like regular links */
+    span.md-link {
+      color: var(--link-color);
+      text-decoration: none;
+      cursor: pointer;
+
+      &:hover {
+        text-decoration: underline;
+      }
+
+      &.md-link-invalid {
+        opacity: 0.8;
+      }
+    }
+
+    pre.preprocessed-mermaid {
+      text-align: center;
+      /* Override github-markdown-css pre rules (12px/1em) to match
+         Mermaid themeVariables.fontSize so text measurement and rendering
+         use the same font-size context */
+      font-size: var(--font-size-base);
+    }
+  }
+}

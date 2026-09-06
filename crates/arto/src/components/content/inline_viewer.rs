@@ -4,8 +4,11 @@ use std::path::Path;
 use crate::markdown::render_to_html;
 use crate::state::AppState;
 
+/// `markdown` is a `ReadSignal` for the same reason as `FileViewer`'s path:
+/// the loader effect reads it and so re-renders when the parent passes new
+/// text to the same mounted instance.
 #[component]
-pub fn InlineViewer(markdown: String) -> Element {
+pub fn InlineViewer(markdown: ReadSignal<String>) -> Element {
     let state = use_context::<AppState>();
     let html = use_signal(String::new);
 
@@ -25,10 +28,10 @@ pub fn InlineViewer(markdown: String) -> Element {
 }
 
 /// Hook to render inline markdown content
-fn use_inline_markdown_loader(markdown: String, html: Signal<String>) {
+fn use_inline_markdown_loader(markdown: ReadSignal<String>, html: Signal<String>) {
     use_effect(move || {
         let mut html = html;
-        let markdown = markdown.clone();
+        let markdown = markdown();
 
         spawn(async move {
             // Render inline markdown (use a dummy path since images are already embedded)

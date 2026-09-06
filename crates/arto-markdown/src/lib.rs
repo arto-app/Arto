@@ -3,10 +3,14 @@ mod autolinks;
 mod event_processors;
 mod frontmatter;
 mod headings;
+mod options;
 mod post_process;
+mod source_extract;
 mod source_lines;
 
 pub use headings::*;
+pub use options::*;
+pub use source_extract::*;
 
 use alerts::process_github_alerts;
 use anyhow::Result;
@@ -97,13 +101,19 @@ fn prepend_frontmatter(frontmatter_html: &str, html_output: String) -> String {
     }
 }
 
-/// Render Markdown to HTML
+/// Render Markdown to HTML.
+///
+/// Relative links and images resolve against the directory of `base_path`.
 pub fn render_to_html(
     markdown: impl AsRef<str>,
     base_path: impl AsRef<Path>,
-    auto_link_urls: bool,
+    options: &RenderOptions,
 ) -> Result<String> {
-    let pipeline = run_pipeline(markdown.as_ref(), base_path.as_ref(), auto_link_urls);
+    let pipeline = run_pipeline(
+        markdown.as_ref(),
+        base_path.as_ref(),
+        options.auto_link_urls,
+    );
 
     let html_output = post_process_html_tags(
         &pipeline.raw_html,
@@ -120,11 +130,11 @@ pub fn render_to_html(
 pub fn render_to_html_with_toc(
     markdown: impl AsRef<str>,
     base_path: impl AsRef<Path>,
-    auto_link_urls: bool,
+    options: &RenderOptions,
 ) -> Result<(String, Vec<HeadingInfo>)> {
     let markdown = markdown.as_ref();
-    let headings = extract_headings(markdown, auto_link_urls);
-    let pipeline = run_pipeline(markdown, base_path.as_ref(), auto_link_urls);
+    let headings = extract_headings(markdown, options.auto_link_urls);
+    let pipeline = run_pipeline(markdown, base_path.as_ref(), options.auto_link_urls);
 
     let html_output = post_process_html_with_headings(
         &pipeline.raw_html,
@@ -152,7 +162,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
 
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(result.contains("<h1 data-source-line="));
         assert!(result.contains("Hello"));
@@ -184,7 +194,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
 
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         let has_rust = result.contains("language-rust") || result.contains("class=\"rust\"");
         let has_python = result.contains("language-python") || result.contains("class=\"python\"");
@@ -205,7 +215,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
 
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(result.contains("markdown-alert-note"));
         assert!(result.contains("This is important"));
@@ -223,7 +233,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
 
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(result.contains(r#"class="preprocessed-mermaid""#));
         assert!(result.contains("graph LR"));
@@ -245,7 +255,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
 
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(r#"class="preprocessed-math-inline""#),
@@ -288,7 +298,7 @@ mod tests {
 
         let md_path = temp_dir.path().join("test.md");
 
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains("<h1 data-source-line="),
@@ -326,7 +336,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
 
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(result.contains(r#"<details class="frontmatter""#));
         assert!(result.contains("<th>title</th>"));
@@ -357,7 +367,8 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
 
-        let (html, headings) = render_to_html_with_toc(markdown, &md_path, true).unwrap();
+        let (html, headings) =
+            render_to_html_with_toc(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert_eq!(headings.len(), 2);
         assert_eq!(headings[0].text, "Title");
@@ -407,8 +418,9 @@ mod tests {
             > This is a note
         "};
 
-        let html_basic = render_to_html(markdown, &md_path, true).unwrap();
-        let (html_toc, headings) = render_to_html_with_toc(markdown, &md_path, true).unwrap();
+        let html_basic = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
+        let (html_toc, headings) =
+            render_to_html_with_toc(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         // Strip heading IDs for comparison (without regex dependency)
         fn strip_heading_ids(s: &str) -> String {
@@ -452,7 +464,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(r#"<h1 data-source-line="1">"#),
@@ -489,7 +501,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(r#"<h1 data-source-line="5">"#),
@@ -512,7 +524,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(
@@ -533,7 +545,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(
@@ -552,7 +564,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(r#"<blockquote data-source-line="3">"#),
@@ -571,7 +583,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(r#"<hr data-source-line="3" />"#),
@@ -587,7 +599,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(r#"<ol data-source-line="1""#),
@@ -604,7 +616,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(r#"data-source-line="1""#),
@@ -633,7 +645,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(r#"<tr data-source-line="3">"#),
@@ -661,7 +673,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(r#"data-source-line="1""#),
@@ -685,7 +697,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(r#"<h1 data-source-line="4">"#),
@@ -709,7 +721,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(
@@ -735,7 +747,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(r#"data-source-line="3""#),
@@ -758,7 +770,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(r#"data-source-line="3""#),
@@ -781,7 +793,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains(r#"data-source-line="3""#),
@@ -810,7 +822,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         // Table starts on line 5 of original (after 4 frontmatter lines)
         assert!(
@@ -836,7 +848,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         // Mermaid block starts on line 4 of original
         assert!(
@@ -862,7 +874,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         // First table: lines 1-3
         assert!(
@@ -982,7 +994,7 @@ mod tests {
     fn test_render_to_html_empty_input() {
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html("", &md_path, true).unwrap();
+        let result = render_to_html("", &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.is_empty() || result.trim().is_empty(),
@@ -995,7 +1007,7 @@ mod tests {
         let markdown = "---\ntitle: Test\n---\n";
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains("frontmatter"),
@@ -1019,7 +1031,7 @@ mod tests {
         "};
         let temp_dir = TempDir::new().unwrap();
         let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, true).unwrap();
+        let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
             result.contains("markdown-alert-note"),
