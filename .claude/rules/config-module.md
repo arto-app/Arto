@@ -1,3 +1,7 @@
+---
+paths: "crates/arto-config/**, crates/arto/src/config.rs, crates/arto/src/window/settings.rs, crates/arto/src/state/persistence.rs"
+---
+
 # Configuration Module Patterns
 
 Design patterns and best practices for structuring configuration modules in Rust/Dioxus applications.

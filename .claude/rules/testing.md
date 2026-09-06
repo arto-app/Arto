@@ -1,3 +1,7 @@
+---
+paths: "crates/arto/src/**/*.rs"
+---
+
 # Dioxus Unit Testing Patterns
 
 Best practices for testing Dioxus applications, from pure logic to component rendering.
