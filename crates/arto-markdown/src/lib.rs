@@ -21,12 +21,14 @@
 //!    sees them, recording which original line each processed line came
 //!    from so source lines stay correct. Fenced `mermaid` and `math`
 //!    blocks and `$…$` expressions are replaced by the `preprocessed-*`
-//!    containers described below, and block elements receive their
-//!    `data-source-line` attributes.
-//! 4. **Post-processing** with lol_html: local images are inlined as data
-//!    URLs, local Markdown links become `<span class="md-link">`, tables get
-//!    their source lines, and headings get their ids when a table of
-//!    contents was requested.
+//!    containers described below. Every block element is marked with the
+//!    byte range it came from (`data-source-span`), and headings get their
+//!    ids when a table of contents was requested.
+//! 4. **Source line annotation** (`annotate` module): the byte ranges
+//!    become the `data-source-line` attributes described below, through
+//!    the line table the engine returns.
+//! 5. **Post-processing** with lol_html: local images are inlined as data
+//!    URLs and local Markdown links become `<span class="md-link">`.
 //!
 //! # HTML contract
 //!
@@ -108,10 +110,12 @@
 //! frontend highlights by that class and `frontend/src/code-copy.ts` adds
 //! the copy button to every `pre`.
 
+mod annotate;
 mod autolinks;
 mod engine;
 mod frontmatter;
 mod headings;
+mod lines;
 mod options;
 mod post_process;
 
@@ -119,6 +123,7 @@ pub use engine::*;
 pub use headings::*;
 pub use options::*;
 
+use annotate::annotate;
 use anyhow::Result;
 use frontmatter::extract_and_render_frontmatter;
 use post_process::post_process_html_tags;
@@ -129,7 +134,6 @@ struct PipelineResult {
     raw_html: String,
     frontmatter_html: String,
     base_dir: PathBuf,
-    table_source_lines: Vec<(usize, usize)>,
     headings: Vec<HeadingInfo>,
 }
 
@@ -159,12 +163,12 @@ fn run_pipeline(
     };
 
     let rendered = engine::render(&content, frontmatter_lines, with_toc);
+    let raw_html = annotate(&rendered.html, &rendered.lines);
 
     PipelineResult {
-        raw_html: rendered.html,
+        raw_html,
         frontmatter_html,
         base_dir,
-        table_source_lines: rendered.table_source_lines,
         headings: rendered.headings,
     }
 }
@@ -193,11 +197,7 @@ pub fn render_to_html(
         false,
     );
 
-    let html_output = post_process_html_tags(
-        &pipeline.raw_html,
-        &pipeline.base_dir,
-        &pipeline.table_source_lines,
-    );
+    let html_output = post_process_html_tags(&pipeline.raw_html, &pipeline.base_dir);
 
     Ok(prepend_frontmatter(&pipeline.frontmatter_html, html_output))
 }
@@ -217,11 +217,7 @@ pub fn render_to_html_with_toc(
         true,
     );
 
-    let html_output = post_process_html_tags(
-        &pipeline.raw_html,
-        &pipeline.base_dir,
-        &pipeline.table_source_lines,
-    );
+    let html_output = post_process_html_tags(&pipeline.raw_html, &pipeline.base_dir);
 
     Ok((
         prepend_frontmatter(&pipeline.frontmatter_html, html_output),
