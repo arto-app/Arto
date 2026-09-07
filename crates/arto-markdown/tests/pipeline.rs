@@ -118,6 +118,35 @@ fn a_wiki_link_survives_being_split_across_text_chunks() {
 }
 
 // ----------------------------------------------------------------------
+// Images
+// ----------------------------------------------------------------------
+
+/// The `<picture>` shape GitHub documents for theme-aware images. The
+/// document has no base URL, so every candidate has to be inlined or the
+/// theme that picks the `<source>` shows an empty space.
+#[test]
+fn a_picture_inlines_both_the_source_and_the_img() {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("dark.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+    std::fs::write(dir.path().join("light.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+
+    let html = render_to_html(
+        indoc! {r#"
+            <picture>
+              <source media="(prefers-color-scheme: dark)" srcset="./dark.png">
+              <img src="./light.png" alt="hero">
+            </picture>
+        "#},
+        dir.path().join("doc.md"),
+        &RenderOptions::default(),
+    )
+    .expect("renders");
+
+    assert_eq!(html.matches("data:image/png;base64,").count(), 2, "{html}");
+    assert!(!html.contains("./dark.png"), "{html}");
+}
+
+// ----------------------------------------------------------------------
 // GitHub alerts
 // ----------------------------------------------------------------------
 

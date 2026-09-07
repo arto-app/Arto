@@ -98,109 +98,215 @@ pub(super) fn get_mime_type(path: &Path) -> &'static str {
         Some("gif") => "image/gif",
         Some("svg") => "image/svg+xml",
         Some("webp") => "image/webp",
+        Some("avif") => "image/avif",
         Some("bmp") => "image/bmp",
         Some("ico") => "image/x-icon",
         _ => "image/png", // Default
     }
 }
 
+/// A local image reference as a `data:` URL, or `None` when it cannot be
+/// inlined and must be left as written.
+///
+/// `http(s):` and `data:` references address something that needs no
+/// resolution and are declined. Everything else is a path: `file:` URLs
+/// (including `file://`, `file://localhost/…` and `file:/…`) are parsed via
+/// `url::Url` so percent-encoding and platform differences are handled, and
+/// other values are plain filesystem paths — absolute ones used as-is,
+/// relative ones joined onto `canonical_base`. A path that resolves outside
+/// `canonical_base` is still read (logged at `trace` level), matching
+/// standard Markdown viewer behavior. Reads are bounded by
+/// `MAX_INLINE_IMAGE_SIZE` so a misreferenced huge file or a device file
+/// cannot freeze the UI. An empty file is declined as well: it holds no image,
+/// and its data URL would end in the `base64,` comma, which `srcset` parsing
+/// strips back off into a malformed URL.
+fn inline_local_image(src: &str, canonical_base: &Path) -> Option<String> {
+    if src.starts_with("http://") || src.starts_with("https://") || src.starts_with("data:") {
+        return None;
+    }
+
+    let absolute_path = if src.starts_with("file:") {
+        // Slightly-nonconforming inputs (e.g. unencoded spaces) do not parse
+        // as a URL, so the scheme is stripped and the rest read as a path.
+        let parsed = url::Url::parse(src)
+            .ok()
+            .and_then(|u| u.to_file_path().ok());
+        if parsed.is_none() {
+            tracing::debug!(
+                ?src,
+                "file: URL could not be parsed; falling back to plain path"
+            );
+        }
+        parsed.unwrap_or_else(|| {
+            let raw = src
+                .strip_prefix("file://")
+                .or_else(|| src.strip_prefix("file:/"))
+                .or_else(|| src.strip_prefix("file:"))
+                .unwrap_or(src);
+            let path = Path::new(raw);
+            if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                canonical_base.join(path)
+            }
+        })
+    } else {
+        let path = Path::new(src);
+        if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            canonical_base.join(path)
+        }
+    };
+
+    let canonical_path = absolute_path.canonicalize().ok()?;
+    if !canonical_path.starts_with(canonical_base) {
+        tracing::trace!(
+            ?src,
+            "Image path resolved outside base directory; proceeding with inline read"
+        );
+    }
+    let image_data = read_image_bounded(&canonical_path, MAX_INLINE_IMAGE_SIZE)?;
+    if image_data.is_empty() {
+        tracing::debug!(?canonical_path, "Image file is empty; nothing to inline");
+        return None;
+    }
+    let mime_type = get_mime_type(&canonical_path);
+    let base64_data = general_purpose::STANDARD.encode(&image_data);
+    Some(format!("data:{mime_type};base64,{base64_data}"))
+}
+
+/// One entry of a `srcset` attribute: a URL and the descriptor that follows it.
+struct SrcsetCandidate {
+    url: String,
+    descriptor: String,
+}
+
+/// Split a `srcset` attribute into its candidates.
+///
+/// A candidate is a run of non-whitespace characters followed by an optional
+/// width or density descriptor, and candidates are separated by commas. The
+/// URL is taken up to the first whitespace rather than up to the first comma,
+/// as HTML specifies, so the commas inside a `data:` URL stay part of it; a
+/// URL that ends in a comma ends its candidate and carries no descriptor.
+/// Only ASCII whitespace separates, again as HTML specifies, so a file name
+/// holding an ideographic or non-breaking space stays one URL.
+fn parse_srcset(value: &str) -> Vec<SrcsetCandidate> {
+    let mut candidates = Vec::new();
+    let mut rest = value;
+    loop {
+        rest = rest.trim_start_matches(|c: char| c.is_ascii_whitespace() || c == ',');
+        if rest.is_empty() {
+            return candidates;
+        }
+        let url_end = rest
+            .find(|c: char| c.is_ascii_whitespace())
+            .unwrap_or(rest.len());
+        let (url, tail) = rest.split_at(url_end);
+        let (url, descriptor, tail) = if url.ends_with(',') {
+            (url.trim_end_matches(','), "", tail)
+        } else {
+            let (descriptor, tail) = tail.split_at(tail.find(',').unwrap_or(tail.len()));
+            (url, descriptor.trim(), tail)
+        };
+        if !url.is_empty() {
+            candidates.push(SrcsetCandidate {
+                url: url.to_string(),
+                descriptor: descriptor.to_string(),
+            });
+        }
+        rest = tail;
+    }
+}
+
+/// A `srcset` value with every local candidate inlined as a `data:` URL, or
+/// `None` when the value needs no change. An empty string means no candidate
+/// survived and the attribute should go.
+///
+/// A candidate that carries a scheme of its own (`http(s):`, `data:`, …) is
+/// left as written. A local one that could not be read is dropped, because the
+/// rendered page carries no base URL — `arto-page` is a self-contained
+/// document and the app's WebView resolves against its asset server — so such
+/// a candidate can never load, and keeping it would let the browser choose it
+/// over a candidate that did inline: a `2x` candidate wins on every Retina
+/// display. This is why a `srcset` is treated differently from an `img[src]`,
+/// which keeps an unreadable path because there is no alternative to fall back
+/// on.
+fn inline_srcset(value: &str, canonical_base: &Path) -> Option<String> {
+    let mut changed = false;
+    let candidates: Vec<String> = parse_srcset(value)
+        .into_iter()
+        .filter_map(|SrcsetCandidate { url, descriptor }| {
+            let url = match inline_local_image(&url, canonical_base) {
+                Some(data_url) => {
+                    changed = true;
+                    data_url
+                }
+                None if has_foreign_scheme(&url) => url,
+                None => {
+                    changed = true;
+                    return None;
+                }
+            };
+            Some(if descriptor.is_empty() {
+                url
+            } else {
+                format!("{url} {descriptor}")
+            })
+        })
+        .collect();
+    changed.then(|| candidates.join(", "))
+}
+
 /// Post-process HTML with lol_html.
 ///
 /// Handles:
-/// - `<img src="…">`: inline local images as data URLs. Supports `file:` URLs
-///   (parsed via `url::Url`, handles percent-encoding and platform differences)
-///   as well as absolute and relative filesystem paths. Relative paths resolve
-///   against `base_dir`. Paths resolving outside `base_dir` are still read and
-///   inlined (logged at `trace` level), matching standard Markdown viewer behavior.
-///   Reads are bounded by `MAX_INLINE_IMAGE_SIZE` to prevent misreferenced huge
-///   files or device files from freezing the UI.
+/// - `<img src="…">`, `<img srcset="…">` and `<source srcset="…">`: inline
+///   local images as data URLs, so a `<picture>` renders whichever candidate
+///   the browser picks. See [`inline_local_image`] for how a reference is
+///   resolved.
 /// - `<a href="…">`: convert local links to `<span data-md-link="…">` for in-app
 ///   navigation; a Markdown target that does not exist is marked `md-link-missing`
 pub(super) fn post_process_html_tags(html_str: &str, base_dir: &Path) -> String {
     let canonical_base = base_dir
         .canonicalize()
         .unwrap_or_else(|_| base_dir.to_path_buf());
+    let srcset_base = canonical_base.clone();
     let link_base = canonical_base.clone();
     let mut output = Vec::new();
 
     let mut rewriter = HtmlRewriter::new(
         Settings::new()
-            // Process img tags: convert local paths to data URLs
             .append_element_content_handler(element!("img[src]", move |el| {
                 if let Some(src) = el.get_attribute("src") {
-                    if !src.starts_with("http://")
-                        && !src.starts_with("https://")
-                        && !src.starts_with("data:")
-                    {
-                        // Resolve the src to a filesystem path for inlining.
-                        // `file:` URLs (including `file://`, `file://localhost/...`, and
-                        // `file:/...`) are parsed properly (handles percent-encoding and
-                        // platform differences). Other values are treated as plain
-                        // filesystem paths: absolute paths are used as-is, and relative
-                        // paths are joined against the markdown file's directory. After
-                        // canonicalization, paths that resolve outside the base directory
-                        // are still allowed and read; this is logged for debugging but not
-                        // blocked.
-                        let absolute_path = if src.starts_with("file:") {
-                            // Try proper URL parsing first; fall back to stripping the
-                            // scheme and treating the remainder as a plain path for
-                            // slightly-nonconforming inputs (e.g. unencoded spaces).
-                            let parsed = url::Url::parse(&src)
-                                .ok()
-                                .and_then(|u| u.to_file_path().ok());
-                            if parsed.is_none() {
-                                tracing::debug!(
-                                    ?src,
-                                    "file: URL could not be parsed; falling back to plain path"
-                                );
-                            }
-                            parsed.or_else(|| {
-                                // Strip the scheme prefix and use the rest as a path.
-                                let raw = src
-                                    .strip_prefix("file://")
-                                    .or_else(|| src.strip_prefix("file:/"))
-                                    .or_else(|| src.strip_prefix("file:"))
-                                    .unwrap_or(&src);
-                                let path = Path::new(raw);
-                                if path.is_absolute() {
-                                    Some(path.to_path_buf())
-                                } else {
-                                    Some(canonical_base.join(path))
-                                }
-                            })
-                        } else {
-                            let path = Path::new(&src);
-                            if path.is_absolute() {
-                                Some(path.to_path_buf())
-                            } else {
-                                Some(canonical_base.join(path))
-                            }
-                        };
-
-                        if let Some(absolute_path) = absolute_path {
-                            if let Ok(canonical_path) = absolute_path.canonicalize() {
-                                if !canonical_path.starts_with(&canonical_base) {
-                                    tracing::trace!(
-                                        ?src,
-                                        "Image path resolved outside base directory; proceeding with inline read"
-                                    );
-                                }
-                                if let Some(image_data) =
-                                    read_image_bounded(&canonical_path, MAX_INLINE_IMAGE_SIZE)
-                                {
-                                    let mime_type = get_mime_type(&canonical_path);
-                                    let base64_data =
-                                        general_purpose::STANDARD.encode(&image_data);
-                                    let data_url =
-                                        format!("data:{};base64,{}", mime_type, base64_data);
-                                    el.set_attribute("src", &data_url)?;
-                                }
-                            }
-                        }
+                    if let Some(data_url) = inline_local_image(&src, &canonical_base) {
+                        el.set_attribute("src", &data_url)?;
                     }
                 }
                 Ok(())
             }))
+            // A `<source>` inside a `<picture>` is what the browser picks in
+            // the theme it matches, so it needs the same inlining as `<img>`
+            // or that theme shows nothing.
+            .append_element_content_handler(element!(
+                "img[srcset], source[srcset]",
+                move |el| {
+                    if let Some(srcset) = el.get_attribute("srcset") {
+                        match inline_srcset(&srcset, &srcset_base) {
+                            // Nothing is left to pick from, so the attribute
+                            // has to go rather than stay empty: an `<img>`
+                            // then falls back to its `src` and a `<source>`
+                            // is ignored in favor of the `<picture>`'s `<img>`.
+                            Some(inlined) if inlined.is_empty() => {
+                                el.remove_attribute("srcset");
+                            }
+                            Some(inlined) => el.set_attribute("srcset", &inlined)?,
+                            None => {}
+                        }
+                    }
+                    Ok(())
+                }
+            ))
             // Process anchor tags: convert markdown links to spans
             .append_element_content_handler(element!("a[href]", move |el| {
                 let Some(href) = el.get_attribute("href") else {
@@ -632,6 +738,171 @@ mod tests {
 
         let data = read_image_bounded(&path, 1024).expect("exactly-limit file must be accepted");
         assert_eq!(data.len(), 1024);
+    }
+
+    #[test]
+    fn parse_srcset_reads_urls_and_descriptors() {
+        let candidates = parse_srcset("./a.png 1x,  ./a@2x.png 2x ,./b.png");
+        let pairs: Vec<(&str, &str)> = candidates
+            .iter()
+            .map(|c| (c.url.as_str(), c.descriptor.as_str()))
+            .collect();
+
+        assert_eq!(
+            pairs,
+            vec![("./a.png", "1x"), ("./a@2x.png", "2x"), ("./b.png", "")]
+        );
+    }
+
+    #[test]
+    fn parse_srcset_keeps_the_commas_inside_a_data_url() {
+        let candidates = parse_srcset("data:image/png;base64,AAA= 2x, data:image/gif;base64,BBB=,");
+        let pairs: Vec<(&str, &str)> = candidates
+            .iter()
+            .map(|c| (c.url.as_str(), c.descriptor.as_str()))
+            .collect();
+
+        assert_eq!(
+            pairs,
+            vec![
+                ("data:image/png;base64,AAA=", "2x"),
+                ("data:image/gif;base64,BBB=", ""),
+            ]
+        );
+    }
+
+    /// A comma with no whitespace after it does NOT start a new candidate:
+    /// HTML collects the URL as a run of non-whitespace, so `a.png,b.png 2x`
+    /// is the single URL `a.png,b.png`. Verified against Chromium, which
+    /// resolves that value to one request for `a.png,b.png`. Splitting on the
+    /// comma instead would inline an image the browser would never have
+    /// chosen, so this pins the spec reading rather than the tempting one.
+    #[test]
+    fn parse_srcset_does_not_split_a_candidate_on_a_comma_without_whitespace() {
+        let candidates = parse_srcset("a.png,b.png 2x");
+        let pairs: Vec<(&str, &str)> = candidates
+            .iter()
+            .map(|c| (c.url.as_str(), c.descriptor.as_str()))
+            .collect();
+
+        assert_eq!(pairs, vec![("a.png,b.png", "2x")]);
+    }
+
+    /// HTML separates candidates on ASCII whitespace only, so a file name
+    /// holding an ideographic space is one URL, not a URL and a descriptor.
+    #[test]
+    fn parse_srcset_keeps_non_ascii_whitespace_inside_a_url() {
+        let candidates = parse_srcset("./図\u{3000}1.png 2x");
+        let pairs: Vec<(&str, &str)> = candidates
+            .iter()
+            .map(|c| (c.url.as_str(), c.descriptor.as_str()))
+            .collect();
+
+        assert_eq!(pairs, vec![("./図\u{3000}1.png", "2x")]);
+    }
+
+    /// The `<picture>` shape GitHub documents for theme-aware images: the
+    /// `<source>` the browser picks in dark mode must be inlined too, or that
+    /// theme renders nothing.
+    #[test]
+    fn source_srcset_is_inlined() {
+        let temp = TempDir::new().unwrap();
+        fs::write(temp.path().join("dark.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+        fs::write(temp.path().join("light.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+
+        let html = r#"<picture><source media="(prefers-color-scheme: dark)" srcset="./dark.png"><img src="./light.png" alt="hero"></picture>"#;
+        let result = post_process_html_tags(html, temp.path());
+
+        assert_eq!(
+            result.matches("data:image/png;base64,").count(),
+            2,
+            "both the source and the img must be inlined: {result}"
+        );
+        assert!(!result.contains("./dark.png"), "{result}");
+    }
+
+    #[test]
+    fn img_srcset_candidates_are_inlined_with_their_descriptors() {
+        let temp = TempDir::new().unwrap();
+        fs::write(temp.path().join("a.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+        fs::write(temp.path().join("a@2x.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+
+        let html = r#"<img src="a.png" srcset="a.png 1x, a@2x.png 2x">"#;
+        let result = post_process_html_tags(html, temp.path());
+
+        assert!(result.contains("base64,iVBORw== 1x,"), "{result}");
+        assert!(result.contains("base64,iVBORw== 2x\""), "{result}");
+    }
+
+    #[test]
+    fn remote_srcset_candidates_are_left_alone() {
+        let temp = TempDir::new().unwrap();
+        fs::write(temp.path().join("a.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+
+        let html = r#"<source srcset="https://example.com/a.png 1x, a.png 2x">"#;
+        let result = post_process_html_tags(html, temp.path());
+
+        assert!(
+            result.contains("https://example.com/a.png 1x, data:image/png;base64,"),
+            "{result}"
+        );
+    }
+
+    /// A local candidate whose file cannot be read is dropped: it could never
+    /// load in a page that has no base URL, and left in place the browser
+    /// would pick it — a `2x` candidate wins on every Retina display — over
+    /// the candidate that did inline.
+    #[test]
+    fn an_unreadable_local_srcset_candidate_is_dropped() {
+        let temp = TempDir::new().unwrap();
+        fs::write(temp.path().join("there.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+
+        let html = r#"<source srcset="there.png 1x, missing.png 2x">"#;
+        let result = post_process_html_tags(html, temp.path());
+
+        assert!(!result.contains("missing.png"), "{result}");
+        assert!(
+            result.contains("data:image/png;base64,iVBORw== 1x"),
+            "{result}"
+        );
+    }
+
+    /// An empty file is dropped like an unreadable one. Inlined it would be
+    /// `data:image/png;base64,`, and `srcset` parsing strips that trailing
+    /// comma — leaving a malformed URL that still outranks, at `2x`, the
+    /// candidate that did inline.
+    #[test]
+    fn an_empty_image_file_is_not_inlined() {
+        let temp = TempDir::new().unwrap();
+        fs::write(temp.path().join("empty.png"), []).unwrap();
+        fs::write(temp.path().join("there.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+
+        let html = r#"<img src="empty.png" srcset="there.png 1x, empty.png 2x">"#;
+        let result = post_process_html_tags(html, temp.path());
+
+        assert!(!result.contains("base64,\""), "{result}");
+        assert!(!result.contains("base64, "), "{result}");
+        assert_eq!(
+            result,
+            r#"<img src="empty.png" srcset="data:image/png;base64,iVBORw== 1x">"#
+        );
+    }
+
+    /// With every candidate gone the attribute goes too, so the `<img src>`
+    /// that did inline is what renders instead of a broken candidate.
+    #[test]
+    fn a_srcset_of_only_unreadable_candidates_is_removed() {
+        let temp = TempDir::new().unwrap();
+        fs::write(temp.path().join("there.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+
+        let html = r#"<img src="there.png" srcset="missing.png 1x,  other.png 2x">"#;
+        let result = post_process_html_tags(html, temp.path());
+
+        assert!(!result.contains("srcset"), "{result}");
+        assert!(
+            result.contains("data:image/png;base64,iVBORw=="),
+            "{result}"
+        );
     }
 
     /// A `./../` style relative path should be resolved correctly

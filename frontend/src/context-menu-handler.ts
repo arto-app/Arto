@@ -308,8 +308,16 @@ function detectContext(target: HTMLElement): DetectedContext {
       const img = current as HTMLImageElement;
       // Image is inline within <p data-source-line="N">, use parent's line
       const line = findSourceLine(current);
+      // `currentSrc` is the candidate the browser actually picked, which for a
+      // <picture> or a srcset is not what `src` holds: copying or opening the
+      // image has to act on the variant on screen, not on the light-mode
+      // fallback. It is empty before the image loads, hence the fallback.
       return {
-        context: { type: "image", src: img.src, alt: img.alt || null },
+        context: {
+          type: "image",
+          src: img.currentSrc || img.src,
+          alt: img.alt || null,
+        },
         sourceLine: line,
         sourceLineEnd: line,
       };
