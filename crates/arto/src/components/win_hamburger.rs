@@ -3,6 +3,7 @@
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSeparator, ContextMenuSubmenu};
 use crate::components::icon::IconName;
 use crate::state::AppState;
+use crate::utils::task::spawn_detached;
 use dioxus::prelude::*;
 
 #[component]
@@ -110,11 +111,11 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
                     close();
                 } }
                 ContextMenuItem { label: "Find Next", shortcut: shortcut("search.next"), on_click: move |_| {
-                    spawn(async move { let _ = document::eval("window.Arto.search.navigate('next')").await; });
+                    spawn_detached(async move { let _ = document::eval("window.Arto.search.navigate('next')").await; });
                     close();
                 } }
                 ContextMenuItem { label: "Find Previous", shortcut: shortcut("search.prev"), on_click: move |_| {
-                    spawn(async move { let _ = document::eval("window.Arto.search.navigate('prev')").await; });
+                    spawn_detached(async move { let _ = document::eval("window.Arto.search.navigate('prev')").await; });
                     close();
                 } }
             }
