@@ -5,7 +5,7 @@ use dioxus::prelude::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use crate::assets::main_stylesheet_head;
+use crate::assets::{main_stylesheet_head, with_asset_protocol};
 use crate::components::image_window::{generate_image_id, ImageWindow, ImageWindowProps};
 use crate::components::math_window::{generate_math_id, MathWindow, MathWindowProps};
 use crate::components::mermaid_window::{generate_diagram_id, MermaidWindow, MermaidWindowProps};
@@ -178,7 +178,7 @@ pub fn open_or_focus_mermaid_window(source: String, theme: Theme) {
                 theme,
             },
         );
-        let config = Config::new()
+        let config = with_asset_protocol(Config::new())
             .with_menu(None)
             .with_window(super::icon::apply_app_icon(
                 WindowBuilder::new().with_title("Mermaid Viewer"),
@@ -205,7 +205,7 @@ pub fn open_or_focus_math_window(source: String, theme: Theme) {
                 theme,
             },
         );
-        let config = Config::new()
+        let config = with_asset_protocol(Config::new())
             .with_menu(None)
             .with_window(super::icon::apply_app_icon(
                 WindowBuilder::new().with_title("Math Viewer"),
@@ -233,7 +233,7 @@ pub fn open_or_focus_image_window(src: String, alt: Option<String>, theme: Theme
                 theme,
             },
         );
-        let config = Config::new()
+        let config = with_asset_protocol(Config::new())
             .with_menu(None)
             .with_window(super::icon::apply_app_icon(
                 WindowBuilder::new().with_title("Image Viewer"),

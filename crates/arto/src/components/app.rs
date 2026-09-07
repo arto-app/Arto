@@ -25,7 +25,7 @@ use super::search_bar::SearchBar;
 use super::sidebar::file_explorer::SidebarContextMenuHost;
 use super::sidebar::Sidebar;
 use super::tab::TabBar;
-use crate::assets::MAIN_SCRIPT;
+use crate::assets::main_script_url;
 use crate::drag;
 use crate::events::{ActiveDragUpdate, ACTIVE_DRAG_UPDATE};
 #[cfg(not(target_os = "windows"))]
@@ -168,13 +168,14 @@ pub fn App(
                 r#"
                 (async () => {{
                     try {{
-                        const {{ init }} = await import("{MAIN_SCRIPT}");
+                        const {{ init }} = await import("{main_script}");
                         init();
                     }} catch (error) {{
                         console.error("Failed to load main module:", error);
                     }}
                 }})();
-                "#
+                "#,
+                main_script = main_script_url()
             ))
             .await;
         });

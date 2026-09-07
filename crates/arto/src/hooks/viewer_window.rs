@@ -5,7 +5,7 @@ use dioxus::desktop::use_muda_event_handler;
 use dioxus::desktop::window;
 use dioxus::prelude::*;
 
-use crate::assets::MAIN_SCRIPT;
+use crate::assets::main_script_url;
 use crate::components::icon::{Icon, IconName};
 
 #[derive(serde::Deserialize)]
@@ -143,12 +143,13 @@ pub fn CopyImageButton(js_function: String, label: String) -> Element {
 
     let handle_click = move |_| {
         let js_function = js_function.clone();
+        let main_script = main_script_url();
         spawn(async move {
             copy_status.set(CopyStatus::Copying);
 
             let mut eval = document::eval(&indoc::formatdoc! {r#"
                 (async () => {{
-                    const {{ {js_function} }} = await import("{MAIN_SCRIPT}");
+                    const {{ {js_function} }} = await import("{main_script}");
                     try {{
                         await {js_function}();
                         dioxus.send(true);

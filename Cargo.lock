@@ -172,6 +172,7 @@ dependencies = [
  "dirs 7.0.0",
  "display-info",
  "dotenvy",
+ "flate2",
  "html-escape",
  "image",
  "indoc",

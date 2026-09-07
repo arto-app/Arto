@@ -7,7 +7,7 @@ use std::collections::HashMap;
 /// filesystem (the bundled asset directory sits in a different place relative
 /// to the binary on every platform, and a missing icon must not be able to fail
 /// a window).
-const ICON_PNG: &[u8] = include_bytes!("../../assets/Arto.png");
+pub const APP_ICON_PNG: &[u8] = include_bytes!("../../assets/Arto.png");
 
 /// Edge length for the icon Windows draws in the title bar. Windows happily
 /// scales an icon of any size into the 16px slot, but does it without
@@ -67,7 +67,7 @@ fn app_icon(size: u32) -> Option<Icon> {
 }
 
 fn load_app_icon(size: u32) -> Option<Icon> {
-    let image = match image::load_from_memory_with_format(ICON_PNG, image::ImageFormat::Png) {
+    let image = match image::load_from_memory_with_format(APP_ICON_PNG, image::ImageFormat::Png) {
         Ok(image) => image,
         Err(err) => {
             tracing::warn!("Failed to decode the application icon: {err}");

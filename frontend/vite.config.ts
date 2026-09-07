@@ -176,7 +176,11 @@ function syncBundlePlugin(consumers: BundleConsumer[], replace: boolean): Plugin
         fs.mkdirSync(dir, { recursive: true });
         if (files) {
           for (const file of files) {
-            fs.copyFileSync(path.join(outDir, file), path.join(dir, file));
+            const destination = path.join(dir, file);
+            // A listed file may sit in a subdirectory of its own (the icon
+            // sprite does), which `replace` above has just removed.
+            fs.mkdirSync(path.dirname(destination), { recursive: true });
+            fs.copyFileSync(path.join(outDir, file), destination);
           }
         } else {
           fs.cpSync(outDir, dir, { recursive: true });
@@ -188,8 +192,14 @@ function syncBundlePlugin(consumers: BundleConsumer[], replace: boolean): Plugin
 
 /** Crates that embed the bundle. */
 const bundleConsumers: BundleConsumer[] = [
-  // The app serves everything (ES module, stylesheet, icon sprite) as assets.
-  { dir: path.resolve(import.meta.dirname, "../crates/arto/assets/frontend") },
+  // The app compiles in the ES module and the stylesheet and serves them from
+  // its own protocol; the sprite it writes into each window's document. The
+  // IIFE build is the Quick Look extension's and is listed below, so naming
+  // these three keeps 4.8 MB the app never reads out of its binary.
+  {
+    dir: path.resolve(import.meta.dirname, "../crates/arto/assets/frontend"),
+    files: ["main.js", "main.css", "icons/tabler-sprite.svg"],
+  },
   // The page crate inlines only the stylesheet and the IIFE bundle.
   {
     dir: path.resolve(import.meta.dirname, "../crates/arto-page/assets/frontend"),

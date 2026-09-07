@@ -1,9 +1,124 @@
-use arto_keybindings::BindingSet;
-use dioxus::asset_resolver::asset_path;
-use dioxus::prelude::*;
+//! What the app serves to its own WebViews, and the protocol it serves it on.
+//!
+//! # Why a protocol of its own
+//!
+//! The obvious alternative, writing the stylesheet and the script straight
+//! into each window's HTML, costs a megabyte of markup per window, cannot be
+//! cached, and makes the sources unreadable in the developer tools. A URL
+//! keeps all three.
+//!
+//! `dioxus://` would have been the natural origin, but Dioxus builds its own
+//! asset handler after `Config` is consumed, so nothing can be added to it
+//! from here. A protocol registered on the `Config` is a second origin, which
+//! is why the responses carry `Access-Control-Allow-Origin` and why the icon
+//! sprite is inlined into the document instead of being fetched: a
+//! `<use href="…#id">` across origins is refused, and no CORS header changes
+//! that.
+//!
+//! # The origin
+//!
+//! Windows' WebView2 cannot register a non-standard scheme, so wry rewrites
+//! `{protocol}://` requests to `http://{protocol}.` and undoes the rewrite
+//! before the handler sees them. The handler therefore reads one origin on
+//! every platform, and only the URL written into the HTML differs.
+//!
+//! The host is `localhost` because of what that rewrite leaves behind: on
+//! Windows these become plain `http://` requests, and a document Dioxus
+//! serves from a secure origin refuses insecure subresources. Chromium counts
+//! `*.localhost` as potentially trustworthy, so the stylesheet and the script
+//! load rather than being blocked as mixed content. A host such as
+//! `artoasset.assets` would be neither trustworthy nor obviously unresolvable.
 
-pub static MAIN_SCRIPT: Asset = asset!("/assets/frontend/main.js");
-pub static MAIN_STYLE: Asset = asset!("/assets/frontend/main.css");
+mod frontend;
+
+use arto_keybindings::BindingSet;
+use dioxus::desktop::wry::http::{Request, Response};
+use dioxus::desktop::wry::WebViewId;
+use dioxus::desktop::Config;
+use std::borrow::Cow;
+
+/// The scheme the app answers on.
+///
+/// Not `arto`: wry's Windows rewrite catches `http://{protocol}.*`, and with
+/// `arto` that would take requests to real hosts such as `arto.app` with it.
+const PROTOCOL: &str = "artoasset";
+
+/// The origin the HTML asks for. See the module docs for the two shapes.
+#[cfg(windows)]
+const ORIGIN: &str = "http://artoasset.localhost";
+#[cfg(not(windows))]
+const ORIGIN: &str = "artoasset://localhost";
+
+/// Answer requests for the embedded frontend on this configuration's windows.
+///
+/// Registered on the `Config` rather than through `use_asset_handler`, which
+/// only exists after the first render — far too late for the stylesheet the
+/// custom head asks for while the page is still parsing.
+pub fn with_asset_protocol(config: Config) -> Config {
+    config.with_custom_protocol(PROTOCOL, |_id: WebViewId, request: Request<Vec<u8>>| {
+        respond(request.uri().path())
+    })
+}
+
+fn respond(path: &str) -> Response<Cow<'static, [u8]>> {
+    let Some(file) = path.strip_prefix("/assets/").and_then(frontend::bundled) else {
+        return not_found();
+    };
+    let Some(bytes) = frontend::bytes(file) else {
+        return not_found();
+    };
+
+    Response::builder()
+        .status(200)
+        .header("Content-Type", file.mime)
+        // The document is served from `dioxus://`, so every one of these
+        // requests is cross-origin.
+        .header("Access-Control-Allow-Origin", "*")
+        .header("Cache-Control", CACHE_CONTROL)
+        .body(bytes)
+        .expect("a response with a body and valid headers")
+}
+
+fn not_found() -> Response<Cow<'static, [u8]>> {
+    Response::builder()
+        .status(404)
+        .header("Access-Control-Allow-Origin", "*")
+        .body(Cow::Borrowed(&b""[..]))
+        .expect("a response with a body and valid headers")
+}
+
+/// A release binary's bundle cannot change while it runs, and the URL carries
+/// the version it was built from. A debug build reads the file on every
+/// request, so that rebuilding the bundle and reloading a window is enough to
+/// see the change.
+#[cfg(not(debug_assertions))]
+const CACHE_CONTROL: &str = "public, max-age=31536000, immutable";
+#[cfg(debug_assertions)]
+const CACHE_CONTROL: &str = "no-store";
+
+/// The URL of one bundled file.
+///
+/// The app's version is in the query so that an upgrade cannot be answered
+/// from the cache of the version before it — which matters because a release
+/// answers with `immutable` and a year of freshness.
+///
+/// `ARTO_BUILD_VERSION`, not `CARGO_PKG_VERSION`: the workspace manifest says
+/// `0.0.0` and only the release workflow patches it, so a Nix build (which
+/// stamps the version through the environment instead) and every local
+/// release build would otherwise share one query for every version they ever
+/// have.
+fn url(file: frontend::Bundled) -> String {
+    format!(
+        "{ORIGIN}/assets/{}?v={}",
+        file.name,
+        env!("ARTO_BUILD_VERSION")
+    )
+}
+
+/// The URL of the module every window imports.
+pub fn main_script_url() -> String {
+    url(frontend::MAIN_SCRIPT)
+}
 
 /// The `<head>` markup that loads the main stylesheet, for
 /// `Config::with_custom_head` on every window.
@@ -13,42 +128,63 @@ pub static MAIN_STYLE: Asset = asset!("/assets/frontend/main.css");
 /// render, so the window would paint unstyled for a moment on every open.
 /// Head markup is parsed with the page and applies before anything shows.
 pub fn main_stylesheet_head() -> String {
-    format!(r#"<link rel="stylesheet" href="{MAIN_STYLE}">"#)
+    format!(
+        r#"<link rel="stylesheet" href="{}">"#,
+        url(frontend::MAIN_STYLE)
+    )
 }
 
-/// The welcome header, in the two flavours the page switches between. The
-/// stylesheet shows one and hides the other by theme, so both are always in
-/// the document.
-static ARTO_HEADER_LIGHT: Asset = asset!("/assets/arto-header-welcome-light.png");
-static ARTO_HEADER_DARK: Asset = asset!("/assets/arto-header-welcome-dark.png");
-static WELCOME_TEMPLATE: Asset = asset!("/assets/welcome.md");
-
-// Embed and process default markdown content at runtime
+/// The welcome page, with its images and shortcuts filled in.
 pub fn get_default_markdown_content() -> String {
-    let template_path = asset_path(WELCOME_TEMPLATE).expect("Failed to resolve WELCOME_TEMPLATE");
-    let template = std::fs::read_to_string(template_path).expect("Failed to read WELCOME_TEMPLATE");
+    let template = include_str!("../assets/welcome.md");
 
-    // The template names the images by their source-relative paths so that it
-    // is readable (and renderable) on its own; here they become the paths the
-    // running app can actually load.
+    // The template names its images by their source-relative paths so that it
+    // stays a document that renders on its own; here they become data URLs,
+    // which the page can carry because they are small and are drawn once.
     let template = template
         .replace(
             "../assets/arto-header-welcome-light.png",
-            &resolved_asset_path(ARTO_HEADER_LIGHT),
+            &data_url(
+                "image/png",
+                include_bytes!("../assets/arto-header-welcome-light.png"),
+            ),
         )
         .replace(
             "../assets/arto-header-welcome-dark.png",
-            &resolved_asset_path(ARTO_HEADER_DARK),
+            &data_url(
+                "image/png",
+                include_bytes!("../assets/arto-header-welcome-dark.png"),
+            ),
         );
 
     with_current_shortcuts(&template)
 }
 
-fn resolved_asset_path(asset: Asset) -> String {
-    asset_path(asset)
-        .expect("Failed to resolve asset")
-        .to_string_lossy()
-        .into_owned()
+/// The app icon, for the About tab.
+///
+/// Encoded once: the tab re-renders on every configuration change, and the
+/// icon it shows is the same 31 KB either way.
+pub fn app_icon_data_url() -> &'static str {
+    static ICON: std::sync::LazyLock<String> =
+        std::sync::LazyLock::new(|| data_url("image/png", crate::window::icon::APP_ICON_PNG));
+    &ICON
+}
+
+/// The icon sprite, inlined into every window's document.
+///
+/// Not served from the protocol: `<use href="…#id">` is same-origin only, so
+/// a sprite behind a second origin would leave every icon blank, with nothing
+/// reported anywhere.
+pub fn icon_sprite() -> &'static str {
+    include_str!("../assets/frontend/icons/tabler-sprite.svg")
+}
+
+fn data_url(mime: &str, bytes: &[u8]) -> String {
+    use base64::Engine as _;
+    format!(
+        "data:{mime};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    )
 }
 
 /// What a shortcut reads as when the action has none bound.
@@ -128,5 +264,23 @@ mod tests {
             rendered.ends_with(" after {{"),
             "unterminated tail lost: {rendered}"
         );
+    }
+
+    /// A request for anything but a bundled file is refused rather than
+    /// answered from the filesystem.
+    #[test]
+    fn the_protocol_serves_the_bundle_and_nothing_else() {
+        assert_eq!(respond("/assets/main.css").status(), 200);
+        assert_eq!(respond("/assets/main.js").status(), 200);
+        assert_eq!(respond("/assets/../../etc/passwd").status(), 404);
+        assert_eq!(respond("/etc/passwd").status(), 404);
+        assert_eq!(respond("/assets/").status(), 404);
+    }
+
+    #[test]
+    fn the_stylesheet_is_asked_for_over_the_protocol() {
+        let head = main_stylesheet_head();
+        assert!(head.contains(ORIGIN), "{head}");
+        assert!(head.contains("main.css"), "{head}");
     }
 }

@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use sha2::{Digest, Sha256};
 
-use crate::assets::MAIN_SCRIPT;
+use crate::assets::main_script_url;
 use crate::components::theme_selector::ThemeSelector;
 use crate::hooks::{
     use_clipboard_image_handler, use_theme_dispatch, use_window_close_handler, use_zoom_sync,
@@ -75,11 +75,12 @@ pub fn ImageWindow(props: ImageWindowProps) -> Element {
         let src_json = serde_json::to_string(&props.src).unwrap_or_default();
         let image_id_json = serde_json::to_string(&props.image_id).unwrap_or_default();
 
+        let main_script = main_script_url();
         spawn(async move {
             let eval_result = document::eval(&indoc::formatdoc! {r#"
                 (async () => {{
                     try {{
-                        const {{ initImageWindow }} = await import("{MAIN_SCRIPT}");
+                        const {{ initImageWindow }} = await import("{main_script}");
                         await initImageWindow({src_json}, {image_id_json});
                     }} catch (error) {{
                         console.error("Failed to load image window module:", error);
