@@ -23,7 +23,7 @@
 //! first-party inline scripts embedded here. [`PageOptions`] can switch the
 //! policy off for callers that render trusted input.
 
-pub use arto_config::{Config, ConfigError, Theme};
+pub use arto_config::{ColorTheme, Config, ConfigError, Theme, ThemeConfig};
 pub use arto_markdown::RenderOptions;
 
 use base64::Engine;
@@ -53,13 +53,14 @@ const FRONTEND_JS: &str = include_str!("../assets/frontend/main.iife.js");
 const STANDALONE_OVERRIDE_CSS: &str = "html,body{overflow:auto!important;height:auto!important;}";
 
 /// The inline bootstrap script. Settles the theme (the frontend reads
-/// `document.body`'s `data-theme` during initialization) and then starts the
+/// `data-theme` on the root element during initialization) and then starts the
 /// frontend.
 ///
-/// The theme preference travels in `data-theme-preference` on `<body>` rather
-/// than in this script, so the script stays byte-identical across pages and
-/// its CSP hash can be a constant. `light` and `dark` are taken as-is;
-/// anything else follows `prefers-color-scheme`.
+/// The theme choices travel in `data-theme-preference`, `data-light-theme`
+/// and `data-dark-theme` on `<html>` rather than in this script, so the script
+/// stays byte-identical across pages and its CSP hash can be a constant. The
+/// preference `light` and `dark` are taken as-is; anything else follows
+/// `prefers-color-scheme`. The mode then picks one of the two theme names.
 const BOOTSTRAP_JS: &str = r#"(function(){
   // Quick Look loads this page from an opaque origin, which is not a secure
   // context, so crypto.randomUUID (used by Mermaid) is undefined. Polyfill it
@@ -75,12 +76,14 @@ const BOOTSTRAP_JS: &str = r#"(function(){
     }
   } catch (e) {}
   try {
-    var theme = document.body.getAttribute('data-theme-preference');
-    if (theme !== 'light' && theme !== 'dark') {
-      var m = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      theme = m ? 'dark' : 'light';
+    var root = document.documentElement;
+    var preference = root.getAttribute('data-theme-preference');
+    var dark = preference === 'dark';
+    if (preference !== 'light' && preference !== 'dark') {
+      dark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
     }
-    document.body.setAttribute('data-theme', theme);
+    var theme = root.getAttribute(dark ? 'data-dark-theme' : 'data-light-theme');
+    root.setAttribute('data-theme', theme || (dark ? 'dark' : 'light'));
   } catch (e) {}
   if (window.ArtoRenderer && typeof window.ArtoRenderer.init === 'function') { window.ArtoRenderer.init(); }
 })();"#;
@@ -99,6 +102,10 @@ pub struct PageOptions {
     /// The colour theme the page opens in. `Auto` follows the viewer's
     /// `prefers-color-scheme`.
     pub theme: Theme,
+    /// Which of GitHub's themes light mode paints.
+    pub light_theme: ColorTheme,
+    /// Which of GitHub's themes dark mode paints.
+    pub dark_theme: ColorTheme,
     /// Emit the `Content-Security-Policy` that restricts script execution to
     /// the embedded frontend. Leave it on for untrusted input.
     pub content_security_policy: bool,
@@ -109,6 +116,8 @@ impl Default for PageOptions {
         Self {
             render: RenderOptions::default(),
             theme: Theme::default(),
+            light_theme: ThemeConfig::default().light_theme,
+            dark_theme: ThemeConfig::default().dark_theme,
             content_security_policy: true,
         }
     }
@@ -122,6 +131,8 @@ impl PageOptions {
         Self {
             render: config.markdown.clone(),
             theme: config.theme.default_theme,
+            light_theme: config.theme.light_theme,
+            dark_theme: config.theme.dark_theme,
             content_security_policy: true,
         }
     }
@@ -239,8 +250,9 @@ fn build_document(body_html: &str, options: &PageOptions) -> String {
 
     // Allowlist exactly the two inline scripts we emit; everything else the
     // Markdown body may contain (script tags, event handlers, javascript: URLs)
-    // is blocked. `style-src 'unsafe-inline'` is required because the frontend
-    // injects theme <style> elements and inline styles at runtime.
+    // is blocked. `style-src 'unsafe-inline'` is required because the page
+    // carries its stylesheet inline and the frontend sets inline styles at
+    // runtime.
     let csp_meta = if options.content_security_policy {
         format!(
             "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; \
@@ -256,18 +268,20 @@ fn build_document(body_html: &str, options: &PageOptions) -> String {
     // `data-theme` is what the stylesheet reads, so a fixed theme applies
     // before any script runs (and with scripts blocked). `Auto` starts light
     // and lets the bootstrap consult `prefers-color-scheme`.
+    let light_theme = options.light_theme.as_str();
+    let dark_theme = options.dark_theme.as_str();
     let (initial_theme, theme_preference) = match options.theme {
-        Theme::Auto => ("light", "auto"),
-        Theme::Light => ("light", "light"),
-        Theme::Dark => ("dark", "dark"),
+        Theme::Auto => (light_theme, "auto"),
+        Theme::Light => (light_theme, "light"),
+        Theme::Dark => (dark_theme, "dark"),
     };
 
     format!(
-        r#"<!DOCTYPE html><html><head><meta charset="utf-8">
+        r#"<!DOCTYPE html><html data-theme="{initial_theme}" data-theme-preference="{theme_preference}" data-light-theme="{light_theme}" data-dark-theme="{dark_theme}"><head><meta charset="utf-8">
 {csp_meta}<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>{css}</style>
 <style>{standalone_override}</style></head>
-<body data-theme="{initial_theme}" data-theme-preference="{theme_preference}">
+<body>
 <div class="markdown-viewer"><article class="markdown-body">{body}</article></div>
 <script>{bundle}</script>
 <script>{bootstrap}</script>
@@ -277,6 +291,8 @@ fn build_document(body_html: &str, options: &PageOptions) -> String {
         standalone_override = STANDALONE_OVERRIDE_CSS,
         initial_theme = initial_theme,
         theme_preference = theme_preference,
+        light_theme = light_theme,
+        dark_theme = dark_theme,
         body = body_html,
         bundle = bundle,
         bootstrap = BOOTSTRAP_JS,
@@ -310,7 +326,7 @@ mod tests {
         assert!(html.contains("</script>"));
         // Theme defaults are present: start light, let the bootstrap follow
         // the system.
-        assert!(html.contains(r#"<body data-theme="light" data-theme-preference="auto">"#));
+        assert!(html.contains(r#"<html data-theme="light" data-theme-preference="auto" data-light-theme="light" data-dark-theme="dark">"#));
         assert!(html.contains("prefers-color-scheme"));
         // Mermaid needs crypto.randomUUID, which an opaque origin lacks, so
         // the bootstrap must polyfill it.
@@ -366,7 +382,7 @@ mod tests {
                 ..PageOptions::default()
             },
         );
-        assert!(dark.contains(r#"<body data-theme="dark" data-theme-preference="dark">"#));
+        assert!(dark.contains(r#"<html data-theme="dark" data-theme-preference="dark" data-light-theme="light" data-dark-theme="dark">"#));
 
         let light = build_document(
             "<p>hi</p>",
@@ -375,7 +391,7 @@ mod tests {
                 ..PageOptions::default()
             },
         );
-        assert!(light.contains(r#"<body data-theme="light" data-theme-preference="light">"#));
+        assert!(light.contains(r#"<html data-theme="light" data-theme-preference="light" data-light-theme="light" data-dark-theme="dark">"#));
 
         // The bootstrap is byte-identical whatever the theme, so its CSP hash
         // stays valid.

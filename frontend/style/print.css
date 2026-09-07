@@ -130,7 +130,7 @@
     overflow: visible !important;
   }
 
-  /* github-markdown-css renders tables as scrollable blocks; restore
+  /* Primer's Markdown stylesheet renders tables as scrollable blocks; restore
      real table layout so columns compress to the page width */
   .markdown-body table {
     display: table !important;

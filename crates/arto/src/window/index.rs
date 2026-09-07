@@ -1,16 +1,16 @@
-use crate::theme::{resolve_theme, Theme};
+use crate::theme::{resolve_color_theme, Theme};
 
 pub fn build_custom_index(theme: Theme) -> String {
-    let resolved = resolve_theme(theme);
+    let resolved = resolve_color_theme(theme).as_str();
     indoc::formatdoc! {r#"
     <!DOCTYPE html>
-    <html>
+    <html data-theme="{resolved}">
         <head>
             <title>Arto</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
             <!-- CUSTOM HEAD -->
         </head>
-        <body data-theme="{resolved}">
+        <body>
             <div id="main"></div>
             <!-- MODULE LOADER -->
         </body>
@@ -19,16 +19,16 @@ pub fn build_custom_index(theme: Theme) -> String {
 }
 
 fn build_viewer_window_index(title: &str, body_class: &str, theme: Theme) -> String {
-    let resolved = resolve_theme(theme);
+    let resolved = resolve_color_theme(theme).as_str();
     indoc::formatdoc! {r#"
     <!DOCTYPE html>
-    <html>
+    <html data-theme="{resolved}">
         <head>
             <title>{title} - Arto</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <!-- CUSTOM HEAD -->
         </head>
-        <body data-theme="{resolved}" class="{body_class}">
+        <body class="{body_class}">
             <div id="main"></div>
             <!-- MODULE LOADER -->
         </body>

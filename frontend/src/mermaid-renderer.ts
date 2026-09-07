@@ -1,5 +1,5 @@
 import mermaid from "mermaid";
-import type { Theme } from "./theme";
+import { currentTheme, type Theme } from "./theme";
 import { buildMermaidThemeConfig } from "./mermaid-theme";
 import { fixTextContrast } from "./mermaid-contrast";
 import { openMermaidWindow } from "./mermaid-window-controller";
@@ -7,13 +7,9 @@ import { whenNearViewport } from "./viewport-queue";
 import { restoreCopyButton } from "./code-copy";
 
 export function init(): void {
-  const config = buildMermaidThemeConfig("light");
-  mermaid.initialize({
-    startOnLoad: false,
-    ...config,
-    securityLevel: "loose",
-    fontFamily: "inherit",
-  });
+  // The document already names its theme, and the colours are read out of it,
+  // so a literal here would only disagree with the tokens actually resolved.
+  setTheme(currentTheme());
 }
 
 export function setTheme(theme: Theme): void {

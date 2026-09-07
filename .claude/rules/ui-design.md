@@ -60,39 +60,31 @@ Arto uses a comprehensive design token system defined in `variables.css` for con
 --z-context-submenu: 10003;
 ```
 
-**Shadows:**
-```css
---shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);   /* Subtle elevation */
---shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.15);   /* Small dropdowns */
---shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);  /* Cards, menus (most common) */
---shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.3);   /* High elevation */
-```
+**Shadows, status colors, search highlight** and every other colour are
+theme-aware and defined alongside the rest of the palette (below).
 
-**Status Colors:**
-```css
---success-color: #22c55e;  /* Success states */
---error-color: #dc3545;    /* Error states */
---warning-color: #dc8a2f;  /* Warning states */
-```
+### Colours are Primer tokens
 
-**Search Highlight (theme-aware):**
-```css
---search-highlight: var(--light/dark-search-highlight);  /* Auto-switches with theme */
-```
+Arto paints one of GitHub's themes, chosen in the preferences for light mode
+and for dark mode independently. The palette therefore is not written by hand:
 
-### Variable Naming Convention
+- `@primer/primitives` ships a block of design tokens per theme. A Vite plugin
+  (`primerThemesPlugin` in `frontend/vite.config.ts`) re-scopes each block onto
+  `[data-theme="<name>"]` and writes them to `style/generated/primer-themes.css`.
+  The names are GitHub's (`light`, `dark_dimmed`, `light_high_contrast`, …) and
+  the Rust `ColorTheme` enum decides which ones are offered.
+- `variables.css` maps Arto's semantic variables onto those tokens in a single
+  `[data-theme]` block — `--bg-color: var(--bgColor-default)`,
+  `--link-color: var(--fgColor-accent)`, and so on. Changing the theme changes
+  the tokens, and every component follows without a second palette.
+- The rendered Markdown is styled by `@primer/css`'s `markdown.css`, which reads
+  the same tokens. Code highlighting maps highlight.js classes onto
+  `--color-prettylights-syntax-*` in `style/syntax.css`.
 
-**Theme-specific variables follow prefix pattern:**
-```
---{theme}-{category}-{property}
-```
-
-Examples:
-- `--light-bg-color`, `--dark-bg-color`
-- `--light-pinned-green`, `--dark-pinned-green`
-- `--light-scrollbar-track`, `--dark-scrollbar-track`
-
-**Always use CSS variables instead of hardcoded values** for consistency and theme support.
+**Use Arto's semantic variables in components** (`--bg-secondary`,
+`--border-color`, `--text-secondary`). Reach for a raw Primer token only where
+no semantic variable fits, and never write a hex value: a hard-coded colour is
+wrong in every theme but the one it was taken from.
 
 ## Design Principles
 

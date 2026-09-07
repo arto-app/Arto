@@ -346,11 +346,14 @@
 /* Option Cards (for radio button groups) */
 .option-cards {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
 .option-card {
-  flex: 1;
+  /* A basis rather than 0 so a long list (the theme picker) wraps into rows
+     of readable cards instead of squeezing every option onto one line. */
+  flex: 1 1 140px;
   display: flex;
   flex-direction: column;
   align-items: center;

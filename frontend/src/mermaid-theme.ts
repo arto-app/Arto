@@ -1,142 +1,106 @@
 import type { MermaidConfig } from "mermaid";
-import type { Theme } from "./theme";
+import { isDarkTheme, type Theme } from "./theme";
 
 export interface MermaidThemeConfig {
   theme: MermaidConfig["theme"];
   themeVariables: Record<string, string>;
 }
 
+/** Reads a CSS custom property; the seam that lets tests supply colours. */
+export type TokenResolver = (name: string) => string;
+
 /**
  * Build Mermaid theme configuration aligned with Arto's design tokens.
  *
- * Maps Arto CSS color variables to Mermaid themeVariables so diagrams
- * blend naturally with the app's light/dark theme.
+ * Mermaid bakes colours into the SVG it generates, so the values have to be
+ * read out of the document rather than declared: which of GitHub's themes is
+ * active is only known from the tokens the stylesheet resolved. A token that
+ * resolves to nothing is left out, so Mermaid falls back to its own default
+ * instead of drawing with an empty colour.
  */
-export function buildMermaidThemeConfig(theme: Theme): MermaidThemeConfig {
-  if (theme === "dark") {
-    return { theme: "dark", themeVariables: darkThemeVariables };
+export function buildMermaidThemeConfig(
+  theme: Theme,
+  resolve: TokenResolver = cssTokens(),
+): MermaidThemeConfig {
+  const themeVariables: Record<string, string> = {
+    // Mermaid defaults to 16px which causes text to overflow node boxes
+    fontSize: "14px",
+  };
+  for (const [variable, token] of Object.entries(themeVariableTokens)) {
+    const value = resolve(token).trim();
+    if (value) {
+      themeVariables[variable] = value;
+    }
   }
-  return { theme: "default", themeVariables: lightThemeVariables };
+  return { theme: isDarkTheme(theme) ? "dark" : "default", themeVariables };
 }
 
-// Shared font size matching Arto's --font-size-base (14px)
-// Mermaid defaults to 16px which causes text to overflow node boxes
-const sharedFontVariables: Record<string, string> = {
-  fontSize: "14px",
-};
+function cssTokens(): TokenResolver {
+  const style = getComputedStyle(document.body);
+  return (name) => style.getPropertyValue(name);
+}
 
-// Arto dark theme colors (from variables.css --dark-* tokens)
-const darkThemeVariables: Record<string, string> = {
-  ...sharedFontVariables,
-
+/** Mermaid's theme variables, each mapped to the Primer token it stands for. */
+const themeVariableTokens: Record<string, string> = {
   // Global
-  background: "#0d1117", // --dark-content-bg
-  primaryColor: "#1f6feb", // --dark-accent-bg
-  primaryTextColor: "#e6edf3", // --dark-text-color
-  primaryBorderColor: "#30363d", // --dark-border-color
-  secondaryColor: "#1f2937", // --dark-bg-secondary
-  secondaryTextColor: "#e6edf3", // --dark-text-color
-  secondaryBorderColor: "#30363d", // --dark-border-color
-  tertiaryColor: "#374151", // --dark-bg-tertiary
-  tertiaryTextColor: "#e6edf3", // --dark-text-color
-  tertiaryBorderColor: "#30363d", // --dark-border-color
-  lineColor: "#e6edf3", // --dark-text-color
-  textColor: "#e6edf3", // --dark-text-color
+  background: "--bgColor-default",
+  primaryColor: "--bgColor-accent-emphasis",
+  // Not the ink for `primaryColor`: Mermaid falls back to `primaryTextColor`
+  // for every label it has no dedicated variable for — state diagrams,
+  // requirement diagrams, quadrant and xy charts — and none of those sit on
+  // the emphasis blue. The ink on emphasis is named where it is really on
+  // emphasis (the git branch labels).
+  primaryTextColor: "--fgColor-default",
+  primaryBorderColor: "--borderColor-default",
+  secondaryColor: "--bgColor-muted",
+  secondaryTextColor: "--fgColor-default",
+  secondaryBorderColor: "--borderColor-default",
+  tertiaryColor: "--bgColor-neutral-muted",
+  tertiaryTextColor: "--fgColor-default",
+  tertiaryBorderColor: "--borderColor-default",
+  lineColor: "--fgColor-default",
+  textColor: "--fgColor-default",
 
-  // Flowchart
-  mainBkg: "#1f2937", // --dark-bg-secondary
-  nodeBorder: "#30363d", // --dark-border-color
-  clusterBkg: "#161b22", // slightly darker than bg-secondary
-  clusterBorder: "#30363d", // --dark-border-color
-  edgeLabelBackground: "#1f2937", // --dark-bg-secondary
+  // Flowchart. `nodeTextColor` is named rather than left to its
+  // `primaryTextColor` fallback so the label stays tied to the fill it is
+  // written on, whatever `primaryTextColor` becomes.
+  mainBkg: "--bgColor-muted",
+  nodeTextColor: "--fgColor-default",
+  nodeBorder: "--borderColor-default",
+  clusterBkg: "--bgColor-inset",
+  clusterBorder: "--borderColor-default",
+  edgeLabelBackground: "--bgColor-default",
 
   // Sequence diagram
-  actorBkg: "#1f2937", // --dark-bg-secondary
-  actorBorder: "#30363d", // --dark-border-color
-  actorTextColor: "#e6edf3", // --dark-text-color
-  signalColor: "#e6edf3", // --dark-text-color
-  signalTextColor: "#e6edf3", // --dark-text-color
-  noteBkgColor: "#1f2937", // --dark-bg-secondary
-  noteTextColor: "#e6edf3", // --dark-text-color
-  noteBorderColor: "#30363d", // --dark-border-color
-  labelBoxBkgColor: "#1f2937", // --dark-bg-secondary
-  labelTextColor: "#e6edf3", // --dark-text-color
-  loopTextColor: "#e6edf3", // --dark-text-color
-  activationBkgColor: "#374151", // --dark-bg-tertiary
-  activationBorderColor: "#484f58", // --dark-hover-border
+  actorBkg: "--bgColor-muted",
+  actorBorder: "--borderColor-default",
+  actorTextColor: "--fgColor-default",
+  signalColor: "--fgColor-default",
+  signalTextColor: "--fgColor-default",
+  noteBkgColor: "--bgColor-muted",
+  noteTextColor: "--fgColor-default",
+  noteBorderColor: "--borderColor-default",
+  labelBoxBkgColor: "--bgColor-muted",
+  labelTextColor: "--fgColor-default",
+  loopTextColor: "--fgColor-default",
+  activationBkgColor: "--bgColor-neutral-muted",
+  activationBorderColor: "--borderColor-emphasis",
 
   // State diagram
-  labelColor: "#e6edf3", // --dark-text-color
+  labelColor: "--fgColor-default",
 
   // Class diagram
-  classText: "#e6edf3", // --dark-text-color
+  classText: "--fgColor-default",
 
-  // Git graph
-  git0: "#1f6feb", // --dark-accent-bg
-  git1: "#22c55e", // --success-color
-  git2: "#dc8a2f", // --warning-color
-  git3: "#dc3545", // --error-color
-  gitBranchLabel0: "#e6edf3",
-  gitBranchLabel1: "#e6edf3",
-  gitBranchLabel2: "#e6edf3",
-  gitBranchLabel3: "#e6edf3",
-  gitInv0: "#0d1117",
-};
-
-// Arto light theme colors (from variables.css --light-* tokens)
-const lightThemeVariables: Record<string, string> = {
-  ...sharedFontVariables,
-
-  // Global
-  background: "#ffffff", // --light-content-bg
-  primaryColor: "#0969da", // --light-accent-bg
-  primaryTextColor: "#1f2328", // --light-text-color
-  primaryBorderColor: "#d1d9e0", // --light-border-color
-  secondaryColor: "#f9fafb", // --light-bg-secondary
-  secondaryTextColor: "#1f2328", // --light-text-color
-  secondaryBorderColor: "#d1d9e0", // --light-border-color
-  tertiaryColor: "#ffffff", // --light-bg-tertiary
-  tertiaryTextColor: "#1f2328", // --light-text-color
-  tertiaryBorderColor: "#d1d9e0", // --light-border-color
-  lineColor: "#1f2328", // --light-text-color
-  textColor: "#1f2328", // --light-text-color
-
-  // Flowchart
-  mainBkg: "#f9fafb", // --light-bg-secondary
-  nodeBorder: "#d1d9e0", // --light-border-color
-  clusterBkg: "#f6f8fa", // --light-header-bg
-  clusterBorder: "#d1d9e0", // --light-border-color
-  edgeLabelBackground: "#ffffff", // --light-content-bg
-
-  // Sequence diagram
-  actorBkg: "#f9fafb", // --light-bg-secondary
-  actorBorder: "#d1d9e0", // --light-border-color
-  actorTextColor: "#1f2328", // --light-text-color
-  signalColor: "#1f2328", // --light-text-color
-  signalTextColor: "#1f2328", // --light-text-color
-  noteBkgColor: "#f9fafb", // --light-bg-secondary
-  noteTextColor: "#1f2328", // --light-text-color
-  noteBorderColor: "#d1d9e0", // --light-border-color
-  labelBoxBkgColor: "#f9fafb", // --light-bg-secondary
-  labelTextColor: "#1f2328", // --light-text-color
-  loopTextColor: "#1f2328", // --light-text-color
-  activationBkgColor: "#ffffff", // --light-bg-tertiary
-  activationBorderColor: "#b4bcc4", // --light-hover-border
-
-  // State diagram
-  labelColor: "#1f2328", // --light-text-color
-
-  // Class diagram
-  classText: "#1f2328", // --light-text-color
-
-  // Git graph
-  git0: "#0969da", // --light-accent-bg
-  git1: "#22c55e", // --success-color
-  git2: "#dc8a2f", // --warning-color
-  git3: "#dc3545", // --error-color
-  gitBranchLabel0: "#ffffff",
-  gitBranchLabel1: "#ffffff",
-  gitBranchLabel2: "#ffffff",
-  gitBranchLabel3: "#ffffff",
-  gitInv0: "#ffffff",
+  // Git graph. The emphasis scale rather than fixed hues, so the branches
+  // stay distinguishable under the colour-vision themes too.
+  git0: "--bgColor-accent-emphasis",
+  git1: "--bgColor-success-emphasis",
+  git2: "--bgColor-attention-emphasis",
+  git3: "--bgColor-danger-emphasis",
+  gitBranchLabel0: "--fgColor-onEmphasis",
+  gitBranchLabel1: "--fgColor-onEmphasis",
+  gitBranchLabel2: "--fgColor-onEmphasis",
+  gitBranchLabel3: "--fgColor-onEmphasis",
+  gitInv0: "--bgColor-default",
 };

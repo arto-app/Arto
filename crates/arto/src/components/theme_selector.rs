@@ -2,16 +2,11 @@ use dioxus::document;
 use dioxus::prelude::*;
 
 use crate::components::icon::{Icon, IconName};
-use crate::theme::{use_system_theme, ResolvedTheme, Theme};
+use crate::theme::{use_color_theme, Theme};
 
 #[component]
 pub fn ThemeSelector(current_theme: Signal<Theme>) -> Element {
-    let system_theme = use_system_theme();
-    let resolved_theme = use_memo(move || match current_theme() {
-        Theme::Auto => system_theme(),
-        Theme::Light => ResolvedTheme::Light,
-        Theme::Dark => ResolvedTheme::Dark,
-    });
+    let resolved_theme = use_color_theme(current_theme);
 
     // Dispatch custom event when resolved theme changes
     use_effect(move || {

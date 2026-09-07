@@ -64,7 +64,7 @@ fn renderer_options(auto_link_urls: bool) -> HtmlRendererOptions {
         // instead of restyling the page around the document.
         disallow_raw_html: true,
         // Footnotes as GitHub writes them — one `<section class="footnotes">`
-        // with a numbered list — which is the shape `github-markdown-css`
+        // with a numbered list — which is the shape the frontend stylesheet
         // styles and the shape that numbers a named footnote.
         semantic_footnotes: true,
         // The byte ranges the annotation pass turns into source lines.
