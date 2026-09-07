@@ -19,6 +19,8 @@ import * as scrollController from "./scroll-controller";
 import * as contentCursor from "./content-cursor";
 import * as actionFeedback from "./action-feedback";
 import * as viewportQueue from "./viewport-queue";
+import * as scrollAnchor from "./scroll-anchor";
+import type { ScrollAnchor } from "./scroll-anchor";
 
 // Declare global Arto namespace
 declare global {
@@ -76,6 +78,13 @@ declare global {
         scrollHalfPageUp: typeof scrollController.scrollHalfPageUp;
         scrollToTop: typeof scrollController.scrollToTop;
         scrollToBottom: typeof scrollController.scrollToBottom;
+        /**
+         * Where the reader is, as a value that survives the document
+         * changing height.
+         */
+        anchor: () => ScrollAnchor;
+        /** Put the reader back where `anchor` says they were. */
+        toAnchor: (anchor: ScrollAnchor) => void;
       };
       contentCursor: {
         next: typeof contentCursor.next;
@@ -104,6 +113,14 @@ declare global {
       print: {
         /** Switch to the light theme for printing; resolves after Mermaid re-renders. */
         prepare: () => Promise<void>;
+        /**
+         * Draw everything the reader never scrolled to, and nothing else.
+         *
+         * What [`prepare`] does minus the theme switch, for the platforms
+         * that cannot switch the theme because their print call gives no
+         * completion signal to restore it after.
+         */
+        draw: () => Promise<void>;
         /** Restore the theme that was active before `prepare()`. */
         restore: () => void;
       };
@@ -303,6 +320,8 @@ export function init(): void {
       scrollPageUp: scrollController.scrollPageUp,
       scrollHalfPageDown: scrollController.scrollHalfPageDown,
       scrollHalfPageUp: scrollController.scrollHalfPageUp,
+      anchor: scrollAnchor.currentAnchor,
+      toAnchor: scrollAnchor.scrollToAnchor,
       scrollToTop: scrollController.scrollToTop,
       scrollToBottom: scrollController.scrollToBottom,
     },
@@ -332,6 +351,7 @@ export function init(): void {
     },
     print: {
       prepare: preparePrint,
+      draw: () => viewportQueue.flush(),
       restore: restorePrint,
     },
   };

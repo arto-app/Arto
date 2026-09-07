@@ -1,6 +1,7 @@
 //! AppState extension methods for scroll position and history navigation.
 
 use super::content::TabContent;
+use crate::scroll_anchor::ScrollAnchor;
 use crate::state::AppState;
 use dioxus::prelude::*;
 
@@ -11,8 +12,8 @@ impl AppState {
     /// This is the main entry point for back navigation from UI (menu/header buttons).
     /// It saves the current scroll position before navigating so forward can restore it.
     pub fn save_scroll_and_go_back(&mut self) -> bool {
-        let position = *self.current_scroll_position.read();
-        self.save_current_scroll_position(position);
+        let position = *self.current_scroll_anchor.read();
+        self.save_current_scroll_anchor(position);
         self.go_back_in_history()
     }
 
@@ -21,15 +22,15 @@ impl AppState {
     ///
     /// This is the main entry point for forward navigation from UI (menu/header buttons).
     pub fn save_scroll_and_go_forward(&mut self) -> bool {
-        let position = *self.current_scroll_position.read();
-        self.save_current_scroll_position(position);
+        let position = *self.current_scroll_anchor.read();
+        self.save_current_scroll_anchor(position);
         self.go_forward_in_history()
     }
 
     /// Go back in history for the current tab.
     /// Returns true if navigation occurred.
     ///
-    /// Sets pending_scroll_position to restore scroll position after navigation.
+    /// Sets pending_scroll_anchor to restore scroll position after navigation.
     /// Note: Prefer `save_scroll_and_go_back` for UI-triggered navigation.
     pub fn go_back_in_history(&mut self) -> bool {
         let active_index = *self.active_tab.read();
@@ -40,19 +41,19 @@ impl AppState {
             tabs.get_mut(active_index).and_then(|tab| {
                 tab.history
                     .go_back()
-                    .map(|entry| (entry.path.clone(), entry.scroll_position))
+                    .map(|entry| (entry.path.clone(), entry.scroll_anchor))
             })
         };
 
         if let Some((path, scroll)) = target {
             tracing::debug!(
                 ?path,
-                scroll,
+                ?scroll,
                 "go_back_in_history: restoring scroll position"
             );
             // Set pending scroll BEFORE changing content
             // This ensures FileViewer sees the scroll position when it loads
-            self.pending_scroll_position.set(Some(scroll));
+            self.pending_scroll_anchor.set(Some(scroll));
 
             // Now change content, which triggers re-render
             let mut tabs = self.tabs.write();
@@ -67,7 +68,7 @@ impl AppState {
     /// Go forward in history for the current tab.
     /// Returns true if navigation occurred.
     ///
-    /// Sets pending_scroll_position to restore scroll position after navigation.
+    /// Sets pending_scroll_anchor to restore scroll position after navigation.
     /// Note: Prefer `save_scroll_and_go_forward` for UI-triggered navigation.
     pub fn go_forward_in_history(&mut self) -> bool {
         let active_index = *self.active_tab.read();
@@ -78,19 +79,19 @@ impl AppState {
             tabs.get_mut(active_index).and_then(|tab| {
                 tab.history
                     .go_forward()
-                    .map(|entry| (entry.path.clone(), entry.scroll_position))
+                    .map(|entry| (entry.path.clone(), entry.scroll_anchor))
             })
         };
 
         if let Some((path, scroll)) = target {
             tracing::debug!(
                 ?path,
-                scroll,
+                ?scroll,
                 "go_forward_in_history: restoring scroll position"
             );
             // Set pending scroll BEFORE changing content
             // This ensures FileViewer sees the scroll position when it loads
-            self.pending_scroll_position.set(Some(scroll));
+            self.pending_scroll_anchor.set(Some(scroll));
 
             // Now change content, which triggers re-render
             let mut tabs = self.tabs.write();
@@ -105,15 +106,15 @@ impl AppState {
     /// Save the current scroll position to the current history entry.
     ///
     /// Call this before navigating away to preserve scroll position for back/forward.
-    pub fn save_current_scroll_position(&mut self, scroll: f64) {
+    pub fn save_current_scroll_anchor(&mut self, scroll: ScrollAnchor) {
         self.update_current_tab(|tab| {
             let current_path = tab.history.current_path().map(|p| p.to_path_buf());
             tracing::debug!(
                 ?current_path,
-                scroll,
+                ?scroll,
                 "Saving scroll position to history entry"
             );
-            tab.history.save_scroll_position(scroll);
+            tab.history.save_scroll_anchor(scroll);
         });
     }
 }

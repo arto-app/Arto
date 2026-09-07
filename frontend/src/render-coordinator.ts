@@ -39,7 +39,21 @@ function setupSpecialBlockListeners(markdownBody: Element): void {
 
 class RenderCoordinator {
   #rafId: number | null = null;
-  #isRendering = false;
+  #batchRendering = false;
+  /** Whether the viewport queue is drawing a block right now. */
+  #queueDrawing = false;
+
+  /**
+   * Whether anything this class is responsible for is writing to the DOM.
+   *
+   * Both a batch render and a queued job write, and they overlap: a job for
+   * a block near the viewport starts while the batch that registered it is
+   * still finishing. One flag for both would let whichever finished first
+   * drop the guard for the other.
+   */
+  get #isRendering(): boolean {
+    return this.#batchRendering || this.#queueDrawing;
+  }
   #hasPendingMutations = false;
   #pendingMutationRetries = 0;
   #renderCompleteCallbacks: Array<() => void> = [];
@@ -79,6 +93,18 @@ class RenderCoordinator {
     });
     console.debug("RenderCoordinator: MutationObserver set up on document.body");
 
+    // A block drawn while the reader scrolls writes to the DOM, and without
+    // this the observer above reads that as new content and pays for a pass
+    // over the whole document — per block, on the document this exists to
+    // make fast. The queue is the same kind of rendering as a batch render,
+    // so it takes the same guard.
+    viewportQueue.setActivityListener((active) => {
+      this.#queueDrawing = active;
+      if (!active && !this.#batchRendering) {
+        this.#processPendingMutations();
+      }
+    });
+
     // Best effort for a print the app did not start itself. A listener cannot
     // delay the capture — the flush is asynchronous and `beforeprint` is not
     // awaited — so a print driven by the app goes through
@@ -94,6 +120,7 @@ class RenderCoordinator {
   }
 
   destroy(): void {
+    viewportQueue.setActivityListener(null);
     if (this.#beforePrint) {
       window.removeEventListener("beforeprint", this.#beforePrint);
       this.#beforePrint = null;
@@ -172,7 +199,7 @@ class RenderCoordinator {
         return;
       }
 
-      this.#isRendering = true;
+      this.#batchRendering = true;
       try {
         await Promise.all(
           Array.from(markdownBodies).map(async (markdownBody) => {
@@ -186,7 +213,7 @@ class RenderCoordinator {
       } catch (error) {
         console.error("RenderCoordinator: Error during Mermaid re-render:", error);
       } finally {
-        this.#isRendering = false;
+        this.#batchRendering = false;
         this.#processPendingMutations();
       }
     });
@@ -209,7 +236,7 @@ class RenderCoordinator {
   }
 
   async #executeBatchRender(): Promise<void> {
-    this.#isRendering = true;
+    this.#batchRendering = true;
 
     // A batch render is the one moment the document is known to have changed,
     // so it is where the queue sheds the blocks of the document it replaced.
@@ -217,7 +244,7 @@ class RenderCoordinator {
 
     const markdownBodies = document.querySelectorAll(".markdown-body");
     if (markdownBodies.length === 0) {
-      this.#isRendering = false;
+      this.#batchRendering = false;
       this.#fireRenderCompleteCallbacks();
       this.#processPendingMutations();
       return;
@@ -243,7 +270,7 @@ class RenderCoordinator {
     } catch (error) {
       console.error("RenderCoordinator: Error during batch render:", error);
     } finally {
-      this.#isRendering = false;
+      this.#batchRendering = false;
       this.#fireRenderCompleteCallbacks();
       this.#processPendingMutations();
     }

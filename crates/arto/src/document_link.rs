@@ -6,14 +6,15 @@ use std::path::{Path, PathBuf};
 
 use dioxus::prelude::*;
 
+use crate::scroll_anchor::ScrollAnchor;
 use crate::state::AppState;
 
 /// Where a document link opens.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LinkOpen {
-    /// Navigate the current tab, remembering `scroll_position` in its
+    /// Navigate the current tab, remembering `scroll_anchor` in its
     /// history so that going back lands where the reader was.
-    CurrentTab { scroll_position: f64 },
+    CurrentTab { scroll_anchor: ScrollAnchor },
     /// Open a new tab and switch to it.
     NewTab,
 }
@@ -78,8 +79,8 @@ pub fn open_document_link(
         LinkOpen::NewTab => {
             state.add_file_tab(canonical_path, true);
         }
-        LinkOpen::CurrentTab { scroll_position } => {
-            state.save_current_scroll_position(scroll_position);
+        LinkOpen::CurrentTab { scroll_anchor } => {
+            state.save_current_scroll_anchor(scroll_anchor);
             state.navigate_to_file(canonical_path);
         }
     }

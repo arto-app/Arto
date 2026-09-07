@@ -1059,7 +1059,7 @@ fn open_link_from_cursor(state: &mut AppState, open_in_new_tab: bool) {
             LinkOpen::NewTab
         } else {
             LinkOpen::CurrentTab {
-                scroll_position: *app_state.current_scroll_position.read(),
+                scroll_anchor: *app_state.current_scroll_anchor.read(),
             }
         };
         open_document_link(&mut app_state, &current_file, &href, how);

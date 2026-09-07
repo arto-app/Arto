@@ -50,6 +50,21 @@ let observer: IntersectionObserver | null = null;
 /** Resolvers waiting for the jobs that have started to finish. */
 let idleWaiters: Array<() => void> = [];
 
+/** Told whether any job is running; see [`setActivityListener`]. */
+let activityListener: ((active: boolean) => void) | null = null;
+
+/**
+ * Watch whether the queue is drawing.
+ *
+ * Drawing writes to the DOM, and whatever watches the document for changes
+ * has to be able to tell those writes apart from an edit to the document
+ * itself. Without that, one block drawn while scrolling looks like new
+ * content and costs a pass over the whole document.
+ */
+export function setActivityListener(listener: ((active: boolean) => void) | null): void {
+  activityListener = listener;
+}
+
 function observerOrNull(): IntersectionObserver | null {
   if (typeof IntersectionObserver === "undefined") {
     return null;
@@ -81,7 +96,11 @@ async function run(element: Element): Promise<void> {
     return;
   }
   observer?.unobserve(element);
+  const first = running.size === 0;
   running.add(element);
+  if (first) {
+    activityListener?.(true);
+  }
   try {
     if (!element.isConnected) {
       // The document was replaced while the job waited. Rendering into a
@@ -101,6 +120,7 @@ function settleIfIdle(): void {
   if (running.size > 0) {
     return;
   }
+  activityListener?.(false);
   const waiters = idleWaiters;
   idleWaiters = [];
   for (const resolve of waiters) {

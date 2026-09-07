@@ -1,17 +1,18 @@
+use crate::scroll_anchor::ScrollAnchor;
 use std::path::{Path, PathBuf};
 
 /// A single entry in the navigation history
 #[derive(Debug, Clone, PartialEq)]
 pub struct HistoryEntry {
     pub path: PathBuf,
-    pub scroll_position: f64,
+    pub scroll_anchor: ScrollAnchor,
 }
 
 impl HistoryEntry {
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self {
             path: path.into(),
-            scroll_position: 0.0,
+            scroll_anchor: ScrollAnchor::TOP,
         }
     }
 }
@@ -63,9 +64,9 @@ impl HistoryManager {
     }
 
     /// Save scroll position for the current history entry
-    pub fn save_scroll_position(&mut self, scroll: f64) {
+    pub fn save_scroll_anchor(&mut self, scroll: ScrollAnchor) {
         if let Some(entry) = self.history.get_mut(self.current_index) {
-            entry.scroll_position = scroll;
+            entry.scroll_anchor = scroll;
         }
     }
 
@@ -226,24 +227,40 @@ mod tests {
         assert_eq!(manager.len(), 1);
     }
 
-    #[test]
-    fn test_scroll_position_saved() {
-        let mut manager = HistoryManager::new();
-        manager.push("/test/file1.md");
-        manager.save_scroll_position(500.0);
-
-        assert_eq!(manager.current().unwrap().scroll_position, 500.0);
+    /// An anchor at the top of the block on `line`.
+    fn anchor(line: u32) -> ScrollAnchor {
+        ScrollAnchor {
+            line,
+            fraction: 0.0,
+        }
     }
 
     #[test]
-    fn test_scroll_position_preserved_on_back() {
+    fn test_scroll_anchor_saved() {
         let mut manager = HistoryManager::new();
         manager.push("/test/file1.md");
-        manager.save_scroll_position(100.0);
+        manager.save_scroll_anchor(anchor(500));
+
+        assert_eq!(manager.current().unwrap().scroll_anchor, anchor(500));
+    }
+
+    #[test]
+    fn test_scroll_anchor_preserved_on_back() {
+        let mut manager = HistoryManager::new();
+        manager.push("/test/file1.md");
+        manager.save_scroll_anchor(anchor(100));
         manager.push("/test/file2.md");
-        manager.save_scroll_position(200.0);
+        manager.save_scroll_anchor(anchor(200));
 
         let back = manager.go_back().unwrap();
-        assert_eq!(back.scroll_position, 100.0);
+        assert_eq!(back.scroll_anchor, anchor(100));
+    }
+
+    #[test]
+    fn a_new_entry_starts_at_the_top() {
+        let mut manager = HistoryManager::new();
+        manager.push("/test/file1.md");
+
+        assert_eq!(manager.current().unwrap().scroll_anchor, ScrollAnchor::TOP);
     }
 }
