@@ -13,8 +13,15 @@ paths: "crates/arto/src/**/*.rs"
   an `async move ||` closure that touches a capture does not implement
   `FnMut` on the current toolchain.
 - `use_drop()`: synchronous cleanup only; call blocking `save()` directly.
-- Avoid `spawn_forever()` in components: the task outlives the window and
-  keeps writing to dropped signals.
+- `utils::task::spawn_detached()`: one-shot work that has to finish even
+  though the component that started it is gone. A scope's tasks are dropped
+  when it unmounts, so a menu item that closes its menu and then awaits — a
+  clipboard copy round-tripping through the WebView — loses the task at its
+  first `.await`, silently. The dispatcher spawns every action this way,
+  because actions are triggered from menus as well as from the keyboard.
+- Avoid raw `spawn_forever()` in components: nothing stops the task, so a
+  loop keeps writing to signals whose component is gone. `spawn_detached()`
+  is the one-shot form that is safe to reach for.
 
 Files:
 

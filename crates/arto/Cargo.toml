@@ -42,7 +42,7 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
-tokio = { version = "1.52.3", features = ["time"] }
+tokio = { version = "1.52.3", features = ["sync", "time"] }
 tracing.workspace = true
 ureq = "3.4"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
@@ -63,3 +63,4 @@ tracing-oslog = "0.3.0"
 
 [dev-dependencies]
 tempfile.workspace = true
+tokio = { version = "1.52.3", features = ["macros", "rt", "sync", "time"] }
