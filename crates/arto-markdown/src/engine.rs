@@ -10,7 +10,6 @@
 //! a change inside this directory.
 
 mod annotate;
-mod attributes;
 mod hooks;
 mod lines;
 mod outline;
@@ -47,6 +46,8 @@ fn parser_options(auto_link_urls: bool) -> ParserOptions {
         subscript: true,
         smart_punctuation: true,
         definition_lists: true,
+        heading_attributes: true,
+        wiki_links: true,
         ..ParserOptions::gfm()
     }
 }
@@ -98,7 +99,7 @@ pub(crate) fn render(
         .map_err(|error| anyhow!("failed to parse Markdown: {error}"))?;
 
     let html = HtmlRenderer::with_options(renderer_options(options.auto_link_urls))
-        .render_with_hooks(&document, &mut hooks::ArtoHooks::default());
+        .render_with_hooks(&document, &mut hooks::ArtoHooks::new(body));
 
     let lines = LineTable::new(body, frontmatter_lines);
     let annotated = annotate::annotate(&html, &lines, with_toc);
