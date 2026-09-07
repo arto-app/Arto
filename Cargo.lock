@@ -4113,27 +4113,27 @@ dependencies = [
 
 [[package]]
 name = "ox_content_allocator"
-version = "3.0.0"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f178ecb47884382e4a7d4e189fc0620b18892b14ff8a8e8a3828ad3142a1f42"
+checksum = "d90ebc2924ebb77d032f47c76d2824883dbc0f1430e6c29042f3f94ae2ed7351"
 dependencies = [
  "bumpalo",
 ]
 
 [[package]]
 name = "ox_content_ast"
-version = "3.0.0"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b690c5c075fd1c04db18b85d1785a766a99bffd03f909144dc8b44ca39cdb2d"
+checksum = "a7b7107317a3cd693e40aba322db99e37aa1c31fa2ac301619b98c4fdda84587"
 dependencies = [
  "ox_content_allocator",
 ]
 
 [[package]]
 name = "ox_content_parser"
-version = "3.0.0"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbba70f750be1efb5f75507629728084c831c66732dfa4e2c497448a90f20602"
+checksum = "6b37ec355cda60ed9435295b11be302008318e073d96f4a89c54cf46aca593a2"
 dependencies = [
  "compact_str",
  "memchr",
@@ -4146,9 +4146,9 @@ dependencies = [
 
 [[package]]
 name = "ox_content_renderer"
-version = "3.0.0"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed918e330aa9bd3a357d68477ffbad9d17f25f64704e1a8be0296a6765d58277"
+checksum = "94aacb6a33b0ca8ceb4d2923cb4ca8807aa8edb6181f93f5178e5ca94f47d447"
 dependencies = [
  "compact_str",
  "memchr",
