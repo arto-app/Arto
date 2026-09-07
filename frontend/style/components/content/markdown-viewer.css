@@ -12,27 +12,20 @@
     margin: 0 auto;
     max-width: 960px;
 
-    /* Lay out and paint a top-level block only once it is near the viewport.
-       Without this a long document pays for the layout of every block before
-       it can show the first one, which on a megabyte of Markdown is seconds.
+    /* No `content-visibility: auto` here, deliberately.
 
-       `contain-intrinsic-size` is the height a skipped block is assumed to
-       have, so the document's total height is an estimate until every block
-       has been laid out once. That is only safe because scroll positions are
-       anchors — a source line and a fraction of that block, see
-       `frontend/src/scroll-anchor.ts` — rather than pixel offsets into a
-       height that has not settled. `auto` keeps the real height once it is
-       known, so the estimate is only ever used the first time.
+       Skipping the layout of off-screen blocks is the obvious way to open a
+       long document quickly, and it was tried. What makes a megabyte of
+       Markdown slow is not laying out its paragraphs, though — it is drawing
+       its diagrams and formulas, and `frontend/src/viewport-queue.ts` already
+       defers those. Once the blocks that are expensive to lay out (`pre`,
+       `table`, anything containing them) had to be excluded anyway, skipping
+       applied to exactly the cheap blocks and bought close to nothing.
 
-       Tables are left out: their column widths depend on rows that skipping
-       would hide. `pre` is left out because the deferred renderers work on it
-       and inside it, and a skipped subtree generates no boxes — Mermaid would
-       measure its text as zero-sized, and an IntersectionObserver on a
-       `<code>` within one cannot report until the browser un-skips it. */
-    > *:not(table):not(pre) {
-      content-visibility: auto;
-      contain-intrinsic-size: auto 120px;
-    }
+       What it cost was visible: WebKit realises a skipped subtree a beat after
+       the scroll rather than in the same frame, so scrolling a long document
+       in the app landed on a blank screen that filled in a moment later.
+       Chromium does not do this, so it only shows up in the shipped app. */
 
     /* Style markdown file links (span.md-link) to look like regular links */
     span.md-link {
