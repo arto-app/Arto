@@ -2,6 +2,7 @@ import * as mathRenderer from "./math-renderer";
 import * as mermaidRenderer from "./mermaid-renderer";
 import * as syntaxHighlighter from "./syntax-highlighter";
 import * as codeCopy from "./code-copy";
+import * as viewportQueue from "./viewport-queue";
 
 /**
  * Setup single-click listeners for Image blocks.
@@ -38,11 +39,26 @@ function setupSpecialBlockListeners(markdownBody: Element): void {
 
 class RenderCoordinator {
   #rafId: number | null = null;
-  #isRendering = false;
+  #batchRendering = false;
+  /** Whether the viewport queue is drawing a block right now. */
+  #queueDrawing = false;
+
+  /**
+   * Whether anything this class is responsible for is writing to the DOM.
+   *
+   * Both a batch render and a queued job write, and they overlap: a job for
+   * a block near the viewport starts while the batch that registered it is
+   * still finishing. One flag for both would let whichever finished first
+   * drop the guard for the other.
+   */
+  get #isRendering(): boolean {
+    return this.#batchRendering || this.#queueDrawing;
+  }
   #hasPendingMutations = false;
   #pendingMutationRetries = 0;
   #renderCompleteCallbacks: Array<() => void> = [];
   #observer: MutationObserver | null = null;
+  #beforePrint: (() => void) | null = null;
 
   // Safety limit to prevent infinite render loops caused by
   // renderers modifying the DOM (e.g., Mermaid SVG insertion).
@@ -77,11 +93,38 @@ class RenderCoordinator {
     });
     console.debug("RenderCoordinator: MutationObserver set up on document.body");
 
+    // A block drawn while the reader scrolls writes to the DOM, and without
+    // this the observer above reads that as new content and pays for a pass
+    // over the whole document — per block, on the document this exists to
+    // make fast. The queue is the same kind of rendering as a batch render,
+    // so it takes the same guard.
+    viewportQueue.setActivityListener((active) => {
+      this.#queueDrawing = active;
+      if (!active && !this.#batchRendering) {
+        this.#processPendingMutations();
+      }
+    });
+
+    // Best effort for a print the app did not start itself. A listener cannot
+    // delay the capture — the flush is asynchronous and `beforeprint` is not
+    // awaited — so a print driven by the app goes through
+    // `window.Arto.print.prepare`, which awaits the same flush before the
+    // dialog opens.
+    this.#beforePrint = () => {
+      void viewportQueue.flush();
+    };
+    window.addEventListener("beforeprint", this.#beforePrint);
+
     // Schedule an initial render
     this.scheduleRender();
   }
 
   destroy(): void {
+    viewportQueue.setActivityListener(null);
+    if (this.#beforePrint) {
+      window.removeEventListener("beforeprint", this.#beforePrint);
+      this.#beforePrint = null;
+    }
     if (this.#observer) {
       this.#observer.disconnect();
       this.#observer = null;
@@ -156,7 +199,7 @@ class RenderCoordinator {
         return;
       }
 
-      this.#isRendering = true;
+      this.#batchRendering = true;
       try {
         await Promise.all(
           Array.from(markdownBodies).map(async (markdownBody) => {
@@ -170,18 +213,38 @@ class RenderCoordinator {
       } catch (error) {
         console.error("RenderCoordinator: Error during Mermaid re-render:", error);
       } finally {
-        this.#isRendering = false;
+        this.#batchRendering = false;
         this.#processPendingMutations();
       }
     });
   }
 
+  /**
+   * Wait until the queued work for the blocks on screen has run.
+   *
+   * An IntersectionObserver reports after the frame's animation callbacks,
+   * so two frames pass before the jobs for what is already visible have even
+   * started; `idle()` then waits for those to finish. Jobs for blocks the
+   * reader has not reached stay queued, so this does not wait for the
+   * document.
+   */
+  async #renderedNearViewport(): Promise<void> {
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+    await viewportQueue.idle();
+  }
+
   async #executeBatchRender(): Promise<void> {
-    this.#isRendering = true;
+    this.#batchRendering = true;
+
+    // A batch render is the one moment the document is known to have changed,
+    // so it is where the queue sheds the blocks of the document it replaced.
+    viewportQueue.prune();
 
     const markdownBodies = document.querySelectorAll(".markdown-body");
     if (markdownBodies.length === 0) {
-      this.#isRendering = false;
+      this.#batchRendering = false;
       this.#fireRenderCompleteCallbacks();
       this.#processPendingMutations();
       return;
@@ -197,11 +260,17 @@ class RenderCoordinator {
           setupSpecialBlockListeners(markdownBody);
         }),
       );
+      // The renderers only queued their work, so the document is untouched
+      // at this point. The callbacks are the signal that heights have
+      // stopped moving — a scroll position is restored against them — so
+      // wait for the screen the reader is looking at to be drawn. Only the
+      // blocks near the viewport are involved; the rest stay queued.
+      await this.#renderedNearViewport();
       console.debug("RenderCoordinator: Batch render completed");
     } catch (error) {
       console.error("RenderCoordinator: Error during batch render:", error);
     } finally {
-      this.#isRendering = false;
+      this.#batchRendering = false;
       this.#fireRenderCompleteCallbacks();
       this.#processPendingMutations();
     }

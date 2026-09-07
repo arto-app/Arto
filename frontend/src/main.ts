@@ -18,6 +18,9 @@ import * as keyboardInterceptor from "./keyboard-interceptor";
 import * as scrollController from "./scroll-controller";
 import * as contentCursor from "./content-cursor";
 import * as actionFeedback from "./action-feedback";
+import * as viewportQueue from "./viewport-queue";
+import * as scrollAnchor from "./scroll-anchor";
+import type { ScrollAnchor } from "./scroll-anchor";
 
 // Declare global Arto namespace
 declare global {
@@ -75,6 +78,13 @@ declare global {
         scrollHalfPageUp: typeof scrollController.scrollHalfPageUp;
         scrollToTop: typeof scrollController.scrollToTop;
         scrollToBottom: typeof scrollController.scrollToBottom;
+        /**
+         * Where the reader is, as a value that survives the document
+         * changing height.
+         */
+        anchor: () => ScrollAnchor;
+        /** Put the reader back where `anchor` says they were. */
+        toAnchor: (anchor: ScrollAnchor) => void;
       };
       contentCursor: {
         next: typeof contentCursor.next;
@@ -103,6 +113,14 @@ declare global {
       print: {
         /** Switch to the light theme for printing; resolves after Mermaid re-renders. */
         prepare: () => Promise<void>;
+        /**
+         * Draw everything the reader never scrolled to, and nothing else.
+         *
+         * What [`prepare`] does minus the theme switch, for the platforms
+         * that cannot switch the theme because their print call gives no
+         * completion signal to restore it after.
+         */
+        draw: () => Promise<void>;
         /** Restore the theme that was active before `prepare()`. */
         restore: () => void;
       };
@@ -149,19 +167,31 @@ let printSavedTheme: Theme | null = null;
  * the generated SVG, so the diagrams have to be re-rendered with the light
  * theme before the print dialog captures the page. Resolves once that
  * re-render completes (with a timeout fallback so printing never hangs).
+ *
+ * A print job also has no reader and no scrolling, so everything the reader
+ * never scrolled to has to be rendered first. This is the only place that
+ * can do it: the caller awaits this promise before opening the dialog,
+ * whereas a `beforeprint` listener cannot delay the capture.
  */
 async function preparePrint(): Promise<void> {
   if (getCurrentTheme() === "light") {
+    await viewportQueue.flush();
     return;
   }
   printSavedTheme = getCurrentTheme();
 
+  // Flushing before the switch would draw every diagram in the dark theme
+  // only for the switch to throw it away, so the queue is drained once, after
+  // the theme is already light. A diagram still waiting in the queue renders
+  // from the Mermaid config current when its job runs, which is the light one
+  // by then.
   const rendered = new Promise<void>((resolve) => {
     renderCoordinator.onRenderComplete(resolve);
     setTimeout(resolve, 2000);
   });
   setCurrentTheme("light");
   await rendered;
+  await viewportQueue.flush();
 }
 
 /** Restore the theme that was active before `preparePrint()`. */
@@ -290,6 +320,8 @@ export function init(): void {
       scrollPageUp: scrollController.scrollPageUp,
       scrollHalfPageDown: scrollController.scrollHalfPageDown,
       scrollHalfPageUp: scrollController.scrollHalfPageUp,
+      anchor: scrollAnchor.currentAnchor,
+      toAnchor: scrollAnchor.scrollToAnchor,
       scrollToTop: scrollController.scrollToTop,
       scrollToBottom: scrollController.scrollToBottom,
     },
@@ -319,6 +351,7 @@ export function init(): void {
     },
     print: {
       prepare: preparePrint,
+      draw: () => viewportQueue.flush(),
       restore: restorePrint,
     },
   };

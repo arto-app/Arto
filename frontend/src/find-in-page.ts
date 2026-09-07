@@ -90,9 +90,19 @@ function applyHighlights(
       const parent = node.parentElement;
       // Exclude code blocks (pre), mermaid diagrams, and already highlighted text
       // Note: inline <code> tags are intentionally searchable
+      //
+      // The math containers are excluded for a different reason: what they
+      // hold is TeX source until KaTeX draws them, and that only happens
+      // when the reader scrolls near. A match pinned in one would be
+      // destroyed the moment it is drawn — the highlight replaced along with
+      // everything else in the element — leaving a detached node in
+      // `state.highlightElements` and a count that no longer matches what
+      // navigation can reach. The typeset form is not searchable text
+      // either, so nothing is lost by never matching there.
       if (
         parent?.closest(
-          "pre, .mermaid, .search-highlight, .pinned-highlight, .pinned-highlight-disabled",
+          "pre, .mermaid, .preprocessed-math-inline, .preprocessed-math-display," +
+            " .search-highlight, .pinned-highlight, .pinned-highlight-disabled",
         )
       ) {
         return NodeFilter.FILTER_REJECT;

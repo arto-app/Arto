@@ -1,5 +1,6 @@
 //! AppState extension methods for tab navigation.
 
+use crate::scroll_anchor::ScrollAnchor;
 use crate::state::AppState;
 use dioxus::prelude::*;
 use std::path::Path;
@@ -28,8 +29,8 @@ impl AppState {
                 target_tab
                     .history
                     .current()
-                    .map(|entry| entry.scroll_position)
-                    .unwrap_or(0.0),
+                    .map(|entry| entry.scroll_anchor)
+                    .unwrap_or(ScrollAnchor::TOP),
             )
         };
         drop(tabs);
@@ -39,13 +40,13 @@ impl AppState {
         }
 
         // Save current scroll position to the departing tab's history
-        let scroll = *self.current_scroll_position.read();
+        let scroll = *self.current_scroll_anchor.read();
         self.update_current_tab(|tab| {
-            tab.history.save_scroll_position(scroll);
+            tab.history.save_scroll_anchor(scroll);
         });
 
         // Set pending scroll position for target tab (None for non-file tabs)
-        self.pending_scroll_position.set(target_scroll);
+        self.pending_scroll_anchor.set(target_scroll);
 
         self.active_tab.set(index);
     }
