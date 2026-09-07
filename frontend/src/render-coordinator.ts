@@ -27,7 +27,10 @@ function setupSpecialBlockListeners(markdownBody: Element): void {
     // Hover styling (cursor, opacity, outline) is handled by CSS via
     // .markdown-body img[data-listeners-attached="true"]:hover in image-window.css
     img.addEventListener("click", () => {
-      const src = img.getAttribute("src");
+      // `currentSrc` is the candidate the browser picked, which inside a
+      // <picture> or with a srcset is not what the `src` attribute holds:
+      // the window has to show the variant on screen.
+      const src = img.currentSrc || img.getAttribute("src");
       const alt = img.getAttribute("alt");
       if (src && typeof window.handleImageWindowOpen === "function") {
         window.handleImageWindowOpen(src, alt);

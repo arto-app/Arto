@@ -351,10 +351,17 @@ export function getTableAsMarkdown(): string {
   return formatTableAsMarkdown(table);
 }
 
+/**
+ * The image under the cursor, as the candidate the browser actually picked:
+ * inside a `<picture>` or with a `srcset`, `src` holds the fallback rather
+ * than the variant on screen. `currentSrc` is empty until the image loads,
+ * hence the fallback.
+ */
 export function getImageSrc(): string {
   const el = getCurrentElement();
   if (!el || el.tagName !== "IMG") return "";
-  return (el as HTMLImageElement).src;
+  const img = el as HTMLImageElement;
+  return img.currentSrc || img.src;
 }
 
 export function getImageAsMarkdown(): string {
@@ -362,7 +369,7 @@ export function getImageAsMarkdown(): string {
   if (!el || el.tagName !== "IMG") return "";
   const img = el as HTMLImageElement;
   const alt = img.alt ?? "";
-  return `![${alt}](${img.src})`;
+  return `![${alt}](${img.currentSrc || img.src})`;
 }
 
 /**
