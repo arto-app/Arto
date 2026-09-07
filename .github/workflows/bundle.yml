@@ -138,13 +138,18 @@ jobs:
       # pwsh on Windows) rather than relying on Git Bash's perl on the
       # otherwise-native Windows leg.
       # Accepts the release tag as-is: a leading `v` is dropped here.
+      #
+      # Every 0.0.0 in the manifest, not just the `[workspace.package]` one:
+      # the members ask each other for the workspace version, and stamping
+      # only that line would leave them requiring ^0.0.0 from crates that had
+      # just become the release version — the workspace would stop resolving.
       - name: Set package version (Unix)
         if: inputs.version != '' && runner.os != 'Windows'
         env:
           VERSION: ${{ inputs.version }}
         run: |
           VERSION="${VERSION#v}"
-          perl -i -pe 's/^version = "0\.0\.0"/version = "'"${VERSION}"'"/' Cargo.toml
+          perl -i -pe 's/= "0\.0\.0"/= "'"${VERSION}"'"/g' Cargo.toml
           echo "${VERSION}" > crates/arto/VERSION
       - name: Set package version (Windows)
         if: inputs.version != '' && runner.os == 'Windows'
@@ -153,7 +158,7 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           $v = $env:VERSION -replace '^v', ''
-          (Get-Content Cargo.toml) -replace '^version = "0\.0\.0"', "version = `"$v`"" | Set-Content Cargo.toml
+          (Get-Content Cargo.toml) -replace '= "0\.0\.0"', "= `"$v`"" | Set-Content Cargo.toml
           Set-Content -NoNewline crates/arto/VERSION $v
       - run: just build
       # Refuse to publish a bundle that carries build-environment dependencies
