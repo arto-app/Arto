@@ -28,13 +28,14 @@
 //! by the secondary instance and read by the primary:
 //!
 //! ```json
-//! {"type":"open","files":["/path/to/file.md"],"directory":null,"behavior":"last_focused"}
-//! {"type":"open","files":[],"directory":"/path/to/dir","behavior":"new_window"}
-//! {"type":"reopen","behavior":"last_focused"}
+//! {"type":"open","files":["/path/to/file.md"],"directory":null,"behavior":"last_focused","behind":false}
+//! {"type":"open","files":[],"directory":"/path/to/dir","behavior":"new_window","behind":true}
+//! {"type":"reopen","behavior":"last_focused","behind":false}
 //! ```
 //!
 //! The older `file` and `directory` messages are still accepted so a
-//! freshly upgraded primary understands a not-yet-upgraded secondary.
+//! freshly upgraded primary understands a not-yet-upgraded secondary, and
+//! `behind` defaults to `false` when a message omits it.
 //!
 //! # Socket location
 //!

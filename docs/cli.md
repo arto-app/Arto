@@ -28,7 +28,25 @@ the request to the existing process rather than starting a second one.
 | *(none)* | Reuses the last focused visible window. Without arguments, shows or focuses an existing window, or opens one if there is none. |
 | `--open=screen` | Opens on — or reuses — a window on the screen the cursor is on. |
 | `--open=new` | Always opens a new window. |
+| `--behind` | Opens without activating Arto, leaving the keyboard focus where it is. |
 | `--directory=DIR` | Sets the file explorer's root for that invocation. A positional directory (`arto docs/`) does the same. |
+
+`--behind` is for the hand-offs you did not stop to make — an editor or a
+script putting a file in front of you while you keep typing:
+
+```sh
+arto --behind README.md
+```
+
+A window that is already open takes the file where it stands, without being
+raised; a window that has to be created appears without Arto becoming the
+active application. What the flag protects is the application you are working
+in — when Arto is already the active application, a window it creates does
+take the focus from the Arto window you were reading. Keeping the application
+inactive is enforced on macOS; elsewhere a launch may still come forward.
+
+Without any paths, `arto --behind` does nothing when Arto is already running:
+bringing the app forward is exactly what the flag declines to do.
 
 ## Rendering a standalone page
 

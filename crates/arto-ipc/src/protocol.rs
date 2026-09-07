@@ -11,6 +11,10 @@ pub struct OpenRequest {
     /// Which window should receive the request; `None` leaves the choice
     /// to the running instance's configuration.
     pub behavior: Option<FileOpenBehavior>,
+    /// Leave the frontmost app frontmost: apply the request without
+    /// activating Arto or moving the keyboard focus.
+    #[serde(default)]
+    pub behind: bool,
 }
 
 /// A request in the form the running instance handles: the wire messages,
@@ -21,7 +25,10 @@ pub enum OpenEvent {
     Open(OpenRequest),
     /// Bring the app forward without opening anything (app icon clicked,
     /// or a launch with no paths).
-    Reopen { behavior: Option<FileOpenBehavior> },
+    Reopen {
+        behavior: Option<FileOpenBehavior>,
+        behind: bool,
+    },
 }
 
 /// One line of the JSON Lines protocol.
@@ -44,11 +51,15 @@ pub enum IpcMessage {
         files: Vec<PathBuf>,
         directory: Option<PathBuf>,
         behavior: Option<FileOpenBehavior>,
+        #[serde(default)]
+        behind: bool,
     },
     /// Reopen/activate the application (no paths provided).
     Reopen {
         #[serde(default)]
         behavior: Option<FileOpenBehavior>,
+        #[serde(default)]
+        behind: bool,
     },
 }
 
@@ -60,22 +71,26 @@ impl IpcMessage {
                 files: vec![path],
                 directory: None,
                 behavior: None,
+                behind: false,
             }),
             IpcMessage::Directory { path } => OpenEvent::Open(OpenRequest {
                 files: Vec::new(),
                 directory: Some(path),
                 behavior: None,
+                behind: false,
             }),
             IpcMessage::Open {
                 files,
                 directory,
                 behavior,
+                behind,
             } => OpenEvent::Open(OpenRequest {
                 files,
                 directory,
                 behavior,
+                behind,
             }),
-            IpcMessage::Reopen { behavior } => OpenEvent::Reopen { behavior },
+            IpcMessage::Reopen { behavior, behind } => OpenEvent::Reopen { behavior, behind },
         }
     }
 }
@@ -87,8 +102,9 @@ impl From<OpenEvent> for IpcMessage {
                 files: request.files,
                 directory: request.directory,
                 behavior: request.behavior,
+                behind: request.behind,
             },
-            OpenEvent::Reopen { behavior } => IpcMessage::Reopen { behavior },
+            OpenEvent::Reopen { behavior, behind } => IpcMessage::Reopen { behavior, behind },
         }
     }
 }
@@ -128,11 +144,12 @@ mod tests {
             files: vec![PathBuf::from("/path/to/file.md")],
             directory: Some(PathBuf::from("/path/to/dir")),
             behavior: Some(FileOpenBehavior::LastFocused),
+            behind: false,
         };
         let json = serde_json::to_string(&msg).unwrap();
         assert_eq!(
             json,
-            r#"{"type":"open","files":["/path/to/file.md"],"directory":"/path/to/dir","behavior":"last_focused"}"#
+            r#"{"type":"open","files":["/path/to/file.md"],"directory":"/path/to/dir","behavior":"last_focused","behind":false}"#
         );
     }
 
@@ -140,14 +157,18 @@ mod tests {
     fn reopen_serializes_with_type_tag() {
         let msg = IpcMessage::Reopen {
             behavior: Some(FileOpenBehavior::LastFocused),
+            behind: false,
         };
         let json = serde_json::to_string(&msg).unwrap();
-        assert_eq!(json, r#"{"type":"reopen","behavior":"last_focused"}"#);
+        assert_eq!(
+            json,
+            r#"{"type":"reopen","behavior":"last_focused","behind":false}"#
+        );
     }
 
     #[test]
     fn open_deserializes() {
-        let json = r#"{"type":"open","files":["/path/to/file.md"],"directory":"/path/to/dir","behavior":"last_focused"}"#;
+        let json = r#"{"type":"open","files":["/path/to/file.md"],"directory":"/path/to/dir","behavior":"last_focused","behind":true}"#;
         let msg: IpcMessage = serde_json::from_str(json).unwrap();
         assert_eq!(
             msg,
@@ -155,6 +176,24 @@ mod tests {
                 files: vec![PathBuf::from("/path/to/file.md")],
                 directory: Some(PathBuf::from("/path/to/dir")),
                 behavior: Some(FileOpenBehavior::LastFocused),
+                behind: true,
+            }
+        );
+    }
+
+    #[test]
+    fn open_without_behind_opens_in_front() {
+        let open: IpcMessage = serde_json::from_str(
+            r#"{"type":"open","files":["/a.md"],"directory":null,"behavior":null}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            open,
+            IpcMessage::Open {
+                files: vec![PathBuf::from("/a.md")],
+                directory: None,
+                behavior: None,
+                behind: false,
             }
         );
     }
@@ -166,12 +205,19 @@ mod tests {
         assert_eq!(
             msg,
             IpcMessage::Reopen {
-                behavior: Some(FileOpenBehavior::LastFocused)
+                behavior: Some(FileOpenBehavior::LastFocused),
+                behind: false,
             }
         );
 
         let legacy: IpcMessage = serde_json::from_str(r#"{"type":"reopen"}"#).unwrap();
-        assert_eq!(legacy, IpcMessage::Reopen { behavior: None });
+        assert_eq!(
+            legacy,
+            IpcMessage::Reopen {
+                behavior: None,
+                behind: false,
+            }
+        );
     }
 
     #[test]
@@ -206,6 +252,7 @@ mod tests {
                 files: vec![PathBuf::from("/tmp/a.md")],
                 directory: None,
                 behavior: None,
+                behind: false,
             })
         );
         assert_eq!(
@@ -217,6 +264,7 @@ mod tests {
                 files: Vec::new(),
                 directory: Some(PathBuf::from("/tmp/docs")),
                 behavior: None,
+                behind: false,
             })
         );
         assert_eq!(
@@ -224,21 +272,25 @@ mod tests {
                 files: vec![PathBuf::from("/test.md")],
                 directory: Some(PathBuf::from("/test/dir")),
                 behavior: Some(FileOpenBehavior::CurrentScreen),
+                behind: true,
             }
             .into_open_event(),
             OpenEvent::Open(OpenRequest {
                 files: vec![PathBuf::from("/test.md")],
                 directory: Some(PathBuf::from("/test/dir")),
                 behavior: Some(FileOpenBehavior::CurrentScreen),
+                behind: true,
             })
         );
         assert_eq!(
             IpcMessage::Reopen {
-                behavior: Some(FileOpenBehavior::LastFocused)
+                behavior: Some(FileOpenBehavior::LastFocused),
+                behind: true,
             }
             .into_open_event(),
             OpenEvent::Reopen {
-                behavior: Some(FileOpenBehavior::LastFocused)
+                behavior: Some(FileOpenBehavior::LastFocused),
+                behind: true,
             }
         );
     }
@@ -250,8 +302,22 @@ mod tests {
                 files: vec![PathBuf::from("/a.md")],
                 directory: Some(PathBuf::from("/dir")),
                 behavior: Some(FileOpenBehavior::NewWindow),
+                behind: false,
             }),
-            OpenEvent::Reopen { behavior: None },
+            OpenEvent::Open(OpenRequest {
+                files: vec![PathBuf::from("/a.md")],
+                directory: None,
+                behavior: None,
+                behind: true,
+            }),
+            OpenEvent::Reopen {
+                behavior: None,
+                behind: false,
+            },
+            OpenEvent::Reopen {
+                behavior: None,
+                behind: true,
+            },
         ];
         for event in events {
             let json = serde_json::to_string(&IpcMessage::from(event.clone())).unwrap();
@@ -263,9 +329,9 @@ mod tests {
     #[test]
     fn json_lines_parse_one_message_per_line() {
         let input = indoc! {r#"
-            {"type":"open","files":["/file1.md"],"directory":null,"behavior":"last_focused"}
-            {"type":"open","files":[],"directory":"/dir","behavior":"new_window"}
-            {"type":"reopen","behavior":"current_screen"}
+            {"type":"open","files":["/file1.md"],"directory":null,"behavior":"last_focused","behind":false}
+            {"type":"open","files":[],"directory":"/dir","behavior":"new_window","behind":true}
+            {"type":"reopen","behavior":"current_screen","behind":false}
         "#};
 
         let messages: Vec<IpcMessage> = input
@@ -281,14 +347,17 @@ mod tests {
                     files: vec![PathBuf::from("/file1.md")],
                     directory: None,
                     behavior: Some(FileOpenBehavior::LastFocused),
+                    behind: false,
                 },
                 IpcMessage::Open {
                     files: Vec::new(),
                     directory: Some(PathBuf::from("/dir")),
                     behavior: Some(FileOpenBehavior::NewWindow),
+                    behind: true,
                 },
                 IpcMessage::Reopen {
                     behavior: Some(FileOpenBehavior::CurrentScreen),
+                    behind: false,
                 },
             ]
         );

@@ -66,7 +66,10 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
     // let menu = menu::build_menu();
 
     // Get window parameters for first window from preferences
-    let params = window::CreateMainWindowConfigParams::from_preferences(true);
+    let params = window::CreateMainWindowConfigParams {
+        focused: !invocation.behind,
+        ..window::CreateMainWindowConfigParams::from_preferences(true)
+    };
 
     let config = window::create_main_window_config(&params).with_custom_event_handler(
         move |event, _target| {
@@ -95,7 +98,10 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
                 Event::Reopen { .. } => {
                     // Handle dock click / app activation
                     tracing::debug!("Event::Reopen received (dock click or app activation)");
-                    ipc::push_event(ipc::OpenEvent::Reopen { behavior: None });
+                    ipc::push_event(ipc::OpenEvent::Reopen {
+                        behavior: None,
+                        behind: false,
+                    });
                     ipc::process_main_thread_tasks();
                 }
                 Event::WindowEvent {
@@ -126,6 +132,21 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
     let config = config.with_menu(crate::menu::build_menu());
     #[cfg(target_os = "windows")]
     let config = config.with_menu(None);
+
+    // Tao activates the app as soon as it finishes launching. `--behind` has
+    // to own the event loop to turn that off, so the launch leaves whatever
+    // the user was working in frontmost.
+    #[cfg(target_os = "macos")]
+    let config = if invocation.behind {
+        use dioxus::desktop::tao::event_loop::EventLoopBuilder;
+        use dioxus::desktop::tao::platform::macos::EventLoopExtMacOS;
+
+        let mut event_loop = EventLoopBuilder::with_user_event().build();
+        event_loop.set_activate_ignoring_other_apps(false);
+        config.with_event_loop(event_loop)
+    } else {
+        config
+    };
 
     // Launch MainApp (first window only)
     // MainApp pops the first CLI event from IPC queue for its initial tab.

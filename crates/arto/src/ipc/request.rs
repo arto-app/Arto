@@ -16,6 +16,7 @@ pub fn open_event_for_invocation(invocation: &CliInvocation) -> OpenEvent {
         Some(request) => OpenEvent::Open(request),
         None => OpenEvent::Reopen {
             behavior: invocation.open_mode.to_file_open_behavior(),
+            behind: invocation.behind,
         },
     }
 }
@@ -54,23 +55,27 @@ pub fn build_open_request(invocation: &CliInvocation) -> Option<OpenRequest> {
         files,
         directory,
         behavior: invocation.open_mode.to_file_open_behavior(),
+        behind: invocation.behind,
     })
 }
 
 /// Validate and categorize a path from non-CLI sources (e.g., Finder).
 ///
-/// Finder events do not override `fileOpen`, so behavior is `None`.
+/// Finder events do not override `fileOpen`, so behavior is `None`. Opening
+/// from Finder is a request to read the file now, so the window comes forward.
 pub fn validate_path(path: impl AsRef<Path>) -> Option<OpenEvent> {
     match classify_path(path.as_ref()) {
         Some(PathKind::File(canonical)) => Some(OpenEvent::Open(OpenRequest {
             files: vec![canonical],
             directory: None,
             behavior: None,
+            behind: false,
         })),
         Some(PathKind::Directory(canonical)) => Some(OpenEvent::Open(OpenRequest {
             files: Vec::new(),
             directory: Some(canonical),
             behavior: None,
+            behind: false,
         })),
         None => {
             tracing::warn!(
@@ -114,6 +119,7 @@ mod tests {
             paths: vec![directory.clone(), file.clone()],
             directory: None,
             open_mode: CliOpenMode::LastFocused,
+            behind: false,
         };
 
         let request = build_open_request(&invocation).unwrap();
@@ -134,6 +140,7 @@ mod tests {
             paths: vec![positional_directory.clone()],
             directory: Some(option_directory.clone()),
             open_mode: CliOpenMode::LastFocused,
+            behind: false,
         };
 
         let request = build_open_request(&invocation).unwrap();
@@ -154,10 +161,46 @@ mod tests {
             paths: vec![file],
             directory: None,
             open_mode: CliOpenMode::CurrentScreen,
+            behind: false,
         };
 
         let request = build_open_request(&invocation).unwrap();
         assert_eq!(request.behavior, Some(FileOpenBehavior::CurrentScreen));
+    }
+
+    #[test]
+    fn build_open_request_carries_behind() {
+        let temp = tempfile::tempdir().unwrap();
+        let file = temp.path().join("README.md");
+        std::fs::write(&file, "# test").unwrap();
+
+        let invocation = CliInvocation {
+            paths: vec![file],
+            directory: None,
+            open_mode: CliOpenMode::Config,
+            behind: true,
+        };
+
+        let request = build_open_request(&invocation).unwrap();
+        assert!(request.behind);
+    }
+
+    #[test]
+    fn open_event_for_invocation_carries_behind_into_reopen() {
+        let invocation = CliInvocation {
+            paths: Vec::new(),
+            directory: None,
+            open_mode: CliOpenMode::Config,
+            behind: true,
+        };
+
+        assert_eq!(
+            open_event_for_invocation(&invocation),
+            OpenEvent::Reopen {
+                behavior: None,
+                behind: true,
+            }
+        );
     }
 
     #[test]
@@ -170,6 +213,7 @@ mod tests {
             paths: vec![file],
             directory: None,
             open_mode: CliOpenMode::Config,
+            behind: false,
         };
 
         let request = build_open_request(&invocation).unwrap();
@@ -182,12 +226,14 @@ mod tests {
             paths: Vec::new(),
             directory: None,
             open_mode: CliOpenMode::NewWindow,
+            behind: false,
         };
 
         assert_eq!(
             open_event_for_invocation(&invocation),
             OpenEvent::Reopen {
-                behavior: Some(FileOpenBehavior::NewWindow)
+                behavior: Some(FileOpenBehavior::NewWindow),
+                behind: false,
             }
         );
     }
