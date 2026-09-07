@@ -172,6 +172,7 @@ mod tests {
             file_open: FileOpenBehavior::CurrentScreen,
             markdown: RenderOptions {
                 auto_link_urls: true,
+                ..Default::default()
             },
             directory: DirectoryConfig {
                 default_directory: Some(PathBuf::from("/home/user")),

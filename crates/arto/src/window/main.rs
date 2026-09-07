@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 use crate::state::AppState;
 
-use crate::assets::main_stylesheet_head;
+use crate::assets::{main_stylesheet_head, with_asset_protocol};
 use crate::components::app::{App, AppProps};
 use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::{WindowPositionOffset, CONFIG};
@@ -32,7 +32,7 @@ const MAX_POSITION_SHIFT_ATTEMPTS: usize = 20;
 pub fn create_main_window_config(params: &CreateMainWindowConfigParams) -> Config {
     let initial_size = params.size;
 
-    Config::new()
+    with_asset_protocol(Config::new())
         .with_window(icon::apply_app_icon(
             WindowBuilder::new()
                 .with_title("Arto")

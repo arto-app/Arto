@@ -1,8 +1,6 @@
 use dioxus::prelude::*;
 use std::fmt;
 
-const TABLER_SPRITE: Asset = asset!("/assets/frontend/icons/tabler-sprite.svg");
-
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum IconName {
     Add,
@@ -111,7 +109,6 @@ pub fn Icon(
     #[props(default = 20)] size: u32,
     #[props(default = "")] class: &'static str,
 ) -> Element {
-    let sprite_url = TABLER_SPRITE.to_string();
     let icon_id = format!("tabler-{}", name);
 
     rsx! {
@@ -120,8 +117,12 @@ pub fn Icon(
             width: "{size}",
             height: "{size}",
             "aria-hidden": "true",
+            // A bare fragment, because the sprite is in this very document:
+            // `crate::window::index` writes it into the body. A `<use>` that
+            // names another origin is refused, and unlike a stylesheet or a
+            // script no header makes it allowed.
             r#use {
-                href: "{sprite_url}#{icon_id}"
+                href: "#{icon_id}"
             }
         }
     }

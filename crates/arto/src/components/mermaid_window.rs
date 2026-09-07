@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use sha2::{Digest, Sha256};
 
-use crate::assets::MAIN_SCRIPT;
+use crate::assets::main_script_url;
 use crate::components::icon::{Icon, IconName};
 use crate::components::theme_selector::ThemeSelector;
 use crate::hooks::{use_theme_dispatch, use_window_close_handler, use_zoom_sync, CopyStatus};
@@ -43,11 +43,12 @@ pub fn MermaidWindow(props: MermaidWindowProps) -> Element {
         let source_json = serde_json::to_string(&props.source).unwrap_or_default();
         let diagram_id_json = serde_json::to_string(&props.diagram_id).unwrap_or_default();
 
+        let main_script = main_script_url();
         spawn(async move {
             let eval_result = document::eval(&indoc::formatdoc! {r#"
                 (async () => {{
                     try {{
-                        const {{ initMermaidWindow }} = await import("{MAIN_SCRIPT}");
+                        const {{ initMermaidWindow }} = await import("{main_script}");
                         await initMermaidWindow({source_json}, {diagram_id_json});
                     }} catch (error) {{
                         console.error("Failed to load mermaid window module:", error);

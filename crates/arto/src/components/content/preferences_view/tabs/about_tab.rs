@@ -3,10 +3,9 @@ use crate::config::Config;
 use crate::utils::file_operations;
 use dioxus::prelude::*;
 
-const ARTO_ICON: Asset = asset!("/assets/Arto.png");
-
 #[component]
 pub fn AboutTab() -> Element {
+    let icon = crate::assets::app_icon_data_url();
     let version_text = format!("Version {}", env!("ARTO_BUILD_VERSION"));
     let config_dir_path = Config::path()
         .parent()
@@ -25,7 +24,7 @@ pub fn AboutTab() -> Element {
                 div {
                     class: "about-icon",
                     img {
-                        src: "{ARTO_ICON}",
+                        src: "{icon}",
                         alt: "Arto",
                     }
                 }

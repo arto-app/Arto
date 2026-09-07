@@ -62,7 +62,7 @@ brew install --cask arto-app/tap/arto
 xattr -dr com.apple.quarantine /Applications/Arto.app
 ```
 
-Linux packages, Nix, and why that second line is needed: [Installation](./docs/installation.md).
+Linux packages, a single binary for Linux and Windows, Nix, and why that second line is needed: [Installation](./docs/installation.md).
 
 ## From the terminal
 
