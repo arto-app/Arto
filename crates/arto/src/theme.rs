@@ -9,6 +9,7 @@ use dioxus::desktop::tao::event::{Event as TaoEvent, WindowEvent};
 use dioxus::desktop::tao::window::Theme as TaoTheme;
 use dioxus::desktop::{use_wry_event_handler, window};
 use dioxus::prelude::*;
+use std::sync::LazyLock;
 
 pub use crate::config::{ColorTheme, Theme};
 
@@ -58,12 +59,36 @@ fn color_theme_for(mode: ResolvedTheme) -> ColorTheme {
     }
 }
 
+/// A theme being tried out from the preferences.
+///
+/// Picking a theme there is a choice about what the app looks like, and a
+/// swatch can only say so much, so the window wears the theme while the
+/// reader considers it. It outranks the mode — the point is to see a dark
+/// theme from light mode — and it lives as long as the unsaved edit that
+/// chose it: [`clear_theme_preview`] on save, and when the preferences page
+/// is left.
+static PREVIEW_THEME: LazyLock<GlobalSignal<Option<ColorTheme>>> =
+    LazyLock::new(|| Signal::global(|| None));
+
+/// Wear `theme` until the preview is cleared.
+pub fn preview_theme(theme: ColorTheme) {
+    *PREVIEW_THEME.write() = Some(theme);
+}
+
+/// Go back to the theme the configuration asks for.
+pub fn clear_theme_preview() {
+    if PREVIEW_THEME.read().is_some() {
+        *PREVIEW_THEME.write() = None;
+    }
+}
+
 /// The theme to paint right now, as a signal.
 ///
-/// Three things move it: the window's own preference, the system appearance
-/// behind `Auto`, and the configured theme for whichever mode those two land
-/// on. The last is not a signal — the configuration lives behind a lock — so
-/// a save is picked up through the broadcast instead.
+/// Four things move it: a preview being tried out in the preferences, the
+/// window's own preference, the system appearance behind `Auto`, and the
+/// configured theme for whichever mode the last two land on. That one is not
+/// a signal — the configuration lives behind a lock — so a save is picked up
+/// through the broadcast instead.
 pub fn use_color_theme(current_theme: Signal<Theme>) -> Memo<ColorTheme> {
     let system_theme = use_system_theme();
     let mut config_revision = use_signal(|| 0u32);
@@ -76,6 +101,9 @@ pub fn use_color_theme(current_theme: Signal<Theme>) -> Memo<ColorTheme> {
     });
 
     use_memo(move || {
+        if let Some(preview) = *PREVIEW_THEME.read() {
+            return preview;
+        }
         // Read so that a save re-runs the memo; the value itself says nothing.
         config_revision();
         color_theme_for(match current_theme() {
