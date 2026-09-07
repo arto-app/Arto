@@ -19,6 +19,8 @@ import * as scrollController from "./scroll-controller";
 import * as contentCursor from "./content-cursor";
 import * as actionFeedback from "./action-feedback";
 import * as viewportQueue from "./viewport-queue";
+import * as scrollAnchor from "./scroll-anchor";
+import type { ScrollAnchor } from "./scroll-anchor";
 
 // Declare global Arto namespace
 declare global {
@@ -68,14 +70,27 @@ declare global {
         setReservedKeyOverrides: typeof keyboardInterceptor.setReservedKeyOverrides;
       };
       scroll: {
-        scrollDown: typeof scrollController.scrollDown;
-        scrollUp: typeof scrollController.scrollUp;
-        scrollPageDown: typeof scrollController.scrollPageDown;
-        scrollPageUp: typeof scrollController.scrollPageUp;
-        scrollHalfPageDown: typeof scrollController.scrollHalfPageDown;
-        scrollHalfPageUp: typeof scrollController.scrollHalfPageUp;
-        scrollToTop: typeof scrollController.scrollToTop;
-        scrollToBottom: typeof scrollController.scrollToBottom;
+        down: typeof scrollController.down;
+        up: typeof scrollController.up;
+        pageDown: typeof scrollController.pageDown;
+        pageUp: typeof scrollController.pageUp;
+        halfPageDown: typeof scrollController.halfPageDown;
+        halfPageUp: typeof scrollController.halfPageUp;
+        /**
+         * Where the reader is, as a value that survives the document
+         * changing height.
+         */
+        anchor: () => ScrollAnchor;
+        // Destinations. Each is held until the document stops moving under
+        // it, so that a diagram drawn on arrival does not carry the reader
+        // past the place they asked for.
+        toTop: typeof scrollController.toTop;
+        toBottom: typeof scrollController.toBottom;
+        toHeading: typeof scrollController.toHeading;
+        /** Put the reader back where `anchor` says they were. */
+        toAnchor: (anchor: ScrollAnchor | null) => void;
+        /** Jump to the top for a document that has just been replaced. */
+        reset: typeof scrollController.reset;
       };
       contentCursor: {
         next: typeof contentCursor.next;
@@ -104,6 +119,14 @@ declare global {
       print: {
         /** Switch to the light theme for printing; resolves after Mermaid re-renders. */
         prepare: () => Promise<void>;
+        /**
+         * Draw everything the reader never scrolled to, and nothing else.
+         *
+         * What [`prepare`] does minus the theme switch, for the platforms
+         * that cannot switch the theme because their print call gives no
+         * completion signal to restore it after.
+         */
+        draw: () => Promise<void>;
         /** Restore the theme that was active before `prepare()`. */
         restore: () => void;
       };
@@ -128,12 +151,19 @@ function getCurrentTheme(): Theme {
   }
 }
 
-export function setCurrentTheme(theme: Theme) {
+/**
+ * Switch the theme.
+ *
+ * Returns once the diagrams have been queued again in the new theme — the
+ * print path waits on that before draining the queue, everything else can
+ * ignore it.
+ */
+export function setCurrentTheme(theme: Theme): Promise<void> {
   document.body.setAttribute("data-theme", theme);
   markdownViewer.setTheme(theme);
   syntaxHighlighter.setTheme(theme);
   mermaidRenderer.setTheme(theme);
-  renderCoordinator.forceRenderMermaid();
+  return renderCoordinator.forceRenderMermaid();
 }
 
 /**
@@ -168,12 +198,11 @@ async function preparePrint(): Promise<void> {
   // the theme is already light. A diagram still waiting in the queue renders
   // from the Mermaid config current when its job runs, which is the light one
   // by then.
-  const rendered = new Promise<void>((resolve) => {
-    renderCoordinator.onRenderComplete(resolve);
-    setTimeout(resolve, 2000);
-  });
-  setCurrentTheme("light");
-  await rendered;
+  //
+  // Waiting on the switch itself rather than on a render-complete callback:
+  // the switch clears the drawn diagrams and queues them again, and draining
+  // before that has happened would drain them as nothing.
+  await setCurrentTheme("light");
   await viewportQueue.flush();
 }
 
@@ -191,6 +220,14 @@ export function init(): void {
   syntaxHighlighter.mount();
   mermaidRenderer.init();
   renderCoordinator.init();
+
+  // A page with no `.content` is one `arto page` wrote: a whole document,
+  // which its reader can print with the browser's own command. Nothing can
+  // delay that capture, so the rest of it is drawn in idle time instead of
+  // waiting for a scroll that may never come. See `backfillWhenIdle`.
+  if (!document.querySelector(".content")) {
+    viewportQueue.backfillWhenIdle();
+  }
 
   // Expose Arto API on window for Rust interop
   window.Arto = {
@@ -297,14 +334,18 @@ export function init(): void {
       setReservedKeyOverrides: keyboardInterceptor.setReservedKeyOverrides,
     },
     scroll: {
-      scrollDown: scrollController.scrollDown,
-      scrollUp: scrollController.scrollUp,
-      scrollPageDown: scrollController.scrollPageDown,
-      scrollPageUp: scrollController.scrollPageUp,
-      scrollHalfPageDown: scrollController.scrollHalfPageDown,
-      scrollHalfPageUp: scrollController.scrollHalfPageUp,
-      scrollToTop: scrollController.scrollToTop,
-      scrollToBottom: scrollController.scrollToBottom,
+      down: scrollController.down,
+      up: scrollController.up,
+      pageDown: scrollController.pageDown,
+      pageUp: scrollController.pageUp,
+      halfPageDown: scrollController.halfPageDown,
+      halfPageUp: scrollController.halfPageUp,
+      anchor: scrollAnchor.currentAnchor,
+      toTop: scrollController.toTop,
+      toBottom: scrollController.toBottom,
+      toHeading: scrollController.toHeading,
+      toAnchor: scrollAnchor.toAnchor,
+      reset: scrollController.reset,
     },
     contentCursor: {
       next: contentCursor.next,
@@ -332,6 +373,7 @@ export function init(): void {
     },
     print: {
       prepare: preparePrint,
+      draw: () => viewportQueue.flush(),
       restore: restorePrint,
     },
   };

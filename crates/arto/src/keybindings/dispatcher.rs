@@ -18,14 +18,14 @@ use super::Action;
 pub fn dispatch_action(action: &Action, mut state: AppState) {
     match action {
         // --- Scroll (JS eval) ---
-        Action::ScrollDown => scroll_eval("scrollDown"),
-        Action::ScrollUp => scroll_eval("scrollUp"),
-        Action::ScrollPageDown => scroll_eval("scrollPageDown"),
-        Action::ScrollPageUp => scroll_eval("scrollPageUp"),
-        Action::ScrollHalfPageDown => scroll_eval("scrollHalfPageDown"),
-        Action::ScrollHalfPageUp => scroll_eval("scrollHalfPageUp"),
-        Action::ScrollTop => scroll_eval("scrollToTop"),
-        Action::ScrollBottom => scroll_eval("scrollToBottom"),
+        Action::ScrollDown => scroll_eval("down"),
+        Action::ScrollUp => scroll_eval("up"),
+        Action::ScrollPageDown => scroll_eval("pageDown"),
+        Action::ScrollPageUp => scroll_eval("pageUp"),
+        Action::ScrollHalfPageDown => scroll_eval("halfPageDown"),
+        Action::ScrollHalfPageUp => scroll_eval("halfPageUp"),
+        Action::ScrollTop => scroll_eval("toTop"),
+        Action::ScrollBottom => scroll_eval("toBottom"),
 
         // --- Tab ---
         Action::TabNew => {
@@ -1059,7 +1059,7 @@ fn open_link_from_cursor(state: &mut AppState, open_in_new_tab: bool) {
             LinkOpen::NewTab
         } else {
             LinkOpen::CurrentTab {
-                scroll_position: *app_state.current_scroll_position.read(),
+                scroll_anchor: *app_state.current_scroll_anchor.read(),
             }
         };
         open_document_link(&mut app_state, &current_file, &href, how);

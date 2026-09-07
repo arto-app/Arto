@@ -1,3 +1,5 @@
+import { toElement } from "./scroll-controller";
+
 /**
  * Pinned search definition from Rust.
  */
@@ -90,9 +92,19 @@ function applyHighlights(
       const parent = node.parentElement;
       // Exclude code blocks (pre), mermaid diagrams, and already highlighted text
       // Note: inline <code> tags are intentionally searchable
+      //
+      // The math containers are excluded for a different reason: what they
+      // hold is TeX source until KaTeX draws them, and that only happens
+      // when the reader scrolls near. A match pinned in one would be
+      // destroyed the moment it is drawn — the highlight replaced along with
+      // everything else in the element — leaving a detached node in
+      // `state.highlightElements` and a count that no longer matches what
+      // navigation can reach. The typeset form is not searchable text
+      // either, so nothing is lost by never matching there.
       if (
         parent?.closest(
-          "pre, .mermaid, .search-highlight, .pinned-highlight, .pinned-highlight-disabled",
+          "pre, .mermaid, .preprocessed-math-inline, .preprocessed-math-display," +
+            " .search-highlight, .pinned-highlight, .pinned-highlight-disabled",
         )
       ) {
         return NodeFilter.FILTER_REJECT;
@@ -226,7 +238,9 @@ function navigateToMatch(direction: "next" | "prev"): number {
   // Add active class to new current and scroll into view
   const next = state.highlightElements[state.currentIndex];
   next?.classList.add("search-highlight-active");
-  next?.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (next) {
+    toElement(next, "center");
+  }
 
   return state.currentIndex + 1; // 1-based for display
 }
@@ -342,7 +356,9 @@ export function navigateTo(index: number): void {
   state.currentIndex = index;
   const target = state.highlightElements[index];
   target?.classList.add("search-highlight-active");
-  target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (target) {
+    toElement(target, "center");
+  }
 
   // Notify callback with unified format
   const newCurrent = index + 1;
@@ -390,7 +406,9 @@ export function scrollToPinnedMatch(pinnedId: string, index: number): void {
   }
 
   const target = elements[index];
-  target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (target) {
+    toElement(target, "center");
+  }
 
   // Brief highlight effect
   target?.classList.add("pinned-highlight-flash");

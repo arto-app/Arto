@@ -9,7 +9,6 @@
 
 use std::path::PathBuf;
 
-#[cfg(target_os = "macos")]
 use dioxus::document;
 use dioxus::prelude::spawn;
 
@@ -29,24 +28,30 @@ pub fn print_window(file: Option<PathBuf>) {
         // capture (restoring dark before the job is rendered); those
         // platforms rely on the print stylesheet instead, at the cost of
         // dark-baked Mermaid/code-block colors in the output.
+        //
+        // Either way the renderer has to draw what the reader never scrolled
+        // to: diagrams, formulas and highlighting wait for the viewport, and
+        // a print job has no viewport to wait for. Only the theme switch is
+        // macOS-only; the drawing is not, and a page printed without it comes
+        // out with blank diagram boxes and raw `$…$`.
         #[cfg(target_os = "macos")]
-        {
-            // Switch the renderer to the light theme and wait until Mermaid
-            // diagrams have re-rendered with light colors.
-            let mut eval = document::eval(
-                r#"
-                (async () => {
-                    try {
-                        await window.Arto?.print?.prepare?.();
-                    } catch (e) {
-                        console.error("Print preparation failed:", e);
-                    }
-                    dioxus.send(true);
-                })();
-                "#,
-            );
-            let _ = eval.recv::<bool>().await;
-        }
+        let prepare = "window.Arto?.print?.prepare?.()";
+        #[cfg(not(target_os = "macos"))]
+        let prepare = "window.Arto?.print?.draw?.()";
+
+        let mut eval = document::eval(&format!(
+            r#"
+            (async () => {{
+                try {{
+                    await {prepare};
+                }} catch (e) {{
+                    console.error("Print preparation failed:", e);
+                }}
+                dioxus.send(true);
+            }})();
+            "#
+        ));
+        let _ = eval.recv::<bool>().await;
 
         run_print_dialog(file).await;
 

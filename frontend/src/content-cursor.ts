@@ -7,6 +7,7 @@
 /// Lazy rescan pattern: before each navigation, verify the current element is
 /// still in the DOM via document.contains(). If stale, rescan from .markdown-body.
 
+import { toElement } from "./scroll-controller";
 import { extractTableDelimited, formatTableAsMarkdown } from "./table-utils";
 
 const CURSOR_CLASS = "content-cursor-active";
@@ -97,7 +98,7 @@ function applyHighlight(scroll: boolean): void {
     void el.offsetWidth;
     el.classList.add(CURSOR_CLASS);
     if (scroll) {
-      el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      toElement(el, "nearest");
     }
   }
 }

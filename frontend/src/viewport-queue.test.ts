@@ -43,6 +43,12 @@ beforeEach(() => {
   options = undefined;
   viewportQueue.reset();
   vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
+  // The queue drains on a frame. Running the callback inline keeps the tests
+  // able to say "and then the job ran" without a timer in every one of them.
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    callback(0);
+    return 0;
+  });
 });
 
 afterEach(() => {
@@ -217,6 +223,31 @@ describe("flush", () => {
   });
 });
 
+describe("isDrawing", () => {
+  test("reports the block being drawn and what the job writes into it", async () => {
+    const element = div();
+    const child = document.createElement("span");
+    element.append(child);
+    const outside = div();
+
+    let release = (): void => {};
+    viewportQueue.whenNearViewport(
+      element,
+      () => new Promise<void>((resolve) => (release = resolve)),
+    );
+    expect(viewportQueue.isDrawing(element)).toBe(false);
+
+    scrollTo(element);
+    expect(viewportQueue.isDrawing(element)).toBe(true);
+    expect(viewportQueue.isDrawing(child)).toBe(true);
+    expect(viewportQueue.isDrawing(outside)).toBe(false);
+
+    release();
+    await viewportQueue.idle();
+    expect(viewportQueue.isDrawing(element)).toBe(false);
+  });
+});
+
 describe("cancel", () => {
   test("forgets a job for an element that is going away", () => {
     const element = div();
@@ -244,5 +275,66 @@ describe("prune", () => {
     expect(viewportQueue.isPending(gone)).toBe(false);
     expect(observed.has(gone)).toBe(false);
     expect(viewportQueue.isPending(kept)).toBe(true);
+  });
+});
+
+/** Place `element` at `top` in the viewport; jsdom lays nothing out on its own. */
+function at(element: HTMLElement, top: number): HTMLElement {
+  element.getBoundingClientRect = (): DOMRect =>
+    ({ top, bottom: top + 100, height: 100, left: 0, right: 0, width: 0, x: 0, y: top }) as DOMRect;
+  return element;
+}
+
+/** Let the drain's awaits resolve. */
+function drained(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+describe("drain order", () => {
+  test("runs the block nearest the viewport first", async () => {
+    const far = at(div(), 4000);
+    const near = at(div(), 100);
+    const order: string[] = [];
+    viewportQueue.whenNearViewport(far, () => {
+      order.push("far");
+    });
+    viewportQueue.whenNearViewport(near, () => {
+      order.push("near");
+    });
+
+    // Both cross the margin in the same batch, which is what a jump looks
+    // like. Registration order puts the far one first.
+    notify([
+      { target: far, isIntersecting: true },
+      { target: near, isIntersecting: true },
+    ]);
+    await drained();
+
+    expect(order).toEqual(["near", "far"]);
+  });
+
+  test("drops a job whose block left the near zone before its turn", async () => {
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return 0;
+    });
+
+    const element = at(div(), 100);
+    const job = vi.fn();
+    viewportQueue.whenNearViewport(element, job);
+
+    // The reader scrolls past between the block becoming eligible and the
+    // frame that would have drawn it.
+    notify([{ target: element, isIntersecting: true }]);
+    notify([{ target: element, isIntersecting: false }]);
+    for (const frame of frames) {
+      frame(0);
+    }
+    await drained();
+
+    expect(job).not.toHaveBeenCalled();
+    // Still registered: coming back into view must still draw it.
+    expect(viewportQueue.isPending(element)).toBe(true);
   });
 });

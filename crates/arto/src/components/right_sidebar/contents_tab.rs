@@ -1,6 +1,7 @@
 use dioxus::document;
 use dioxus::prelude::*;
 
+use crate::document_link::scroll_to_heading_js;
 use crate::markdown::HeadingInfo;
 
 #[component]
@@ -45,18 +46,7 @@ fn HeadingItem(heading: HeadingInfo, is_keyboard_focused: bool) -> Element {
                 onclick: move |_| {
                     let id = id.clone();
                     spawn(async move {
-                        let id_json = serde_json::to_string(&id).unwrap_or_else(|_| "null".to_string());
-                        let js = format!(
-                            r#"
-                            (() => {{
-                                const el = document.getElementById({id_json});
-                                if (el) {{
-                                    el.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
-                                }}
-                            }})();
-                            "#,
-                        );
-                        let _ = document::eval(&js).await;
+                        let _ = document::eval(&scroll_to_heading_js(&id)).await;
                     });
                 },
                 "{heading.text}"
