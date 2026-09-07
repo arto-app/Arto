@@ -169,27 +169,36 @@ ask each other for the workspace version, so stamping one line would leave
 them requiring `^0.0.0` from crates that had just become `X.Y.Z`, and the
 workspace would stop resolving at all.
 
-### A new crate name has to be published by hand once
+### Claiming a new name
 
 crates.io only lets a trusted publisher be configured on a crate that already
-exists, so the first version of each name cannot come from CI. To add a name
-to the registry:
+exists, so a name has to reach the registry once before CI can ever publish
+it. That first version is `0.0.0` — the version this repository already
+carries in git, so nothing needs stamping and no release has to be spent on
+it:
 
 ```bash
-git checkout vX.Y.Z
-perl -i -pe 's/= "0\.0\.0"/= "X.Y.Z"/g' Cargo.toml
 just frontend::assets   # arto and arto-page carry the bundle in their packages
 cargo publish --workspace --allow-dirty
 ```
 
 `--workspace` orders the members by their dependencies and waits for each to
 reach the index before the next one asks for it, so nothing has to be
-sequenced by hand. `--allow-dirty` is for the two edits above; the
-verification build is worth the wait, because it is what proves each package
-carries the files its `include` list names.
+sequenced by hand. `--allow-dirty` is for the bundle, which git ignores
+because it is build output. The verification build is worth the wait: it is
+what proves each package carries the files its `include` list names.
+
+`--exclude <name>` leaves out a crate the registry already carries at `0.0.0`
+— what crates.io has, not what the working tree says, since every member in
+git reads `0.0.0` whether it was ever published or not. There is no
+`--skip-existing`, so a run that stopped partway is resumed by excluding the
+members that did get through.
 
 Then, on each crate's settings page on crates.io, add a trusted publisher for
-this repository naming `release.yml`. From the next release on, the job does it.
+this repository naming `release.yml`. From the next release on, the job does
+it, and `0.0.0` is superseded by the first real version — which is also when
+the registry page starts showing the README, keywords and categories, since
+crates.io renders the latest version's metadata.
 
 [Trusted Publishing]: https://crates.io/docs/trusted-publishing
 

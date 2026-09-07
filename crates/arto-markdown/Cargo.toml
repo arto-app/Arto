@@ -6,6 +6,10 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords = ["markdown", "html", "github", "renderer", "commonmark"]
+categories = ["text-processing"]
 
 [dependencies]
 anyhow.workspace = true

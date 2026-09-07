@@ -6,6 +6,10 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords = ["keybindings", "shortcuts", "keyboard", "gui"]
+categories = ["gui", "config"]
 
 [dependencies]
 # The same crate Dioxus and muda re-export their `Key`, `Code` and
