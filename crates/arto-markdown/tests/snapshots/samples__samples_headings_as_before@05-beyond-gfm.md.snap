@@ -10,7 +10,7 @@ input_file: samples/05-beyond-gfm.md
 2 "Definition lists" #definition-lists
 2 "Wiki links" #wiki-links
 2 "Heading attributes" #heading-attributes
-3 "Custom identifier" #custom-identifier
+3 "Custom identifier" #custom-heading-id
 2 "Math in table cells" #math-in-table-cells
 2 "Emoji shortcodes" #emoji-shortcodes
 2 "Autolinks without a scheme" #autolinks-without-a-scheme

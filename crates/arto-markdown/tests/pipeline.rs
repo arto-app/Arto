@@ -41,6 +41,83 @@ fn has_element(html: &str, tag: &str, attrs: &[(&str, &str)]) -> bool {
 }
 
 // ----------------------------------------------------------------------
+// Line endings
+// ----------------------------------------------------------------------
+
+#[test]
+fn a_crlf_document_renders_like_the_same_document_in_lf() {
+    // A Windows checkout hands the reader CRLF. Every construct here is one
+    // whose parse depends on where a line ends.
+    let lf = indoc! {"
+        Paragraph before the rule.
+
+        ---
+
+        # Heading
+
+        - item one
+        - item two
+
+        ```rust
+        fn main() {}
+        ```
+
+        > [!NOTE]
+        > A note body.
+    "};
+    let crlf = lf.replace('\n', "\r\n");
+
+    assert_eq!(render(&crlf), render(lf));
+    // The rule must stay a rule: read as a setext underline it would close
+    // the paragraph above it as a heading instead.
+    assert!(render(&crlf).contains("<hr data-source-line=\"3\">"));
+}
+
+#[test]
+fn a_crlf_selection_maps_back_to_its_source() {
+    use arto_markdown::extract_source_selection;
+
+    assert_eq!(
+        extract_source_selection("intro\r\n\r\nsome **word** here\r\n", "word"),
+        Some("**word**".to_string())
+    );
+}
+
+// ----------------------------------------------------------------------
+// Wiki links
+// ----------------------------------------------------------------------
+
+#[test]
+fn a_wiki_link_becomes_a_document_link() {
+    // The href gets `.md`, so the post-processing pass turns it into an
+    // in-app link like any other document link.
+    let html = render("See [[README]] and [[README|the index]].");
+
+    assert!(html.contains(r#"data-md-link="README.md""#), "{html}");
+    assert!(html.contains(">README</span>"), "{html}");
+    assert!(html.contains(">the index</span>"), "{html}");
+    assert!(!html.contains("[["), "{html}");
+}
+
+#[test]
+fn a_wiki_link_inside_code_is_left_alone() {
+    let html = render("Inline `[[README]]` and:\n\n```\n[[README]]\n```\n");
+
+    assert_eq!(html.matches("[[README]]").count(), 2, "{html}");
+    assert!(!html.contains("<a href"), "{html}");
+}
+
+#[test]
+fn a_wiki_link_survives_being_split_across_text_chunks() {
+    // The `&` forces lol_html to hand the text over in several chunks; the
+    // link must still be found across the boundary.
+    let html = render("a &amp; b [[Guide]] c");
+
+    assert!(html.contains(r#"data-md-link="Guide.md""#), "{html}");
+    assert!(html.contains("a &amp; b "), "{html}");
+}
+
+// ----------------------------------------------------------------------
 // GitHub alerts
 // ----------------------------------------------------------------------
 
@@ -130,12 +207,10 @@ fn mermaid_block_becomes_a_preprocessed_pre() {
     "});
 
     assert!(html.contains(r#"class="preprocessed-mermaid""#), "{html}");
+    // The attribute holds the diagram source; the newlines in it are
+    // escaped, so the value survives as one attribute.
     assert!(
-        html.contains(
-            r#"data-original-content="graph TD
-    A--&gt;B
-""#
-        ),
+        html.contains(r#"data-original-content="graph TD&#10;    A--&gt;B&#10;""#),
         "{html}"
     );
     assert!(html.contains("</pre>"));
@@ -171,15 +246,18 @@ fn display_math_becomes_a_preprocessed_div() {
 }
 
 #[test]
-fn inline_and_display_math_coexist() {
+fn display_math_in_the_middle_of_a_line_stays_inline() {
+    // `$$…$$` is a block construct: written inside a paragraph it is read
+    // as inline math, so both formulas here land in the inline container.
     let html = render("Inline $a + b$ and display $$c = d$$");
 
-    assert!(
-        html.contains(r#"class="preprocessed-math-inline""#),
+    assert_eq!(
+        html.matches(r#"class="preprocessed-math-inline""#).count(),
+        2,
         "{html}"
     );
     assert!(
-        html.contains(r#"class="preprocessed-math-display""#),
+        !html.contains(r#"class="preprocessed-math-display""#),
         "{html}"
     );
 }
@@ -367,7 +445,7 @@ fn duplicate_headings_get_numbered_ids() {
 
 #[test]
 fn heading_ids_are_written_only_when_a_toc_is_requested() {
-    let markdown = "# Title\n\n## Section {#custom}\n";
+    let markdown = "# Title\n\n## Section\n";
     let (with_toc, headings) = render_to_html_with_toc(
         markdown,
         Path::new("/nonexistent/test.md"),
@@ -381,16 +459,44 @@ fn heading_ids_are_written_only_when_a_toc_is_requested() {
         with_toc.contains(r#"<h1 data-source-line="1" id="title">"#),
         "{with_toc}"
     );
-    // The generated id replaces an explicit one, so the TOC always finds its target.
     assert!(
         with_toc.contains(r#"<h2 data-source-line="3" id="section">"#),
         "{with_toc}"
     );
     assert!(plain.contains(r#"<h1 data-source-line="1">"#), "{plain}");
-    assert!(
-        plain.contains(r#"<h2 data-source-line="3" id="custom">"#),
-        "{plain}"
-    );
+    assert!(plain.contains(r#"<h2 data-source-line="3">"#), "{plain}");
+    assert!(!plain.contains(" id="), "{plain}");
+}
+
+#[test]
+fn heading_ids_keep_unicode_text() {
+    let markdown = "## 日本語の見出し\n\n## 日本語の見出し\n";
+    let ids: Vec<String> = headings(markdown).into_iter().map(|h| h.id).collect();
+
+    assert_eq!(ids, ["日本語の見出し", "日本語の見出し-1"]);
+}
+
+#[test]
+fn a_heading_inside_a_footnote_is_not_listed_in_the_outline() {
+    // Footnote bodies are rendered at the end of the document, not where
+    // they were written, so listing their headings would pair every later
+    // entry of the outline with the wrong anchor.
+    let markdown = indoc! {"
+        Ref[^a]
+
+        [^a]: A note
+
+            # In the footnote
+
+        # After
+    "};
+
+    let listed: Vec<(String, String)> = headings(markdown)
+        .into_iter()
+        .map(|heading| (heading.text, heading.id))
+        .collect();
+
+    assert_eq!(listed, [("After".to_string(), "after".to_string())]);
 }
 
 #[test]
@@ -445,19 +551,25 @@ fn frontmatter_is_not_a_heading() {
 }
 
 #[test]
-fn invalid_frontmatter_stays_content_for_headings_too() {
-    // The renderer keeps invalid YAML as body text, and the heading list
-    // must agree with the renderer about where the body starts.
-    let headings = headings(indoc! {"
+fn invalid_frontmatter_stays_content() {
+    // Only a YAML mapping is metadata. Anything else is prose the reader
+    // must still see, even at the cost of rendering the fences as a rule
+    // and a setext heading.
+    let markdown = indoc! {"
         ---
         invalid: [unclosed
         ---
 
         # Heading After Invalid Frontmatter
-    "});
+    "};
 
-    assert_eq!(headings.len(), 1);
-    assert_eq!(headings[0].text, "Heading After Invalid Frontmatter");
+    assert!(!render(markdown).contains("frontmatter"), "{markdown}");
+
+    let texts: Vec<String> = headings(markdown).into_iter().map(|h| h.text).collect();
+    assert_eq!(
+        texts,
+        ["invalid: [unclosed", "Heading After Invalid Frontmatter"]
+    );
 }
 
 // ----------------------------------------------------------------------
@@ -475,9 +587,39 @@ fn heading_attributes_survive_next_to_the_line() {
     let html = render("# Title {#my-id .my-class}");
 
     assert!(
-        html.contains(r#"<h1 data-source-line="1" id="my-id" class="my-class">"#),
+        html.contains(r#"<h1 data-source-line="1" id="my-id" class="my-class">Title</h1>"#),
         "{html}"
     );
+}
+
+#[test]
+fn an_authored_heading_id_wins_over_the_generated_one() {
+    let markdown = "## Section {#custom}\n";
+    let headings = headings(markdown);
+
+    assert_eq!(headings.len(), 1);
+    assert_eq!(headings[0].text, "Section");
+    assert_eq!(headings[0].id, "custom");
+    // An id the document asked for by name is content, so it is there even
+    // without a table of contents.
+    assert!(render(markdown).contains(r#"id="custom""#));
+}
+
+#[test]
+fn a_heading_with_only_classes_still_gets_an_id() {
+    let html = render("### 日本語の見出し {.highlight}");
+
+    assert!(
+        html.contains(r#"id="日本語の見出し" class="highlight">日本語の見出し</h3>"#),
+        "{html}"
+    );
+}
+
+#[test]
+fn braces_that_are_not_an_attribute_block_stay_text() {
+    let html = render("# What {this means}");
+
+    assert!(html.contains("What {this means}</h1>"), "{html}");
 }
 
 #[test]
@@ -517,13 +659,41 @@ fn blockquote_and_alert_both_carry_lines() {
 }
 
 #[test]
+fn an_alert_without_a_body_does_not_shift_the_paragraph_after_it() {
+    let html = render(indoc! {"
+        > [!NOTE]
+
+        first line
+        second ] line
+    "});
+
+    assert!(
+        html.contains(r#"<p data-source-line="3">first line"#),
+        "{html}"
+    );
+}
+
+#[test]
+fn an_alert_body_that_starts_on_its_own_line_keeps_that_line() {
+    let html = render(indoc! {"
+        > [!NOTE]
+        >
+        > first line
+        > second ] line
+    "});
+
+    assert!(
+        html.contains(r#"<p data-source-line="3">first line"#),
+        "{html}"
+    );
+}
+
+#[test]
 fn lists_and_items_carry_start_and_end_lines() {
     let html = render("- a\n- b\n\n1. x\n2. y");
 
-    // A list followed by a blank line owns that line, so its range and the
-    // range of its last item end on the blank line.
     assert!(
-        html.contains(r#"<ul data-source-line="1" data-source-line-end="3">"#),
+        html.contains(r#"<ul data-source-line="1" data-source-line-end="2">"#),
         "{html}"
     );
     assert!(
@@ -531,7 +701,7 @@ fn lists_and_items_carry_start_and_end_lines() {
         "{html}"
     );
     assert!(
-        html.contains(r#"<li data-source-line="2" data-source-line-end="3">"#),
+        html.contains(r#"<li data-source-line="2" data-source-line-end="2">"#),
         "{html}"
     );
     assert!(
@@ -549,19 +719,12 @@ fn table_rows_carry_lines_and_header_cells_keep_alignment() {
     let html = render("| A | B |\n|:--|--:|\n| 1 | 2 |");
 
     assert!(html.contains(r#"<tr data-source-line="3">"#), "{html}");
-    assert!(
-        html.contains(r#"<th style="text-align: left">A</th>"#),
-        "{html}"
-    );
-    assert!(
-        html.contains(r#"<th style="text-align: right">B</th>"#),
-        "{html}"
-    );
-    // Pinned current behaviour: body cells lose the alignment style because
-    // the row start event is replaced before the HTML writer resets its cell
-    // index. An engine that aligns body cells changes this assertion on
-    // purpose.
-    assert!(html.contains("<td>1</td><td>2</td>"), "{html}");
+    // Alignment travels on the `align` attribute GitHub also emits, on the
+    // header and the body cells alike.
+    assert!(html.contains(r#"<th align="left">A</th>"#), "{html}");
+    assert!(html.contains(r#"<th align="right">B</th>"#), "{html}");
+    assert!(html.contains(r#"<td align="left">1</td>"#), "{html}");
+    assert!(html.contains(r#"<td align="right">2</td>"#), "{html}");
 }
 
 #[test]
@@ -580,7 +743,7 @@ fn tables_are_numbered_in_document_order() {
 #[test]
 fn rule_carries_its_line() {
     let html = render("Above\n\n---\n\nBelow");
-    assert!(html.contains(r#"<hr data-source-line="3" />"#), "{html}");
+    assert!(html.contains(r#"<hr data-source-line="3">"#), "{html}");
 }
 
 #[test]

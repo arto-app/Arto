@@ -10,24 +10,21 @@
 //!
 //! # Pipeline
 //!
+//! 0. **Line endings.** `\r\n` and lone `\r` become `\n`, which keeps the
+//!    line count, so a CRLF file parses and reports lines like any other.
 //! 1. **Frontmatter.** A leading YAML block is cut off and rendered to a
 //!    `<details class="frontmatter">` table that is prepended to the
 //!    output at the very end. The lines it occupied are added to every
 //!    source line below it.
-//! 2. **Text pre-processing.** Bare URLs become `<URL>` autolinks (when
-//!    [`RenderOptions::auto_link_urls`] is set); the line count is kept.
-//! 3. **The engine** (`engine` module: everything that knows the parser).
-//!    GitHub alerts (`> [!NOTE]`) are rendered to HTML before the parser
-//!    sees them, recording which original line each processed line came
-//!    from so source lines stay correct. Fenced `mermaid` and `math`
-//!    blocks and `$…$` expressions are replaced by the `preprocessed-*`
-//!    containers described below. Every block element is marked with the
-//!    byte range it came from (`data-source-span`), and headings get their
+//! 2. **The engine** (`engine` module: everything that knows the parser).
+//!    The body is parsed once and rendered with hooks that replace fenced
+//!    `mermaid` and `math` blocks and `$…$` expressions by the
+//!    `preprocessed-*` containers described below. A second pass over the
+//!    rendered HTML turns the byte range on each block element into the
+//!    `data-source-line` attributes described below, gives GitHub alerts
+//!    the class names `github-markdown-css` styles, and keeps the heading
 //!    ids when a table of contents was requested.
-//! 4. **Source line annotation** (`annotate` module): the byte ranges
-//!    become the `data-source-line` attributes described below, through
-//!    the line table the engine returns.
-//! 5. **Post-processing** with lol_html: local images are inlined as data
+//! 3. **Post-processing** with lol_html: local images are inlined as data
 //!    URLs and local Markdown links become `<span class="md-link">`.
 //!
 //! # HTML contract
@@ -42,6 +39,10 @@
 //! `data-source-line-start="N"`, the line their content starts on (the
 //! line after the fence, or the same line for an indented block), so the
 //! frontend can count newlines inside `<code>` down to the exact line.
+//!
+//! The numbers are not monotonic in document order: footnote definitions
+//! are moved to the section at the end while keeping the lines they were
+//! written on, so that section reports lines from the middle of the file.
 //!
 //! Readers: `frontend/src/context-menu-handler.ts` (copy path with line)
 //! and `frontend/src/content-cursor.ts` (keyboard cursor) resolve line
@@ -75,7 +76,16 @@
 //! `<p class="markdown-alert-title">` holding
 //! `<span class="alert-icon" data-alert-type="<kind>">` and the kind name.
 //! The class names are GitHub's, so `github-markdown-css` styles them; the
-//! icon span is filled in by the frontend.
+//! icon span is a placeholder for the frontend to fill in. The marker is
+//! matched case-insensitively, so `[!note]` is an alert too.
+//!
+//! ## Footnotes
+//!
+//! References render as `<sup><a href="#fn-<id>" id="fnref-<id>">N</a></sup>`
+//! and the definitions are collected into one
+//! `<section class="footnotes"><ol>` at the end of the document, numbered in
+//! the order they are first referenced. That is GitHub's shape, so
+//! `github-markdown-css` styles it.
 //!
 //! ## Frontmatter
 //!
@@ -93,9 +103,9 @@
 //! keeps the href as written, fragment included, and the app splits off
 //! the fragment and scrolls to that heading after opening the file. Links
 //! to files that are not Markdown add `md-link-invalid`; links to Markdown
-//! files that do not exist add `md-link-missing`. `http(s)` links and
-//! fragment-only links stay anchors. Local images are inlined as `data:`
-//! URLs so the page works
+//! files that do not exist add `md-link-missing`. Links that carry a scheme
+//! of their own (`http(s):`, `mailto:`, `tel:`, …) and fragment-only links
+//! stay anchors. Local images are inlined as `data:` URLs so the page works
 //! offline and in Quick Look; readers of `data-md-link` and `.md-link` are
 //! the app and `frontend/style/components/content/markdown-viewer.css`.
 //!
@@ -104,22 +114,36 @@
 //! [`render_to_html_with_toc`] returns [`HeadingInfo`] for every heading
 //! and sets the same `id` on the rendered `h1`–`h6`, so the table of
 //! contents (`crates/arto/src/components/right_sidebar/contents_tab.rs`)
-//! can scroll to it with `getElementById`. The id is derived from the
-//! heading text and replaces an explicit `{#id}` attribute.
-//! [`render_to_html`] adds no ids; only an explicit `{#id}` survives.
+//! can scroll to it with `getElementById`. The id is the heading text
+//! lowercased with every run of non-alphanumerics replaced by `-`, keeping
+//! Unicode letters, so `## 日本語の見出し` is reachable; a text that leaves
+//! nothing becomes `section`, and a repeated id gets a `-1`, `-2`, … suffix.
+//! [`render_to_html`] adds no ids at all.
+//!
+//! A heading may end in a `{#id .class}` block, which becomes the `id` and
+//! `class` of the tag instead of showing as text and is left out of
+//! [`HeadingInfo::text`]. An id written that way is content rather than a
+//! generated anchor, so it survives [`render_to_html`] too.
+//!
+//! ## Wiki links
+//!
+//! `[[Page]]` and `[[Page|Label]]` become links to `Page.md` — a target
+//! without a file extension names a Markdown document, so the link goes on
+//! to become an `.md-link` like any other document link. A target that
+//! already has an extension, or an `http(s)` URL, is used as written, and a
+//! `#fragment` stays on the end. Inside code, inside a link and inside the
+//! math containers the brackets are text.
 //!
 //! ## Code blocks
 //!
-//! `<pre><code class="language-<lang>">` as pulldown-cmark writes it; the
-//! frontend highlights by that class and `frontend/src/code-copy.ts` adds
-//! the copy button to every `pre`.
+//! `<pre><code class="language-<lang>">`; the frontend highlights by that
+//! class and `frontend/src/code-copy.ts` adds the copy button to every
+//! `pre`.
 
-mod annotate;
-mod autolinks;
 mod engine;
 mod frontmatter;
 mod headings;
-mod lines;
+mod line_endings;
 mod options;
 mod post_process;
 
@@ -127,7 +151,6 @@ pub use engine::*;
 pub use headings::*;
 pub use options::*;
 
-use annotate::annotate;
 use anyhow::Result;
 use frontmatter::extract_and_render_frontmatter;
 use post_process::post_process_html_tags;
@@ -141,40 +164,33 @@ struct PipelineResult {
     headings: Vec<HeadingInfo>,
 }
 
-/// Run the pipeline up to the raw HTML: frontmatter extraction, text
-/// pre-processing and the engine.
+/// Run the pipeline up to the raw HTML: frontmatter extraction and the
+/// engine.
 ///
-/// With `with_toc`, the headings are collected from the same parse and
-/// their ids are written onto the rendered headings; without it, no
-/// heading work is done and `headings` comes back empty.
+/// With `with_toc`, the headings are collected from the same parse and keep
+/// their ids on the rendered headings; without it no ids are written and
+/// `headings` comes back empty.
 fn run_pipeline(
     markdown: &str,
     base_path: &Path,
-    auto_link_urls: bool,
+    options: &RenderOptions,
     with_toc: bool,
-) -> PipelineResult {
+) -> Result<PipelineResult> {
     let base_dir = base_path
         .parent()
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| PathBuf::from("."));
 
-    let (frontmatter_html, content, frontmatter_lines) = extract_and_render_frontmatter(markdown);
+    let markdown = line_endings::normalize(markdown);
+    let (frontmatter_html, body, frontmatter_lines) = extract_and_render_frontmatter(&markdown);
+    let rendered = engine::render(&body, frontmatter_lines, options, with_toc)?;
 
-    let content = if auto_link_urls {
-        autolinks::preprocess_autolinks(&content)
-    } else {
-        content
-    };
-
-    let rendered = engine::render(&content, frontmatter_lines, with_toc);
-    let raw_html = annotate(&rendered.html, &rendered.lines);
-
-    PipelineResult {
-        raw_html,
+    Ok(PipelineResult {
+        raw_html: rendered.html,
         frontmatter_html,
         base_dir,
         headings: rendered.headings,
-    }
+    })
 }
 
 /// Prepend frontmatter HTML to the post-processed output.
@@ -194,12 +210,7 @@ pub fn render_to_html(
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
 ) -> Result<String> {
-    let pipeline = run_pipeline(
-        markdown.as_ref(),
-        base_path.as_ref(),
-        options.auto_link_urls,
-        false,
-    );
+    let pipeline = run_pipeline(markdown.as_ref(), base_path.as_ref(), options, false)?;
 
     let html_output = post_process_html_tags(&pipeline.raw_html, &pipeline.base_dir);
 
@@ -214,12 +225,7 @@ pub fn render_to_html_with_toc(
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
 ) -> Result<(String, Vec<HeadingInfo>)> {
-    let pipeline = run_pipeline(
-        markdown.as_ref(),
-        base_path.as_ref(),
-        options.auto_link_urls,
-        true,
-    );
+    let pipeline = run_pipeline(markdown.as_ref(), base_path.as_ref(), options, true)?;
 
     let html_output = post_process_html_tags(&pipeline.raw_html, &pipeline.base_dir);
 
@@ -667,7 +673,7 @@ mod tests {
         let result = render_to_html(markdown, &md_path, &RenderOptions::default()).unwrap();
 
         assert!(
-            result.contains(r#"<hr data-source-line="3" />"#),
+            result.contains(r#"<hr data-source-line="3">"#),
             "HR should be on line 3: {result}"
         );
     }

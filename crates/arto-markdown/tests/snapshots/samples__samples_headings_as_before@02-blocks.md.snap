@@ -14,7 +14,7 @@ input_file: samples/02-blocks.md
 1 "Setext heading level 1" #setext-heading-level-1
 2 "Setext heading level 2" #setext-heading-level-2
 3 "Heading with code, bold, and a link" #heading-with-code-bold-and-a-link
-3 "日本語の見出し" #
+3 "日本語の見出し" #日本語の見出し
 3 "Repeated Title" #repeated-title
 3 "Repeated Title" #repeated-title-1
 2 "Paragraphs" #paragraphs

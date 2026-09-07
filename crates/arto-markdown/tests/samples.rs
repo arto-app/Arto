@@ -10,6 +10,32 @@
 //! docs of `arto-markdown`.
 
 use arto_markdown::{render_to_html, render_to_html_with_toc, HeadingInfo, RenderOptions};
+use std::path::Path;
+
+/// `samples/stress.md` is a megabyte of generated Markdown, kept out of the
+/// numbered set so it is not snapshotted — the snapshot would be larger than
+/// the rest of the repository put together. It is here to render, and to be
+/// the document to open when a change is meant to be felt rather than read.
+#[test]
+fn the_stress_sample_renders() {
+    let path = Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../samples/stress.md"
+    ));
+    let markdown = std::fs::read_to_string(path).expect("sample is readable");
+
+    let (html, headings) = render_to_html_with_toc(&markdown, path, &RenderOptions::default())
+        .unwrap_or_else(|err| panic!("{}: {err:#}", path.display()));
+
+    assert!(headings.len() > 100, "{} headings", headings.len());
+    assert!(
+        headings.iter().all(|heading| !heading.id.is_empty()),
+        "every heading needs an anchor for the table of contents"
+    );
+    // Nothing from the engine's own vocabulary may reach the output.
+    assert!(!html.contains("data-source-span"), "spans survived");
+    assert!(!html.contains("ox-callout"), "callout classes survived");
+}
 
 #[test]
 fn samples_render_as_before() {
