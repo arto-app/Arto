@@ -91,7 +91,8 @@ jobs:
 
   # TypeScript and CSS: lint, type-check, unit tests, and the production
   # bundle. The bundle is handed to the Rust legs as an artifact so none of
-  # them needs pnpm; asset!() and include_str! only need the files to exist.
+  # them needs pnpm; the build script and include_str! only need the files to
+  # be there.
   frontend:
     needs: changes
     if: needs.changes.outputs.code == 'true'

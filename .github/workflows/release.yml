@@ -123,7 +123,10 @@ jobs:
           # mandatory macOS build, and the dispatch job fails if the aarch64
           # DMG is absent.
           artifactErrorsFailBuild: false
-          artifacts: ./artifacts/**/*.dmg,./artifacts/**/*.deb,./artifacts/**/*.AppImage,./artifacts/**/*-setup.exe
+          # The `arto-*` entries are the standalone binaries; the installers
+          # are all named `Arto_<version>_…` or `arto_<version>_…`, so nothing
+          # matches twice.
+          artifacts: ./artifacts/**/*.dmg,./artifacts/**/*.deb,./artifacts/**/*.AppImage,./artifacts/**/*-setup.exe,./artifacts/**/arto-linux-*,./artifacts/**/arto-windows-*
           removeArtifacts: true
           makeLatest: true
           bodyFile: release_body.md

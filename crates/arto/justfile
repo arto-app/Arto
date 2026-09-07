@@ -61,7 +61,6 @@ clean:
 # embed the extension into it, then package the DMG from the embedded app.
 [macos]
 build:
-  @rm -rf {{target}}/dx/arto/release/macos/Arto.app/Contents/Resources/assets
   dx bundle --release --macos --package-types macos
   just _apply-bundle-metadata
   just _embed-quicklook
@@ -182,7 +181,6 @@ _package-dmg:
 build:
   #!/usr/bin/env bash
   set -euo pipefail
-  rm -rf "{{target}}/dx/arto/release/linux/app/assets"
   # Drop every previously built Linux artifact first. CI caches the workspace
   # `target/` (which contains `bundle/`), and the build job also runs on
   # non-release pushes where the version stays 0.0.0; without this sweep a
@@ -192,6 +190,12 @@ build:
     find "{{target}}/dx/arto/bundle" -type f \( -name '*.deb' -o -name '*.AppImage' \) -delete
   fi
   dx bundle --release --linux --package-types deb --package-types appimage
+
+# Not `dx build`: there is nothing left for it to collect. The frontend is
+# compiled into the binary, so a plain cargo build is the whole story, and it
+# is the same compilation the bundle recipes above already drive.
+standalone:
+  cargo build --release --package arto
 
 # Release artifacts are built with the platform's native toolchain, but a
 # bundle built inside the Nix devShell links against /nix/store paths and is

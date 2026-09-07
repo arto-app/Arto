@@ -47,12 +47,17 @@ jobs:
           # installs only on Debian/Ubuntu, so the AppImage is what every
           # other distro runs), Windows an NSIS installer
           # (Arto_<version>_<arch>-setup.exe); see the justfile bundle recipes.
+          #
+          # `standalone` names the single executable a leg also publishes, and
+          # is empty where none is. macOS has none deliberately: what makes
+          # Arto worth installing there — the Finder associations and the
+          # Quick Look extension — lives in the bundle, not in the binary.
           legs='[
-            {"target":"macos","os":"macos-latest","artifacts":"./target/dx/arto/bundle/**/*.dmg"},
-            {"target":"ubuntu","os":"ubuntu-latest","artifacts":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage"},
-            {"target":"ubuntu-arm64","os":"ubuntu-24.04-arm","artifacts":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage"},
-            {"target":"windows","os":"windows-latest","artifacts":"./target/dx/arto/bundle/**/*-setup.exe"},
-            {"target":"windows-arm64","os":"windows-11-arm","artifacts":"./target/dx/arto/bundle/**/*-setup.exe"}
+            {"target":"macos","os":"macos-latest","standalone":"","artifacts":"./target/dx/arto/bundle/**/*.dmg"},
+            {"target":"ubuntu","os":"ubuntu-latest","standalone":"arto-linux-x86_64","artifacts":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage\n./dist/arto-linux-x86_64"},
+            {"target":"ubuntu-arm64","os":"ubuntu-24.04-arm","standalone":"arto-linux-aarch64","artifacts":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage\n./dist/arto-linux-aarch64"},
+            {"target":"windows","os":"windows-latest","standalone":"arto-windows-x86_64.exe","artifacts":"./target/dx/arto/bundle/**/*-setup.exe\n./dist/arto-windows-x86_64.exe"},
+            {"target":"windows-arm64","os":"windows-11-arm","standalone":"arto-windows-aarch64.exe","artifacts":"./target/dx/arto/bundle/**/*-setup.exe\n./dist/arto-windows-aarch64.exe"}
           ]'
           matrix="$(jq -c --argjson want "$TARGETS" '[.[] | select(.target as $t | $want | index($t))]' <<<"$legs")"
           if [ "$(jq length <<<"$matrix")" = "0" ]; then
@@ -157,6 +162,39 @@ jobs:
       - name: Verify bundle
         if: runner.os != 'Windows'
         run: just verify-bundle
+      # The single executable, for people who would rather download a file
+      # than install a package. It shares everything `just build` compiled, so
+      # this costs a link and no more.
+      - name: Build standalone binary
+        if: matrix.standalone != ''
+        run: just standalone
+      # What a standalone binary claims is that it runs from wherever it is
+      # put, and an empty working directory is where a binary that had gone
+      # back to looking for files beside itself would stop being able to hide
+      # it. `--version` exercises startup and exits, so it needs no display.
+      - name: Verify standalone binary (Unix)
+        if: matrix.standalone != '' && runner.os != 'Windows'
+        shell: bash
+        env:
+          NAME: ${{ matrix.standalone }}
+        run: |
+          mkdir -p dist "$RUNNER_TEMP/nothing-here"
+          cp target/release/arto "dist/$NAME"
+          cd "$RUNNER_TEMP/nothing-here"
+          "$GITHUB_WORKSPACE/dist/$NAME" --version
+      - name: Verify standalone binary (Windows)
+        if: matrix.standalone != '' && runner.os == 'Windows'
+        shell: pwsh
+        env:
+          NAME: ${{ matrix.standalone }}
+        run: |
+          $empty = Join-Path $env:RUNNER_TEMP 'nothing-here'
+          New-Item -ItemType Directory -Force -Path dist, $empty | Out-Null
+          Copy-Item target/release/arto.exe (Join-Path 'dist' $env:NAME)
+          $binary = Join-Path $env:GITHUB_WORKSPACE (Join-Path 'dist' $env:NAME)
+          Push-Location $empty
+          & $binary --version
+          Pop-Location
       - uses: actions/upload-artifact@v7
         with:
           name: arto-${{ matrix.target }}
