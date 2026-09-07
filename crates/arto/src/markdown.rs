@@ -9,7 +9,7 @@
 //! functions below share their names with arto-markdown's three-argument
 //! originals, and a glob would import those only to shadow them.
 
-pub use arto_markdown::{extract_source_selection, HeadingInfo, RenderOptions};
+pub use arto_markdown::{extract_source_selection, HeadingInfo, ImageResolution, RenderOptions};
 
 use crate::config::CONFIG;
 use anyhow::Result;
@@ -17,13 +17,26 @@ use std::path::Path;
 
 /// The user's rendering preferences, copied out so the config lock is not
 /// held while rendering.
+///
+/// The app serves the images a document references rather than carrying them
+/// in it: inlining costs the bytes twice over, once in the HTML built here
+/// and once in the document the WebView parses, and a page of screenshots
+/// pays that on every re-render. `arto page` and Quick Look still inline,
+/// having nothing to serve from.
 fn render_options() -> RenderOptions {
-    CONFIG.read().markdown.clone()
+    RenderOptions {
+        images: ImageResolution::Deferred {
+            base_url: crate::assets::image_base_url(),
+        },
+        ..CONFIG.read().markdown.clone()
+    }
 }
 
 /// Render Markdown to HTML, honoring the user's rendering preferences.
 pub fn render_to_html(markdown: impl AsRef<str>, base_path: impl AsRef<Path>) -> Result<String> {
-    Ok(arto_markdown::render_to_html(markdown, base_path, &render_options())?.html)
+    let rendered = arto_markdown::render_to_html(markdown, base_path, &render_options())?;
+    crate::assets::images::register(rendered.images);
+    Ok(rendered.html)
 }
 
 /// Render Markdown to HTML with TOC information, honoring the user's
@@ -33,5 +46,6 @@ pub fn render_to_html_with_toc(
     base_path: impl AsRef<Path>,
 ) -> Result<(String, Vec<HeadingInfo>)> {
     let rendered = arto_markdown::render_to_html_with_toc(markdown, base_path, &render_options())?;
+    crate::assets::images::register(rendered.images);
     Ok((rendered.html, rendered.headings))
 }

@@ -684,6 +684,9 @@ fn copy_content_cursor_text(js_getter: &'static str) {
         let mut eval = document::eval(&js);
         match eval.recv::<String>().await {
             Ok(text) if !text.is_empty() => {
+                // What the document shows for an image is a URL only this app
+                // can resolve, so anything leaving it says where the file is.
+                let text = crate::assets::images::with_paths_for_urls(&text);
                 crate::utils::clipboard::copy_text(&text);
                 show_action_feedback("Copied");
             }
@@ -793,7 +796,15 @@ async fn copy_special_block_from_cursor(kind: &str, opaque: bool) {
 }
 
 pub(crate) async fn copy_image_from_src(src: String, opaque: bool) {
-    let rasterize_src = if src.starts_with("http://") || src.starts_with("https://") {
+    // An image the app serves for the document is read here rather than in the
+    // WebView. Drawing it to a canvas there would taint the canvas — it comes
+    // from the app's own origin, not the document's — and asking for it as a
+    // CORS request is worse still, because a custom scheme does not take part
+    // in CORS and the load simply fails. Reading it costs one encode of an
+    // image somebody deliberately asked to copy.
+    let rasterize_src = if let Some(data_url) = crate::assets::images::data_url_for(&src) {
+        data_url
+    } else if src.starts_with("http://") || src.starts_with("https://") {
         let (tx, rx) = tokio::sync::oneshot::channel();
         std::thread::spawn({
             let src = src.clone();
@@ -835,7 +846,9 @@ fn copy_image_path_from_cursor() {
         let mut eval = document::eval(js);
         match eval.recv::<String>().await {
             Ok(src) if !src.is_empty() => {
-                crate::utils::clipboard::copy_text(src);
+                // The path the reader means, not the URL the WebView was given.
+                let src = crate::assets::images::with_paths_for_urls(&src);
+                crate::utils::clipboard::copy_text(&src);
                 show_action_feedback("Copied");
             }
             Ok(_) => {}
@@ -1136,6 +1149,10 @@ fn save_image_from_cursor() {
         match target {
             SaveImageTarget::Image { src } => {
                 std::thread::spawn(move || {
+                    // `save_image` knows `data:` and `http(s)`; the app's own
+                    // protocol resolves nowhere outside a WebView, so an image
+                    // the app serves is read here and handed over as bytes.
+                    let src = crate::assets::images::data_url_for(&src).unwrap_or(src);
                     crate::utils::image::save_image(&src);
                 });
             }

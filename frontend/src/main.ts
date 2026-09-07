@@ -232,6 +232,10 @@ export function init(): void {
         const shortSrc = src.length > 120 ? `${src.slice(0, 120)}…` : src;
         return new Promise((resolve) => {
           const img = new Image();
+          // No `crossOrigin` here: a custom scheme does not take part in CORS
+          // in every engine, and asking for it is enough to make the load
+          // itself fail. Whatever calls this hands over a `data:` URL when the
+          // image is not the document's own — see `copy_image_from_src`.
           img.onload = () => {
             try {
               // SVG: 2x for Retina (vector scales perfectly)

@@ -52,6 +52,7 @@ pub(super) fn CopyImageAsSubmenu(
                     let alt_text = alt.as_deref().unwrap_or("").to_string();
                     let src = src.clone();
                     move |_| {
+                        let src = crate::assets::images::with_paths_for_urls(&src);
                         let md = format!("![{}]({})", alt_text, src);
                         crate::utils::clipboard::copy_text(&md);
                         crate::keybindings::dispatcher::show_action_feedback("Copied");
@@ -66,6 +67,7 @@ pub(super) fn CopyImageAsSubmenu(
                 on_click: {
                     let src = src.clone();
                     move |_| {
+                        let src = crate::assets::images::with_paths_for_urls(&src);
                         crate::utils::clipboard::copy_text(&src);
                         crate::keybindings::dispatcher::show_action_feedback("Copied");
                         on_close.call(());
