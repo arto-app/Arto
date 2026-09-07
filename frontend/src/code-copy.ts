@@ -3,6 +3,7 @@ import iconCopy from "@tabler/icons/outline/copy.svg?raw";
 import iconCheck from "@tabler/icons/outline/check.svg?raw";
 import iconX from "@tabler/icons/outline/x.svg?raw";
 import iconPhoto from "@tabler/icons/outline/photo.svg?raw";
+import { whenNearViewport } from "./viewport-queue";
 
 declare global {
   interface Window {
@@ -22,11 +23,44 @@ export function addCopyButtons(container: Element): void {
   }
 
   preElements.forEach((pre) => {
-    addCopyButton(pre as HTMLPreElement);
+    const element = pre as HTMLPreElement;
+    // The button only matters under the pointer, and building one per block
+    // costs several DOM nodes each; a document of a thousand blocks pays for
+    // the screen it shows.
+    whenNearViewport(element, () => addCopyButton(element));
   });
 }
 
+/**
+ * Put the copy button back on a block whose content was just replaced.
+ *
+ * A diagram or a formula is drawn by writing over the `<pre>`, which takes
+ * the button with it. The renderers call this once they are done, so the
+ * order the two deferred jobs happen to run in does not decide whether the
+ * block ends up with a button.
+ *
+ * Idempotent: a renderer that bailed out without touching the block, or one
+ * whose block picked up a button while its own job was still awaiting, would
+ * otherwise end up with two.
+ */
+export function restoreCopyButton(pre: HTMLPreElement): void {
+  for (const button of Array.from(pre.querySelectorAll(":scope > .copy-button"))) {
+    button.remove();
+  }
+  delete pre.dataset.copyButtonAdded;
+  addCopyButton(pre);
+}
+
 function addCopyButton(pre: HTMLPreElement): void {
+  // A block can be queued for a button and get one from `restoreCopyButton`
+  // before that job runs: the renderer's job clears the block's queue entry
+  // when it starts, so `addCopyButtons` re-queues one while the renderer is
+  // still awaiting, and the queued job then fires after the renderer has
+  // already put the button back. Without this the block ends up with two.
+  if (pre.dataset.copyButtonAdded === "yes") {
+    return;
+  }
+
   // Mark as processed
   pre.dataset.copyButtonAdded = "yes";
 

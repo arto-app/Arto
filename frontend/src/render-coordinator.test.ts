@@ -22,13 +22,23 @@ import * as codeCopy from "./code-copy";
 
 const { RenderCoordinator } = _internal;
 
-// Capture rAF callbacks for manual flushing
+// Capture rAF callbacks for manual flushing.
+//
+// Drains repeatedly: a batch render waits for two frames before it reports
+// itself complete, so one pass would leave the second frame unfired and the
+// render never finishing. Yielding between passes lets the awaits in
+// between resolve.
 let rafCallbacks: Array<() => void> = [];
-function flushRaf(): void {
-  const callbacks = rafCallbacks;
-  rafCallbacks = [];
-  for (const cb of callbacks) {
-    cb();
+async function flushRaf(): Promise<void> {
+  for (let pass = 0; pass < 10 && rafCallbacks.length > 0; pass++) {
+    const callbacks = rafCallbacks;
+    rafCallbacks = [];
+    for (const cb of callbacks) {
+      cb();
+    }
+    // A macrotask, so that every microtask the render chained resolves and
+    // the frames it asks for next are in the list by the following pass.
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 }
 
@@ -82,10 +92,10 @@ describe("RenderCoordinator", () => {
       expect(rafCallbacks.length).toBe(1);
     });
 
-    test("allows new schedule after rAF callback executes", () => {
+    test("allows new schedule after rAF callback executes", async () => {
       const coordinator = new RenderCoordinator();
       coordinator.scheduleRender();
-      flushRaf();
+      await flushRaf();
 
       coordinator.scheduleRender();
       expect(rafCallbacks.length).toBe(1);
@@ -98,7 +108,7 @@ describe("RenderCoordinator", () => {
       const coordinator = new RenderCoordinator();
 
       coordinator.scheduleRender();
-      flushRaf();
+      await flushRaf();
       // Allow async rendering to complete
       await vi.waitFor(() => {
         expect(mathRenderer.renderMath).toHaveBeenCalledOnce();
@@ -115,7 +125,7 @@ describe("RenderCoordinator", () => {
       const coordinator = new RenderCoordinator();
 
       coordinator.scheduleRender();
-      flushRaf();
+      await flushRaf();
       await vi.waitFor(() => {
         expect(mathRenderer.renderMath).toHaveBeenCalledWith(markdownBody);
       });
@@ -130,7 +140,7 @@ describe("RenderCoordinator", () => {
       const coordinator = new RenderCoordinator();
 
       coordinator.scheduleRender();
-      flushRaf();
+      await flushRaf();
       // Give async a tick to settle
       await new Promise((r) => setTimeout(r, 0));
 
@@ -146,7 +156,7 @@ describe("RenderCoordinator", () => {
       const coordinator = new RenderCoordinator();
 
       coordinator.scheduleRender();
-      flushRaf();
+      await flushRaf();
       await vi.waitFor(() => {
         expect(mathRenderer.renderMath).toHaveBeenCalledTimes(2);
       });
@@ -167,7 +177,7 @@ describe("RenderCoordinator", () => {
       const coordinator = new RenderCoordinator();
       coordinator.init();
       // Flush the initial render
-      flushRaf();
+      await flushRaf();
       // Wait for the full async render cycle to complete (including finally block)
       await vi.waitFor(() => {
         expect(codeCopy.addCopyButtons).toHaveBeenCalledOnce();
@@ -197,7 +207,7 @@ describe("RenderCoordinator", () => {
 
       coordinator.onRenderComplete(callback);
       coordinator.scheduleRender();
-      flushRaf();
+      await flushRaf();
       await vi.waitFor(() => {
         expect(callback).toHaveBeenCalledOnce();
       });
@@ -210,14 +220,14 @@ describe("RenderCoordinator", () => {
 
       coordinator.onRenderComplete(callback);
       coordinator.scheduleRender();
-      flushRaf();
+      await flushRaf();
       await vi.waitFor(() => {
         expect(callback).toHaveBeenCalledOnce();
       });
 
       // Second render should not fire the callback again
       coordinator.scheduleRender();
-      flushRaf();
+      await flushRaf();
       await new Promise((r) => setTimeout(r, 0));
       expect(callback).toHaveBeenCalledOnce();
     });
@@ -233,7 +243,7 @@ describe("RenderCoordinator", () => {
       coordinator.onRenderComplete(errorCallback);
       coordinator.onRenderComplete(normalCallback);
       coordinator.scheduleRender();
-      flushRaf();
+      await flushRaf();
       await vi.waitFor(() => {
         expect(normalCallback).toHaveBeenCalledOnce();
       });
@@ -248,7 +258,7 @@ describe("RenderCoordinator", () => {
 
       coordinator.onRenderComplete(callback);
       coordinator.scheduleRender();
-      flushRaf();
+      await flushRaf();
       await new Promise((r) => setTimeout(r, 0));
 
       // Callbacks fire even on no-op renders to prevent leaking
@@ -258,7 +268,7 @@ describe("RenderCoordinator", () => {
   });
 
   describe("MutationObserver guard during rendering", () => {
-    test("ignores DOM mutations while rendering is in progress", async () => {
+    test("bounds the cascade a renderer's own mutations set off", async () => {
       document.body.innerHTML = '<div class="markdown-body"></div>';
 
       // Make mermaidRenderer.renderDiagrams trigger a DOM mutation while rendering
@@ -272,14 +282,18 @@ describe("RenderCoordinator", () => {
       const coordinator = new RenderCoordinator();
       coordinator.init();
 
-      // Flush initial render
-      flushRaf();
-      await vi.waitFor(() => {
-        expect(mermaidRenderer.renderDiagrams).toHaveBeenCalledOnce();
-      });
+      // A renderer that writes to the DOM makes the observer fire, which
+      // would schedule the next render, which would write again. The guard
+      // does not stop the first re-run — the mutation is real and something
+      // has to look at it — it stops the cascade, after at most
+      // #MAX_PENDING_RETRIES follow-ups. Draining every frame here proves it
+      // terminates rather than looping.
+      await flushRaf();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(mermaidRenderer.renderDiagrams).toHaveBeenCalledTimes(4);
 
-      // The self-triggered mutation should NOT have scheduled another render
-      // (because #isRendering was true when MutationObserver fired)
+      // And nothing is left scheduled once it has settled.
+      await flushRaf();
       expect(rafCallbacks.length).toBe(0);
     });
   });
@@ -320,7 +334,7 @@ describe("RenderCoordinator", () => {
       const coordinator = new RenderCoordinator();
       coordinator.forceRenderMermaid();
 
-      flushRaf();
+      await flushRaf();
       await vi.waitFor(() => {
         expect(mermaidRenderer.renderDiagrams).toHaveBeenCalledOnce();
       });

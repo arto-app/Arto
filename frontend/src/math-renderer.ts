@@ -1,4 +1,6 @@
 import katex from "katex";
+import { whenNearViewport } from "./viewport-queue";
+import { restoreCopyButton } from "./code-copy";
 
 export function renderMath(container: Element): void {
   renderInlineMath(container);
@@ -12,37 +14,25 @@ function renderInlineMath(container: Element): void {
     "span.preprocessed-math-inline:not([data-katex-rendered])",
   );
 
-  // Batch: Collect all elements to render (read phase)
-  const renderQueue: Array<{ element: HTMLElement; content: string }> = [];
-
   for (const element of Array.from(inlineMathElements)) {
     const mathContent = element.dataset.originalContent || "";
-    if (mathContent) {
-      renderQueue.push({
-        element: element as HTMLElement,
-        content: mathContent,
-      });
+    if (!mathContent) {
+      continue;
     }
-  }
-
-  // Batch: Render all at once (write phase)
-  for (const { element, content } of renderQueue) {
-    try {
-      // Use renderToString to avoid intermediate DOM access
-      const html = katex.renderToString(content, {
-        throwOnError: false,
-        displayMode: false,
-      });
-      element.innerHTML = html;
-      element.setAttribute("data-katex-rendered", "true");
-    } catch (error) {
-      console.error("Failed to render inline math:", error);
-      element.style.color = "red";
-    }
-  }
-
-  if (renderQueue.length > 0) {
-    console.debug(`Rendered ${renderQueue.length} inline math expressions`);
+    whenNearViewport(element, () => {
+      try {
+        // Use renderToString to avoid intermediate DOM access
+        const html = katex.renderToString(mathContent, {
+          throwOnError: false,
+          displayMode: false,
+        });
+        element.innerHTML = html;
+        element.setAttribute("data-katex-rendered", "true");
+      } catch (error) {
+        console.error("Failed to render inline math:", error);
+        element.style.color = "red";
+      }
+    });
   }
 }
 
@@ -52,37 +42,25 @@ function renderDisplayMath(container: Element): void {
     "div.preprocessed-math-display:not([data-katex-rendered])",
   );
 
-  // Batch: Collect all elements to render (read phase)
-  const renderQueue: Array<{ element: HTMLElement; content: string }> = [];
-
   for (const element of Array.from(displayMathElements)) {
     const mathContent = element.dataset.originalContent || "";
-    if (mathContent) {
-      renderQueue.push({
-        element: element as HTMLElement,
-        content: mathContent,
-      });
+    if (!mathContent) {
+      continue;
     }
-  }
-
-  // Batch: Render all at once (write phase)
-  for (const { element, content } of renderQueue) {
-    try {
-      // Use renderToString to avoid intermediate DOM access
-      const html = katex.renderToString(content, {
-        throwOnError: false,
-        displayMode: true,
-      });
-      element.innerHTML = html;
-      element.setAttribute("data-katex-rendered", "true");
-    } catch (error) {
-      console.error("Failed to render display math:", error);
-      element.style.color = "red";
-    }
-  }
-
-  if (renderQueue.length > 0) {
-    console.debug(`Rendered ${renderQueue.length} display math expressions`);
+    whenNearViewport(element, () => {
+      try {
+        // Use renderToString to avoid intermediate DOM access
+        const html = katex.renderToString(mathContent, {
+          throwOnError: false,
+          displayMode: true,
+        });
+        element.innerHTML = html;
+        element.setAttribute("data-katex-rendered", "true");
+      } catch (error) {
+        console.error("Failed to render display math:", error);
+        element.style.color = "red";
+      }
+    });
   }
 }
 
@@ -91,52 +69,50 @@ function renderBlockMath(container: Element): void {
     "pre.preprocessed-math:not([data-rendered])",
   );
 
-  // Batch: Collect all elements to render (read phase)
-  const renderQueue: Array<{ element: HTMLElement; content: string }> = [];
-
   for (const block of Array.from(mathBlocks)) {
     const element = block as HTMLElement;
-    const mathContent = element.dataset.originalContent || "";
+    const content = element.dataset.originalContent || "";
 
-    if (mathContent) {
-      renderQueue.push({ element, content: mathContent });
-    } else {
+    if (!content) {
       // Mark empty blocks as rendered to skip in future
       element.dataset.rendered = "true";
+      continue;
     }
-  }
 
-  // Batch: Render all at once (write phase)
-  for (const { element, content } of renderQueue) {
-    try {
-      // Use renderToString to avoid intermediate DOM access
-      const html = katex.renderToString(content, {
-        throwOnError: false,
-        displayMode: true,
-      });
-      element.innerHTML = html;
-      element.dataset.rendered = "true";
+    whenNearViewport(element, () => {
+      try {
+        // Use renderToString to avoid intermediate DOM access
+        const html = katex.renderToString(content, {
+          throwOnError: false,
+          displayMode: true,
+        });
+        element.innerHTML = html;
+        element.dataset.rendered = "true";
 
-      // Skip if listeners already attached (guard against re-registration)
-      if (element.dataset.listenersAttached === "true") continue;
-      element.dataset.listenersAttached = "true";
-
-      // Make math block clickable to open viewer (single-click, like Mermaid)
-      // Hover styling (cursor, opacity, outline) is handled by CSS via
-      // pre.preprocessed-math:hover in math-window.css
-      element.addEventListener("click", () => {
-        if (typeof window.handleMathWindowOpen === "function") {
-          window.handleMathWindowOpen(content);
+        // Skip if listeners already attached (guard against re-registration)
+        if (element.dataset.listenersAttached === "true") {
+          return;
         }
-      });
-    } catch (error) {
-      console.error("Failed to render math block:", error);
-      element.style.color = "red";
-      element.dataset.rendered = "true";
-    }
-  }
+        element.dataset.listenersAttached = "true";
 
-  if (renderQueue.length > 0) {
-    console.debug(`Rendered ${renderQueue.length} math blocks`);
+        // Make math block clickable to open viewer (single-click, like Mermaid)
+        // Hover styling (cursor, opacity, outline) is handled by CSS via
+        // pre.preprocessed-math:hover in math-window.css
+        element.addEventListener("click", () => {
+          if (typeof window.handleMathWindowOpen === "function") {
+            window.handleMathWindowOpen(content);
+          }
+        });
+      } catch (error) {
+        console.error("Failed to render math block:", error);
+        element.style.color = "red";
+        element.dataset.rendered = "true";
+      } finally {
+        // Registering this job took the block's place in the queue, so the
+        // copy button was never added; typesetting would also have wiped one
+        // that was. Either way the block gets its button here.
+        restoreCopyButton(element as HTMLPreElement);
+      }
+    });
   }
 }

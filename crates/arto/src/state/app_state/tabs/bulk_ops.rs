@@ -138,8 +138,8 @@ impl AppState {
             });
 
             // Save current scroll position so it can be restored after reload
-            let scroll = *self.current_scroll_position.read();
-            self.pending_scroll_position.set(Some(scroll));
+            let scroll = *self.current_scroll_anchor.read();
+            self.pending_scroll_anchor.set(Some(scroll));
             let current = *self.reload_trigger.read();
             self.reload_trigger.set(current + 1);
         } else {

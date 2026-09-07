@@ -6,6 +6,7 @@ use super::context_menu::ContextMenuData;
 use super::context_menu_state::{open_context_menu, ContentContextMenuState};
 use crate::document_link::{open_document_link, scroll_to_heading_js, LinkOpen};
 use crate::markdown::render_to_html_with_toc;
+use crate::scroll_anchor::ScrollAnchor;
 use crate::state::{AppState, TabContent};
 use crate::utils::file::is_markdown_file;
 use crate::watcher::FILE_WATCHER;
@@ -15,13 +16,22 @@ use crate::watcher::FILE_WATCHER;
 struct LinkClickData {
     path: String,
     button: u32,
-    /// Current scroll position at the time of click (for history preservation)
-    scroll_position: f64,
+    /// Where the reader was when they clicked, so that going back lands there
+    scroll_anchor: ScrollAnchor,
 }
 
 /// Mouse button constants
 const LEFT_CLICK: u32 = 0;
 const MIDDLE_CLICK: u32 = 1;
+
+/// Jump to the top of a document that has just been replaced.
+///
+/// It goes through the renderer rather than scrolling `.content` directly so
+/// that a destination still being held from the previous document is given up
+/// (see `frontend/src/scroll-destination.ts`); the raw scroll is the fallback
+/// for the moment before the renderer module has finished loading.
+const SCROLL_RESET_JS: &str = "if (window.Arto?.scroll?.reset) { window.Arto.scroll.reset(); } \
+     else { document.querySelector('.content')?.scrollTo(0, 0); }";
 
 /// The directory relative links in `file` resolve against.
 fn base_dir_of(file: &Path) -> PathBuf {
@@ -73,7 +83,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
         // Handle scroll position SYNCHRONOUSLY before spawning async task.
         // This ensures the onRenderComplete callback is registered before
         // MutationObserver triggers #executeBatchRender().
-        handle_scroll_position(&mut state);
+        handle_scroll_anchor(&mut state);
 
         spawn(async move {
             tracing::info!("Loading and rendering file: {:?}", &file);
@@ -141,18 +151,23 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
 
 /// Handle scroll position when navigating to a file.
 ///
-/// If pending_scroll_position is set (from back/forward navigation or tab switch),
+/// If pending_scroll_anchor is set (from back/forward navigation or tab switch),
 /// restore that position in two phases:
 /// 1. Immediately when DOM content changes (MutationObserver, before browser paint)
 /// 2. After Mermaid/KaTeX rendering completes (adjusts for content height changes)
+///
+/// The value is an anchor rather than a pixel offset — a source line plus a
+/// fraction of the block on that line, see `frontend/src/scroll-anchor.ts` —
+/// so the two phases can disagree about how tall the document is and still
+/// land on the same content.
 ///
 /// A pending fragment (from a `file.md#heading` link) wins over both: the
 /// heading is scrolled into view once the document is in the DOM, and again
 /// after Mermaid/KaTeX rendering has settled the layout.
 ///
 /// Otherwise, reset to top immediately (for new navigation like clicking a link).
-fn handle_scroll_position(state: &mut AppState) {
-    let pending_scroll = state.pending_scroll_position.take();
+fn handle_scroll_anchor(state: &mut AppState) {
+    let pending_scroll = state.pending_scroll_anchor.take();
     let pending_fragment = state.pending_scroll_fragment.take();
 
     if let Some(fragment) = pending_fragment {
@@ -194,8 +209,8 @@ fn handle_scroll_position(state: &mut AppState) {
 
     if let Some(scroll) = pending_scroll {
         // Fast path: scrolling to top doesn't need two-phase restoration
-        if scroll <= 0.0 {
-            let _ = document::eval("document.querySelector('.content')?.scrollTo(0, 0);");
+        if scroll.is_top() {
+            let _ = document::eval(SCROLL_RESET_JS);
             tracing::debug!("Reset scroll position to top (fast path)");
             return;
         }
@@ -216,7 +231,7 @@ fn handle_scroll_position(state: &mut AppState) {
                             observer.disconnect();
                             observer = null;
                         }}
-                        document.querySelector('.content')?.scrollTo(0, target);
+                        window.Arto.scroll.toAnchor(target);
                     }});
                     observer.observe(container, {{ childList: true }});
                     // Fallback: ensure the observer is disconnected even if no mutation occurs.
@@ -232,16 +247,16 @@ fn handle_scroll_position(state: &mut AppState) {
                         observer.disconnect();
                         observer = null;
                     }}
-                    document.querySelector('.content')?.scrollTo(0, target);
+                    window.Arto.scroll.toAnchor(target);
                 }});
             }})();"#,
-            scroll
+            serde_json::to_string(&scroll).unwrap_or_else(|_| "null".to_string())
         );
         let _ = document::eval(&scroll_js);
-        tracing::debug!(scroll, "Scheduled two-phase scroll position restoration");
+        tracing::debug!(?scroll, "Scheduled two-phase scroll position restoration");
     } else {
         // Reset to top immediately for new navigation
-        let _ = document::eval("document.querySelector('.content')?.scrollTo(0, 0);");
+        let _ = document::eval(SCROLL_RESET_JS);
         tracing::debug!("Reset scroll position to top");
     }
 }
@@ -353,8 +368,17 @@ fn use_link_click_handler(file: ReadSignal<PathBuf>, state: AppState) {
         let file = file();
         let mut eval_provider = document::eval(indoc::indoc! {r#"
             window.handleMarkdownLinkClick = (path, button) => {
-                const scrollPosition = document.querySelector('.content')?.scrollTop || 0;
-                dioxus.send({ path, button, scroll_position: scrollPosition });
+                // Where to come back to, named by content rather than by
+                // pixels; see `frontend/src/scroll-anchor.ts`.
+                //
+                // The document is clickable before the renderer module, which
+                // is imported asynchronously, has installed `window.Arto`.
+                // Asking it unguarded would throw inside the inline handler
+                // that already called preventDefault, so the click would do
+                // nothing at all; the top of the document is the right answer
+                // that early anyway.
+                const anchor = window.Arto?.scroll?.anchor?.() ?? { line: 0, fraction: 0 };
+                dioxus.send({ path, button, scroll_anchor: anchor });
             };
         "#});
 
@@ -373,14 +397,14 @@ fn handle_link_click(click_data: LinkClickData, current_file: &Path, state: &mut
     let LinkClickData {
         path,
         button,
-        scroll_position,
+        scroll_anchor,
     } = click_data;
 
     tracing::info!("Markdown link clicked: {} (button: {})", path, button);
 
     let how = match button {
         MIDDLE_CLICK => LinkOpen::NewTab,
-        LEFT_CLICK => LinkOpen::CurrentTab { scroll_position },
+        LEFT_CLICK => LinkOpen::CurrentTab { scroll_anchor },
         _ => {
             tracing::debug!("Ignoring click with button: {}", button);
             return;

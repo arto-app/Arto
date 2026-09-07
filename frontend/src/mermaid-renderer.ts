@@ -3,6 +3,8 @@ import type { Theme } from "./theme";
 import { buildMermaidThemeConfig } from "./mermaid-theme";
 import { fixTextContrast } from "./mermaid-contrast";
 import { openMermaidWindow } from "./mermaid-window-controller";
+import { whenNearViewport } from "./viewport-queue";
+import { restoreCopyButton } from "./code-copy";
 
 export function init(): void {
   const config = buildMermaidThemeConfig("light");
@@ -31,18 +33,22 @@ export async function renderDiagrams(container: Element): Promise<void> {
     return;
   }
 
-  console.debug(`Rendering ${mermaidBlocks.length} mermaid diagrams in parallel`);
+  console.debug(`Queueing ${mermaidBlocks.length} mermaid diagrams`);
 
-  // Render all diagrams in parallel for better performance
-  const renderPromises = mermaidBlocks.map((block) =>
-    renderDiagram(block as HTMLElement).catch((error) => {
-      console.error("Failed to render mermaid diagram:", error);
-      // Don't let one failure stop others
-    }),
-  );
-
-  await Promise.all(renderPromises);
-  console.debug("All mermaid diagrams rendered");
+  // A diagram is the most expensive thing on the page — tens of milliseconds
+  // each — so none is drawn until the reader is near it.
+  for (const block of mermaidBlocks) {
+    whenNearViewport(block, async () => {
+      try {
+        await renderDiagram(block);
+      } catch (error) {
+        console.error("Failed to render mermaid diagram:", error);
+        // Don't let one failure stop others
+      }
+      // Drawing the diagram overwrites the block, button and all.
+      restoreCopyButton(block as HTMLPreElement);
+    });
+  }
 }
 
 async function renderDiagram(element: HTMLElement): Promise<void> {

@@ -19,6 +19,11 @@ The files build on each other from small to large constructs:
    and Arto's engine each treat differently; use it to see what an engine
    adds or drops
 
+[Stress](./stress.md) stands apart from the numbered files: a megabyte of
+generated Markdown, dense with every construct above, for seeing how the view
+behaves on a document far larger than anything written by hand. Nothing in it
+is worth reading, and it is deliberately not snapshot-tested.
+
 ## How to read the samples
 
 - A line starting with **Expected:** describes the correct rendering of the
