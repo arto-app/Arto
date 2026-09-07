@@ -106,8 +106,14 @@
 //! files that do not exist add `md-link-missing`. Links that carry a scheme
 //! of their own (`http(s):`, `mailto:`, `tel:`, …) and fragment-only links
 //! stay anchors. Local images are inlined as `data:` URLs so the page works
-//! offline and in Quick Look; readers of `data-md-link` and `.md-link` are
-//! the app and `frontend/style/components/content/markdown-viewer.css`.
+//! offline and in Quick Look — `<img src>` as well as every candidate of an
+//! `<img srcset>` or a `<source srcset>`, so a theme-aware `<picture>`
+//! renders whichever one the browser picks. A `srcset` candidate that names
+//! a local file which cannot be read is dropped rather than left in place,
+//! because the page has no base URL to resolve it against and the browser
+//! would otherwise pick it over a candidate that did inline. Readers of
+//! `data-md-link` and `.md-link` are the app and
+//! `frontend/style/components/content/markdown-viewer.css`.
 //!
 //! ## Headings
 //!
