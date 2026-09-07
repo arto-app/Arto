@@ -58,11 +58,18 @@ jobs:
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
-          matches() { printf '%s\n' "$files" | grep -Eq "$1"; }
+          # Three dots: what this branch changed since it left the base, not
+          # how the two tips differ. With two dots, every commit the base
+          # gained after the branch started counts as a change here — in
+          # reverse — so merging anything to main turned every open PR into a
+          # full-matrix run.
+          files="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
+          matches() { [ -n "$files" ] && printf '%s\n' "$files" | grep -Eq "$1"; }
           code=false; flake=false; docs=false; bundle=false
-          # Anything that is not documentation or sample data is code.
-          if printf '%s\n' "$files" | grep -Evq '(\.md$|^samples/|^docs/)'; then code=true; fi
+          # Anything that is not documentation or sample data is code. Guarded
+          # on an empty list because `printf '%s\n' ""` writes one empty line,
+          # which matches nothing and would therefore read as code.
+          if [ -n "$files" ] && printf '%s\n' "$files" | grep -Evq '(\.md$|^samples/|^docs/)'; then code=true; fi
           # Lockfiles count as flake changes: a new crate may need a native
           # library the Nix build lacks, and a pnpm lockfile change moves the
           # pnpmDeps hash, so both must go through the from-scratch build.
