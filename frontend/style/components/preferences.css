@@ -396,6 +396,111 @@
   color: var(--accent-bg);
 }
 
+/* Theme cards. The swatch carries `data-theme`, so the theme's own token
+   block paints it — what the card shows is the palette it selects. */
+.theme-cards {
+  /* A grid rather than a wrapping flex row: `auto-fill` keeps the empty
+     tracks of the last row, so the cards left over there stay the width of
+     every other card instead of stretching to fill it. */
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.theme-card {
+  gap: 10px;
+  padding: 12px;
+}
+
+.theme-cards-toggle {
+  margin-top: 12px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--link-color);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+}
+
+.theme-cards-toggle:hover {
+  text-decoration: underline;
+}
+
+.theme-card .option-card-title {
+  font-size: var(--font-size-md);
+  font-weight: 500;
+}
+
+.theme-preview {
+  display: block;
+  width: 100%;
+  height: 58px;
+  overflow: hidden;
+  border: 1px solid var(--borderColor-default);
+  border-radius: var(--radius-md);
+  background: var(--bgColor-default);
+}
+
+.theme-preview-chrome {
+  display: block;
+  height: 14px;
+  background: var(--bgColor-inset);
+  border-bottom: 1px solid var(--borderColor-default);
+}
+
+.theme-preview-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px;
+}
+
+.theme-preview-line {
+  display: block;
+  width: 82%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--fgColor-default);
+}
+
+.theme-preview-line--muted {
+  width: 58%;
+  background: var(--fgColor-muted);
+}
+
+.theme-preview-hues {
+  display: flex;
+  gap: 5px;
+  margin-top: 1px;
+}
+
+.theme-preview-hue {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-full);
+}
+
+.theme-preview-hue--accent {
+  background: var(--bgColor-accent-emphasis);
+}
+
+.theme-preview-hue--success {
+  background: var(--bgColor-success-emphasis);
+}
+
+.theme-preview-hue--attention {
+  background: var(--bgColor-attention-emphasis);
+}
+
+.theme-preview-hue--danger {
+  background: var(--bgColor-danger-emphasis);
+}
+
+.theme-preview-hue--done {
+  background: var(--bgColor-done-emphasis);
+}
+
 /* Option Card with Icon (icon mode - automatically applied when icon is present) */
 .option-card--icon {
   padding: 14px 16px;

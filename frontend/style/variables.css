@@ -41,223 +41,85 @@
   --z-context-menu-backdrop: 10001;
   --z-context-menu: 10002;
   --z-context-submenu: 10003;
+}
 
-  /* Shadows */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.15);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.3);
+/* ========================================
+   Theme Colors
+   ========================================
+
+   Every colour Arto uses resolves to a Primer functional token. The tokens
+   themselves come from `@primer/primitives`, re-scoped onto this same
+   `data-theme` attribute at build time, so naming a theme is all it takes to
+   repaint the app — including the themes GitHub ships for high contrast and
+   for colour vision deficiency, which no hand-kept palette could track.
+
+   The attribute is named on `<html>`: the page scrollbar and the canvas
+   behind the document resolve against the root element, and everything
+   below it inherits. */
+
+:root,
+[data-theme] {
+  /* Form controls and the scrollbars the WebView draws itself follow this
+     rather than the theme name, which may well be a light theme picked as the
+     dark-mode theme. */
+  color-scheme: light;
+
+  --bg-color: var(--bgColor-default);
+  --text-color: var(--fgColor-default);
+  --text-secondary: var(--fgColor-muted);
+  --border-color: var(--borderColor-default);
+  --header-bg: var(--bgColor-inset);
+  --content-bg: var(--bgColor-default);
+  --bg-secondary: var(--bgColor-muted);
+  --bg-tertiary: var(--bgColor-neutral-muted);
+  --link-color: var(--fgColor-accent);
+  --hover-bg: var(--control-bgColor-hover);
+  --hover-border: var(--borderColor-emphasis);
+  --accent-bg: var(--bgColor-accent-emphasis);
+  --accent-fg: var(--fgColor-onEmphasis);
+  --copy-button-bg: var(--control-bgColor-rest);
+  --copy-button-fg: var(--fgColor-muted);
+  --copy-button-hover-bg: var(--control-bgColor-hover);
+  --copy-button-active-bg: var(--control-bgColor-active);
+  --copy-button-success-bg: var(--bgColor-success-muted);
+  --copy-button-success-fg: var(--fgColor-success);
+  --copy-button-error-bg: var(--bgColor-danger-muted);
+  --copy-button-error-fg: var(--fgColor-danger);
 
   /* Status Colors */
-  --success-color: #22c55e;
-  --error-color: #dc3545;
-  --warning-color: #dc8a2f;
+  --success-color: var(--fgColor-success);
+  --error-color: var(--fgColor-danger);
+  --warning-color: var(--fgColor-attention);
 
-  /* Search Highlight */
-  --light-search-highlight: rgba(255, 214, 10, 0.38);
-  --dark-search-highlight: rgba(245, 191, 45, 0.55);
-  --search-highlight: var(--light-search-highlight);
-  --light-search-active-outline: rgba(9, 105, 218, 0.45);
-  --dark-search-active-outline: rgba(80, 190, 255, 0.7);
-  --search-active-outline: var(--light-search-active-outline);
+  /* Shadows */
+  --shadow-xs: var(--shadow-resting-xsmall);
+  --shadow-sm: var(--shadow-resting-small);
+  --shadow-md: var(--shadow-floating-small);
+  --shadow-lg: var(--shadow-floating-medium);
 
-  /* ========================================
-     Theme Colors
-     ======================================== */
+  /* Highlights: a wash of the data-visualisation hue over whatever the page
+     is, which is what makes a match stand out on a light and a dark canvas
+     alike. The `-muted` end of the scale cannot do it — in the dark themes it
+     is a near-black (lemon is `#291d00`) that the page swallows — and
+     `bgColor-attention-muted`, at 15% alpha, is too faint to catch the eye.
+     The `-emphasis` values are mid-tone in every theme, so one ratio works
+     everywhere. */
+  --search-highlight: color-mix(in srgb, var(--data-lemon-color-emphasis) 45%, transparent);
+  --search-active-outline: var(--focus-outline-color);
 
-  /* Light theme */
-  --light-bg-color: #ffffff;
-  --light-text-color: #1f2328;
-  --light-text-secondary: #6b7280;
-  --light-border-color: #d1d9e0;
-  --light-header-bg: #f6f8fa;
-  --light-content-bg: #ffffff;
-  --light-bg-secondary: #f9fafb;
-  --light-bg-tertiary: #ffffff;
-  --light-link-color: #0969da;
-  --light-hover-bg: #f3f4f6;
-  --light-hover-border: #b4bcc4;
-  --light-accent-bg: #0969da;
-  --light-accent-fg: #ffffff;
-  --light-copy-button-bg: #f6f8fa;
-  --light-copy-button-fg: #57606a;
-  --light-copy-button-hover-bg: #e1e4e8;
-  --light-copy-button-active-bg: #d1d5da;
-  --light-copy-button-success-bg: #dafbe1;
-  --light-copy-button-success-fg: #1a7f37;
-  --light-copy-button-error-bg: #ffebe9;
-  --light-copy-button-error-fg: #cf222e;
-  /* Dark theme */
-  --dark-bg-color: #0d1117;
-  --dark-text-color: #e6edf3;
-  --dark-text-secondary: #9ca3af;
-  --dark-border-color: #30363d;
-  --dark-header-bg: #010409;
-  --dark-content-bg: #0d1117;
-  --dark-bg-secondary: #1f2937;
-  --dark-bg-tertiary: #374151;
-  --dark-link-color: #4493f8;
-  --dark-hover-bg: #1f2937;
-  --dark-hover-border: #484f58;
-  --dark-accent-bg: #1f6feb;
-  --dark-accent-fg: #ffffff;
-  --dark-copy-button-bg: #161b22;
-  --dark-copy-button-fg: #8b949e;
-  --dark-copy-button-hover-bg: #21262d;
-  --dark-copy-button-active-bg: #30363d;
-  --dark-copy-button-success-bg: #0d4929;
-  --dark-copy-button-success-fg: #4ac26b;
-  --dark-copy-button-error-bg: #490202;
-  --dark-copy-button-error-fg: #ff7b72;
-  /* Pinned highlight colors - Light theme */
-  --light-pinned-green: rgba(76, 175, 80, 0.28);
-  --light-pinned-blue: rgba(0, 188, 212, 0.28);
-  --light-pinned-pink: rgba(233, 30, 99, 0.24);
-  --light-pinned-orange: rgba(200, 85, 0, 0.36);
-  --light-pinned-purple: rgba(156, 39, 176, 0.24);
-  /* Pinned highlight colors - Dark theme */
-  --dark-pinned-green: rgba(97, 189, 113, 0.45);
-  --dark-pinned-blue: rgba(82, 205, 224, 0.45);
-  --dark-pinned-pink: rgba(239, 113, 161, 0.4);
-  --dark-pinned-orange: rgba(200, 110, 30, 0.58);
-  --dark-pinned-purple: rgba(192, 118, 207, 0.4);
+  /* Pinned highlight colors */
+  --pinned-green: color-mix(in srgb, var(--data-green-color-emphasis) 45%, transparent);
+  --pinned-blue: color-mix(in srgb, var(--data-blue-color-emphasis) 45%, transparent);
+  --pinned-pink: color-mix(in srgb, var(--data-pink-color-emphasis) 45%, transparent);
+  --pinned-orange: color-mix(in srgb, var(--data-orange-color-emphasis) 45%, transparent);
+  --pinned-purple: color-mix(in srgb, var(--data-purple-color-emphasis) 45%, transparent);
+
   /* Scrollbar colors */
-  --light-scrollbar-track: #f6f8fa;
-  --light-scrollbar-thumb: #d1d9e0;
-  --light-scrollbar-thumb-hover: #959da5;
-  --dark-scrollbar-track: #0d1117;
-  --dark-scrollbar-thumb: #30363d;
-  --dark-scrollbar-thumb-hover: #484f58;
-  /* Default theme */
-  --bg-color: var(--light-bg-color);
-  --text-color: var(--light-text-color);
-  --text-secondary: var(--light-text-secondary);
-  --border-color: var(--light-border-color);
-  --header-bg: var(--light-header-bg);
-  --content-bg: var(--light-content-bg);
-  --bg-secondary: var(--light-bg-secondary);
-  --bg-tertiary: var(--light-bg-tertiary);
-  --link-color: var(--light-link-color);
-  --hover-bg: var(--light-hover-bg);
-  --hover-border: var(--light-hover-border);
-  --accent-bg: var(--light-accent-bg);
-  --accent-fg: var(--light-accent-fg);
-  --copy-button-bg: var(--light-copy-button-bg);
-  --copy-button-fg: var(--light-copy-button-fg);
-  --copy-button-hover-bg: var(--light-copy-button-hover-bg);
-  --copy-button-active-bg: var(--light-copy-button-active-bg);
-  --copy-button-success-bg: var(--light-copy-button-success-bg);
-  --copy-button-success-fg: var(--light-copy-button-success-fg);
-  --copy-button-error-bg: var(--light-copy-button-error-bg);
-  --copy-button-error-fg: var(--light-copy-button-error-fg);
-  --scrollbar-track: var(--light-scrollbar-track);
-  --scrollbar-thumb: var(--light-scrollbar-thumb);
-  --scrollbar-thumb-hover: var(--light-scrollbar-thumb-hover);
-  --pinned-green: var(--light-pinned-green);
-  --pinned-blue: var(--light-pinned-blue);
-  --pinned-pink: var(--light-pinned-pink);
-  --pinned-orange: var(--light-pinned-orange);
-  --pinned-purple: var(--light-pinned-purple);
+  --scrollbar-track: var(--bgColor-default);
+  --scrollbar-thumb: var(--borderColor-default);
+  --scrollbar-thumb-hover: var(--borderColor-emphasis);
 }
 
-[data-theme="light"] {
-  --bg-color: var(--light-bg-color);
-  --text-color: var(--light-text-color);
-  --text-secondary: var(--light-text-secondary);
-  --border-color: var(--light-border-color);
-  --header-bg: var(--light-header-bg);
-  --content-bg: var(--light-content-bg);
-  --bg-secondary: var(--light-bg-secondary);
-  --bg-tertiary: var(--light-bg-tertiary);
-  --link-color: var(--light-link-color);
-  --hover-bg: var(--light-hover-bg);
-  --hover-border: var(--light-hover-border);
-  --accent-bg: var(--light-accent-bg);
-  --accent-fg: var(--light-accent-fg);
-  --copy-button-bg: var(--light-copy-button-bg);
-  --copy-button-fg: var(--light-copy-button-fg);
-  --copy-button-hover-bg: var(--light-copy-button-hover-bg);
-  --copy-button-active-bg: var(--light-copy-button-active-bg);
-  --copy-button-success-bg: var(--light-copy-button-success-bg);
-  --copy-button-success-fg: var(--light-copy-button-success-fg);
-  --copy-button-error-bg: var(--light-copy-button-error-bg);
-  --copy-button-error-fg: var(--light-copy-button-error-fg);
-  --scrollbar-track: var(--light-scrollbar-track);
-  --scrollbar-thumb: var(--light-scrollbar-thumb);
-  --scrollbar-thumb-hover: var(--light-scrollbar-thumb-hover);
-  --pinned-green: var(--light-pinned-green);
-  --pinned-blue: var(--light-pinned-blue);
-  --pinned-pink: var(--light-pinned-pink);
-  --pinned-orange: var(--light-pinned-orange);
-  --pinned-purple: var(--light-pinned-purple);
-}
-
-[data-theme="dark"] {
-  --bg-color: var(--dark-bg-color);
-  --text-color: var(--dark-text-color);
-  --text-secondary: var(--dark-text-secondary);
-  --border-color: var(--dark-border-color);
-  --header-bg: var(--dark-header-bg);
-  --content-bg: var(--dark-content-bg);
-  --bg-secondary: var(--dark-bg-secondary);
-  --bg-tertiary: var(--dark-bg-tertiary);
-  --link-color: var(--dark-link-color);
-  --hover-bg: var(--dark-hover-bg);
-  --hover-border: var(--dark-hover-border);
-  --accent-bg: var(--dark-accent-bg);
-  --accent-fg: var(--dark-accent-fg);
-  --copy-button-bg: var(--dark-copy-button-bg);
-  --copy-button-fg: var(--dark-copy-button-fg);
-  --copy-button-hover-bg: var(--dark-copy-button-hover-bg);
-  --copy-button-active-bg: var(--dark-copy-button-active-bg);
-  --copy-button-success-bg: var(--dark-copy-button-success-bg);
-  --copy-button-success-fg: var(--dark-copy-button-success-fg);
-  --copy-button-error-bg: var(--dark-copy-button-error-bg);
-  --copy-button-error-fg: var(--dark-copy-button-error-fg);
-  --scrollbar-track: var(--dark-scrollbar-track);
-  --scrollbar-thumb: var(--dark-scrollbar-thumb);
-  --scrollbar-thumb-hover: var(--dark-scrollbar-thumb-hover);
-  --pinned-green: var(--dark-pinned-green);
-  --pinned-blue: var(--dark-pinned-blue);
-  --pinned-pink: var(--dark-pinned-pink);
-  --pinned-orange: var(--dark-pinned-orange);
-  --pinned-purple: var(--dark-pinned-purple);
-  --search-highlight: var(--dark-search-highlight);
-  --search-active-outline: var(--dark-search-active-outline);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-color: var(--dark-bg-color);
-    --text-color: var(--dark-text-color);
-    --text-secondary: var(--dark-text-secondary);
-    --border-color: var(--dark-border-color);
-    --header-bg: var(--dark-header-bg);
-    --content-bg: var(--dark-content-bg);
-    --bg-secondary: var(--dark-bg-secondary);
-    --bg-tertiary: var(--dark-bg-tertiary);
-    --link-color: var(--dark-link-color);
-    --hover-bg: var(--dark-hover-bg);
-    --hover-border: var(--dark-hover-border);
-    --accent-bg: var(--dark-accent-bg);
-    --accent-fg: var(--dark-accent-fg);
-    --copy-button-bg: var(--dark-copy-button-bg);
-    --copy-button-fg: var(--dark-copy-button-fg);
-    --copy-button-hover-bg: var(--dark-copy-button-hover-bg);
-    --copy-button-active-bg: var(--dark-copy-button-active-bg);
-    --copy-button-success-bg: var(--dark-copy-button-success-bg);
-    --copy-button-success-fg: var(--dark-copy-button-success-fg);
-    --copy-button-error-bg: var(--dark-copy-button-error-bg);
-    --copy-button-error-fg: var(--dark-copy-button-error-fg);
-    --scrollbar-track: var(--dark-scrollbar-track);
-    --scrollbar-thumb: var(--dark-scrollbar-thumb);
-    --scrollbar-thumb-hover: var(--dark-scrollbar-thumb-hover);
-    --pinned-green: var(--dark-pinned-green);
-    --pinned-blue: var(--dark-pinned-blue);
-    --pinned-pink: var(--dark-pinned-pink);
-    --pinned-orange: var(--dark-pinned-orange);
-    --pinned-purple: var(--dark-pinned-purple);
-    --search-highlight: var(--dark-search-highlight);
-    --search-active-outline: var(--dark-search-active-outline);
-  }
+[data-theme^="dark"] {
+  color-scheme: dark;
 }

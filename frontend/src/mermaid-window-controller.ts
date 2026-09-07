@@ -1,5 +1,5 @@
 import mermaid from "mermaid";
-import type { Theme } from "./theme";
+import { themedElement, type Theme } from "./theme";
 import { buildMermaidThemeConfig } from "./mermaid-theme";
 import { fixTextContrast } from "./mermaid-contrast";
 import { BaseViewerController } from "./base-viewer-controller";
@@ -20,7 +20,7 @@ class MermaidWindowController extends BaseViewerController {
 
   async init(source: string, diagramId: string): Promise<void> {
     // Initialize mermaid with current theme
-    const currentTheme = document.body.getAttribute("data-theme") as Theme;
+    const currentTheme = themedElement().getAttribute("data-theme") as Theme;
     this.#initializeMermaidTheme(currentTheme || "light");
 
     // Render the Mermaid diagram
@@ -40,7 +40,7 @@ class MermaidWindowController extends BaseViewerController {
 
   setTheme(theme: string): void {
     // Update body theme attribute
-    document.body.setAttribute("data-theme", theme);
+    themedElement().setAttribute("data-theme", theme);
 
     // Re-initialize mermaid with new theme
     this.#initializeMermaidTheme(theme as Theme);

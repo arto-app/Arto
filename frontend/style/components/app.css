@@ -31,7 +31,9 @@
   animation: fadeIn var(--transition-normal) ease-out;
 }
 
-[data-theme="dark"] .drag-drop-overlay {
+/* Every dark theme, not just `dark`: the wash has to darken whatever the
+   theme paints behind it. */
+[data-theme^="dark"] .drag-drop-overlay {
   background-color: rgba(0, 0, 0, 0.5);
 }
 

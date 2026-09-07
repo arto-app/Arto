@@ -1,0 +1,69 @@
+/* GitHub alerts (`> [!NOTE]` and friends).
+ *
+ * Primer's Markdown stylesheet covers everything the pipeline emits except
+ * these, so the rules are kept here — the same shape GitHub renders, with the
+ * hard-coded colours of its published stylesheet replaced by the tokens they
+ * were taken from.
+ */
+
+.markdown-body .markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  color: inherit;
+  border-left: 0.25em solid var(--borderColor-default);
+
+  & > :first-child {
+    margin-top: 0;
+  }
+
+  & > :last-child {
+    margin-bottom: 0;
+  }
+
+  .markdown-alert-title {
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  &.markdown-alert-note {
+    border-left-color: var(--borderColor-accent-emphasis);
+
+    .markdown-alert-title {
+      color: var(--fgColor-accent);
+    }
+  }
+
+  &.markdown-alert-tip {
+    border-left-color: var(--borderColor-success-emphasis);
+
+    .markdown-alert-title {
+      color: var(--fgColor-success);
+    }
+  }
+
+  &.markdown-alert-important {
+    border-left-color: var(--borderColor-done-emphasis);
+
+    .markdown-alert-title {
+      color: var(--fgColor-done);
+    }
+  }
+
+  &.markdown-alert-warning {
+    border-left-color: var(--borderColor-attention-emphasis);
+
+    .markdown-alert-title {
+      color: var(--fgColor-attention);
+    }
+  }
+
+  &.markdown-alert-caution {
+    border-left-color: var(--borderColor-danger-emphasis);
+
+    .markdown-alert-title {
+      color: var(--fgColor-danger);
+    }
+  }
+}

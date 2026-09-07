@@ -43,7 +43,7 @@ Markdown is where documentation, communication and thinking now live, and readin
 
 **Rich content** — Mermaid diagrams in an interactive viewer with zoom, pan and copy-as-image; KaTeX math; syntax-highlighted code with a copy button; YAML frontmatter as a collapsible table; and GitHub alerts (`NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`).
 
-**Fitting in** — light and dark themes that follow the system, zoom by keyboard or trackpad, configurable preferences, context menus, and — on macOS — Quick Look and the Finder preview pane.
+**Fitting in** — GitHub's own themes, including dimmed, high contrast and the colour-vision ones, with a separate choice for light and dark mode and the system deciding which applies; zoom by keyboard or trackpad, configurable preferences, context menus, and — on macOS — Quick Look and the Finder preview pane.
 
 <p align="center">
   <img src="./docs/images/feature-rendering.png" alt="GitHub-style rendering" width="410">

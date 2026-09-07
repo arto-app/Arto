@@ -32,7 +32,7 @@ interface Rgba extends Rgb {
  */
 export function fixTextContrast(svg: SVGSVGElement): void {
   const groups = svg.querySelectorAll(".node, .cluster");
-  const { dark, light } = getTextColors();
+  const { dark, light } = TEXT_COLORS;
   const bg = getBackgroundColor();
 
   for (const group of groups) {
@@ -55,26 +55,18 @@ export function fixTextContrast(svg: SVGSVGElement): void {
 }
 
 /**
- * Get text colors from theme CSS variables.
+ * The two inks a node label can be written in.
  *
- * Reads `--light-text-color` (dark text for bright backgrounds) and
- * `--dark-text-color` (light text for dark backgrounds) from the computed
- * style of the document body (where `data-theme` is applied).
- *
- * Falls back to hardcoded values if CSS variables are not available.
+ * Which one a node gets is decided by the fill the author wrote in the
+ * diagram, not by the theme, so these do not follow the theme either: a
+ * bright fill needs dark ink whichever theme surrounds it.
  */
-function getTextColors(): { dark: string; light: string } {
-  const style = getComputedStyle(document.body);
-  return {
-    dark: style.getPropertyValue("--light-text-color").trim() || "#1f2328",
-    light: style.getPropertyValue("--dark-text-color").trim() || "#e6edf3",
-  };
-}
+const TEXT_COLORS = { dark: "#1f2328", light: "#e6edf3" };
 
 /**
  * Get the diagram background color from the theme CSS variable `--bg-color`.
  * Used to blend semi-transparent fill colors before computing luminance.
- * Reads from document body where `data-theme` overrides are applied.
+ * Reads from the body, which inherits the theme tokens named on the root.
  */
 function getBackgroundColor(): Rgb {
   const style = getComputedStyle(document.body);

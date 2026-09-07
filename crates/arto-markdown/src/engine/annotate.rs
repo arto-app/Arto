@@ -13,7 +13,7 @@
 //!   frontend does not track just lose the attribute.
 //! * **Callouts.** `> [!NOTE]` is rendered as `<blockquote class="ox-callout
 //!   ox-callout--note">` with a plain title; GitHub — and therefore
-//!   `github-markdown-css`, which styles the rendered page — uses
+//!   the frontend stylesheet, which styles the rendered page — uses
 //!   `<div class="markdown-alert markdown-alert-note">` with the icon
 //!   placeholder the frontend fills in.
 //!

@@ -1,6 +1,15 @@
+/* Primer design tokens: theme-independent scales, then one block per theme
+   (generated at build time from @primer/primitives), then the Markdown
+   stylesheet that reads them. */
+@import url("@primer/primitives/dist/css/base/size/size.css");
+@import url("@primer/primitives/dist/css/base/typography/typography.css");
+@import url("./generated/primer-themes.css");
+@import url("@primer/css/dist/markdown.css");
+
 /* Variables and utilities */
 @import url("./variables.css");
 @import url("./scrollbar.css");
+@import url("./syntax.css");
 
 /* Shared components */
 @import url("./components/icon.css");

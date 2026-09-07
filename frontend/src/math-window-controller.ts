@@ -1,4 +1,5 @@
 import { BaseViewerController } from "./base-viewer-controller";
+import { themedElement } from "./theme";
 
 /**
  * Math window controller for displaying LaTeX expressions.
@@ -27,7 +28,7 @@ export class MathWindowController extends BaseViewerController {
    */
   async init(source: string, mathId: string, theme: string): Promise<void> {
     // Set initial theme
-    document.body.setAttribute("data-theme", theme);
+    themedElement().setAttribute("data-theme", theme);
 
     // Initialize and render LaTeX
     await this.#renderMath(source, mathId);
@@ -43,7 +44,7 @@ export class MathWindowController extends BaseViewerController {
    * Set the theme and re-render the Math expression if needed.
    */
   setTheme(theme: string): void {
-    document.body.setAttribute("data-theme", theme);
+    themedElement().setAttribute("data-theme", theme);
     // KaTeX automatically uses CSS variables from theme, no re-render needed
   }
 
@@ -230,5 +231,5 @@ export async function copyMathAsImage(): Promise<void> {
 }
 
 // Sync data-theme attribute when Rust dispatches theme changes
-import { setupBodyThemeSync } from "./theme";
-setupBodyThemeSync();
+import { setupThemeSync } from "./theme";
+setupThemeSync();

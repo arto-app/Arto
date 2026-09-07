@@ -301,7 +301,7 @@ export function createCanvasFromSvg(dimensions: {
 
   ctx.scale(scale, scale);
 
-  // Get background color from current theme (use body where data-theme is set)
+  // Get background color from the current theme
   const bgColor = getComputedStyle(document.body).getPropertyValue("--bg-color").trim();
   ctx.fillStyle = bgColor || "#ffffff";
   ctx.fillRect(0, 0, dimensions.width, dimensions.height);

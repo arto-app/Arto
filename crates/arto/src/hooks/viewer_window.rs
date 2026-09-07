@@ -202,10 +202,12 @@ pub fn CopyImageButton(js_function: String, label: String) -> Element {
 /// Dispatch a theme-changed event to JavaScript.
 /// Call from a `use_effect` that watches the current_theme signal.
 pub fn use_theme_dispatch(current_theme: Signal<crate::theme::Theme>) {
+    // The renderer is told which GitHub theme to paint, not which mode, so
+    // the preference, the system appearance and the configured choice for
+    // each mode all resolve here.
+    let color_theme = crate::theme::use_color_theme(current_theme);
     use_effect(move || {
-        // Resolve "auto" to actual light/dark before dispatching to JS,
-        // since the renderer theme system only supports "light" and "dark".
-        let theme_str = crate::theme::resolve_theme(*current_theme.read()).as_str();
+        let theme_str = color_theme().as_str();
 
         spawn(async move {
             if let Err(e) = document::eval(&format!(

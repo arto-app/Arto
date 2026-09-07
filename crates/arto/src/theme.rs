@@ -1,39 +1,27 @@
 //! Resolving the user's theme preference against the system appearance.
 //!
 //! The preference itself (`Theme`) is a configuration type and lives in
-//! arto-config; this module turns `Auto` into light or dark, and reports the
-//! system appearance to the components that follow it.
+//! arto-config; this module turns `Auto` into light or dark, answers that
+//! mode with the GitHub theme configured for it, and reports the system
+//! appearance to the components that follow it.
 
 use dioxus::desktop::tao::event::{Event as TaoEvent, WindowEvent};
 use dioxus::desktop::tao::window::Theme as TaoTheme;
 use dioxus::desktop::{use_wry_event_handler, window};
 use dioxus::prelude::*;
+use std::sync::LazyLock;
 
-pub use crate::config::Theme;
+pub use crate::config::{ColorTheme, Theme};
 
-/// A [`Theme`] with `Auto` already resolved: what actually gets rendered.
+/// A [`Theme`] with `Auto` already resolved: light mode or dark mode.
+///
+/// Which of GitHub's themes each mode paints is a separate choice, made in
+/// the configuration and applied by [`resolve_color_theme`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ResolvedTheme {
     #[default]
     Light,
     Dark,
-}
-
-impl ResolvedTheme {
-    /// The name the frontend knows this theme by, in `data-theme` and in the
-    /// detail of the `arto:theme-changed` event.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Light => "light",
-            Self::Dark => "dark",
-        }
-    }
-}
-
-impl std::fmt::Display for ResolvedTheme {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
-    }
 }
 
 pub fn resolve_theme(theme: Theme) -> ResolvedTheme {
@@ -51,6 +39,79 @@ pub fn resolve_theme(theme: Theme) -> ResolvedTheme {
         Theme::Light => ResolvedTheme::Light,
         Theme::Dark => ResolvedTheme::Dark,
     }
+}
+
+/// The theme a preference actually paints: `Auto` resolved against the system
+/// appearance, then the mode answered with the theme configured for it.
+///
+/// The two slots are unconstrained — a light theme is a valid choice for dark
+/// mode, as it is on GitHub — so nothing here assumes the answer matches the
+/// mode it came from.
+pub fn resolve_color_theme(theme: Theme) -> ColorTheme {
+    color_theme_for(resolve_theme(theme))
+}
+
+fn color_theme_for(mode: ResolvedTheme) -> ColorTheme {
+    let config = crate::config::CONFIG.read();
+    match mode {
+        ResolvedTheme::Light => config.theme.light_theme,
+        ResolvedTheme::Dark => config.theme.dark_theme,
+    }
+}
+
+/// A theme being tried out from the preferences.
+///
+/// Picking a theme there is a choice about what the app looks like, and a
+/// swatch can only say so much, so the window wears the theme while the
+/// reader considers it. It outranks the mode — the point is to see a dark
+/// theme from light mode — and it lives as long as the unsaved edit that
+/// chose it: [`clear_theme_preview`] on save, and when the preferences page
+/// is left.
+static PREVIEW_THEME: LazyLock<GlobalSignal<Option<ColorTheme>>> =
+    LazyLock::new(|| Signal::global(|| None));
+
+/// Wear `theme` until the preview is cleared.
+pub fn preview_theme(theme: ColorTheme) {
+    *PREVIEW_THEME.write() = Some(theme);
+}
+
+/// Go back to the theme the configuration asks for.
+pub fn clear_theme_preview() {
+    if PREVIEW_THEME.read().is_some() {
+        *PREVIEW_THEME.write() = None;
+    }
+}
+
+/// The theme to paint right now, as a signal.
+///
+/// Four things move it: a preview being tried out in the preferences, the
+/// window's own preference, the system appearance behind `Auto`, and the
+/// configured theme for whichever mode the last two land on. That one is not
+/// a signal — the configuration lives behind a lock — so a save is picked up
+/// through the broadcast instead.
+pub fn use_color_theme(current_theme: Signal<Theme>) -> Memo<ColorTheme> {
+    let system_theme = use_system_theme();
+    let mut config_revision = use_signal(|| 0u32);
+
+    use_future(move || async move {
+        let mut receiver = crate::config::CONFIG_CHANGED_BROADCAST.subscribe();
+        while receiver.recv().await.is_ok() {
+            *config_revision.write() += 1;
+        }
+    });
+
+    use_memo(move || {
+        if let Some(preview) = *PREVIEW_THEME.read() {
+            return preview;
+        }
+        // Read so that a save re-runs the memo; the value itself says nothing.
+        config_revision();
+        color_theme_for(match current_theme() {
+            Theme::Auto => system_theme(),
+            Theme::Light => ResolvedTheme::Light,
+            Theme::Dark => ResolvedTheme::Dark,
+        })
+    })
 }
 
 /// A signal of the system appearance, kept current while the window lives.
@@ -153,14 +214,6 @@ fn detect_system_mode() -> Option<dark_light::Mode> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// The frontend switches on these exact strings, in `data-theme` and in
-    /// the `arto:theme-changed` detail.
-    #[test]
-    fn theme_names_match_the_frontend() {
-        assert_eq!(ResolvedTheme::Light.as_str(), "light");
-        assert_eq!(ResolvedTheme::Dark.as_str(), "dark");
-    }
 
     #[test]
     fn explicit_preferences_do_not_consult_the_system() {

@@ -1,102 +1,86 @@
 <p align="center">
-  <img src="../assets/arto-header-welcome.png" alt="Arto" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/arto-header-welcome-dark.png">
+    <img src="../assets/arto-header-welcome-light.png" alt="Arto" width="560" />
+  </picture>
 </p>
 
-**Arto — the Art of Reading Markdown.**
+<p align="center">
+  <strong>Arto — the Art of Reading Markdown.</strong><br>
+  A desktop app that renders Markdown the way GitHub does, locally and offline.
+</p>
 
 ---
 
-Markdown has become more than a lightweight markup language — it's the medium for documentation, communication, and thinking in the developer's world.
+## Open a document
 
-While most tools focus on _writing_ Markdown, **Arto is designed for _reading_ it beautifully**.
+Drop a file or a folder onto this window, or run `arto <file>` or `arto <directory>` from the terminal.
 
-> The name "Arto" comes from "Art of Reading" — reflecting the philosophy that reading Markdown is not just a utility task, but a quiet, deliberate act of understanding and appreciation.
+<div style="display: flex; justify-content: center;">
+  <table>
+    <tr><td><code>{{file.open}}</code></td><td>Open a file</td></tr>
+    <tr><td><code>{{file.open_directory}}</code></td><td>Open a directory, with the file explorer</td></tr>
+    <tr><td><code>{{tab.new}}</code></td><td>Open a new tab</td></tr>
+    <tr><td><code>{{window.toggle_sidebar}}</code></td><td>Toggle the file explorer</td></tr>
+  </table>
+</div>
 
-## Begin Reading
+## Keyboard shortcuts
 
-To open a markdown file:
+These are the shortcuts as currently bound. Change them in Preferences → Keybindings; `{{help.show_keyboard_shortcuts}}` lists every one of them.
 
-- Drag and drop a file onto this window
-- Use `Cmd+O` to browse and open a file
-- Use `Cmd+Shift+O` to open a directory (with file explorer)
-- Run `arto <file>` or `arto <directory>` from the terminal
-- Use `Cmd+T` to open a new tab
-- Use `Cmd+B` to toggle the sidebar file explorer
+<div style="display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 0 40px;">
+  <div>
+    <table>
+      <tr><td><code>{{search.open}}</code></td><td>Find in page</td></tr>
+      <tr><td><code>{{zoom.reset}}</code></td><td>Actual size</td></tr>
+      <tr><td><code>{{zoom.in}}</code></td><td>Zoom in</td></tr>
+      <tr><td><code>{{zoom.out}}</code></td><td>Zoom out</td></tr>
+    </table>
+    <p style="text-align: center; margin-top: -14px;"><sub>Reading</sub></p>
+  </div>
+  <div>
+    <table>
+      <tr><td><code>{{history.back}}</code></td><td>Back</td></tr>
+      <tr><td><code>{{history.forward}}</code></td><td>Forward</td></tr>
+      <tr><td><code>{{file.reveal_in_finder}}</code></td><td>Reveal in Finder</td></tr>
+      <tr><td><code>{{file.preferences}}</code></td><td>Preferences</td></tr>
+    </table>
+    <p style="text-align: center; margin-top: -14px;"><sub>Navigation</sub></p>
+  </div>
+  <div>
+    <table>
+      <tr><td><code>{{window.new}}</code></td><td>New window</td></tr>
+      <tr><td><code>{{tab.new}}</code></td><td>New tab</td></tr>
+      <tr><td><code>{{tab.close}}</code></td><td>Close tab</td></tr>
+      <tr><td><code>{{window.close}}</code></td><td>Close window</td></tr>
+    </table>
+    <p style="text-align: center; margin-top: -14px;"><sub>Windows and tabs</sub></p>
+  </div>
+</div>
 
-## Keyboard Shortcuts
+## Features
 
-**File & Directory**
+**Reading** — GitHub-accurate rendering with the extended syntax, auto-reload when the file changes on disk, and no network required.
 
-| Shortcut        | Action                       |
-| :-------------- | :--------------------------- |
-| `Cmd+O`         | Open a file                  |
-| `Cmd+Shift+O`   | Open a directory             |
-| `Cmd+B`         | Toggle sidebar file explorer |
-| `Cmd+Shift+R`   | Reveal in Finder             |
+**Getting around** — file explorer sidebar with history, bookmarks for the files you keep returning to, an automatic table of contents, and back/forward navigation across linked documents.
 
-**Search**
+**Finding** — find in page, plus pinned searches that keep multi-colour highlights across sessions.
 
-| Shortcut | Action       |
-| :------- | :----------- |
-| `Cmd+F`  | Find in page |
+**Windows and tabs** — tabs, multiple windows, tabs dragged between windows, child windows for diagrams, and drag-and-drop to open.
 
-**Navigation**
+**Rich content** — Mermaid diagrams in an interactive viewer with zoom, pan and copy-as-image; KaTeX math; syntax-highlighted code with a copy button; YAML frontmatter as a collapsible table; and GitHub alerts (`NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`).
 
-| Shortcut | Action                |
-| :------- | :-------------------- |
-| `Cmd+[`  | Go back in history    |
-| `Cmd+]`  | Go forward in history |
+**Fitting in** — GitHub's own themes, including dimmed, high contrast and the colour-vision ones, with a separate choice for light and dark mode and the system deciding which applies; zoom by keyboard or trackpad, configurable preferences, context menus, and — on macOS — Quick Look and the Finder preview pane.
 
-**Window & Tabs**
+## Why
 
-| Shortcut      | Action               |
-| :------------ | :------------------- |
-| `Cmd+N`       | Open a new window    |
-| `Cmd+T`       | Open a new tab       |
-| `Cmd+W`       | Close current tab    |
-| `Cmd+Shift+W` | Close current window |
+Most Markdown tools are built for _writing_. Arto is built for **reading**: the name is short for "Art of Reading".
 
-**View**
-
-| Shortcut | Action                    |
-| :------- | :------------------------ |
-| `Cmd+0`  | Reset zoom to actual size |
-| `Cmd+=`  | Zoom in                   |
-| `Cmd+-`  | Zoom out                  |
-| `Cmd+,`  | Open Preferences          |
-
-## Key Features
-
-Arto faithfully reproduces GitHub's Markdown rendering in a local, offline environment, offering a calm and precise reading experience with thoughtful typography and balanced whitespace.
-
-**Reading & Navigation:**
-
-- **File Explorer** — Built-in sidebar for browsing directories and files
-- **Quick Access** — Bookmark frequently used files for instant access
-- **Table of Contents** — Automatic TOC panel for easy document navigation
-- **Find in Page** — Search within documents with highlighting
-- **Pinned Search** — Pin queries with persistent multi-color highlighting
-- **History Navigation** — Back/forward navigation through document links
-
-**Rendering:**
-
-- **Tab Support** — Open multiple documents in tabs within a single window
-- **Multi-Window** — Create separate windows and child windows for diagrams
-- **Mermaid Diagrams** — Interactive viewer with zoom, pan, and copy-as-image
-- **Math Support** — Beautiful KaTeX rendering for mathematical expressions
-- **Code Blocks** — Syntax highlighting with copy buttons
-- **Frontmatter** — Renders YAML frontmatter as a styled, collapsible table
-
-**Experience:**
-
-- **Auto-Reload** — Automatically updates when files change on disk
-- **Theme Support** — Manual and automatic dark/light mode switching
-- **Cross-Window Tabs** — Drag and drop tabs between windows
-- **Context Menus** — Right-click for quick actions on files and content
-- **Offline First** — No internet required — read anywhere, anytime
-- **Quick Look** — Press Space in Finder for an instant rendered preview
-- **Finder Preview** — See rendered Markdown in the Finder sidebar preview pane
+Markdown is where documentation, communication and thinking now live, and reading it deserves more than a preview pane. Arto reproduces GitHub's rendering locally and offline, with typography and whitespace chosen for long reading rather than for editing.
 
 ---
 
-_Arto is open source and available at [github.com/arto-app/Arto](https://github.com/arto-app/Arto)_
+<p align="center">
+  <em>Arto is open source — <a href="https://github.com/arto-app/Arto">github.com/arto-app/Arto</a></em>
+</p>

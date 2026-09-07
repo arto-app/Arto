@@ -1,35 +1,9 @@
 import hljs from "highlight.js";
-import hljsLightTheme from "highlight.js/styles/github.css?inline";
-import hljsDarkTheme from "highlight.js/styles/github-dark.css?inline";
-import { createThemeStyle, type Theme } from "./theme";
 import { whenNearViewport } from "./viewport-queue";
 
 // Remove some languages that other libraries handle better
 if (hljs.getLanguage("mermaid")) hljs.unregisterLanguage("mermaid");
 if (hljs.getLanguage("math")) hljs.unregisterLanguage("math");
-
-const lightThemeStyle = createThemeStyle(hljsLightTheme, { enabled: true });
-const darkThemeStyle = createThemeStyle(hljsDarkTheme);
-
-export function mount(): void {
-  lightThemeStyle.mount();
-  darkThemeStyle.mount();
-}
-
-export function setTheme(theme: Theme): void {
-  switch (theme) {
-    case "light":
-      lightThemeStyle.enable();
-      darkThemeStyle.disable();
-      console.debug("Light theme of highlight.js applied");
-      break;
-    case "dark":
-      lightThemeStyle.disable();
-      darkThemeStyle.enable();
-      console.debug("Dark theme of highlight.js applied");
-      break;
-  }
-}
 
 export function highlightCodeBlocks(container: Element): void {
   const codeBlocks = container.querySelectorAll("pre code:not([data-highlighted])");

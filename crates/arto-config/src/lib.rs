@@ -13,6 +13,7 @@
 use serde::{Deserialize, Serialize};
 
 mod behavior;
+mod color_theme;
 mod directory_config;
 mod file_open_behavior;
 mod persistence;
@@ -28,6 +29,7 @@ mod zoom_config;
 pub use arto_keybindings::{BindingSet, KeyAction};
 pub use arto_markdown::RenderOptions;
 pub use behavior::*;
+pub use color_theme::*;
 pub use directory_config::*;
 pub use file_open_behavior::*;
 pub use persistence::*;
@@ -162,6 +164,8 @@ mod tests {
         let config = Config {
             theme: ThemeConfig {
                 default_theme: Theme::Dark,
+                light_theme: ColorTheme::LightHighContrast,
+                dark_theme: ColorTheme::DarkDimmed,
                 on_startup: StartupBehavior::LastClosed,
                 on_new_window: NewWindowBehavior::LastFocused,
             },
@@ -239,6 +243,8 @@ mod tests {
         assert!(!json.contains("\"keybindings\""));
 
         assert_eq!(parsed.theme.default_theme, Theme::Dark);
+        assert_eq!(parsed.theme.light_theme, ColorTheme::LightHighContrast);
+        assert_eq!(parsed.theme.dark_theme, ColorTheme::DarkDimmed);
         assert_eq!(parsed.theme.on_startup, StartupBehavior::LastClosed);
         assert_eq!(parsed.file_open, FileOpenBehavior::CurrentScreen);
         assert_eq!(

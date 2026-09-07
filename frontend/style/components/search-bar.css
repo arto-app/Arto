@@ -143,6 +143,14 @@
   text-align: center;
 }
 
+/* Matches are wrapped in `mark`, whose UA rule sets `color: marktext` — a
+   system colour, not the theme's ink, and it does not inherit. Every fill
+   below is a theme token, so the ink has to be one too or the pairing is left
+   to the browser. */
+.markdown-body mark {
+  color: var(--text-color);
+}
+
 /* Highlight styles for matches in content */
 .markdown-body .search-highlight {
   background-color: var(--search-highlight);
@@ -189,7 +197,7 @@
   background-color: var(--pinned-purple);
 }
 
-/* Disabled: override github-markdown-css .markdown-body mark background */
+/* Disabled: override the browser default background of `mark` */
 .markdown-body .pinned-highlight-disabled {
   background-color: transparent;
 }

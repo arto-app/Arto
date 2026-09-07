@@ -1,8 +1,6 @@
 import "../style/main.css";
 
-import { type Theme, getSystemTheme } from "./theme";
-import * as markdownViewer from "./markdown-viewer";
-import * as syntaxHighlighter from "./syntax-highlighter";
+import { type Theme, currentTheme, isDarkTheme, themedElement } from "./theme";
 import * as mermaidRenderer from "./mermaid-renderer";
 import { renderCoordinator } from "./render-coordinator";
 import {
@@ -140,17 +138,6 @@ declare global {
   }
 }
 
-function getCurrentTheme(): Theme {
-  const theme = document.body.getAttribute("data-theme");
-  switch (theme) {
-    case "light":
-    case "dark":
-      return theme;
-    default:
-      return getSystemTheme();
-  }
-}
-
 /**
  * Switch the theme.
  *
@@ -159,9 +146,9 @@ function getCurrentTheme(): Theme {
  * ignore it.
  */
 export function setCurrentTheme(theme: Theme): Promise<void> {
-  document.body.setAttribute("data-theme", theme);
-  markdownViewer.setTheme(theme);
-  syntaxHighlighter.setTheme(theme);
+  themedElement().setAttribute("data-theme", theme);
+  // The stylesheet repaints on the attribute alone; only Mermaid has to be
+  // told, because its colours are baked into the SVG it already drew.
   mermaidRenderer.setTheme(theme);
   return renderCoordinator.forceRenderMermaid();
 }
@@ -187,11 +174,11 @@ let printSavedTheme: Theme | null = null;
  * whereas a `beforeprint` listener cannot delay the capture.
  */
 async function preparePrint(): Promise<void> {
-  if (getCurrentTheme() === "light") {
+  if (!isDarkTheme(currentTheme())) {
     await viewportQueue.flush();
     return;
   }
-  printSavedTheme = getCurrentTheme();
+  printSavedTheme = currentTheme();
 
   // Flushing before the switch would draw every diagram in the dark theme
   // only for the switch to throw it away, so the queue is drained once, after
@@ -216,8 +203,6 @@ function restorePrint(): void {
 }
 
 export function init(): void {
-  markdownViewer.mount();
-  syntaxHighlighter.mount();
   mermaidRenderer.init();
   renderCoordinator.init();
 
@@ -387,7 +372,7 @@ export function init(): void {
   }) as EventListener);
 
   // Set initial theme
-  setCurrentTheme(getCurrentTheme());
+  setCurrentTheme(currentTheme());
 }
 
 // Re-export special window functions

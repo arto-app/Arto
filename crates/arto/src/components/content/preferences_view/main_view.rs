@@ -57,6 +57,13 @@ pub fn PreferencesView() -> Element {
         has_changes.set(false);
     });
 
+    // A theme picked here is worn by the window while the page is open, and
+    // the edit that chose it lives exactly as long: both are dropped together
+    // when the page goes away unsaved. Moving between sections changes
+    // neither, or the window would go back to the old theme while the picker
+    // still showed the new one.
+    use_drop(crate::theme::clear_theme_preview);
+
     let handle_save = move |_| {
         let cfg = config().clone();
         save_status.set(SaveStatus::Saving);
@@ -66,6 +73,10 @@ pub fn PreferencesView() -> Element {
                 save_status.set(SaveStatus::Idle);
             } else {
                 *CONFIG.write() = cfg.clone();
+                // The theme being previewed is now the configured one, so the
+                // preview has nothing left to say — and dropping it is what
+                // lets the mode decide again.
+                crate::theme::clear_theme_preview();
                 CONFIG_CHANGED_BROADCAST.send(()).ok();
                 has_changes.set(false);
                 save_status.set(SaveStatus::Saved);

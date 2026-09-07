@@ -56,8 +56,8 @@ pub fn MathWindow(props: MathWindowProps) -> Element {
     use_effect(move || {
         let source_json = serde_json::to_string(&props.source).unwrap_or_default();
         let math_id_json = serde_json::to_string(&props.math_id).unwrap_or_default();
-        // Resolve "auto" to actual light/dark before passing to JS
-        let theme_str = crate::theme::resolve_theme(*current_theme.read()).as_str();
+        // Resolve "auto" and the configured choice before passing to JS
+        let theme_str = crate::theme::resolve_color_theme(*current_theme.read()).as_str();
 
         spawn(async move {
             let eval_result = document::eval(&indoc::formatdoc! {r#"

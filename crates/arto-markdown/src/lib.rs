@@ -22,7 +22,7 @@
 //!    `preprocessed-*` containers described below. A second pass over the
 //!    rendered HTML turns the byte range on each block element into the
 //!    `data-source-line` attributes described below, gives GitHub alerts
-//!    the class names `github-markdown-css` styles, and keeps the heading
+//!    the class names GitHub uses, and keeps the heading
 //!    ids when a table of contents was requested.
 //! 3. **Post-processing** with lol_html: local images are inlined as data
 //!    URLs and local Markdown links become `<span class="md-link">`.
@@ -75,7 +75,7 @@
 //! `<div class="markdown-alert markdown-alert-<kind>" dir="auto">` with a
 //! `<p class="markdown-alert-title">` holding
 //! `<span class="alert-icon" data-alert-type="<kind>">` and the kind name.
-//! The class names are GitHub's, so `github-markdown-css` styles them; the
+//! The class names are GitHub's, so the frontend stylesheet styles them; the
 //! icon span is a placeholder for the frontend to fill in. The marker is
 //! matched case-insensitively, so `[!note]` is an alert too.
 //!
@@ -85,7 +85,7 @@
 //! and the definitions are collected into one
 //! `<section class="footnotes"><ol>` at the end of the document, numbered in
 //! the order they are first referenced. That is GitHub's shape, so
-//! `github-markdown-css` styles it.
+//! the frontend styles it.
 //!
 //! ## Frontmatter
 //!
