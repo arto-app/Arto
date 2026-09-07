@@ -37,7 +37,15 @@ pub fn create_main_window_config(params: &CreateMainWindowConfigParams) -> Confi
             WindowBuilder::new()
                 .with_title("Arto")
                 .with_position(params.position)
-                .with_inner_size(params.size),
+                .with_inner_size(params.size)
+                // An unfocused window is ordered in without being made key.
+                // tao applies this only to a window it creates visible, so the
+                // launch window — which dioxus builds hidden — never sees it;
+                // and it is not the last word for the others either, because
+                // dioxus shows every window again once its webview reports
+                // ready, and on macOS that show makes the window key. Keeping
+                // the app itself inactive is what holds the keyboard focus.
+                .with_focused(params.focused),
         ))
         // Dioxus/tao can lose the requested inner height on macOS during window
         // construction, so apply the same size once the native window exists.
@@ -70,6 +78,9 @@ pub struct CreateMainWindowConfigParams {
     /// Skip position shifting for overlap avoidance.
     /// Used for preview windows during drag where exact cursor-relative position is required.
     pub skip_position_shift: bool,
+    /// Take the keyboard focus once the window exists. `arto --behind` clears
+    /// it so the window can appear without interrupting what the user is doing.
+    pub focused: bool,
 }
 
 impl CreateMainWindowConfigParams {
@@ -101,6 +112,7 @@ impl CreateMainWindowConfigParams {
             size: size_pref.size,
             position: position_pref.position,
             skip_position_shift: false,
+            focused: true,
         }
     }
 }
@@ -141,6 +153,20 @@ pub fn list_visible_main_windows() -> Vec<Rc<DesktopService>> {
 }
 
 pub fn register_main_window(handle: WeakDesktopContext) {
+    // A window that never takes the focus never reports one, so seed
+    // `LAST_FOCUSED_WINDOW` with the first window that registers. Without it
+    // a window opened behind the frontmost app is invisible to
+    // `FileOpenBehavior::LastFocused` and to reopen handling, both of which
+    // would then create a duplicate window instead of reusing this one.
+    if let Some(context) = handle.upgrade() {
+        LAST_FOCUSED_WINDOW.with(|last| {
+            let mut last = last.borrow_mut();
+            if last.is_none() {
+                *last = Some(context.window.id());
+            }
+        });
+    }
+
     MAIN_WINDOWS.with(|windows| {
         let mut windows = windows.borrow_mut();
         windows.retain(|w| w.upgrade().is_some());
