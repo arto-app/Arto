@@ -7,6 +7,7 @@ use crate::pinned_search::add_pinned_search;
 use crate::state::sidebar_cursor;
 use crate::state::{AppState, FocusedPanel};
 use crate::theme::Theme;
+use crate::utils::task::spawn_detached;
 
 use super::Action;
 
@@ -15,6 +16,11 @@ use super::Action;
 /// This is the main entry point for action execution after the engine
 /// matches a keybinding. `Cancel` is handled separately in app.rs
 /// (cancel chain logic) and should not reach here.
+///
+/// Actions are dispatched from menu items as well as from the keyboard, and
+/// a menu closes as part of the click that picks an item. Everything async
+/// here is therefore spawned with [`spawn_detached`], so an action outlives
+/// the widget that asked for it.
 pub fn dispatch_action(action: &Action, mut state: AppState) {
     match action {
         // --- Scroll (JS eval) ---
@@ -487,7 +493,7 @@ fn open_right_sidebar(state: &mut AppState) {
         })
     };
     let Some(id) = heading_id else { return };
-    spawn(async move {
+    spawn_detached(async move {
         let id_json = serde_json::to_string(&id).unwrap_or_else(|_| "null".to_string());
         let js = format!(
             r#"
@@ -559,7 +565,7 @@ fn dispatch_cursor_collapse(state: &mut AppState) {
 
 /// Scroll the keyboard-focused element into view using JS.
 fn scroll_cursor_into_view() {
-    spawn(async move {
+    spawn_detached(async move {
         if let Err(e) = document::eval(
             r#"
             requestAnimationFrame(() => {
@@ -575,7 +581,7 @@ fn scroll_cursor_into_view() {
 }
 
 fn search_navigate_eval(direction: &'static str) {
-    spawn(async move {
+    spawn_detached(async move {
         let js = format!("window.Arto.search.navigate('{direction}')");
         if let Err(e) = document::eval(&js).await {
             tracing::debug!(%direction, "Search navigate failed: {e}");
@@ -585,7 +591,7 @@ fn search_navigate_eval(direction: &'static str) {
 
 fn search_open(state: &mut AppState) {
     let mut app_state = *state;
-    spawn(async move {
+    spawn_detached(async move {
         let js = r#"
             (() => {
                 const s = window.getSelection();
@@ -605,7 +611,7 @@ fn search_open(state: &mut AppState) {
 }
 
 fn search_clear_eval() {
-    spawn(async move {
+    spawn_detached(async move {
         if let Err(e) = document::eval("window.Arto.search.clear();").await {
             tracing::debug!("Search clear failed: {e}");
         }
@@ -614,7 +620,7 @@ fn search_clear_eval() {
 
 fn search_pin_current(state: &mut AppState) {
     let mut app_state = *state;
-    spawn(async move {
+    spawn_detached(async move {
         #[derive(serde::Deserialize)]
         struct QueryValue {
             value: String,
@@ -653,7 +659,7 @@ fn search_pin_current(state: &mut AppState) {
 }
 
 fn scroll_eval(method: &'static str) {
-    spawn(async move {
+    spawn_detached(async move {
         let js = format!("window.Arto.scroll.{method}();");
         if let Err(e) = document::eval(&js).await {
             tracing::debug!(%method, "Scroll eval failed: {e}");
@@ -662,7 +668,7 @@ fn scroll_eval(method: &'static str) {
 }
 
 pub(crate) fn content_cursor_eval(method: &'static str) {
-    spawn(async move {
+    spawn_detached(async move {
         let js = format!("window.Arto.contentCursor.{method}()");
         if let Err(e) = document::eval(&js).await {
             tracing::debug!(%method, "Content cursor eval failed: {e}");
@@ -671,7 +677,7 @@ pub(crate) fn content_cursor_eval(method: &'static str) {
 }
 
 fn copy_content_cursor_text(js_getter: &'static str) {
-    spawn(async move {
+    spawn_detached(async move {
         let js = format!(
             "(() => {{ const t = window.Arto?.contentCursor?.{js_getter}() ?? ''; dioxus.send(t); }})()"
         );
@@ -688,7 +694,7 @@ fn copy_content_cursor_text(js_getter: &'static str) {
 }
 
 fn copy_image_from_cursor(opaque: bool) {
-    spawn(async move {
+    spawn_detached(async move {
         #[derive(serde::Deserialize)]
         #[serde(tag = "kind", rename_all = "snake_case")]
         enum CopyImageTarget {
@@ -750,6 +756,27 @@ fn copy_image_from_cursor(opaque: bool) {
     });
 }
 
+/// Put the PNG a rasterization returns on the clipboard, and say so when
+/// there is none.
+///
+/// `subject` names what was being rasterized, for the log line. Every way
+/// this can fail is reported: silence is what let a Copy Image that copied
+/// nothing look like a menu item nobody had clicked.
+pub(crate) async fn copy_rasterized_image(mut eval: document::Eval, subject: &str) {
+    match eval.recv::<Option<String>>().await {
+        Ok(Some(data_url)) => {
+            crate::utils::clipboard::copy_image_from_data_url(&data_url);
+            show_action_feedback("Copied");
+        }
+        Ok(None) => {
+            tracing::warn!(%subject, "Rasterizing for clipboard copy produced no image")
+        }
+        Err(e) => {
+            tracing::warn!(%e, %subject, "Rasterizing for clipboard copy failed")
+        }
+    }
+}
+
 async fn copy_special_block_from_cursor(kind: &str, opaque: bool) {
     let opaque_str = if opaque { "true" } else { "false" };
     let js = format!(
@@ -762,11 +789,7 @@ async fn copy_special_block_from_cursor(kind: &str, opaque: bool) {
         }})();
         "#,
     );
-    let mut eval = document::eval(&js);
-    if let Ok(Some(data_url)) = eval.recv::<Option<String>>().await {
-        crate::utils::clipboard::copy_image_from_data_url(&data_url);
-        show_action_feedback("Copied");
-    }
+    copy_rasterized_image(document::eval(&js), kind).await;
 }
 
 pub(crate) async fn copy_image_from_src(src: String, opaque: bool) {
@@ -802,15 +825,11 @@ pub(crate) async fn copy_image_from_src(src: String, opaque: bool) {
         "(async () => {{ dioxus.send(await window.Arto.rasterize.image({}, {})); }})();",
         src_json, opaque_str
     );
-    let mut eval = document::eval(&js);
-    if let Ok(Some(data_url)) = eval.recv::<Option<String>>().await {
-        crate::utils::clipboard::copy_image_from_data_url(&data_url);
-        show_action_feedback("Copied");
-    }
+    copy_rasterized_image(document::eval(&js), "image").await;
 }
 
 fn copy_image_path_from_cursor() {
-    spawn(async move {
+    spawn_detached(async move {
         let js =
             "(() => { const src = window.Arto?.contentCursor?.getImageSrc?.() ?? ''; dioxus.send(src); })()";
         let mut eval = document::eval(js);
@@ -826,7 +845,7 @@ fn copy_image_path_from_cursor() {
 }
 
 fn copy_link_path_from_cursor() {
-    spawn(async move {
+    spawn_detached(async move {
         let js =
             "(() => { const href = window.Arto?.contentCursor?.getLinkHref?.() ?? ''; dioxus.send(href); })()";
         let mut eval = document::eval(js);
@@ -842,7 +861,7 @@ fn copy_link_path_from_cursor() {
 }
 
 fn copy_file_path_with_line(file: std::path::PathBuf, is_range: bool) {
-    spawn(async move {
+    spawn_detached(async move {
         let js =
             "(() => { dioxus.send(window.Arto?.contentCursor?.getSourceLineRange() ?? null); })()";
         let mut eval = document::eval(js);
@@ -860,7 +879,7 @@ fn copy_file_path_with_line(file: std::path::PathBuf, is_range: bool) {
 }
 
 fn copy_markdown_source(file: std::path::PathBuf) {
-    spawn(async move {
+    spawn_detached(async move {
         #[derive(serde::Deserialize)]
         struct MarkdownSourceRequest {
             range: Option<(u32, u32)>,
@@ -906,7 +925,7 @@ fn copy_markdown_source(file: std::path::PathBuf) {
 pub(crate) fn show_action_feedback(message: &str) {
     let msg = serde_json::to_string(message).unwrap_or_else(|_| "\"Done\"".to_string());
     let js = format!("window.Arto?.feedback?.show?.({msg});");
-    spawn(async move {
+    spawn_detached(async move {
         let _ = document::eval(&js).await;
     });
 }
@@ -966,7 +985,7 @@ fn get_bookmark_target_path(state: &AppState) -> Option<std::path::PathBuf> {
 
 fn open_content_viewer_from_cursor(state: &AppState) {
     let theme = *state.current_theme.read();
-    spawn(async move {
+    spawn_detached(async move {
         #[derive(serde::Deserialize)]
         #[serde(tag = "kind", rename_all = "snake_case")]
         enum ViewerTarget {
@@ -1039,7 +1058,7 @@ fn open_link_from_cursor(state: &mut AppState, open_in_new_tab: bool) {
     };
     let mut app_state = *state;
 
-    spawn(async move {
+    spawn_detached(async move {
         let js =
             "(() => { const href = window.Arto?.contentCursor?.getLinkHref?.() ?? ''; dioxus.send(href); })()";
         let mut eval = document::eval(js);
@@ -1067,7 +1086,7 @@ fn open_link_from_cursor(state: &mut AppState, open_in_new_tab: bool) {
 }
 
 fn save_image_from_cursor() {
-    spawn(async move {
+    spawn_detached(async move {
         #[derive(serde::Deserialize)]
         #[serde(tag = "kind", rename_all = "snake_case")]
         enum SaveImageTarget {
@@ -1143,10 +1162,14 @@ async fn save_special_block_from_cursor(kind: &str) {
         "#,
     );
     let mut eval = document::eval(&js);
-    if let Ok(Some(data_url)) = eval.recv::<Option<String>>().await {
-        std::thread::spawn(move || {
-            crate::utils::image::save_image(&data_url);
-        });
+    match eval.recv::<Option<String>>().await {
+        Ok(Some(data_url)) => {
+            std::thread::spawn(move || {
+                crate::utils::image::save_image(&data_url);
+            });
+        }
+        Ok(None) => tracing::warn!(%kind, "Rasterizing for save produced no image"),
+        Err(e) => tracing::warn!(%e, %kind, "Rasterizing for save failed"),
     }
 }
 

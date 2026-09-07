@@ -16,6 +16,7 @@ use crate::components::context_menu::{ContextMenuItem, ContextMenuSeparator};
 use crate::components::icon::IconName;
 use crate::keybindings::dispatcher::dispatch_action;
 use crate::keybindings::{shortcut_hint_for_context_action, Action, KeyContext};
+use crate::utils::task::spawn_detached;
 use copy_as::CopyAsSubmenu;
 use copy_code_as::CopyCodeAsSubmenu;
 use copy_path_as::CopyPathAsSubmenu;
@@ -194,7 +195,7 @@ pub fn ContentContextMenu(
                         let src = src.clone();
                         move |_| {
                             let src = src.clone();
-                            spawn(async move {
+                            spawn_detached(async move {
                                 crate::keybindings::dispatcher::copy_image_from_src(src, false).await;
                             });
                             on_close.call(());
@@ -385,15 +386,11 @@ fn copy_special_block_image(is_mermaid: bool, opaque: bool) {
         "mathBlock"
     };
     let opaque_str = if opaque { "true" } else { "false" };
-    spawn(async move {
+    spawn_detached(async move {
         let js = format!(
             "(async () => {{ dioxus.send(await window.Arto.rasterize.{kind}({opaque_str})); }})()"
         );
-        let mut eval = document::eval(&js);
-        if let Ok(Some(data_url)) = eval.recv::<Option<String>>().await {
-            crate::utils::clipboard::copy_image_from_data_url(&data_url);
-            crate::keybindings::dispatcher::show_action_feedback("Copied");
-        }
+        crate::keybindings::dispatcher::copy_rasterized_image(document::eval(&js), kind).await;
     });
 }
 
@@ -404,7 +401,7 @@ fn copy_markdown_source_direct(
     source_line_end: u32,
     selected_text: String,
 ) {
-    spawn(async move {
+    spawn_detached(async move {
         let handle = std::thread::spawn(move || {
             let source = crate::utils::source_lines::extract_source_lines(
                 &file,
@@ -444,7 +441,7 @@ fn copy_path_shortcut_action_str(
 }
 
 fn exec_edit_command(command: &'static str) {
-    spawn(async move {
+    spawn_detached(async move {
         let js = format!("document.execCommand('{command}');");
         let _ = document::eval(&js).await;
     });

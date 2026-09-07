@@ -10,7 +10,8 @@
 use std::path::PathBuf;
 
 use dioxus::document;
-use dioxus::prelude::spawn;
+
+use super::task::spawn_detached;
 
 /// Open the native print dialog for the current window's webview.
 ///
@@ -18,7 +19,7 @@ use dioxus::prelude::spawn;
 /// "Save as PDF" for PDF export. `file` names the print job, which becomes
 /// the default file name offered by "Save as PDF".
 pub fn print_window(file: Option<PathBuf>) {
-    spawn(async move {
+    spawn_detached(async move {
         // Forcing the light theme for print (and restoring it afterwards)
         // only runs on macOS. There `run_print_dialog` awaits the print
         // sheet, so the light theme stays active until the content is

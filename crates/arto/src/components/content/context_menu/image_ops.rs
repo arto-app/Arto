@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
 use crate::keybindings::{shortcut_hint_for_context_action, KeyContext};
+use crate::utils::task::spawn_detached;
 
 /// "Copy Image As..." submenu: Image / Image with Background / Markdown / Path
 #[component]
@@ -22,7 +23,7 @@ pub(super) fn CopyImageAsSubmenu(
                     let src = src.clone();
                     move |_| {
                         let src = src.clone();
-                        spawn(async move {
+                        spawn_detached(async move {
                             crate::keybindings::dispatcher::copy_image_from_src(src, false).await;
                         });
                         on_close.call(());
@@ -37,7 +38,7 @@ pub(super) fn CopyImageAsSubmenu(
                     let src = src.clone();
                     move |_| {
                         let src = src.clone();
-                        spawn(async move {
+                        spawn_detached(async move {
                             crate::keybindings::dispatcher::copy_image_from_src(src, true).await;
                         });
                         on_close.call(());
