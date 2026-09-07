@@ -1,7 +1,11 @@
 use base64::{engine::general_purpose, Engine as _};
 use lol_html::{element, HtmlRewriter, Settings};
+use sha2::{Digest, Sha256};
+use std::cell::RefCell;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+use crate::{DeferredImage, ImageResolution};
 
 /// Maximum byte size of a local image that will be inlined as a data URL.
 ///
@@ -121,6 +125,20 @@ pub(super) fn get_mime_type(path: &Path) -> &'static str {
 /// and its data URL would end in the `base64,` comma, which `srcset` parsing
 /// strips back off into a malformed URL.
 fn inline_local_image(src: &str, canonical_base: &Path) -> Option<String> {
+    let canonical_path = resolve_local_image(src, canonical_base)?;
+    let image_data = read_image_bounded(&canonical_path, MAX_INLINE_IMAGE_SIZE)?;
+    if image_data.is_empty() {
+        tracing::debug!(?canonical_path, "Image file is empty; nothing to inline");
+        return None;
+    }
+    let mime_type = get_mime_type(&canonical_path);
+    let base64_data = general_purpose::STANDARD.encode(&image_data);
+    Some(format!("data:{mime_type};base64,{base64_data}"))
+}
+
+/// The file a local image reference names, or `None` when the reference
+/// addresses something that needs no resolution or nothing that exists.
+fn resolve_local_image(src: &str, canonical_base: &Path) -> Option<PathBuf> {
     if src.starts_with("http://") || src.starts_with("https://") || src.starts_with("data:") {
         return None;
     }
@@ -166,14 +184,114 @@ fn inline_local_image(src: &str, canonical_base: &Path) -> Option<String> {
             "Image path resolved outside base directory; proceeding with inline read"
         );
     }
-    let image_data = read_image_bounded(&canonical_path, MAX_INLINE_IMAGE_SIZE)?;
-    if image_data.is_empty() {
-        tracing::debug!(?canonical_path, "Image file is empty; nothing to inline");
+    Some(canonical_path)
+}
+
+/// The images a render handed to the host, in the order first referenced.
+///
+/// Deduplicated by id, so the same file drawn several times is one entry and
+/// one URL — which is also what lets the host cache it.
+#[derive(Default)]
+struct DeferredImages {
+    entries: Vec<DeferredImage>,
+}
+
+impl DeferredImages {
+    fn url(&mut self, image: DeferredImage, base_url: &str) -> String {
+        // The extension rides along after the id, which the host ignores when
+        // it looks the id up. Nothing needs it to resolve the image, but a
+        // reader of the document and the frontend both do: the rasteriser
+        // scales an SVG differently from a photograph, and it has only the
+        // URL to tell them apart.
+        let url = match image
+            .path
+            .extension()
+            .and_then(|extension| extension.to_str())
+        {
+            Some(extension) => format!("{base_url}/{}.{extension}", image.id),
+            None => format!("{base_url}/{}", image.id),
+        };
+        if !self.entries.iter().any(|entry| entry.id == image.id) {
+            self.entries.push(image);
+        }
+        url
+    }
+}
+
+/// The image at `path`, or `None` when it is one no consumer could show.
+///
+/// The bound and the emptiness check are the same ones [`read_image_bounded`]
+/// applies, and they are made here rather than left to the host because the
+/// answer changes the markup: a `srcset` candidate that cannot be shown is
+/// dropped so the browser falls back to one that can, and the host serving
+/// the URL is far too late to drop it.
+fn deferred_image(path: PathBuf) -> Option<DeferredImage> {
+    let metadata = std::fs::metadata(&path).ok()?;
+    if metadata.len() > MAX_INLINE_IMAGE_SIZE {
+        tracing::debug!(
+            ?path,
+            size = metadata.len(),
+            limit = MAX_INLINE_IMAGE_SIZE,
+            "Image exceeds the size limit; not served"
+        );
         return None;
     }
-    let mime_type = get_mime_type(&canonical_path);
-    let base64_data = general_purpose::STANDARD.encode(&image_data);
-    Some(format!("data:{mime_type};base64,{base64_data}"))
+    if metadata.len() == 0 {
+        tracing::debug!(?path, "Image file is empty; nothing to serve");
+        return None;
+    }
+
+    Some(DeferredImage {
+        id: image_id(&path, &metadata),
+        mime: get_mime_type(&path),
+        path,
+    })
+}
+
+/// An id standing for the file at `path` as it is right now.
+///
+/// The path is hashed rather than the bytes, so naming an image costs no
+/// read; the path is already canonical, so two spellings of one file agree.
+/// The size and modification time go in as well, which is what makes an
+/// edited image a different URL — the app reloads a document when its file
+/// changes, and a URL that stayed the same would let the WebView answer the
+/// re-render from its cache with the bytes the reader just replaced.
+///
+/// The id is not a secret: anyone who can guess a path can compute its hash.
+/// What limits what the host will serve is the host's own registry — it
+/// answers for the ids a render gave it, and for nothing else.
+fn image_id(path: &Path, metadata: &std::fs::Metadata) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(path.as_os_str().as_encoded_bytes());
+    hasher.update(metadata.len().to_le_bytes());
+    if let Ok(modified) = metadata.modified() {
+        if let Ok(since_epoch) = modified.duration_since(std::time::UNIX_EPOCH) {
+            hasher.update(since_epoch.as_nanos().to_le_bytes());
+        }
+    }
+    hasher
+        .finalize()
+        .iter()
+        .take(16)
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+/// The `<img src>` value a local image reference becomes, or `None` when it
+/// is to be left as written.
+fn resolved_image_src(
+    src: &str,
+    canonical_base: &Path,
+    resolution: &ImageResolution,
+    collected: &RefCell<DeferredImages>,
+) -> Option<String> {
+    match resolution {
+        ImageResolution::DataUrl => inline_local_image(src, canonical_base),
+        ImageResolution::Deferred { base_url } => {
+            let image = deferred_image(resolve_local_image(src, canonical_base)?)?;
+            Some(collected.borrow_mut().url(image, base_url))
+        }
+    }
 }
 
 /// One entry of a `srcset` attribute: a URL and the descriptor that follows it.
@@ -232,15 +350,20 @@ fn parse_srcset(value: &str) -> Vec<SrcsetCandidate> {
 /// display. This is why a `srcset` is treated differently from an `img[src]`,
 /// which keeps an unreadable path because there is no alternative to fall back
 /// on.
-fn inline_srcset(value: &str, canonical_base: &Path) -> Option<String> {
+fn inline_srcset(
+    value: &str,
+    canonical_base: &Path,
+    resolution: &ImageResolution,
+    collected: &RefCell<DeferredImages>,
+) -> Option<String> {
     let mut changed = false;
     let candidates: Vec<String> = parse_srcset(value)
         .into_iter()
         .filter_map(|SrcsetCandidate { url, descriptor }| {
-            let url = match inline_local_image(&url, canonical_base) {
-                Some(data_url) => {
+            let url = match resolved_image_src(&url, canonical_base, resolution, collected) {
+                Some(resolved) => {
                     changed = true;
-                    data_url
+                    resolved
                 }
                 None if has_foreign_scheme(&url) => url,
                 None => {
@@ -261,26 +384,40 @@ fn inline_srcset(value: &str, canonical_base: &Path) -> Option<String> {
 /// Post-process HTML with lol_html.
 ///
 /// Handles:
-/// - `<img src="…">`, `<img srcset="…">` and `<source srcset="…">`: inline
-///   local images as data URLs, so a `<picture>` renders whichever candidate
-///   the browser picks. See [`inline_local_image`] for how a reference is
-///   resolved.
+/// - `<img src="…">`, `<img srcset="…">` and `<source srcset="…">`: resolve
+///   local images the way `resolution` asks for, so a `<picture>` renders
+///   whichever candidate the browser picks. See [`resolve_local_image`] for
+///   how a reference becomes a file.
 /// - `<a href="…">`: convert local links to `<span data-md-link="…">` for in-app
 ///   navigation; a Markdown target that does not exist is marked `md-link-missing`
-pub(super) fn post_process_html_tags(html_str: &str, base_dir: &Path) -> String {
+///
+/// Returns the rewritten HTML and, under [`ImageResolution::Deferred`], the
+/// images the host is now expected to serve.
+pub(super) fn post_process_html_tags(
+    html_str: &str,
+    base_dir: &Path,
+    resolution: &ImageResolution,
+) -> (String, Vec<DeferredImage>) {
     let canonical_base = base_dir
         .canonicalize()
         .unwrap_or_else(|_| base_dir.to_path_buf());
-    let srcset_base = canonical_base.clone();
     let link_base = canonical_base.clone();
     let mut output = Vec::new();
 
+    // Both image handlers write into the one list. They borrow it rather than
+    // share ownership of it, so that reading it back after the rewriter is
+    // done cannot fail — and a change that kept a handler alive too long
+    // would be a compile error rather than a silently empty list.
+    let collected = RefCell::new(DeferredImages::default());
+
     let mut rewriter = HtmlRewriter::new(
         Settings::new()
-            .append_element_content_handler(element!("img[src]", move |el| {
+            .append_element_content_handler(element!("img[src]", |el| {
                 if let Some(src) = el.get_attribute("src") {
-                    if let Some(data_url) = inline_local_image(&src, &canonical_base) {
-                        el.set_attribute("src", &data_url)?;
+                    if let Some(resolved) =
+                        resolved_image_src(&src, &canonical_base, resolution, &collected)
+                    {
+                        el.set_attribute("src", &resolved)?;
                     }
                 }
                 Ok(())
@@ -290,9 +427,9 @@ pub(super) fn post_process_html_tags(html_str: &str, base_dir: &Path) -> String 
             // or that theme shows nothing.
             .append_element_content_handler(element!(
                 "img[srcset], source[srcset]",
-                move |el| {
+                |el| {
                     if let Some(srcset) = el.get_attribute("srcset") {
-                        match inline_srcset(&srcset, &srcset_base) {
+                        match inline_srcset(&srcset, &canonical_base, resolution, &collected) {
                             // Nothing is left to pick from, so the attribute
                             // has to go rather than stay empty: an `<img>`
                             // then falls back to its `src` and a `<source>`
@@ -357,8 +494,12 @@ pub(super) fn post_process_html_tags(html_str: &str, base_dir: &Path) -> String 
     );
 
     let _ = rewriter.write(html_str.as_bytes());
+    // `end` consumes the rewriter, which is what releases the handlers' borrow
+    // of `output` and of the collected images.
     let _ = rewriter.end();
-    String::from_utf8(output).unwrap_or_else(|_| html_str.to_string())
+
+    let html = String::from_utf8(output).unwrap_or_else(|_| html_str.to_string());
+    (html, collected.into_inner().entries)
 }
 
 #[cfg(test)]
@@ -366,6 +507,11 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::TempDir;
+
+    /// The rewritten HTML alone, for the tests that only look at the markup.
+    fn post_process(html: &str, base_dir: &Path) -> String {
+        post_process_html_tags(html, base_dir, &ImageResolution::DataUrl).0
+    }
 
     // ========================================================================
     // Security regression tests
@@ -388,7 +534,7 @@ mod tests {
         fs::write(&image, [0x89, 0x50, 0x4E, 0x47]).unwrap();
 
         let html = r#"<img src="../images/image.png">"#;
-        let result = post_process_html_tags(html, &sub);
+        let result = post_process(html, &sub);
 
         // Relative path traversal should be resolved and image converted to data URL
         assert!(
@@ -407,7 +553,7 @@ mod tests {
         fs::write(&image, [0x89, 0x50, 0x4E, 0x47]).unwrap();
 
         let html = r#"<img src="image.png">"#;
-        let result = post_process_html_tags(html, &sub);
+        let result = post_process(html, &sub);
 
         assert!(
             result.contains("data:image/png;base64,"),
@@ -419,7 +565,7 @@ mod tests {
     #[test]
     fn test_link_single_quote_in_data_attribute() {
         let html = r#"<a href="file's.md">link</a>"#;
-        let result = post_process_html_tags(html, Path::new("/tmp"));
+        let result = post_process(html, Path::new("/tmp"));
         // href is stored in data-md-link, not interpolated into JS
         assert!(
             result.contains("data-md-link"),
@@ -435,7 +581,7 @@ mod tests {
     #[test]
     fn test_link_special_chars_safe_with_data_attribute() {
         let html = r#"<a href="test'-alert('xss').md">link</a>"#;
-        let result = post_process_html_tags(html, Path::new("/tmp"));
+        let result = post_process(html, Path::new("/tmp"));
         // href is stored in data attribute, never interpolated into JS string
         assert!(
             result.contains("data-md-link"),
@@ -460,7 +606,7 @@ mod tests {
         // Payload with .md extension so the anchor handler converts the link,
         // plus quotes and JS that would be dangerous if interpolated into JS.
         let html = r#"<a href="evil');alert(1).md">link</a>"#;
-        let result = post_process_html_tags(html, Path::new("/tmp"));
+        let result = post_process(html, Path::new("/tmp"));
 
         // The href must be stored in data-md-link, NOT spliced into inline JS
         assert!(
@@ -483,7 +629,7 @@ mod tests {
         // `mailto:contact@example.com` ends in something that looks like a
         // file extension; it is an address, not a document.
         let html = r#"<a href="mailto:contact@example.com">mail</a><a href="tel:+81-3-0000-0000">call</a>"#;
-        let result = post_process_html_tags(html, Path::new("/tmp"));
+        let result = post_process(html, Path::new("/tmp"));
 
         assert_eq!(result, html);
     }
@@ -496,7 +642,7 @@ mod tests {
         let url = url::Url::from_file_path(&target).unwrap();
 
         let html = format!(r#"<a href="{url}#section">note</a>"#);
-        let result = post_process_html_tags(&html, temp_dir.path());
+        let result = post_process(&html, temp_dir.path());
 
         // The app opens `data-md-link` as a filesystem path, so the URL must
         // not survive into it, and the target must be found rather than
@@ -515,7 +661,7 @@ mod tests {
     #[test]
     fn a_windows_drive_letter_is_still_a_path() {
         let html = r#"<a href="C:\notes\a.md">note</a>"#;
-        let result = post_process_html_tags(html, Path::new("/tmp"));
+        let result = post_process(html, Path::new("/tmp"));
 
         assert!(result.contains("data-md-link"), "{result}");
     }
@@ -524,7 +670,7 @@ mod tests {
     #[test]
     fn test_http_urls_not_converted() {
         let html = r#"<img src="https://example.com/img.png">"#;
-        let result = post_process_html_tags(html, Path::new("/tmp"));
+        let result = post_process(html, Path::new("/tmp"));
         assert!(result.contains("https://example.com/img.png"));
     }
 
@@ -549,7 +695,7 @@ mod tests {
         fs::write(&image_path, png_data).unwrap();
 
         let html = r#"<p><img src="test.png" alt="test" /></p>"#;
-        let result = post_process_html_tags(html, temp_dir.path());
+        let result = post_process(html, temp_dir.path());
 
         assert!(
             result.contains("data:image/png;base64,"),
@@ -572,7 +718,7 @@ mod tests {
     fn test_post_process_html_tags_anchor() {
         let temp = dir_with_doc();
         let html = r#"<a href="doc.md">Link</a>"#;
-        let result = post_process_html_tags(html, temp.path());
+        let result = post_process(html, temp.path());
 
         assert!(
             result.contains("<span ") && result.contains(r#"class="md-link""#),
@@ -593,7 +739,7 @@ mod tests {
     fn missing_markdown_target_is_marked() {
         let temp = TempDir::new().unwrap();
         let html = r#"<a href="./does-not-exist.md">Missing</a>"#;
-        let result = post_process_html_tags(html, temp.path());
+        let result = post_process(html, temp.path());
 
         assert!(
             result.contains(r#"class="md-link md-link-missing""#),
@@ -609,7 +755,7 @@ mod tests {
     fn fragment_does_not_hide_the_extension() {
         let temp = dir_with_doc();
         let html = r#"<a href="./doc.md#section">Section</a>"#;
-        let result = post_process_html_tags(html, temp.path());
+        let result = post_process(html, temp.path());
 
         assert!(result.contains(r#"class="md-link""#), "{result}");
         assert!(
@@ -621,7 +767,7 @@ mod tests {
     #[test]
     fn fragment_only_links_stay_anchors() {
         let html = r##"<a href="#section">Here</a>"##;
-        let result = post_process_html_tags(html, Path::new("."));
+        let result = post_process(html, Path::new("."));
 
         assert_eq!(result, html);
     }
@@ -630,7 +776,7 @@ mod tests {
     fn test_post_process_html_tags_http_urls() {
         let html =
             r#"<img src="https://example.com/image.png" /><a href="https://example.com">Link</a>"#;
-        let result = post_process_html_tags(html, Path::new("."));
+        let result = post_process(html, Path::new("."));
 
         assert!(
             result.contains(r#"src="https://example.com/image.png""#),
@@ -645,7 +791,7 @@ mod tests {
     #[test]
     fn test_post_process_html_tags_non_md_local_file() {
         let html = r#"<a href="file.txt">Text File</a>"#;
-        let result = post_process_html_tags(html, Path::new("."));
+        let result = post_process(html, Path::new("."));
 
         assert!(
             result.contains("<span ") && result.contains(r#"class="md-link md-link-invalid""#),
@@ -662,7 +808,7 @@ mod tests {
     fn test_post_process_html_tags_md_vs_other_files() {
         let temp = dir_with_doc();
         let html = r#"<a href="doc.md">MD</a><a href="file.txt">TXT</a>"#;
-        let result = post_process_html_tags(html, temp.path());
+        let result = post_process(html, temp.path());
 
         // MD file should have only md-link class
         assert!(
@@ -698,7 +844,7 @@ mod tests {
             .expect("valid file path")
             .to_string();
         let html = format!(r#"<img src="{}">"#, file_url);
-        let result = post_process_html_tags(&html, temp_dir.path());
+        let result = post_process(&html, temp_dir.path());
         assert!(
             result.contains("data:image/png;base64,"),
             "file:///... URL should be converted to data URL: {result}"
@@ -707,7 +853,7 @@ mod tests {
         // file://localhost/absolute/path form: replace the empty host with "localhost"
         let localhost_url = file_url.replacen("file:///", "file://localhost/", 1);
         let html2 = format!(r#"<img src="{}">"#, localhost_url);
-        let result2 = post_process_html_tags(&html2, temp_dir.path());
+        let result2 = post_process(&html2, temp_dir.path());
         assert!(
             result2.contains("data:image/png;base64,"),
             "file://localhost/... URL should be converted to data URL: {result2}"
@@ -811,7 +957,7 @@ mod tests {
         fs::write(temp.path().join("light.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
 
         let html = r#"<picture><source media="(prefers-color-scheme: dark)" srcset="./dark.png"><img src="./light.png" alt="hero"></picture>"#;
-        let result = post_process_html_tags(html, temp.path());
+        let result = post_process(html, temp.path());
 
         assert_eq!(
             result.matches("data:image/png;base64,").count(),
@@ -828,7 +974,7 @@ mod tests {
         fs::write(temp.path().join("a@2x.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
 
         let html = r#"<img src="a.png" srcset="a.png 1x, a@2x.png 2x">"#;
-        let result = post_process_html_tags(html, temp.path());
+        let result = post_process(html, temp.path());
 
         assert!(result.contains("base64,iVBORw== 1x,"), "{result}");
         assert!(result.contains("base64,iVBORw== 2x\""), "{result}");
@@ -840,7 +986,7 @@ mod tests {
         fs::write(temp.path().join("a.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
 
         let html = r#"<source srcset="https://example.com/a.png 1x, a.png 2x">"#;
-        let result = post_process_html_tags(html, temp.path());
+        let result = post_process(html, temp.path());
 
         assert!(
             result.contains("https://example.com/a.png 1x, data:image/png;base64,"),
@@ -858,7 +1004,7 @@ mod tests {
         fs::write(temp.path().join("there.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
 
         let html = r#"<source srcset="there.png 1x, missing.png 2x">"#;
-        let result = post_process_html_tags(html, temp.path());
+        let result = post_process(html, temp.path());
 
         assert!(!result.contains("missing.png"), "{result}");
         assert!(
@@ -878,7 +1024,7 @@ mod tests {
         fs::write(temp.path().join("there.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
 
         let html = r#"<img src="empty.png" srcset="there.png 1x, empty.png 2x">"#;
-        let result = post_process_html_tags(html, temp.path());
+        let result = post_process(html, temp.path());
 
         assert!(!result.contains("base64,\""), "{result}");
         assert!(!result.contains("base64, "), "{result}");
@@ -896,7 +1042,7 @@ mod tests {
         fs::write(temp.path().join("there.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
 
         let html = r#"<img src="there.png" srcset="missing.png 1x,  other.png 2x">"#;
-        let result = post_process_html_tags(html, temp.path());
+        let result = post_process(html, temp.path());
 
         assert!(!result.contains("srcset"), "{result}");
         assert!(
@@ -918,7 +1064,7 @@ mod tests {
 
         // ./../images/diagram.png resolves from docs/ to images/
         let html = r#"<img src="./../images/diagram.png">"#;
-        let result = post_process_html_tags(html, &docs);
+        let result = post_process(html, &docs);
 
         assert!(
             result.contains("data:image/png;base64,"),

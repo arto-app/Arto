@@ -23,7 +23,7 @@ fn render_options() -> RenderOptions {
 
 /// Render Markdown to HTML, honoring the user's rendering preferences.
 pub fn render_to_html(markdown: impl AsRef<str>, base_path: impl AsRef<Path>) -> Result<String> {
-    arto_markdown::render_to_html(markdown, base_path, &render_options())
+    Ok(arto_markdown::render_to_html(markdown, base_path, &render_options())?.html)
 }
 
 /// Render Markdown to HTML with TOC information, honoring the user's
@@ -32,5 +32,6 @@ pub fn render_to_html_with_toc(
     markdown: impl AsRef<str>,
     base_path: impl AsRef<Path>,
 ) -> Result<(String, Vec<HeadingInfo>)> {
-    arto_markdown::render_to_html_with_toc(markdown, base_path, &render_options())
+    let rendered = arto_markdown::render_to_html_with_toc(markdown, base_path, &render_options())?;
+    Ok((rendered.html, rendered.headings))
 }

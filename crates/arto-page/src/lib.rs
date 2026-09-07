@@ -189,9 +189,17 @@ pub fn render_markdown(
     base_path: impl AsRef<Path>,
     options: &PageOptions,
 ) -> Result<String, PageError> {
-    let body_html = arto_markdown::render_to_html(markdown, base_path, &options.render)
-        .map_err(PageError::Render)?;
-    Ok(build_document(&body_html, options))
+    // Imposed rather than assumed: the page is one file, with nothing to
+    // serve an image from, so a caller that had set `Deferred` in the shared
+    // render options would otherwise get a document of URLs that answer to
+    // nobody.
+    let render = arto_markdown::RenderOptions {
+        images: arto_markdown::ImageResolution::DataUrl,
+        ..options.render.clone()
+    };
+    let rendered =
+        arto_markdown::render_to_html(markdown, base_path, &render).map_err(PageError::Render)?;
+    Ok(build_document(&rendered.html, options))
 }
 
 /// Read a file to a string, refusing to read more than [`MAX_FILE_BYTES`].
@@ -405,6 +413,7 @@ mod tests {
         let config = Config {
             markdown: RenderOptions {
                 auto_link_urls: false,
+                ..Default::default()
             },
             theme: arto_config::ThemeConfig {
                 default_theme: Theme::Dark,
@@ -464,6 +473,7 @@ mod tests {
             &PageOptions {
                 render: RenderOptions {
                     auto_link_urls: false,
+                    ..Default::default()
                 },
                 ..PageOptions::default()
             },

@@ -5,7 +5,9 @@
 //! engine swap. Internals that are only observable at the engine level
 //! (event streams, offset mapping) are tested next to that code.
 
-use arto_markdown::{render_to_html, render_to_html_with_toc, HeadingInfo, RenderOptions};
+use arto_markdown::{
+    render_to_html, render_to_html_with_toc, HeadingInfo, ImageResolution, RenderOptions,
+};
 use indoc::indoc;
 use std::path::Path;
 
@@ -16,6 +18,7 @@ fn render(markdown: &str) -> String {
         &RenderOptions::default(),
     )
     .expect("renders")
+    .html
 }
 
 fn headings(markdown: &str) -> Vec<HeadingInfo> {
@@ -25,7 +28,7 @@ fn headings(markdown: &str) -> Vec<HeadingInfo> {
         &RenderOptions::default(),
     )
     .expect("renders")
-    .1
+    .headings
 }
 
 /// Whether some `<tag …>` start tag in `html` carries every attribute in
@@ -182,10 +185,113 @@ fn a_picture_inlines_both_the_source_and_the_img() {
         dir.path().join("doc.md"),
         &RenderOptions::default(),
     )
-    .expect("renders");
+    .expect("renders")
+    .html;
 
     assert_eq!(html.matches("data:image/png;base64,").count(), 2, "{html}");
     assert!(!html.contains("./dark.png"), "{html}");
+}
+
+#[test]
+fn a_deferred_image_leaves_the_bytes_out_and_names_the_file() {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("hero.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+
+    let rendered = render_to_html(
+        "![hero](./hero.png)\n\n![again](./hero.png)\n",
+        dir.path().join("doc.md"),
+        &RenderOptions {
+            images: ImageResolution::Deferred {
+                base_url: "artoasset://localhost/img".to_string(),
+            },
+            ..Default::default()
+        },
+    )
+    .expect("renders");
+
+    assert!(
+        !rendered.html.contains("base64"),
+        "the bytes stayed in the document: {}",
+        rendered.html
+    );
+    // One file drawn twice is one entry and one URL, which is what lets the
+    // host serve it once and the WebView cache it.
+    assert_eq!(rendered.images.len(), 1, "{:?}", rendered.images);
+    assert_eq!(
+        rendered.images[0].path,
+        dir.path().join("hero.png").canonicalize().unwrap()
+    );
+    let url = format!("artoasset://localhost/img/{}", rendered.images[0].id);
+    assert_eq!(rendered.html.matches(&url).count(), 2, "{}", rendered.html);
+}
+
+/// Whether an image can be shown decides the markup, so it is decided while
+/// the markup is written — the host serving the URL is far too late to drop a
+/// candidate the browser has already preferred.
+#[test]
+fn a_deferred_srcset_drops_the_candidate_it_cannot_serve() {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("small.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+    std::fs::write(dir.path().join("empty.png"), []).unwrap();
+
+    let rendered = render_to_html(
+        r#"<img src="./small.png" srcset="./empty.png 2x, ./small.png 1x">"#,
+        dir.path().join("doc.md"),
+        &RenderOptions {
+            images: ImageResolution::Deferred {
+                base_url: "artoasset://localhost/img".to_string(),
+            },
+            ..Default::default()
+        },
+    )
+    .expect("renders");
+
+    assert_eq!(rendered.images.len(), 1, "{:?}", rendered.images);
+    assert!(
+        rendered
+            .images
+            .iter()
+            .all(|image| image.path.ends_with("small.png")),
+        "{:?}",
+        rendered.images
+    );
+    assert!(!rendered.html.contains("empty.png"), "{}", rendered.html);
+}
+
+#[test]
+fn a_deferred_image_carries_the_type_to_answer_with() {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("diagram.svg"), b"<svg/>").unwrap();
+
+    let rendered = render_to_html(
+        "![diagram](./diagram.svg)",
+        dir.path().join("doc.md"),
+        &RenderOptions {
+            images: ImageResolution::Deferred {
+                base_url: "artoasset://localhost/img".to_string(),
+            },
+            ..Default::default()
+        },
+    )
+    .expect("renders");
+
+    assert_eq!(rendered.images[0].mime, "image/svg+xml");
+}
+
+#[test]
+fn an_inlined_image_leaves_nothing_for_the_host_to_serve() {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("hero.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+
+    let rendered = render_to_html(
+        "![hero](./hero.png)",
+        dir.path().join("doc.md"),
+        &RenderOptions::default(),
+    )
+    .expect("renders");
+
+    assert!(rendered.html.contains("data:image/png;base64,"));
+    assert!(rendered.images.is_empty(), "{:?}", rendered.images);
 }
 
 // ----------------------------------------------------------------------
@@ -517,12 +623,13 @@ fn duplicate_headings_get_numbered_ids() {
 #[test]
 fn heading_ids_are_written_only_when_a_toc_is_requested() {
     let markdown = "# Title\n\n## Section\n";
-    let (with_toc, headings) = render_to_html_with_toc(
+    let rendered = render_to_html_with_toc(
         markdown,
         Path::new("/nonexistent/test.md"),
         &RenderOptions::default(),
     )
     .expect("renders");
+    let (with_toc, headings) = (rendered.html, rendered.headings);
     let plain = render(markdown);
 
     assert_eq!(headings.len(), 2);
@@ -575,12 +682,13 @@ fn headings_inside_raw_html_do_not_shift_ids() {
     // A heading written as HTML is not a Markdown heading: it gets no id
     // and must not consume the id of the Markdown heading after it.
     let markdown = "<h2>Raw</h2>\n\n## Real\n";
-    let (with_toc, headings) = render_to_html_with_toc(
+    let rendered = render_to_html_with_toc(
         markdown,
         Path::new("/nonexistent/test.md"),
         &RenderOptions::default(),
     )
     .expect("renders");
+    let (with_toc, headings) = (rendered.html, rendered.headings);
 
     let texts: Vec<&str> = headings.iter().map(|h| h.text.as_str()).collect();
     assert_eq!(texts, ["Real"]);
@@ -593,12 +701,13 @@ fn headings_inside_raw_html_do_not_shift_ids() {
 
 #[test]
 fn a_document_without_headings_has_an_empty_toc() {
-    let (html, headings) = render_to_html_with_toc(
+    let rendered = render_to_html_with_toc(
         "Just text.",
         Path::new("/nonexistent/test.md"),
         &RenderOptions::default(),
     )
     .expect("renders");
+    let (html, headings) = (rendered.html, rendered.headings);
 
     assert!(headings.is_empty());
     assert!(html.contains("Just text."));

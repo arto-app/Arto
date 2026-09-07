@@ -24,8 +24,9 @@ fn the_stress_sample_renders() {
     ));
     let markdown = std::fs::read_to_string(path).expect("sample is readable");
 
-    let (html, headings) = render_to_html_with_toc(&markdown, path, &RenderOptions::default())
+    let rendered = render_to_html_with_toc(&markdown, path, &RenderOptions::default())
         .unwrap_or_else(|err| panic!("{}: {err:#}", path.display()));
+    let (html, headings) = (rendered.html, rendered.headings);
 
     assert!(headings.len() > 100, "{} headings", headings.len());
     assert!(
@@ -43,7 +44,8 @@ fn samples_render_as_before() {
     insta::glob!("../../../samples", "[0-9]*.md", |path| {
         let markdown = std::fs::read_to_string(path).expect("sample is readable");
         let html = render_to_html(&markdown, path, &RenderOptions::default())
-            .unwrap_or_else(|err| panic!("{}: {err:#}", path.display()));
+            .unwrap_or_else(|err| panic!("{}: {err:#}", path.display()))
+            .html;
         insta::assert_snapshot!(html);
     });
 }
@@ -58,9 +60,11 @@ fn samples_headings_as_before() {
         let markdown = std::fs::read_to_string(path).expect("sample is readable");
         let options = RenderOptions::default();
         let plain = render_to_html(&markdown, path, &options)
+            .unwrap_or_else(|err| panic!("{}: {err:#}", path.display()))
+            .html;
+        let rendered = render_to_html_with_toc(&markdown, path, &options)
             .unwrap_or_else(|err| panic!("{}: {err:#}", path.display()));
-        let (with_toc, headings) = render_to_html_with_toc(&markdown, path, &options)
-            .unwrap_or_else(|err| panic!("{}: {err:#}", path.display()));
+        let (with_toc, headings) = (rendered.html, rendered.headings);
 
         assert_eq!(
             strip_ids(&with_toc),
