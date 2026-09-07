@@ -227,6 +227,9 @@ export function init(): void {
     },
     rasterize: {
       image: (src: string, opaque: boolean): Promise<string | null> => {
+        // A data URL runs to megabytes; the console only needs enough of it
+        // to tell one image from another.
+        const shortSrc = src.length > 120 ? `${src.slice(0, 120)}…` : src;
         return new Promise((resolve) => {
           const img = new Image();
           img.onload = () => {
@@ -246,7 +249,10 @@ export function init(): void {
                 scaledHeight > maxDimension ||
                 scaledWidth * scaledHeight > maxPixels
               ) {
-                console.error(`Image too large to rasterize: ${scaledWidth}x${scaledHeight}`);
+                console.error(
+                  `Image too large to rasterize: ${scaledWidth}x${scaledHeight}`,
+                  shortSrc,
+                );
                 resolve(null);
                 return;
               }
@@ -270,11 +276,14 @@ export function init(): void {
               ctx.drawImage(img, 0, 0);
               resolve(canvas.toDataURL("image/png"));
             } catch (e) {
-              console.error("Failed to rasterize image:", e);
+              console.error("Failed to rasterize image:", shortSrc, e);
               resolve(null);
             }
           };
-          img.onerror = () => resolve(null);
+          img.onerror = () => {
+            console.error("Failed to load image for rasterization:", shortSrc);
+            resolve(null);
+          };
           img.src = src;
         });
       },
