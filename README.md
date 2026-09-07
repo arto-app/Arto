@@ -1,226 +1,100 @@
 <p align="center">
-  <img src="./docs/images/arto-header-readme.png" alt="Arto" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/arto-header-readme-dark.png">
+    <img alt="Arto" src="docs/images/arto-header-readme-light.png" width="600">
+  </picture>
 </p>
 
-**Arto — the Art of Reading Markdown.**
+<p align="center">
+  <strong>Arto — the Art of Reading Markdown.</strong><br>
+  A desktop app that renders Markdown the way GitHub does, locally and offline.
+</p>
 
-A local app that faithfully recreates GitHub-style Markdown rendering for a beautiful reading experience.
+<p align="center">
+  <a href="https://arto-app.github.io"><strong>Website</strong></a> ·
+  <a href="./docs/installation.md">Install</a> ·
+  <a href="./docs/cli.md">CLI</a> ·
+  <a href="./docs/keybindings.md">Keybindings</a> ·
+  <a href="./CONTRIBUTING.md">Contributing</a>
+</p>
 
-## Philosophy
-
-Markdown has become more than a lightweight markup language — it's the medium for documentation, communication, and thinking in the developer's world. While most tools focus on _writing_ Markdown, **Arto is designed for _reading_ it beautifully**.
-
-The name "Arto" comes from "Art of Reading" — reflecting the philosophy that reading Markdown is not just a utility task, but a quiet, deliberate act of understanding and appreciation.
-
-Arto faithfully reproduces GitHub's Markdown rendering in a local, offline environment, offering a calm and precise reading experience with thoughtful typography and balanced whitespace.
+<p align="center">
+  <img src="./docs/images/hero-light.png" alt="Arto showing a rendered README" width="860">
+</p>
 
 > [!WARNING]
-> **Beta Software Notice**
->
-> - This application is still in **beta** and may contain bugs or unstable behavior. Features may change without regard to backward compatibility.
-> - **macOS Only**: This application is currently designed exclusively for macOS and does not support other platforms. However, cross-platform support is a long-term goal, and **PRs are welcome**.
+> Arto is **beta**. Features may change without regard to backward compatibility. macOS is the platform it is developed and tested on; Linux and Windows builds exist but are **experimental** — see [Platform support](./docs/installation.md#platform-support).
+
+## Why
+
+Most Markdown tools are built for *writing*. Arto is built for **reading**: the name is short for "Art of Reading".
+
+Markdown is where documentation, communication and thinking now live, and reading it deserves more than a preview pane. Arto reproduces GitHub's rendering locally and offline, with typography and whitespace chosen for long reading rather than for editing.
 
 ## Features
 
-### Core Reading Experience
+**Reading** — GitHub-accurate rendering with the extended syntax, auto-reload when the file changes on disk, and no network required.
 
-- **GitHub-Style Rendering** — Accurate reproduction of GitHub's Markdown styling with full support for extended syntax
-- **Native Performance** — Built with Rust for fast, responsive rendering
-- **Auto-Reload** — Automatically updates when the file changes on disk
-- **Offline First** — No internet connection required — read your docs anytime, anywhere
+**Getting around** — file explorer sidebar with history, bookmarks for the files you keep returning to, an automatic table of contents, and back/forward navigation across linked documents.
 
-### Navigation & Organization
+**Finding** — find in page, plus pinned searches that keep multi-colour highlights across sessions.
 
-- **File Explorer** — Built-in sidebar with file tree navigation for browsing local directories
-- **Quick Access** — Bookmark frequently used files and directories for instant access
-- **Directory History** — Back/forward navigation within the sidebar file explorer
-- **Table of Contents** — Automatic TOC panel for easy document navigation
-- **Live Navigation** — Navigate between linked markdown documents with history support (back/forward)
+**Windows and tabs** — tabs, multiple windows, tabs dragged between windows, child windows for diagrams, and drag-and-drop to open.
 
-### Search & Discovery
+**Rich content** — Mermaid diagrams in an interactive viewer with zoom, pan and copy-as-image; KaTeX math; syntax-highlighted code with a copy button; YAML frontmatter as a collapsible table; and GitHub alerts (`NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`).
 
-- **Find in Page** — Search within documents with `Cmd+F`
-- **Pinned Search** — Pin search queries with persistent multi-color highlighting across sessions
+**Fitting in** — light and dark themes that follow the system, zoom by keyboard or trackpad, configurable preferences, context menus, and — on macOS — Quick Look and the Finder preview pane.
 
-### Window & Tab Management
+<p align="center">
+  <img src="./docs/images/feature-rendering.png" alt="GitHub-style rendering" width="410">
+  <img src="./docs/images/feature-katex.png" alt="KaTeX math" width="410">
+  <br>
+  <img src="./docs/images/feature-toc.png" alt="Table of contents" width="410">
+  <img src="./docs/images/feature-search.png" alt="Find in page" width="410">
+</p>
 
-- **Tab Support** — Open and manage multiple documents in tabs within a single window
-- **Multi-Window** — Create multiple windows and open child windows for diagrams
-- **Cross-Window Tabs** — Drag and drop tabs between windows
-- **Drag & Drop** — Simply drag markdown files onto the window to open them
+<p align="center"><em>Diagrams, the sidebar and multi-window in motion: <a href="https://arto-app.github.io">arto-app.github.io</a></em></p>
 
-### Advanced Rendering
+## Install
 
-- **Mermaid Diagrams** — Interactive diagram viewer with zoom, pan, and copy-as-image
-- **Math Expressions** — Beautiful KaTeX rendering for mathematical notation
-- **Code Highlighting** — Syntax highlighting with copy button for code blocks
-- **Frontmatter** — Renders YAML frontmatter as a styled, collapsible table
-- **GitHub Alerts** — Full support for NOTE, TIP, IMPORTANT, WARNING, and CAUTION alerts
-
-### Customization
-
-- **Dark Mode** — Manual and automatic theme switching based on system preferences
-- **Zoom Controls** — Keyboard shortcuts and trackpad gestures for zoom
-- **Preferences** — Configurable settings for sidebar, TOC, and more
-- **Context Menus** — Right-click menus for quick actions on files and content
-
-### Keyboard Shortcuts
-
-Shortcuts are stored in `mappings.json` (next to `config.json` in the app config
-directory) and come in two kinds:
-
-- **Menu shortcuts** (`menuShortcuts`) — native OS menu accelerators. Single
-  chord only (e.g. `Cmd+o`), shown in the menu bar, dispatched by the system, so
-  they work even when no window has keyboard focus (e.g. `Cmd+n` with all windows
-  closed). Keyed by a menu action such as `file.open`.
-- **Keybindings** (`global` and the per-context sections) — handled by the
-  in-window engine. Support chord sequences (e.g. vim `g g`) and per-context
-  behavior, but only fire while a document window has focus.
-
-The same action may appear in both — for example `file.open` can be a native
-`Cmd+o` menu shortcut and additionally have an in-window keybinding.
-
-**Migrating an older `mappings.json`:** files written before `menuShortcuts`
-existed still load unchanged. Menu-backed shortcuts you had under `global`
-(e.g. `Cmd+o`, `Cmd+n`) keep working via the engine, but to get native menu
-accelerators move those entries into a `menuShortcuts` section, or re-apply a
-preset (Default / Vim / Emacs) from Preferences.
-
-### macOS Integration
-
-- **Quick Look** — Press Space on any Markdown file in Finder to get a rendered preview
-- **Finder Preview Pane** — Markdown files display rendered HTML in the Finder sidebar preview pane
-
-## Installation
-
-### macOS
-
-Use [Homebrew] tap to install. Since the application is not signed or notarized with an Apple Developer ID, you'll need to remove the quarantine attribute after installation.
-See [homebrew-tap] for more information.
-
-```
+```sh
 brew install --cask arto-app/tap/arto
 xattr -dr com.apple.quarantine /Applications/Arto.app
 ```
 
-> [!TIP]
-> **Quick Look preview not showing?** macOS normally registers the Quick Look
-> extension the first time you launch Arto. If pressing Space on a Markdown file
-> still shows no preview — or a stale one right after an upgrade — register the
-> extension manually and refresh the cache:
->
-> ```sh
-> pluginkit -a /Applications/Arto.app/Contents/PlugIns/ArtoQuickLook.appex
-> qlmanage -r && qlmanage -r cache
-> ```
+Linux packages, Nix, and why that second line is needed: [Installation](./docs/installation.md).
 
-### Linux
+## From the terminal
 
-On Debian and Ubuntu, download the `.deb` matching your architecture from the
-[releases] page and install it with `apt`, which pulls in the GTK/WebKit
-libraries it declares:
+Arto is a GUI application. The `arto` command hands files to it:
 
-```
-sudo apt install ./arto_<version>_amd64.deb
+```sh
+arto README.md
 ```
 
-On every other distribution — Fedora, openSUSE, Arch — download the
-`.AppImage` instead, make it executable and run it:
+It also renders a Markdown file to a self-contained HTML page that opens in any browser without the app:
 
-```
-chmod +x arto_<version>_x86_64.AppImage
-./arto_<version>_x86_64.AppImage
-```
-
-The AppImage needs WebKitGTK 4.1 present on the system; on Fedora that is
-`sudo dnf install webkit2gtk4.1`.
-
-Both artifacts are built on Ubuntu 24.04, so they require glibc 2.39 or newer
-(Ubuntu 24.04+, Debian 13+, Fedora 40+). On older distributions, build from
-source or use the Nix package below.
-
-### Nix
-
-[Nix] is supported on both macOS and Linux.
-To try it without a permanent installation:
-
-```
-nix run github:arto-app/Arto
-```
-
-For a permanent installation, use [nix-darwin] or [home-manager].
-Add the following to your flake inputs:
-
-```nix
-arto.url = "github:arto-app/Arto";
-```
-
-Then add it to `environment.systemPackages` (nix-darwin) or `home.packages` (home-manager):
-
-```nix
-environment.systemPackages = [ inputs.arto.packages.${system}.default ];
-```
-
-The standalone page renderer is a separate package, `arto-page`, for machines that only need `arto page` without the app:
-
-```
-nix run github:arto-app/Arto#arto-page -- README.md > README.html
-```
-
-Launch the application to see the welcome screen with keyboard shortcuts and usage instructions.
-
-## Usage
-
-After installation, the `arto` command becomes available in your terminal:
-
-```
-arto                     # Launch Arto (shows welcome screen)
-arto README.md           # Open a specific file
-arto --open=screen README.md
-arto --open=new README.md
-arto --directory=. README.md
-arto docs/               # Open a directory in the file explorer
-arto file1.md file2.md   # Open multiple files in tabs
-```
-
-Arto runs as a **single instance** — if Arto is already running, the command sends requests to the existing process instead of launching a new one.
-
-- `arto FILE` uses `last_focused` behavior by default (reuse last focused visible window).
-- `--open=screen` opens on/reuses a visible window on the cursor's current screen.
-- `--open=new` always opens in a new window.
-- `--directory=DIR` sets the FileExplorer root directory for that invocation.
-- Positional directory arguments (e.g. `arto docs/`) also set the root directory.
-- Running `arto` without arguments shows/focuses an existing window if hidden, or opens one if none exists.
-
-### Rendering to a standalone HTML page
-
-`arto page` renders a Markdown file into a single HTML file that carries Arto's stylesheet and rendering code inline, so it opens in any browser without the app (Mermaid diagrams and math included):
-
-```
+```sh
 arto page README.md > README.html
-arto page --output out.html docs/guide.md
-arto page --theme dark notes.md
 ```
 
-The page follows your `config.json` (rendering options and default theme), so it looks the way the app shows the file; `--theme`, `--no-auto-link-urls` and friends override individual settings, `--config FILE` reads another file, and `--no-config` starts from the built-in defaults. The Quick Look preview on macOS reads the same configuration when its sandbox allows.
+Full flags and behaviour: [CLI usage](./docs/cli.md).
 
-The page ships with a Content-Security-Policy that blocks any script embedded in the Markdown; pass `--no-csp` only for input you trust. The same command is available as the standalone `arto-page` binary (the `arto-page` crate) for machines without the app.
+## Built with
 
-[Homebrew]: https://brew.sh/
-[homebrew-tap]: https://github.com/arto-app/homebrew-tap
-[releases]: https://github.com/arto-app/Arto/releases
-[Nix]: https://nixos.org/
-[nix-darwin]: https://github.com/nix-darwin/nix-darwin
-[home-manager]: https://github.com/nix-community/home-manager
-
-## Official Website
-
-Visit [arto-app.github.io](https://arto-app.github.io) for screenshots, feature highlights, and more.
+- **[Dioxus]** — the Rust UI framework the whole application is written in. Native windows, menus and state, no Electron.
+- **[ox-content]** — the Markdown engine. It renders GitHub's dialect, including autolinks, alerts, heading slugs and the tag filter, so Arto does not carry its own version of any of them.
+- **[KaTeX]** and **[Mermaid]** for math and diagrams, drawn in the page as you reach them.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup and guidelines.
 
 ## License
 
-See [LICENSE](LICENSE) file for details.
+See [LICENSE](./LICENSE).
+
+[Dioxus]: https://dioxuslabs.com/
+[ox-content]: https://github.com/ubugeeei-prod/ox-content
+[KaTeX]: https://katex.org/
+[Mermaid]: https://mermaid.js.org/
