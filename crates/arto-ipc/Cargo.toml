@@ -14,7 +14,7 @@ repository.workspace = true
 # (and through it the Markdown and keybinding types) into the dependency
 # graph; that is accepted because any client of a running instance also
 # wants the user's configured default behavior, which lives in that crate.
-arto-config = { path = "../arto-config" }
+arto-config.workspace = true
 dirs.workspace = true
 interprocess = "2.4"
 serde.workspace = true

@@ -147,31 +147,51 @@ When updating by hand:
   nixpkgs must agree; check `nix develop -c dx --version` after
   `nix flake update`.
 
-## Publishing the Library Crates
+## Publishing to crates.io
 
-The version in git is always `0.0.0`; CI stamps the release version into
-the working copy at build time and never commits it. So a manual publish
-starts from the release tag and repeats that stamp locally:
+Publishing a release takes no action: the `publish` job in
+`.github/workflows/release.yml` runs on every published GitHub release and
+sends every member of the workspace — `arto` included — to crates.io at the
+release version.
+
+No registry token lives in this repository. The job authenticates with
+[Trusted Publishing]: crates.io is told which repository and workflow file it
+trusts, and `rust-lang/crates-io-auth-action` exchanges GitHub's OIDC claim
+for a token that expires when the job ends. That is what `id-token: write` on
+the job is for.
+
+### Version stamping
+
+The version in git is always `0.0.0`, and CI stamps the release tag into the
+working copy without ever committing it. The stamp replaces **every** `0.0.0`
+in the root `Cargo.toml`, not only the `[workspace.package]` one: the members
+ask each other for the workspace version, so stamping one line would leave
+them requiring `^0.0.0` from crates that had just become `X.Y.Z`, and the
+workspace would stop resolving at all.
+
+### A new crate name has to be published by hand once
+
+crates.io only lets a trusted publisher be configured on a crate that already
+exists, so the first version of each name cannot come from CI. To add a name
+to the registry:
 
 ```bash
 git checkout vX.Y.Z
-perl -i -pe 's/^version = "0\.0\.0"/version = "X.Y.Z"/' Cargo.toml
-just frontend::assets   # arto-page embeds the stylesheet and bundle
+perl -i -pe 's/= "0\.0\.0"/= "X.Y.Z"/g' Cargo.toml
+just frontend::assets   # arto and arto-page carry the bundle in their packages
+cargo publish --workspace --allow-dirty
 ```
 
-Then publish leaf first; each crate depends on the ones before it:
+`--workspace` orders the members by their dependencies and waits for each to
+reach the index before the next one asks for it, so nothing has to be
+sequenced by hand. `--allow-dirty` is for the two edits above; the
+verification build is worth the wait, because it is what proves each package
+carries the files its `include` list names.
 
-1. `arto-markdown`
-2. `arto-keybindings`
-3. `arto-config` (depends on the two above)
-4. `arto-ipc` (depends on `arto-config`)
-5. `arto-page` (depends on `arto-markdown` and `arto-config`; its
-   `include` list expects `crates/arto-page/assets/frontend/` to exist)
+Then, on each crate's settings page on crates.io, add a trusted publisher for
+this repository naming `release.yml`. From the next release on, the job does it.
 
-Path dependencies between the crates need a `version` next to `path` before
-`cargo publish` accepts them. The `arto` app itself carries
-`publish = false`: its assets are resolved next to the executable at
-runtime, so `cargo install` would produce a binary that cannot find them.
+[Trusted Publishing]: https://crates.io/docs/trusted-publishing
 
 ## Code Style
 

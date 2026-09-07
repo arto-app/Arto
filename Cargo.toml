@@ -7,8 +7,11 @@ members = ["crates/*"]
 # is cheap (the Quick Look static library is tiny) and keeps `dx` working.
 
 [workspace.package]
-# Stays 0.0.0 in git; CI stamps the release tag here before bundling
-# (see .github/workflows/bundle.yml and crates/arto/build.rs).
+# Stays 0.0.0 in git; CI stamps the release tag over every 0.0.0 in this file
+# before bundling and publishing (see .github/workflows/bundle.yml,
+# .github/workflows/release.yml and crates/arto/build.rs). Stamping only this
+# line would leave the members asking each other for ^0.0.0, which no longer
+# matches what they are — the workspace stops resolving at all.
 version = "0.0.0"
 authors = ["Alisue <lambdalisue@gmail.com>"]
 edition = "2021"
@@ -21,6 +24,17 @@ repository = "https://github.com/arto-app/Arto"
 # such as wry may still pull an older major alongside. Members reference these
 # with `<name>.workspace = true`.
 [workspace.dependencies]
+# The members, as they depend on each other. A `path` alone is enough to
+# build, but not to publish: what goes to the registry has to say which
+# released version it wants, and a version that lived in five manifests would
+# be five chances to forget one. It is the workspace version, so the release
+# patch that stamps `[workspace.package]` above stamps these in the same pass.
+arto-config = { path = "crates/arto-config", version = "0.0.0" }
+arto-ipc = { path = "crates/arto-ipc", version = "0.0.0" }
+arto-keybindings = { path = "crates/arto-keybindings", version = "0.0.0" }
+arto-markdown = { path = "crates/arto-markdown", version = "0.0.0" }
+arto-page = { path = "crates/arto-page", version = "0.0.0" }
+
 anyhow = "1.0.104"
 base64 = "0.23.1"
 clap = { version = "4.6.6", features = ["derive"] }

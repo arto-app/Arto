@@ -1,7 +1,8 @@
 name: "Release"
 
 # On a published GitHub release: bundle every leg with the release version,
-# attach the installers to the release, and tell the Homebrew tap.
+# attach the installers to the release, publish the crates, and tell the
+# Homebrew tap.
 
 on:
   release:
@@ -15,6 +16,64 @@ jobs:
     uses: ./.github/workflows/bundle.yml
     with:
       version: ${{ github.event.release.tag_name }}
+
+  # The crates at the version the installers carry. After `bundle`, because a
+  # published version can only be yanked, never replaced or corrected — so a
+  # release that could not even be built must not reach the registry.
+  #
+  # macOS because the verification build has to compile `arto`, and macOS
+  # needs no GTK/WebKit packages to do it.
+  #
+  # This job cannot make a crate that does not exist yet: crates.io only lets
+  # a trusted publisher be configured on a crate that is already there, so
+  # each name's first version was published by hand. See CONTRIBUTING.md.
+  publish:
+    needs: bundle
+    runs-on: blacksmith-6vcpu-macos-15
+    timeout-minutes: 45
+    # No registry token lives in this repository. crates.io trusts this
+    # workflow by name, and the action below exchanges GitHub's OIDC claim for
+    # a token that expires with the job — which is why `id-token: write` is
+    # here and why the trusted publisher on crates.io must name this file.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-toolchain
+        with:
+          toolchain: native
+      # The same stamp the bundle legs apply, and for the same reason it has
+      # to cover every 0.0.0: a package on the registry has no `path` to fall
+      # back on, so what it says about the crates it depends on is all a
+      # consumer gets.
+      - name: Set package version
+        env:
+          VERSION: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="${VERSION#v}"
+          perl -i -pe 's/= "0\.0\.0"/= "'"${VERSION}"'"/g' Cargo.toml
+          echo "${VERSION}" > crates/arto/VERSION
+      # `arto` and `arto-page` name the frontend bundle in their `include`
+      # lists, and git does not track it — it is build output.
+      - run: just frontend::assets
+      # `--workspace` orders the members by their dependencies and waits for
+      # each to reach the index before the next one asks for it. The
+      # verification build is the point of not passing `--no-verify`: it is
+      # what proves each package actually carries the files its `include`
+      # list claims, which nothing else in CI checks.
+      #
+      # `--allow-dirty` because the two steps above deliberately leave the
+      # tree modified.
+      - name: Authenticate with crates.io
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish --workspace --allow-dirty
 
   release:
     needs: bundle

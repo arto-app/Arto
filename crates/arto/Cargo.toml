@@ -6,21 +6,33 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-# Assets are resolved next to the executable at run time, so a `cargo
-# install`ed binary would start without its stylesheet and bundle. Keep the
-# app off crates.io until the assets are embedded.
-publish = false
+# The frontend bundle under assets/frontend is build output copied in by the
+# frontend build (see frontend/vite.config.ts), so git ignores it and a
+# package would not carry it. A release binary compiles those two files in,
+# which is what makes `cargo install arto` produce something that runs; list
+# them so a package that lost them cannot be published.
+include = [
+  "src/**",
+  "build.rs",
+  "assets/Arto.png",
+  "assets/arto-header-welcome-dark.png",
+  "assets/arto-header-welcome-light.png",
+  "assets/welcome.md",
+  "assets/frontend/main.css",
+  "assets/frontend/main.js",
+  "assets/frontend/icons/tabler-sprite.svg",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow.workspace = true
 arboard = "3.6.1"
-arto-config = { path = "../arto-config" }
-arto-ipc = { path = "../arto-ipc" }
-arto-keybindings = { path = "../arto-keybindings" }
-arto-markdown = { path = "../arto-markdown" }
-arto-page = { path = "../arto-page" }
+arto-config.workspace = true
+arto-ipc.workspace = true
+arto-keybindings.workspace = true
+arto-markdown.workspace = true
+arto-page.workspace = true
 base64.workspace = true
 dark-light = "3.0.0"
 chrono = { version = "0.4", features = ["serde"] }
