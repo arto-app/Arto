@@ -26,7 +26,7 @@
 
 use super::lines::LineTable;
 use lol_html::html_content::ContentType;
-use lol_html::{element, text, EndTagHandler, HtmlRewriter, Settings};
+use lol_html::{element, EndTagHandler, HtmlRewriter, Settings};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -51,11 +51,6 @@ struct State {
     /// part of the outline.
     in_footnotes: bool,
     heading_ids: Vec<String>,
-    /// How many elements deep the text being read is quoted verbatim.
-    verbatim_depth: usize,
-    /// The text node being collected, which lol_html may hand over in
-    /// several chunks; a wiki link can straddle the boundary.
-    text: String,
 }
 
 /// Parse `S-E` into byte offsets.
@@ -140,11 +135,6 @@ fn alert_name(kind: &str) -> String {
 /// Marker [`super::hooks`] puts on a heading whose id the document wrote.
 const AUTHORED_ID: &str = "data-arto-authored-id";
 
-/// Elements whose text is quoted verbatim, or is already a link, so that
-/// `[[…]]` inside them is not markup.
-const VERBATIM_SELECTOR: &str =
-    "code, pre, a, script, style, .preprocessed-math-display, .preprocessed-math-inline";
-
 /// Rewrite the engine's HTML into the crate's contract.
 ///
 /// Heading ids are dropped unless `keep_heading_ids` is set; either way they
@@ -160,7 +150,7 @@ pub(super) fn annotate(html: &str, lines: &LineTable<'_>, keep_heading_ids: bool
     // every other quote — and so that the class and `dir` the callout
     // handler adds afterwards land around the line attribute in the order
     // the contract documents.
-    let mut settings = Settings::new()
+    let settings = Settings::new()
         .append_element_content_handler(element!("[data-source-span]", |el| {
             let attrs: Vec<(String, String)> = el
                 .attributes()
@@ -295,48 +285,6 @@ pub(super) fn annotate(html: &str, lines: &LineTable<'_>, keep_heading_ids: bool
             );
             Ok(())
         }));
-
-    // Wiki links are read off the rendered text, where the run is contiguous
-    // again; see [`super::wiki`]. Documents without a `[[` skip the text
-    // handlers entirely, which is nearly all of them.
-    if html.contains("[[") {
-        settings = settings
-            .append_element_content_handler(element!(VERBATIM_SELECTOR, {
-                let state = Rc::clone(&state);
-                move |el| {
-                    state.borrow_mut().verbatim_depth += 1;
-                    let closing = Rc::clone(&state);
-                    let close: EndTagHandler<'static> = Box::new(move |_| {
-                        let mut state = closing.borrow_mut();
-                        state.verbatim_depth = state.verbatim_depth.saturating_sub(1);
-                        Ok(())
-                    });
-                    let _ = el.on_end_tag(close);
-                    Ok(())
-                }
-            }))
-            .append_element_content_handler(text!("*", {
-                let state = Rc::clone(&state);
-                move |chunk| {
-                    if state.borrow().verbatim_depth > 0 {
-                        return Ok(());
-                    }
-                    state.borrow_mut().text.push_str(chunk.as_str());
-                    if !chunk.last_in_text_node() {
-                        // Hold the piece back; the whole node is written
-                        // when its last chunk arrives.
-                        chunk.remove();
-                        return Ok(());
-                    }
-                    let text = std::mem::take(&mut state.borrow_mut().text);
-                    // The text is already escaped, so it goes back as HTML
-                    // whether or not a link was found in it.
-                    let rewritten = super::wiki::rewrite(&text);
-                    chunk.replace(rewritten.as_deref().unwrap_or(&text), ContentType::Html);
-                    Ok(())
-                }
-            }));
-    }
 
     let mut rewriter = HtmlRewriter::new(settings, |chunk: &[u8]| {
         output.extend_from_slice(chunk);

@@ -34,15 +34,19 @@ GitHub alerts, heading slugs and the GFM tag filter are all its work; anything
 missing there is an upstream issue rather than a local workaround. A version
 change shows up as a snapshot diff, so review it rather than accepting it.
 
-Three modules under `src/engine/` are the exception, each carrying a doc
-comment that says which upstream gap it stands in for and that it is meant
-to be deleted: `line_endings.rs` (CRLF, which still changes list tightness
-and leaves `\r` inside code blocks),
-`attributes.rs` (`{#id .class}` on a heading) and `wiki.rs` (`[[Page]]`).
-The last two need different seams — the attribute block reaches the
-renderer inside one `Text` node, so a render hook lifts it onto the tag,
-while the parser splits `[[` into separate `Text` nodes, so wiki links are
-read off the rendered text in the annotation pass instead.
+Heading attributes (`{#id .class}`) and wiki links (`[[Page]]`) are parser
+options — `heading_attributes` and `wiki_links` in `src/engine.rs` — so what
+is left of them here is Arto's own half. `engine/wiki.rs` turns a target into
+an href (`.md` for one without an extension, the target as written otherwise),
+which the render hook writes unencoded because the app opens it as a file
+name; the hook also renders a heading the parser read an attribute block off,
+to mark an id the document asked for by name so that it survives a render
+without a table of contents. `src/line_endings.rs` is not about the parser at
+all: it serves the two readers of the source that are not the parser.
+`normalize` turns a lone `\r` into `\n` byte for byte — no offset moves — for
+the line table, and
+`to_lf` drops the `\r` of a `\r\n` as well for the selection source map, which
+indexes text of its own.
 
 Rules of thumb:
 

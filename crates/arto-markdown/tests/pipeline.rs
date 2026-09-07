@@ -66,11 +66,22 @@ fn a_crlf_document_renders_like_the_same_document_in_lf() {
         > A note body.
     "};
     let crlf = lf.replace('\n', "\r\n");
+    let cr = lf.replace('\n', "\r");
 
     assert_eq!(render(&crlf), render(lf));
+    assert_eq!(render(&cr), render(lf));
     // The rule must stay a rule: read as a setext underline it would close
     // the paragraph above it as a heading instead.
     assert!(render(&crlf).contains("<hr data-source-line=\"3\">"));
+}
+
+#[test]
+fn a_crlf_math_block_hands_the_frontend_the_same_source_as_lf() {
+    // `data-original-content` is what the client-side renderer is given,
+    // and the parser reports a math block's value with the `\r` still in it.
+    let lf = "$$\nx = 1\n$$\n";
+
+    assert_eq!(render(&lf.replace('\n', "\r\n")), render(lf));
 }
 
 #[test]
@@ -80,6 +91,19 @@ fn a_crlf_selection_maps_back_to_its_source() {
     assert_eq!(
         extract_source_selection("intro\r\n\r\nsome **word** here\r\n", "word"),
         Some("**word**".to_string())
+    );
+}
+
+#[test]
+fn a_crlf_selection_inside_a_code_block_maps_back_too() {
+    use arto_markdown::extract_source_selection;
+
+    // The parser reports a code block's value with the `\r` taken out, so a
+    // map built over the CRLF source would not find it and would lose the
+    // whole block.
+    assert_eq!(
+        extract_source_selection("```rust\r\nlet x = 1;\r\n```\r\n", "let x = 1;"),
+        Some("let x = 1;".to_string())
     );
 }
 
@@ -108,13 +132,31 @@ fn a_wiki_link_inside_code_is_left_alone() {
 }
 
 #[test]
-fn a_wiki_link_survives_being_split_across_text_chunks() {
-    // The `&` forces lol_html to hand the text over in several chunks; the
-    // link must still be found across the boundary.
-    let html = render("a &amp; b [[Guide]] c");
+fn a_wiki_target_with_spaces_stays_a_path() {
+    // The app opens the target as a file name, so it must not reach it
+    // percent-encoded the way an ordinary link's href would.
+    let html = render("[[My Note]]");
 
-    assert!(html.contains(r#"data-md-link="Guide.md""#), "{html}");
-    assert!(html.contains("a &amp; b "), "{html}");
+    assert!(html.contains(r#"data-md-link="My Note.md""#), "{html}");
+}
+
+#[test]
+fn a_wiki_label_is_rendered_as_markup() {
+    let html = render("[[Guide|**the** guide]]");
+
+    assert!(html.contains("<strong>the</strong> guide</span>"), "{html}");
+}
+
+#[test]
+fn a_url_in_a_wiki_label_does_not_become_a_second_link() {
+    // The label is already inside the anchor the wiki link opened, so an
+    // autolinked URL there would nest one `<a>` in another and the browser
+    // would close the outer one early, dropping the rest of the label out
+    // of the link.
+    let html = render("[[https://example.com|see https://other.com now]]");
+
+    assert_eq!(html.matches("<a ").count(), 1, "{html}");
+    assert!(html.contains("see https://other.com now</a>"), "{html}");
 }
 
 // ----------------------------------------------------------------------
@@ -607,10 +649,22 @@ fn an_authored_heading_id_wins_over_the_generated_one() {
 
 #[test]
 fn a_heading_with_only_classes_still_gets_an_id() {
+    // The heading is rendered here rather than by the engine, so the slug it
+    // would have been given has to be derived from the text.
+    let headings = headings("### 日本語の見出し {.highlight}");
+
+    assert_eq!(headings.len(), 1);
+    assert_eq!(headings[0].id, "日本語の見出し");
+}
+
+#[test]
+fn a_heading_that_named_only_classes_keeps_no_id_without_a_toc() {
+    // Nothing asked for that id by name, so it is generated like any other
+    // and goes the same way when no table of contents needs it.
     let html = render("### 日本語の見出し {.highlight}");
 
     assert!(
-        html.contains(r#"id="日本語の見出し" class="highlight">日本語の見出し</h3>"#),
+        html.contains(r#"<h3 data-source-line="1" class="highlight">日本語の見出し</h3>"#),
         "{html}"
     );
 }

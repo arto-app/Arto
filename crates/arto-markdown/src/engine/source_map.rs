@@ -302,10 +302,14 @@ pub fn extract_source_selection(
     source: impl AsRef<str>,
     selected_text: impl AsRef<str>,
 ) -> Option<String> {
-    // The map is built over the same text the document was rendered from,
-    // so the Markdown handed back uses `\n` even when the file on disk does
-    // not. That is what a paste of it should contain anyway.
-    let source = crate::line_endings::normalize(source.as_ref());
+    // Every line ending becomes `\n` here, not just the lone `\r` the render
+    // pipeline replaces: the map is indexed by itself rather than by the
+    // file, the selection it is matched against arrives with `\n`, and the
+    // parser reports a code block's value with the `\r` already stripped —
+    // which would not be found in a CRLF source, dropping the block out of
+    // the map. The Markdown handed back therefore uses `\n` even when the
+    // file on disk does not, which is what a paste of it should contain.
+    let source = crate::line_endings::to_lf(source.as_ref());
     let source = source.as_ref();
     let selected_text = selected_text.as_ref();
     if selected_text.is_empty() || source.is_empty() {

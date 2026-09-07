@@ -1,4 +1,5 @@
-//! Render hooks: the Mermaid and math containers, and heading attributes.
+//! Render hooks: the Mermaid and math containers, headings that carry an
+//! attribute block, and wiki links.
 //!
 //! Everything else falls through to the built-in renderer. The
 //! `preprocessed-*` containers hold the source text twice — escaped as the
@@ -7,34 +8,49 @@
 //! [`super::annotate`] turns into source lines like it does for every other
 //! block element.
 //!
-//! A heading that ends in a `{#id .class}` block is rendered here too, so
-//! that the block becomes the tag's attributes instead of showing as text.
-//! See [`super::attributes`] for why that syntax reaches the renderer at all.
+//! A heading the parser read a `{#id .class}` block off is rendered here so
+//! that the id can be marked as one the document asked for by name; a wiki
+//! link is rendered here so that its target resolves to a Markdown document
+//! (see [`super::wiki`]).
 
-use ox_content_ast::{Heading, Node, Span};
+use ox_content_ast::{Heading, Link, Node, Span};
 use ox_content_renderer::{slugify_heading, HtmlRenderContext, HtmlRenderControl, HtmlRenderHooks};
 
 /// The hook set the engine renders with.
-#[derive(Default)]
-pub(super) struct ArtoHooks {
-    /// The `Text` node a heading's attribute block was cut from, and the
-    /// length that is left of it. Set while that heading's children render.
-    strip: Option<(Span, usize)>,
+pub(super) struct ArtoHooks<'a> {
+    /// The document body, to tell a wiki link from an ordinary one: both are
+    /// link nodes, and only the source says which syntax wrote them.
+    source: &'a str,
+    /// Set while a wiki link's label is being rendered. The built-in link
+    /// renderer suppresses URL autolinking inside an anchor through renderer
+    /// state no hook can reach, so the label's text is written here instead;
+    /// otherwise a bare URL in the label becomes a second `<a>` nested in
+    /// the one this hook opened.
+    in_wiki_label: bool,
 }
 
-impl HtmlRenderHooks for ArtoHooks {
+impl<'a> ArtoHooks<'a> {
+    pub(super) fn new(source: &'a str) -> Self {
+        Self {
+            source,
+            in_wiki_label: false,
+        }
+    }
+}
+
+impl HtmlRenderHooks for ArtoHooks<'_> {
     fn render_node(
         &mut self,
         node: &Node<'_>,
         cx: &mut HtmlRenderContext<'_>,
     ) -> HtmlRenderControl {
         match node {
-            Node::Heading(heading) => self.render_heading(heading, cx),
-            // The tail of a heading whose attribute block was lifted onto
-            // the tag; everything after `len` is that block.
-            Node::Text(text) if self.strip.is_some_and(|(span, _)| span == text.span) => {
-                let (_, len) = self.strip.take().unwrap_or_default();
-                cx.write_escaped(text.value.get(..len).unwrap_or(text.value));
+            Node::Heading(heading) if heading.id.is_some() || !heading.classes.is_empty() => {
+                self.render_heading(heading, cx)
+            }
+            Node::Link(link) if self.is_wiki_link(link.span) => self.render_wiki_link(link, cx),
+            Node::Text(text) if self.in_wiki_label => {
+                cx.write_escaped(text.value);
                 HtmlRenderControl::Handled
             }
             Node::CodeBlock(code_block) => {
@@ -73,21 +89,57 @@ impl HtmlRenderHooks for ArtoHooks {
     }
 }
 
-impl ArtoHooks {
-    /// Render a heading that ends in an attribute block; leave every other
-    /// heading to the built-in renderer.
+impl ArtoHooks<'_> {
+    /// Whether the link at `span` was written as `[[target]]`.
+    ///
+    /// The parser turns wiki links into ordinary link nodes, so the
+    /// delimiters in the source are what is left to tell them apart. Both
+    /// ends are checked: a link text that opens with a bracket starts with
+    /// `[[` too, and it does not close with `]]`.
+    ///
+    /// One construct escapes this: a table cell holding an escaped `\|`
+    /// reports the spans inside it one byte early per escape
+    /// (ubugeeei-prod/ox-content#1363), so the link is not recognised and
+    /// its target keeps the name it was written with instead of gaining
+    /// `.md`. A wiki link inside a footnote definition misses for another
+    /// reason — that content never reaches a hook at all
+    /// (ubugeeei-prod/ox-content#1362), which costs the math and Mermaid
+    /// containers there as well.
+    fn is_wiki_link(&self, span: Span) -> bool {
+        let (start, end) = (span.start as usize, span.end as usize);
+        let Some(source) = self.source.get(start..end) else {
+            return false;
+        };
+        source.starts_with("[[") && source.ends_with("]]")
+    }
+
+    /// Render `[[target]]` as an anchor on the document the target names.
+    ///
+    /// The href is written as a path, not percent-encoded like an ordinary
+    /// link's: the app opens it as a file name, and a wiki target commonly
+    /// holds spaces.
+    fn render_wiki_link(
+        &mut self,
+        link: &Link<'_>,
+        cx: &mut HtmlRenderContext<'_>,
+    ) -> HtmlRenderControl {
+        cx.write("<a href=\"");
+        cx.write_attribute_escaped(&super::wiki::href(link.url));
+        cx.write("\">");
+        let enclosing = std::mem::replace(&mut self.in_wiki_label, true);
+        cx.render_nodes(&link.children, self);
+        self.in_wiki_label = enclosing;
+        cx.write("</a>");
+        HtmlRenderControl::Handled
+    }
+
+    /// Render a heading whose `{#id .class}` block the parser lifted onto the
+    /// node; every other heading is left to the built-in renderer.
     fn render_heading(
         &mut self,
         heading: &Heading<'_>,
         cx: &mut HtmlRenderContext<'_>,
     ) -> HtmlRenderControl {
-        let Some(Node::Text(last)) = heading.children.last() else {
-            return HtmlRenderControl::Default;
-        };
-        let Some((kept, attributes)) = super::attributes::split_trailing(last.value) else {
-            return HtmlRenderControl::Default;
-        };
-
         let depth = heading.depth.clamp(1, 6);
         cx.write("<h");
         cx.write_display(depth);
@@ -95,22 +147,21 @@ impl ArtoHooks {
         cx.write_display(heading.span.start);
         cx.write("-");
         cx.write_display(heading.span.end);
-        // A heading without an explicit id still needs one, or the table of
-        // contents has nothing to scroll to. The renderer's own id is not
-        // reachable from here, so the slug is derived from the text the
-        // block was cut from — which is what the renderer would have used
-        // had the block not been there.
+        // A heading that named only classes still needs an id, or the table
+        // of contents has nothing to scroll to. The renderer's own id is not
+        // reachable from here, so the slug is derived from the heading text —
+        // which is what the renderer would have written itself.
         cx.write("\" id=\"");
-        match attributes.id {
+        match heading.id {
             Some(id) => cx.write_attribute_escaped(id),
             None => cx.write_attribute_escaped(&slugify_heading(&super::outline::heading_text(
                 &heading.children,
             ))),
         }
         cx.write("\"");
-        if !attributes.classes.is_empty() {
+        if !heading.classes.is_empty() {
             cx.write(" class=\"");
-            for (index, class) in attributes.classes.iter().enumerate() {
+            for (index, class) in heading.classes.iter().enumerate() {
                 if index > 0 {
                     cx.write(" ");
                 }
@@ -119,12 +170,15 @@ impl ArtoHooks {
             cx.write("\"");
         }
         // Tells the annotation pass this id was authored, so it survives a
-        // render that drops the generated ones.
-        cx.write(" data-arto-authored-id>");
+        // render that drops the generated ones. A heading that named only
+        // classes did not ask for an id, so its slug is dropped like any
+        // other generated one.
+        if heading.id.is_some() {
+            cx.write(" data-arto-authored-id");
+        }
+        cx.write(">");
 
-        self.strip = Some((last.span, kept.len()));
         cx.render_nodes(&heading.children, self);
-        self.strip = None;
 
         cx.write("</h");
         cx.write_display(depth);
@@ -134,6 +188,10 @@ impl ArtoHooks {
 }
 
 /// Write one block container: `<tag data-source-span class data-original-content>`.
+///
+/// The content is what the client-side renderer is handed, so it is reduced
+/// to `\n`: a math block keeps the `\r` of a CRLF file, which the same
+/// document in LF does not have.
 fn write_container(
     cx: &mut HtmlRenderContext<'_>,
     tag: &str,
@@ -141,6 +199,7 @@ fn write_container(
     span: Span,
     content: &str,
 ) {
+    let content = &crate::line_endings::to_lf(content);
     cx.write("<");
     cx.write(tag);
     cx.write(" data-source-span=\"");

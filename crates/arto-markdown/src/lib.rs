@@ -10,8 +10,8 @@
 //!
 //! # Pipeline
 //!
-//! 0. **Line endings.** `\r\n` and lone `\r` become `\n`, which keeps the
-//!    line count, so a CRLF file parses and reports lines like any other.
+//! 0. **Line endings.** A lone `\r` becomes `\n`, byte for byte, so a file
+//!    written with them reports the lines it has; `\r\n` is left as it is.
 //! 1. **Frontmatter.** A leading YAML block is cut off and rendered to a
 //!    `<details class="frontmatter">` table that is prepended to the
 //!    output at the very end. The lines it occupied are added to every
@@ -131,8 +131,10 @@
 //! without a file extension names a Markdown document, so the link goes on
 //! to become an `.md-link` like any other document link. A target that
 //! already has an extension, or an `http(s)` URL, is used as written, and a
-//! `#fragment` stays on the end. Inside code, inside a link and inside the
-//! math containers the brackets are text.
+//! `#fragment` stays on the end. The target reaches the app as it was
+//! written rather than percent-encoded, because it is opened as a file
+//! name; the label is inline Markdown. Inside code and inside the math
+//! containers the brackets are text.
 //!
 //! ## Code blocks
 //!

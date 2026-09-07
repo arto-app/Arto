@@ -54,12 +54,7 @@ fn collect_blocks(nodes: &[Node<'_>], headings: &mut Vec<Heading>) {
 pub(super) fn heading_text(children: &[Node<'_>]) -> String {
     let mut text = String::new();
     push_text(children, &mut text);
-    let text = text.replace('\n', " ").trim().to_string();
-    // A `{#id .class}` block is markup, not part of the title.
-    match super::attributes::split_trailing(&text) {
-        Some((stripped, _)) => stripped.to_string(),
-        None => text,
-    }
+    text.replace('\n', " ").trim().to_string()
 }
 
 fn push_text(nodes: &[Node<'_>], out: &mut String) {
