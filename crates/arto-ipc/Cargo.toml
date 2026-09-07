@@ -6,6 +6,10 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords = ["ipc", "single-instance", "socket"]
+categories = ["os", "network-programming"]
 
 [dependencies]
 # `FileOpenBehavior` travels on the wire exactly as it is spelled in

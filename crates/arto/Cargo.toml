@@ -6,6 +6,10 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords = ["markdown", "viewer", "github", "desktop", "dioxus"]
+categories = ["gui", "text-processing"]
 # The frontend bundle under assets/frontend is build output copied in by the
 # frontend build (see frontend/vite.config.ts), so git ignores it and a
 # package would not carry it. A release binary compiles those two files in,

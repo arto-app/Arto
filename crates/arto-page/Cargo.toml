@@ -6,6 +6,10 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords = ["markdown", "html", "github", "renderer", "cli"]
+categories = ["text-processing", "command-line-utilities"]
 # The frontend bundle under assets/ is build output copied in by the frontend
 # build (see frontend/vite.config.ts); list it so a package cannot be
 # published without it.
