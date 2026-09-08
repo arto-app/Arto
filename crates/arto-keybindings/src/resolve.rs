@@ -146,13 +146,13 @@ mod tests {
         let set = BindingSet {
             global: vec![KeyAction {
                 key: "x".to_string(),
-                action: "tab.close".to_string(),
+                action: "window.close".to_string(),
             }],
             ..Default::default()
         };
         let bindings = resolve_bindings(&set);
         assert_eq!(bindings.len(), 1);
-        assert_eq!(bindings[0].action, Action::TabClose);
+        assert_eq!(bindings[0].action, Action::WindowClose);
     }
 
     #[test]

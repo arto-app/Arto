@@ -994,7 +994,7 @@ mod tests {
     #[test]
     fn action_label_converts_dot_and_underscore() {
         assert_eq!(action_label("scroll.down"), "Scroll Down");
-        assert_eq!(action_label("tab.close_all"), "Tab Close All");
+        assert_eq!(action_label("window.new_document"), "Window New Document");
         assert_eq!(action_label("cancel"), "Cancel");
         assert_eq!(
             action_label("clipboard.copy_file_path"),

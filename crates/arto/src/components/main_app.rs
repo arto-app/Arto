@@ -1,5 +1,5 @@
 use crate::ipc::OpenEvent;
-use crate::state::Tab;
+use crate::state::Document;
 use crate::window::settings;
 #[cfg(not(target_os = "windows"))]
 use dioxus::desktop::use_muda_event_handler;
@@ -20,7 +20,8 @@ use dioxus::prelude::*;
 ///
 /// System events (Reopen, file open, IPC) are handled by the Tao event loop's
 /// custom_event_handler and IPC's GCD wake callback.
-/// This component only handles the initial event (first CLI path) for its own tab.
+/// This component only handles the initial event (the first CLI path) as its
+/// own document.
 #[component]
 pub fn MainApp() -> Element {
     // Configure WindowCloseBehaviour::WindowHides for first window
@@ -69,20 +70,18 @@ pub fn MainApp() -> Element {
         tracing::debug!("No initial event, will show welcome screen");
     }
 
-    // Resolve initial tabs and directory from event
+    // Resolve the document and directory from the event. A window reads one
+    // document; any further files named on the command line are opened by
+    // `ipc`, each in a window of its own.
     let is_first_window = true;
-    let (tabs, directory_override) = match &first_event {
+    let (document, directory_override) = match &first_event {
         Some(OpenEvent::Open(request)) => {
-            let tabs = if request.files.is_empty() {
-                vec![Tab::default()]
-            } else {
-                request.files.iter().cloned().map(Tab::new).collect()
-            };
-            (tabs, request.directory.clone())
+            let document = request.files.first().map(Document::new).unwrap_or_default();
+            (document, request.directory.clone())
         }
         _ => {
             let welcome_content = crate::assets::get_default_markdown_content();
-            (vec![Tab::with_inline_content(welcome_content)], None)
+            (Document::with_inline_content(welcome_content), None)
         }
     };
 
@@ -97,14 +96,14 @@ pub fn MainApp() -> Element {
     // explicitly opened file. Stays None on a blank config with no opened file so
     // the sidebar shows its empty/welcome state instead of scanning home.
     let params_directory = directory_override.or(directory_pref.directory);
-    let directory = crate::window::main::resolve_directory(params_directory, &tabs);
+    let directory = crate::window::main::resolve_directory(params_directory, &document);
 
     // Render App component with initial state
     // Subsequent system events are handled by custom_event_handler (main.rs)
     // and GCD wake callback (ipc.rs).
     rsx! {
         crate::components::app::App {
-            tabs: tabs,
+            document: document,
             directory: directory,
             theme: theme_pref.theme,
             content_full_width,

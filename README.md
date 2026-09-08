@@ -35,11 +35,11 @@ Markdown is where documentation, communication and thinking now live, and readin
 
 **Reading** — GitHub-accurate rendering with the extended syntax, auto-reload when the file changes on disk, and no network required.
 
-**Getting around** — file explorer sidebar with history, bookmarks for the files you keep returning to, an automatic table of contents, and back/forward navigation across linked documents.
+**Getting around** — a file explorer over several folders at once, a reading history reachable four ways, bookmarks for the folders you keep returning to, a contents gutter beside the page, and back/forward across linked documents.
 
 **Finding** — find in page, plus pinned searches that keep multi-colour highlights across sessions.
 
-**Windows and tabs** — tabs, multiple windows, tabs dragged between windows, child windows for diagrams, and drag-and-drop to open.
+**Windows** — one document to a window, as many windows as you like, child windows for diagrams, and drag-and-drop to open.
 
 **Rich content** — Mermaid diagrams in an interactive viewer with zoom, pan and copy-as-image; KaTeX math; syntax-highlighted code with a copy button; YAML frontmatter as a collapsible table; and GitHub alerts (`NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`).
 

@@ -233,6 +233,17 @@ pub fn record_visit(path: impl Into<PathBuf>) {
     let _ = VISITS_CHANGED.send(());
 }
 
+/// Drop one document from the history, persist it, and tell the other windows.
+pub fn forget_visit(path: &Path) {
+    let mut visits = VISITS.write();
+    visits.forget(path);
+    if let Err(err) = visits.save() {
+        tracing::warn!(%err, "Failed to save visit history");
+    }
+    drop(visits);
+    let _ = VISITS_CHANGED.send(());
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

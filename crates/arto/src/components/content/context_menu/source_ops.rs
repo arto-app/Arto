@@ -45,13 +45,13 @@ pub(super) fn LinkContextItems(href: String, on_close: EventHandler<()>) -> Elem
         }
 
         ContextMenuItem {
-            label: "Open Link in New Tab",
-            shortcut: shortcut("file.open_link_in_new_tab"),
+            label: "Open Link in New Window",
+            shortcut: shortcut("file.open_link_in_new_window"),
             icon: Some(IconName::Add),
             on_click: {
                 let on_close = on_close;
                 move |_| {
-                    dispatch_action(&Action::FileOpenLinkInNewTab, state);
+                    dispatch_action(&Action::FileOpenLinkInNewWindow, state);
                     on_close.call(());
                 }
             },

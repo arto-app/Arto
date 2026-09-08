@@ -47,8 +47,8 @@ Understanding the relationship between Config, PersistedState, and State modules
 │ Runtime State Layer (state.rs)                              │
 │ - File: None (memory only)                                  │
 │ - Scope: Per-window                                         │
-│ - Contains: Current UI state (tabs, zoom, sidebar, etc.)   │
-│ - Example: tabs: [Tab1, Tab2], active_tab: 0               │
+│ - Contains: Current UI state (document, zoom, sidebar, …)  │
+│ - Example: document: Document, sidebar.face: Recent        │
 │           sidebar.is_visible: true                          │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -105,9 +105,6 @@ Understanding the relationship between Config, PersistedState, and State modules
   "sidebarOpen": true,
   "sidebarWidth": 320.0,
   "sidebarShowAllFiles": false,
-  "rightSidebarOpen": false,
-  "rightSidebarWidth": 280.0,
-  "rightSidebarTab": "toc",
   "windowPosition": { "x": 100, "y": 100 },
   "windowSize": { "width": 1200, "height": 800 }
 }
@@ -130,8 +127,7 @@ Understanding the relationship between Config, PersistedState, and State modules
 **Contents:**
 ```rust
 pub struct AppState {
-    pub tabs: Signal<Vec<Tab>>,              // Open tabs
-    pub active_tab: Signal<usize>,           // Which tab is active
+    pub document: Signal<Document>,          // The one document being read
     pub current_theme: Signal<Theme>,        // Current theme
     pub zoom_level: Signal<f64>,             // Zoom level
     pub sidebar: Signal<SidebarState>,       // Sidebar state
@@ -255,7 +251,7 @@ Primary instance receives:
 - **Default theme** → Config (user sets preference, applies to all windows)
 - **Last used theme** → PersistedState (app remembers, restores on startup)
 - **Current theme** → State (per-window, might differ during session)
-- **Open tabs** → State only (never saved)
+- **The document being read** → State only (never saved)
 - **Sidebar width** → Config (default), PersistedState (last used), State (current)
 
 ## Common Patterns

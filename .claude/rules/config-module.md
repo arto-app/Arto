@@ -26,7 +26,7 @@ crates/arto/src/
 │   ├── app_state.rs         # Module entry point (re-exports only)
 │   ├── app_state/           # Per-window state types
 │   │   ├── sidebar.rs
-│   │   └── tabs.rs
+│   │   └── document.rs
 │   └── persistence.rs       # PersistedState (disk persistence)
 └── window/
     ├── main.rs              # WINDOW_STATES mapping (WindowId → AppState)

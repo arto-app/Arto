@@ -10,16 +10,16 @@ use crate::pinned_search::PinnedSearchId;
 use crate::scroll_anchor::ScrollAnchor;
 use crate::theme::Theme;
 
+mod document;
 mod focused_panel;
 mod sidebar;
 pub(crate) mod sidebar_cursor;
-mod tabs;
 
+pub use document::{Document, DocumentContent};
 pub use focused_panel::*;
 pub use sidebar::{Face, Sidebar};
-pub use tabs::{Tab, TabContent};
 
-/// Information about a single search match for display in the Search tab.
+/// Information about a single search match.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SearchMatch {
     /// 0-based index of this match
@@ -49,16 +49,16 @@ pub struct SearchMatch {
 /// # Why Per-field Signals?
 ///
 /// We use per-field `Signal<T>` instead of `Signal<AppState>` for fine-grained reactivity:
-/// - Changing `current_theme` doesn't trigger re-renders in components that only watch `tabs`
+/// - Changing `current_theme` doesn't trigger re-renders in components that only watch `document`
 /// - Different components can update different fields concurrently without conflicts
-/// - Components subscribe only to the fields they need (e.g., Header watches theme, TabBar watches tabs)
+/// - Components subscribe only to the fields they need (e.g., Header watches theme, Content watches the document)
 ///
 /// If we used `Signal<AppState>`, any field change would trigger re-renders in ALL components
 /// that access the state, causing unnecessary performance overhead.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AppState {
-    pub tabs: Signal<Vec<Tab>>,
-    pub active_tab: Signal<usize>,
+    /// The one document this window is reading.
+    pub document: Signal<Document>,
     pub current_theme: Signal<Theme>,
     pub zoom_level: Signal<f64>,
     /// Whether the content area ignores the markdown body's max-width and fills the pane.
@@ -83,11 +83,11 @@ pub struct AppState {
     /// Monotonic counter bumped on every open-search request, so the search
     /// input is (re)focused even when the bar is already open.
     pub search_focus_request: Signal<u64>,
-    /// Current search query string (for display in Search tab)
+    /// Current search query string
     pub search_query: Signal<Option<String>>,
-    /// All search matches with context (for Search tab display)
+    /// All search matches with context
     pub search_matches: Signal<Vec<SearchMatch>>,
-    /// Pinned search matches by ID (for Search tab display)
+    /// Pinned search matches by ID
     pub pinned_matches: Signal<HashMap<PinnedSearchId, Vec<SearchMatch>>>,
     /// Pending scroll position to restore after navigation (for back/forward).
     /// When Some, FileViewer will scroll to this position instead of resetting to top.
@@ -101,7 +101,7 @@ pub struct AppState {
     pub current_scroll_anchor: Signal<ScrollAnchor>,
     /// Reload trigger counter. Incrementing this forces FileViewer to re-read the file
     /// from disk without going through the use_memo PartialEq gate in content.rs.
-    /// Used by manual reload (header button, tab context menu) and file watcher.
+    /// Used by manual reload (header button, context menu) and file watcher.
     pub reload_trigger: Signal<usize>,
     /// Which panel currently has keyboard focus (for context-aware keybindings).
     pub focused_panel: Signal<FocusedPanel>,
@@ -130,8 +130,7 @@ impl AppState {
     /// Used when creating windows with specific initial state.
     pub fn new(theme: Theme) -> Self {
         Self {
-            tabs: Signal::new(vec![Tab::default()]),
-            active_tab: Signal::new(0),
+            document: Signal::new(Document::default()),
             current_theme: Signal::new(theme),
             zoom_level: Signal::new(DEFAULT_ZOOM_LEVEL),
             content_full_width: Signal::new(false),

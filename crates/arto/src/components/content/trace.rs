@@ -29,9 +29,7 @@ pub fn MarginTrace(count: usize) -> Element {
     // Read so a recorded visit redraws the trace; the number says nothing.
     let _ = revision();
 
-    let current = state
-        .current_tab()
-        .and_then(|tab| tab.file().map(|file| file.to_path_buf()));
+    let current = state.current_file();
     let rows: Vec<Visit> = {
         let visits = VISITS.read();
         visits

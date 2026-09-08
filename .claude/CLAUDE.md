@@ -21,7 +21,7 @@ crate. Do NOT report completion while any of these fail.
 
 | Path | What it is |
 | --- | --- |
-| `crates/arto/` | The desktop app (Dioxus). Windows, tabs, sidebar, menus, IPC client/server |
+| `crates/arto/` | The desktop app (Dioxus). Windows, the panel and its faces, menus, IPC client/server |
 | `crates/arto-markdown/` | Markdown → HTML pipeline shared by the app, `arto page` and Quick Look |
 | `crates/arto-config/` | `config.json` types and file I/O (no globals) |
 | `crates/arto-keybindings/` | Keybinding parsing and defaults |

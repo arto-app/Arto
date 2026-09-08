@@ -7,7 +7,7 @@ use super::context_menu_state::{open_context_menu, ContentContextMenuState};
 use crate::document_link::{open_document_link, scroll_to_heading_js, LinkOpen};
 use crate::markdown::render_to_html_with_toc;
 use crate::scroll_anchor::ScrollAnchor;
-use crate::state::{AppState, TabContent};
+use crate::state::{AppState, DocumentContent};
 use crate::utils::file::is_markdown_file;
 use crate::watcher::FILE_WATCHER;
 
@@ -129,7 +129,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                     }
 
                     // Re-apply search highlighting after content changes
-                    // This preserves search state across tab switches
+                    // This preserves search state across document changes
                     reapply_search().await;
                 }
                 Err(e) => {
@@ -137,10 +137,10 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                     tracing::error!("Failed to read file {:?} as text: {}", file, e);
                     let error_msg = format!("{:?}", e);
 
-                    // Update tab content to FileError
+                    // Report the failure as the document's content
                     let file_clone = file.clone();
-                    state.update_current_tab(move |tab| {
-                        tab.content = TabContent::FileError(file_clone, error_msg);
+                    state.update_document(move |document| {
+                        document.content = DocumentContent::FileError(file_clone, error_msg);
                     });
                     html.set(String::new());
                 }
@@ -151,7 +151,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
 
 /// Handle scroll position when navigating to a file.
 ///
-/// If pending_scroll_anchor is set (from back/forward navigation or tab switch),
+/// If pending_scroll_anchor is set (from back/forward navigation),
 /// restore that position in two phases:
 /// 1. Immediately when DOM content changes (MutationObserver, before browser paint)
 /// 2. After Mermaid/KaTeX rendering completes (adjusts for content height changes)
@@ -262,7 +262,8 @@ fn handle_scroll_anchor(state: &mut AppState) {
 }
 
 /// Re-apply search highlighting after DOM changes.
-/// This is called after content rendering to preserve search state across tab switches.
+/// This is called after content rendering to preserve search state across
+/// document changes.
 async fn reapply_search() {
     // Use MutationObserver to detect when DOM is actually updated, then reapply.
     // This is more robust than RAF-based timing which is not guaranteed.
@@ -348,7 +349,7 @@ fn use_file_watcher(file: ReadSignal<PathBuf>, mut state: AppState) {
 
             while watcher.recv().await.is_some() {
                 tracing::info!("File change detected, reloading: {:?}", file_path);
-                state.reload_current_tab();
+                state.reload_document();
             }
 
             if let Err(e) = FILE_WATCHER.unwatch(file_path.clone()).await {
@@ -403,8 +404,8 @@ fn handle_link_click(click_data: LinkClickData, current_file: &Path, state: &mut
     tracing::info!("Markdown link clicked: {} (button: {})", path, button);
 
     let how = match button {
-        MIDDLE_CLICK => LinkOpen::NewTab,
-        LEFT_CLICK => LinkOpen::CurrentTab { scroll_anchor },
+        MIDDLE_CLICK => LinkOpen::NewWindow,
+        LEFT_CLICK => LinkOpen::Here { scroll_anchor },
         _ => {
             tracing::debug!("Ignoring click with button: {}", button);
             return;

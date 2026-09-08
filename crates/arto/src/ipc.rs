@@ -243,7 +243,7 @@ fn open_request_with_behavior(
 
     if let Some(window_id) = select_target_window_with_behavior(behavior) {
         if let Some(mut state) = crate::window::main::get_window_state(window_id) {
-            apply_open_request_to_state(&mut state, &request);
+            apply_open_request_to_state(desktop, &mut state, &request);
             if !request.behind {
                 let _ = crate::window::main::focus_window(window_id);
             }
@@ -257,25 +257,44 @@ fn open_request_with_behavior(
         ..Default::default()
     };
 
-    let tabs = if request.files.is_empty() {
-        vec![crate::state::Tab::default()]
-    } else {
-        request
-            .files
-            .iter()
-            .cloned()
-            .map(crate::state::Tab::new)
-            .collect()
-    };
-    crate::window::create_main_window_sync_with_tabs(desktop, tabs, params);
+    let mut files = request.files.iter();
+    let first = files
+        .next()
+        .map(crate::state::Document::new)
+        .unwrap_or_default();
+    crate::window::create_main_window_sync(desktop, first, params);
+    open_each_in_its_own_window(desktop, files);
 }
 
-fn apply_open_request_to_state(state: &mut crate::state::AppState, request: &OpenRequest) {
+fn apply_open_request_to_state(
+    desktop: &std::rc::Rc<dioxus::desktop::DesktopService>,
+    state: &mut crate::state::AppState,
+    request: &OpenRequest,
+) {
     if let Some(directory) = request.directory.as_ref() {
         state.add_root(directory);
     }
-    for path in &request.files {
-        state.open_file(path);
+    let mut files = request.files.iter();
+    if let Some(first) = files.next() {
+        state.open_file(first);
+    }
+    open_each_in_its_own_window(desktop, files);
+}
+
+/// Give every remaining file a window of its own.
+///
+/// A window reads one document, so a request naming several is a request for
+/// several windows; sending them all to one would leave only the last.
+fn open_each_in_its_own_window<'a>(
+    desktop: &std::rc::Rc<dioxus::desktop::DesktopService>,
+    files: impl Iterator<Item = &'a std::path::PathBuf>,
+) {
+    for path in files {
+        crate::window::create_main_window_sync(
+            desktop,
+            crate::state::Document::new(path),
+            crate::window::CreateMainWindowConfigParams::default(),
+        );
     }
 }
 
@@ -312,7 +331,7 @@ fn reopen_with_behavior(
     // If no windows at all, create a new one
     crate::window::create_main_window_sync(
         desktop,
-        crate::state::Tab::default(),
+        crate::state::Document::default(),
         crate::window::CreateMainWindowConfigParams::default(),
     );
 }

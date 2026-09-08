@@ -257,7 +257,8 @@ fn DirectoryTree(path: PathBuf, refresh_counter: Signal<u32>) -> Element {
 /// Renders the children of an expanded directory.
 ///
 /// Separated from `FileTreeNode` so that Dioxus component memoization prevents
-/// re-reading the filesystem when only unrelated state (tabs, sidebar toggles)
+/// re-reading the filesystem when only unrelated state (the document, sidebar
+/// toggles)
 /// changes — `DirectoryChildren` only re-renders when `path` or
 /// `refresh_counter` actually change.
 ///
@@ -311,10 +312,7 @@ fn FileTreeNode(
         return rsx! {};
     }
 
-    let current_tab = state.current_tab();
-    let is_active = current_tab
-        .and_then(|tab| tab.file().map(|f| f == path))
-        .unwrap_or(false);
+    let is_active = state.current_file().as_deref() == Some(path.as_path());
 
     let is_keyboard_focused = *state.focused_panel.read() == FocusedPanel::LeftSidebar
         && state
@@ -493,7 +491,7 @@ fn FileTreeNode(
             // Expanded directory children
             // DirectoryChildren is a separate component so that Dioxus's
             // component memoization skips re-rendering (and re-reading the
-            // filesystem) when only unrelated state changes (tabs, sidebar
+            // filesystem) when only unrelated state changes (the document, sidebar
             // toggles, etc.).
             if is_dir && is_expanded {
                 DirectoryChildren { path: path.clone(), depth, refresh_counter }
@@ -566,22 +564,19 @@ pub fn SidebarContextMenuHost() -> Element {
                 return;
             }
             let path = path.clone();
-            spawn(async move {
-                let (tab, directory) = if is_dir {
-                    (crate::state::Tab::default(), Some(path))
-                } else {
-                    (
-                        crate::state::Tab::new(&path),
-                        path.parent().map(|p| p.to_path_buf()),
-                    )
-                };
-
-                let params = crate::window::main::CreateMainWindowConfigParams {
-                    directory,
-                    ..Default::default()
-                };
-                crate::window::main::create_main_window(tab, params).await;
-            });
+            let (document, directory) = if is_dir {
+                (crate::state::Document::default(), Some(path))
+            } else {
+                (
+                    crate::state::Document::new(&path),
+                    path.parent().map(|p| p.to_path_buf()),
+                )
+            };
+            let params = crate::window::main::CreateMainWindowConfigParams {
+                directory,
+                ..Default::default()
+            };
+            crate::window::create_main_window_sync(&dioxus::desktop::window(), document, params);
             state.close_sidebar_context_menu();
         }
     };

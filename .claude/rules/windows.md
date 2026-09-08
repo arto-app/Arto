@@ -9,8 +9,8 @@ paths: "crates/arto/src/window/**, crates/arto/src/events.rs, crates/arto/src/ma
 1. **Main windows**: the first one is launched from `main()` with the
    `MainApp` component and handles system events (file open, app reopen).
    `WindowCloseBehaviour::WindowHides` keeps the last window alive instead of
-   quitting. Further windows come from File → New Window and each owns its
-   tabs and state.
+   quitting. Further windows come from File → New Window and each reads one
+   document and owns its own state.
 2. **Child windows** (Mermaid, math, image viewers) are owned by a main
    window and close with it.
 
@@ -31,7 +31,7 @@ dioxus::LaunchBuilder::desktop()
 // next iteration. Must run on the main thread.
 window::create_main_window_sync(
     &window(),
-    Tab::default(),
+    Document::default(),
     CreateMainWindowConfigParams::default(),
 );
 ```
@@ -67,25 +67,22 @@ use_drop(move || {
 Windows coordinate through the broadcast channels in
 `crates/arto/src/events.rs`; the module doc there is the reference.
 
-- `TRANSFER_TAB_TO_WINDOW`: fire-and-forget tab move (drag-and-drop and the
-  "Move to Window" context menu). The whole tab, including its navigation
-  history, is sent; the target window inserts it and is focused.
-- `ACTIVE_DRAG_UPDATE`: drag state changes, so every window can draw the
-  floating tab and drop indicators.
 - `OPEN_FILE_IN_WINDOW` / `OPEN_DIRECTORY_IN_WINDOW`: open a path in a
-  specific window.
+  specific window ("Open in Window" in the sidebar's context menu).
+- `SET_SIDEBAR_ZOOM_IN_WINDOW`: the preferences window acting on the window
+  that opened it.
 
 ```rust
 // Send
-crate::events::TRANSFER_TAB_TO_WINDOW.send((target_window_id, target_index, tab)).ok();
+crate::events::OPEN_FILE_IN_WINDOW.send((target_window_id, path)).ok();
 crate::window::main::focus_window(target_window_id);
 
 // Receive (tied to the component, cancelled when the window drops)
 use_future(move || async move {
-    let mut rx = crate::events::TRANSFER_TAB_TO_WINDOW.subscribe();
-    while let Ok((target_wid, index, tab)) = rx.recv().await {
+    let mut rx = crate::events::OPEN_FILE_IN_WINDOW.subscribe();
+    while let Ok((target_wid, path)) = rx.recv().await {
         if target_wid == window().id() {
-            state.insert_tab(tab, index.unwrap_or(tabs_len));
+            state.open_file(&path);
         }
     }
 });

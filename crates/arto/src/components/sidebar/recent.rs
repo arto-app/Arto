@@ -101,7 +101,7 @@ pub fn RecentFace() -> Element {
                             if !folded {
                                 for visit in matching {
                                     div {
-                                        class: "left-sidebar-tree-node-content",
+                                        class: "left-sidebar-tree-node-content left-sidebar-recent-row",
                                         title: "{visit.path.display()}",
                                         onclick: {
                                             let path = visit.path.clone();
@@ -109,6 +109,24 @@ pub fn RecentFace() -> Element {
                                         },
                                         Icon { name: IconName::File, size: 12 }
                                         span { class: "left-sidebar-tree-label", "{visit.display_name()}" }
+                                        // Nothing is lost by forgetting a row —
+                                        // reading the document again brings it
+                                        // back — so the control is the quietest
+                                        // one there is: drawn only under the
+                                        // pointer, on the row it acts on.
+                                        button {
+                                            class: "left-sidebar-recent-forget",
+                                            title: "Forget",
+                                            "aria-label": "Forget {visit.display_name()}",
+                                            onclick: {
+                                                let path = visit.path.clone();
+                                                move |evt: Event<MouseData>| {
+                                                    evt.stop_propagation();
+                                                    crate::visits::forget_visit(&path);
+                                                }
+                                            },
+                                            Icon { name: IconName::Trash, size: 12 }
+                                        }
                                     }
                                 }
                             }

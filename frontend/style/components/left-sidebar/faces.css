@@ -161,3 +161,31 @@
 .left-sidebar-group:hover {
   opacity: 1;
 }
+
+/* --- Recent -------------------------------------------------------- */
+
+.left-sidebar-recent-row {
+  position: relative;
+}
+
+/* Forgetting a row costs nothing — reading the document again brings it
+   back — so the control is the quietest there is: drawn only under the
+   pointer, on the row it acts on. */
+.left-sidebar-recent-forget {
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-quiet) ease;
+}
+
+.left-sidebar-recent-row:hover .left-sidebar-recent-forget {
+  opacity: var(--opacity-rest);
+}
+
+.left-sidebar-recent-forget:hover {
+  opacity: 1;
+}

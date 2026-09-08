@@ -32,32 +32,6 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::ScrollTop => scroll_eval("toTop"),
         Action::ScrollBottom => scroll_eval("toBottom"),
 
-        // --- Tab ---
-        Action::TabNew => {
-            state.add_empty_tab(true);
-        }
-        Action::TabClose => {
-            let active_tab = *state.active_tab.read();
-            state.close_tab(active_tab);
-        }
-        Action::TabCloseAll => {
-            let mut tabs = state.tabs.write();
-            tabs.clear();
-            tabs.push(crate::state::Tab::default());
-            state.active_tab.set(0);
-        }
-        Action::TabCloseOthers => {
-            let active_tab = *state.active_tab.read();
-            state.close_others(active_tab);
-        }
-        Action::TabTogglePin => {
-            let active_tab = *state.active_tab.read();
-            state.toggle_pin(active_tab);
-        }
-        Action::TabOpenInNewWindow => open_current_tab_in_new_window(&mut state),
-        Action::TabNext => dispatch_tab_cycle(&mut state, true),
-        Action::TabPrev => dispatch_tab_cycle(&mut state, false),
-
         // --- History ---
         Action::HistoryBack => {
             state.save_scroll_and_go_back();
@@ -82,9 +56,14 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::WindowNew => {
             crate::window::create_main_window_sync(
                 &dioxus::desktop::window(),
-                crate::state::Tab::default(),
+                crate::state::Document::default(),
                 crate::window::CreateMainWindowConfigParams::default(),
             );
+        }
+        // Putting the document down is what "new" means for a window that
+        // reads one: the library takes its place, offering the next.
+        Action::WindowNewDocument => {
+            state.update_document(|document| *document = crate::state::Document::default());
         }
         Action::WindowClose => {
             dioxus::desktop::window().close();
@@ -227,7 +206,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::FileSetParentAsRoot => set_parent_of_current_file_as_root(&mut state),
         Action::FileToggleBookmark => toggle_bookmark_on_cursor_or_current(&mut state),
         Action::FileOpenLink => open_link_from_cursor(&mut state, false),
-        Action::FileOpenLinkInNewTab => open_link_from_cursor(&mut state, true),
+        Action::FileOpenLinkInNewWindow => open_link_from_cursor(&mut state, true),
         Action::FileSaveImageAs => save_image_from_cursor(),
         Action::FilePreferences => {
             state.open_preferences();
@@ -283,22 +262,6 @@ fn extract_sidebar_data(
     let sidebar = state.sidebar.read();
     let roots: Vec<_> = sidebar.roots.all().cloned().collect();
     (!roots.is_empty()).then(|| (roots, sidebar.expanded_dirs.clone(), sidebar.show_all_files))
-}
-
-/// Cycle to the next or previous tab.
-fn dispatch_tab_cycle(state: &mut AppState, forward: bool) {
-    let tabs_len = state.tabs.read().len();
-    if tabs_len > 1 {
-        let current = *state.active_tab.read();
-        let next = if forward {
-            (current + 1) % tabs_len
-        } else if current == 0 {
-            tabs_len - 1
-        } else {
-            current - 1
-        };
-        state.switch_to_tab(next);
-    }
 }
 
 enum CursorDirection {
@@ -854,15 +817,10 @@ pub(crate) fn show_action_feedback(message: &str) {
 }
 
 fn get_current_file(state: &AppState) -> Option<std::path::PathBuf> {
-    let tabs = state.tabs.read();
-    let active_tab = *state.active_tab.read();
-    tabs.get(active_tab).and_then(|tab| {
-        if let crate::state::TabContent::File(path) = &tab.content {
-            Some(path.clone())
-        } else {
-            None
-        }
-    })
+    match &state.document.read().content {
+        crate::state::DocumentContent::File(path) => Some(path.clone()),
+        _ => None,
+    }
 }
 
 fn pick_markdown_file() -> Option<std::path::PathBuf> {
@@ -975,7 +933,7 @@ fn open_content_viewer_from_cursor(state: &AppState) {
     });
 }
 
-fn open_link_from_cursor(state: &mut AppState, open_in_new_tab: bool) {
+fn open_link_from_cursor(state: &mut AppState, open_in_new_window: bool) {
     let Some(current_file) = get_current_file(state) else {
         return;
     };
@@ -997,10 +955,10 @@ fn open_link_from_cursor(state: &mut AppState, open_in_new_tab: bool) {
             return;
         }
 
-        let how = if open_in_new_tab {
-            LinkOpen::NewTab
+        let how = if open_in_new_window {
+            LinkOpen::NewWindow
         } else {
-            LinkOpen::CurrentTab {
+            LinkOpen::Here {
                 scroll_anchor: *app_state.current_scroll_anchor.read(),
             }
         };
@@ -1108,25 +1066,6 @@ fn set_parent_of_current_file_as_root(state: &mut AppState) {
         return;
     };
     state.add_root(parent);
-}
-
-fn open_current_tab_in_new_window(state: &mut AppState) {
-    let active = *state.active_tab.read();
-    let tabs_len = state.tabs.read().len();
-    if tabs_len <= 1 {
-        return;
-    }
-
-    let Some(tab) = state.get_tab(active) else {
-        return;
-    };
-
-    crate::window::create_main_window_sync(
-        &dioxus::desktop::window(),
-        tab,
-        crate::window::CreateMainWindowConfigParams::default(),
-    );
-    let _ = state.close_tab(active);
 }
 
 #[cfg(test)]

@@ -229,9 +229,9 @@ pub fn get_default_markdown_content() -> String {
     with_current_shortcuts(&template)
 }
 
-/// The app icon, for the About tab.
+/// The app icon, for the About section of the preferences.
 ///
-/// Encoded once: the tab re-renders on every configuration change, and the
+/// Encoded once: the section re-renders on every configuration change, and the
 /// icon it shows is the same 31 KB either way.
 pub fn app_icon_data_url() -> &'static str {
     static ICON: std::sync::LazyLock<String> =

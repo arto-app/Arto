@@ -105,7 +105,7 @@ pub fn get_primary_display() -> Option<DisplayInfo> {
 ///   process `DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2`.
 ///
 /// Everything the drag code compares against is logical: DOM
-/// `screen_coordinates()`, the tab bar bounds measured from the DOM, and the
+/// `screen_coordinates()`, the header bounds measured from the DOM, and the
 /// rects `drag::is_point_in_window` derives as `physical / scale`. Feeding a
 /// physical value into that world silently breaks it — at 150% scaling the
 /// cursor reads 1.5x too far, so every window hit test misses, the drag detaches

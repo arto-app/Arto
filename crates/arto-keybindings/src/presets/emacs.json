@@ -7,11 +7,7 @@
     },
     {
       "key": "Cmd+t",
-      "action": "tab.new"
-    },
-    {
-      "key": "Cmd+w",
-      "action": "tab.close"
+      "action": "window.new_document"
     },
     {
       "key": "Cmd+o",
@@ -26,7 +22,7 @@
       "action": "file.reveal_in_finder"
     },
     {
-      "key": "Cmd+Shift+w",
+      "key": "Cmd+w",
       "action": "window.close"
     },
     {
@@ -116,14 +112,6 @@
       "action": "search.open"
     },
     {
-      "key": "Ctrl+x b",
-      "action": "tab.next"
-    },
-    {
-      "key": "Ctrl+x Shift+b",
-      "action": "tab.prev"
-    },
-    {
       "key": "Ctrl+x Ctrl+b",
       "action": "focus.quick_access"
     },
@@ -132,36 +120,16 @@
       "action": "window.reload"
     },
     {
-      "key": "Ctrl+x ArrowRight",
-      "action": "tab.next"
-    },
-    {
-      "key": "Ctrl+x ArrowLeft",
-      "action": "tab.prev"
-    },
-    {
-      "key": "Ctrl+x k a",
-      "action": "tab.close_all"
-    },
-    {
-      "key": "Ctrl+x k o",
-      "action": "tab.close_others"
-    },
-    {
-      "key": "Ctrl+x p",
-      "action": "tab.toggle_pin"
-    },
-    {
       "key": "Ctrl+x f",
       "action": "file.open_link"
     },
     {
       "key": "Ctrl+x 4 f",
-      "action": "file.open_link_in_new_tab"
+      "action": "file.open_link_in_new_window"
     },
     {
       "key": "Ctrl+x 5 2",
-      "action": "tab.open_in_new_window"
+      "action": "window.new"
     },
     {
       "key": "Ctrl+x Ctrl+c",

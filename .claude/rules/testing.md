@@ -15,7 +15,7 @@ Dioxus applications can be tested at three layers:
 | Layer | Dioxus Dependency | Difficulty | Examples |
 |-------|-------------------|------------|----------|
 | Pure Logic | None | Easy | `HistoryManager`, `markdown::render_to_html` |
-| State Structs | Partial | Medium | `Tab`, `TabContent`, `Config` |
+| State Structs | Partial | Medium | `Document`, `DocumentContent`, `Config` |
 | Hooks / Components | Full | Hard | Custom hooks, `App`, `Sidebar` |
 
 **Priority:** Pure Logic > State Structs > Hooks / Components
@@ -88,12 +88,12 @@ Structs without Dioxus Signals can be tested directly:
 
 ```rust
 #[test]
-fn test_tab_content() {
-    let tab = Tab::new("/test/file.md");
+fn test_document_content() {
+    let document = Document::new("/test/file.md");
 
-    assert_eq!(tab.content, TabContent::File(PathBuf::from("/test/file.md")));
-    assert!(!tab.is_no_file());
-    assert_eq!(tab.display_name(), "file.md");
+    assert_eq!(document.content, DocumentContent::File(PathBuf::from("/test/file.md")));
+    assert!(!document.is_empty());
+    assert_eq!(document.display_name(), "file.md");
 }
 ```
 

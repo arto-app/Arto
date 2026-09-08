@@ -12,7 +12,7 @@ mod trace;
 use dioxus::prelude::*;
 
 use crate::scroll_anchor::ScrollAnchor;
-use crate::state::{AppState, TabContent};
+use crate::state::{AppState, DocumentContent};
 use file_error_view::FileErrorView;
 use file_viewer::FileViewer;
 use gutter::ContentsGutter;
@@ -40,10 +40,10 @@ pub fn Content() -> Element {
     let state = use_context::<AppState>();
     let zoom_level = state.zoom_level;
 
-    // Memoize the current tab's content to prevent re-rendering when non-active tabs change.
-    // Without this, any write to state.tabs (even for other tabs) would trigger a re-render
-    // of Content and its children, potentially disrupting scroll position.
-    let content = use_memo(move || state.current_tab().map(|tab| tab.content));
+    // Memoize the document's content so unrelated writes to the state do not
+    // re-render Content and its children, which would disturb the scroll
+    // position.
+    let content = use_memo(move || state.document.read().content.clone());
 
     // Use CSS zoom property for vector-based scaling (not transform: scale)
     // This ensures fonts and images remain sharp at any zoom level.
@@ -63,12 +63,16 @@ pub fn Content() -> Element {
     // fold it away, arrive with the layout budget.
     let trace_visible = use_memo(move || !state.sidebar.read().pinned);
 
+    // With nothing to read, the whole area is the library — the trace and the
+    // gutter have nothing to say beside it.
+    let showing_library = use_memo(move || state.document.read().is_empty());
+
     rsx! {
         div {
             class: "content-area",
 
         // The documents read before this one, at the edge of the page.
-        if trace_visible() {
+        if trace_visible() && !showing_library() {
             trace::MarginTrace { count: TRACE_COUNT }
         }
 
@@ -80,13 +84,13 @@ pub fn Content() -> Element {
                 style: "{zoom_style}",
 
                 match content() {
-                    Some(TabContent::File(file)) => {
+                    DocumentContent::File(file) => {
                         rsx! { FileViewer { file } }
                     },
-                    Some(TabContent::Inline(markdown)) => {
+                    DocumentContent::Inline(markdown) => {
                         rsx! { InlineViewer { markdown } }
                     },
-                    Some(TabContent::FileError(file, error)) => {
+                    DocumentContent::FileError(file, error) => {
                         let filename = file
                             .file_name()
                             .and_then(|n| n.to_str())

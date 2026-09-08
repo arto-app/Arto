@@ -59,8 +59,6 @@ Arto uses a comprehensive design token system defined in `variables.css` for con
 --z-header: 60;
 --z-pinned-chips: 99;
 --z-dropdown: 200;
---z-floating-tab: 1000;
---z-tab-actions: 1001;
 --z-modal-backdrop: 10000;
 --z-context-menu-backdrop: 10001;
 --z-context-menu: 10002;
@@ -312,10 +310,9 @@ When content should fit without scrolling:
 
 **Unified context menu behavior across components:**
 
-Arto implements context menus in three areas:
-1. **Tab context menu** - Right-click on tab items
-2. **Sidebar tree context menu** - Right-click on files/directories
-3. **Content context menu** - Right-click in markdown viewer (future)
+Arto implements context menus in two areas:
+1. **Sidebar tree context menu** - Right-click on files/directories
+2. **Content context menu** - Right-click in markdown viewer
 
 ### Common Patterns
 
@@ -336,8 +333,8 @@ let handle_context_menu = move |evt: Event<MouseData>| {
 };
 
 // Handler uses fire-and-forget transfer + auto-focus
-let handle_move_to_window = move |target_id: WindowId| {
-    crate::events::TRANSFER_TAB_TO_WINDOW.send((target_id, None, tab));
+let handle_open_in_window = move |target_id: WindowId| {
+    crate::events::OPEN_FILE_IN_WINDOW.send((target_id, path));
     crate::window::main::focus_window(target_id);
     show_context_menu.set(false);
 };
@@ -379,7 +376,6 @@ div {
 **Stop propagation to prevent conflicts:**
 - Context menu clicks should `evt.stop_propagation()` to prevent parent handlers
 - Sidebar tree clicks use split areas with `stop_propagation()` on chevron
-- Tab context menu should not interfere with drag events
 
 ### Menu Positioning
 
