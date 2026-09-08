@@ -87,7 +87,15 @@ pub fn Header() -> Element {
                         button {
                             class: "nav-button app-menu-button",
                             class: if *is_menu_open.read() { "active" },
-                            title: "Menu",
+                            // No `title`: the menu opens directly under this
+                            // glyph, and the tooltip would land on its first
+                            // item. Taking the attribute away once the menu is
+                            // open is too late — WebKit reads it when the
+                            // pointer arrives and shows it a moment later,
+                            // and by then the pointer has not moved, so the
+                            // text it already read is what appears. A control
+                            // that opens a panel under itself gets no tooltip
+                            // at all; the panel says what the tooltip would.
                             "aria-label": "Menu",
                             onclick: move |_| is_menu_open.toggle(),
                             Icon { name: IconName::Menu2 }

@@ -66,7 +66,9 @@ pub fn Breadcrumb(label: String) -> Element {
             button {
                 class: "breadcrumb-label",
                 class: if is_open() { "open" },
-                title: "Recently read",
+                // No `title`: it would land on the list this opens. See the
+                // app menu's glyph in `components::header`.
+                "aria-label": "Recently read",
                 onclick: move |_| is_open.toggle(),
                 if !prefix.is_empty() {
                     span { class: "breadcrumb-prefix", "{prefix}" }

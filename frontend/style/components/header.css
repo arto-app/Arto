@@ -21,11 +21,15 @@
   padding-left: var(--traffic-light-clearance);
 }
 
+/* No `overflow: hidden` here. The breadcrumb's menu hangs below this row,
+   and clipping the row clipped the menu away entirely — it opened into
+   nothing. What this used to guard against is handled where it belongs:
+   `min-width: 0` lets the flex items shrink, and the trail and the file name
+   each truncate themselves. */
 .header-left {
   color: var(--text-color);
   flex: 1;
   min-width: 0;
-  overflow: hidden;
   font-size: var(--font-size-base);
   font-weight: 500;
   display: flex;
