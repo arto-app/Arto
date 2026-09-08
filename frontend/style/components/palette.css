@@ -99,6 +99,18 @@
   direction: rtl;
 }
 
+/* What the row would have cost on the keyboard. It sits where a document
+   row's directory sits, so the two kinds of row share one right edge. */
+.palette-row-hint {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+  text-align: right;
+}
+
 /* The way out of the short list and into the whole history. */
 .palette-row-all {
   margin: 0 4px 4px;

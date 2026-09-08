@@ -43,9 +43,8 @@ pub fn shortcut_hint_for_action(action: &str, context: Option<KeyContext>) -> Op
 
 /// Return a formatted shortcut hint from global (and menu) keybindings.
 ///
-/// Only referenced by the Windows in-app menu (`win_hamburger`); platforms with
-/// a native menu (macOS/Linux) derive accelerators from `menu_shortcuts`.
-#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+/// This is the hint for an action reached by name rather than by key — from
+/// the palette, or from the in-app menu — so it asks for no context.
 pub fn shortcut_hint_for_global_action(action: &str) -> Option<String> {
     shortcut_hint_for_action(action, None)
 }

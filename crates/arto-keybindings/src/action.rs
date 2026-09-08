@@ -266,6 +266,123 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
     ("Cancel", &[Action::Cancel]),
 ];
 
+impl Action {
+    /// The name this action answers to when it is typed rather than pressed.
+    ///
+    /// `None` means the action is a motion — a scroll, a cursor step, a focus
+    /// move — or is only meaningful with something already under the cursor.
+    /// Naming those would fill a search with rows that do nothing when the
+    /// list they act on is not the thing being looked at, so they stay on the
+    /// keyboard where they belong.
+    ///
+    /// The labels match the menu wherever the menu has the same item, so a
+    /// reader who learned a name in one place finds it in the other.
+    pub fn command_label(&self) -> Option<&'static str> {
+        let label = match self {
+            // History
+            Self::HistoryBack => "Back",
+            Self::HistoryForward => "Forward",
+
+            // Search
+            Self::SearchOpen => "Find in Page",
+
+            // Zoom
+            Self::ZoomIn => "Zoom In",
+            Self::ZoomOut => "Zoom Out",
+            Self::ZoomReset => "Actual Size",
+
+            // Clipboard — the two that act on the document rather than on
+            // whatever the content cursor happens to be standing on.
+            Self::CopyFilePath => "Copy File Path",
+            Self::CopyAsMarkdown => "Copy Document as Markdown",
+
+            // Window
+            Self::WindowNew => "New Window",
+            Self::WindowDuplicate => "Duplicate Window",
+            Self::WindowNewDocument => "New Document",
+            Self::WindowClose => "Close Window",
+            Self::WindowCloseAllChildWindows => "Close All Child Windows",
+            Self::WindowCloseAllWindows => "Close All Windows",
+            Self::WindowToggleSidebar => "Toggle Sidebar",
+            Self::WindowReload => "Reload Document",
+
+            // File
+            Self::FileOpen => "Open File\u{2026}",
+            Self::FileOpenDirectory => "Open Directory\u{2026}",
+            Self::FileSetParentAsRoot => "Add This Folder to the Library",
+            Self::FileToggleBookmark => "Toggle Star",
+            Self::FilePreferences => "Preferences\u{2026}",
+            Self::FileRevealInFinder => "Reveal in Finder",
+            Self::FilePrint => "Print\u{2026}",
+
+            // App
+            Self::AppAbout => "About Arto",
+            Self::AppQuit => "Quit Arto",
+            Self::AppGoToHomepage => "Go to Homepage",
+
+            // Contents
+            Self::ContentsToggle => "Contents",
+
+            // Sidebar
+            Self::SidebarToggleShowAllFiles => "Show All Files",
+            Self::SidebarFaceFiles => "Show Files",
+            Self::SidebarFaceRecent => "Show Recent",
+            Self::SidebarFaceStarred => "Show Starred",
+
+            // Theme
+            Self::ThemeSetLight => "Light Theme",
+            Self::ThemeSetDark => "Dark Theme",
+            Self::ThemeSetAuto => "Match System Theme",
+
+            _ => return None,
+        };
+        Some(label)
+    }
+}
+
+/// Every action that answers to a name, in the order the palette lists them.
+///
+/// The order is the enum's own, which groups related commands together; the
+/// palette does not re-sort, so a query that leaves several commands standing
+/// shows them in a stable order rather than one that moves as the list is
+/// narrowed.
+pub const COMMAND_ACTIONS: &[Action] = &[
+    Action::HistoryBack,
+    Action::HistoryForward,
+    Action::SearchOpen,
+    Action::ZoomIn,
+    Action::ZoomOut,
+    Action::ZoomReset,
+    Action::CopyFilePath,
+    Action::CopyAsMarkdown,
+    Action::WindowNew,
+    Action::WindowDuplicate,
+    Action::WindowNewDocument,
+    Action::WindowClose,
+    Action::WindowCloseAllChildWindows,
+    Action::WindowCloseAllWindows,
+    Action::WindowToggleSidebar,
+    Action::WindowReload,
+    Action::FileOpen,
+    Action::FileOpenDirectory,
+    Action::FileSetParentAsRoot,
+    Action::FileToggleBookmark,
+    Action::FilePreferences,
+    Action::FileRevealInFinder,
+    Action::FilePrint,
+    Action::AppAbout,
+    Action::AppQuit,
+    Action::AppGoToHomepage,
+    Action::ContentsToggle,
+    Action::SidebarToggleShowAllFiles,
+    Action::SidebarFaceFiles,
+    Action::SidebarFaceRecent,
+    Action::SidebarFaceStarred,
+    Action::ThemeSetLight,
+    Action::ThemeSetDark,
+    Action::ThemeSetAuto,
+];
+
 /// Actions that have a corresponding menu item and can therefore be bound as a
 /// native menu shortcut.
 ///
@@ -492,6 +609,41 @@ mod tests {
         assert!("unknown.action".parse::<Action>().is_err());
         assert!("".parse::<Action>().is_err());
         assert!("scroll".parse::<Action>().is_err());
+    }
+
+    #[test]
+    fn every_named_command_is_listed() {
+        for action in all_actions() {
+            let listed = COMMAND_ACTIONS.contains(&action);
+            assert_eq!(
+                action.command_label().is_some(),
+                listed,
+                "{action} is named but not listed in COMMAND_ACTIONS, or the other way round"
+            );
+        }
+    }
+
+    #[test]
+    fn motions_have_no_name() {
+        for action in [
+            Action::ScrollDown,
+            Action::CursorDown,
+            Action::ContentNext,
+            Action::FocusContent,
+            Action::PaletteOpen,
+            Action::Cancel,
+        ] {
+            assert_eq!(action.command_label(), None, "{action} should be unnamed");
+        }
+    }
+
+    #[test]
+    fn no_duplicate_command_labels() {
+        let mut seen = std::collections::HashSet::new();
+        for action in COMMAND_ACTIONS {
+            let label = action.command_label().expect("listed command has a label");
+            assert!(seen.insert(label), "duplicate command label: {label:?}");
+        }
     }
 
     #[test]
