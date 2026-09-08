@@ -187,7 +187,8 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .rail .rail-foot { margin-top: auto; }
 
 .panel { width: 226px; flex: none; background: var(--m-chrome); display: flex; flex-direction: column; }
-.panel.peek { position: absolute; left: 0; top: 0; bottom: 0; z-index: 5; box-shadow: 8px 0 28px -12px rgba(1, 4, 9, .45); }
+.panel.peek { position: absolute; left: 0; top: 0; bottom: 0; z-index: 5; }
+.panel.peek::after { content: ""; position: absolute; left: 100%; top: 0; bottom: 0; width: 26px; background: linear-gradient(to right, rgba(1, 4, 9, .15), rgba(1, 4, 9, 0)); pointer-events: none; }
 .pane-top { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 .pane-bottom { flex: none; height: 158px; display: flex; flex-direction: column; }
 .pane-div { height: 5px; flex: none; border-top: 1px solid var(--m-line); position: relative; }
@@ -233,6 +234,9 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .row.ind2 { padding-left: 36px; }
 .row.quiet { color: var(--m-faint); }
 .row:hover { background: var(--m-sel); }
+.row-div { display: flex; align-items: center; gap: 8px; margin: 5px 12px 4px; font-family: var(--mono); font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-faint); }
+.row-div::after { content: ""; flex: 1; height: 1px; background: var(--m-line); }
+.row .pinmark { color: var(--m-faint); flex: none; }
 .panel-foot { margin-top: auto; display: flex; align-items: center; padding: 4px 6px; border-top: 1px solid var(--m-line); }
 
 /* TOC gutter --------------------------------------------------------- */
@@ -334,6 +338,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
     <symbol id="ic-sun" viewBox="0 0 24 24"><path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/><path d="M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5 19 19M3 12h2M19 12h2M5 19l1.5-1.5M17.5 6.5 19 5"/></symbol>
     <symbol id="ic-cmd" viewBox="0 0 24 24"><path d="M7 9a2 2 0 1 1 2-2v10a2 2 0 1 1-2-2h10a2 2 0 1 1-2 2V7a2 2 0 1 1 2 2z"/></symbol>
     <symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="ic-pin" viewBox="0 0 24 24"><path d="M9 4v6l-2 4v2h10v-2l-2-4V4M12 16v5M8 4h8"/></symbol>
     <symbol id="ic-sidebar" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M9 4v16"/></symbol>
     <symbol id="ic-doc-open" viewBox="0 0 24 24"><path d="M3 19V6a2 2 0 0 1 2-2h5v15H5a2 2 0 0 0-2 2z"/><path d="M21 19V6a2 2 0 0 0-2-2h-5v15h5a2 2 0 0 1 2 2z"/></symbol>
   </defs>
@@ -555,6 +560,166 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
 
   <!-- ============================================================= -->
   <section class="sec">
+    <p class="sec-label">再考</p>
+    <div class="col">
+      <h2>「開いている」は、そもそも必要な状態でしょうか</h2>
+      <p>
+        タブを止めることには賛成をいただきました。ただ、下段に <span class="mono">Open</span> を据えるのは
+        <strong>タブの器を縦に置き換えただけ</strong>で、概念はそのまま残っています。ここを疑ってみます。
+      </p>
+      <p>
+        Arto は読むためのアプリで、<strong>未保存の状態がありません</strong>。エディタで「開いている」が意味を持つのは、
+        閉じると失うものがあるからです。失うものが無い場所では、「開いている」と「最近見た」の差は
+        ―― 意図して残したかどうか、それだけになります。
+      </p>
+    </div>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">案</th>
+            <th scope="col">持つ状態</th>
+            <th scope="col">「閉じる」は</th>
+            <th scope="col">12本問題</th>
+            <th scope="col">同時に見える</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">α — 下段に Open（現案）</th>
+            <td>開いている集合 ＋ 履歴</td><td class="num">明示的に閉じる</td>
+            <td>縦なので破綻はしない。ただし溜まる</td><td class="num">○</td>
+          </tr>
+          <tr>
+            <th scope="row">β — Open を廃し Recent だけ</th>
+            <td>履歴のみ</td><td class="num">存在しない</td>
+            <td class="num">原理的に起きない</td><td class="num">○</td>
+          </tr>
+          <tr>
+            <th scope="row">γ — 1本のリスト。上が留めたもの、下が履歴</th>
+            <td>履歴 ＋ その中の留め</td><td class="num">留めを外す</td>
+            <td class="num">原理的に起きない</td><td class="num">○</td>
+          </tr>
+          <tr>
+            <th scope="row">δ — 軌跡だけ（ヘッダーのパンくず）</th>
+            <td>いま辿ってきた道</td><td class="num">存在しない</td>
+            <td class="num">起きない</td><td class="num">×（一覧にならない）</td>
+          </tr>
+          <tr>
+            <th scope="row">ε — ⌘K の中だけ</th>
+            <td>履歴のみ</td><td class="num">存在しない</td>
+            <td class="num">起きない</td><td class="num">×（常設しない）</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col" style="margin-top:26px">
+      <p>
+        δ と ε は「ファイラーと開いているファイルを同時に見たい」に反するので、今回は落ちます。
+        残る α・β・γ の差は、<strong>作業セットを自分で決められるか</strong>の一点です。
+        β は決められません ―― 5本を行き来していても、6本目を開けば順番が変わります。
+        α は決められますが、そのために「開く／閉じる」という管理を利用者に課します。
+      </p>
+      <h3>γ を推します</h3>
+      <p>
+        リストは<strong>1本だけ</strong>。上に留めたもの、下に通ってきた履歴。留めるのは能動的な操作ですが、
+        しなくても履歴として全部そこにあります ―― <strong>何もしなければ勝手に流れ、必要なら留める</strong>。
+        タブの「開いたら閉じるまで責任を持つ」という関係が消えます。
+      </p>
+    </div>
+
+    <div class="mock-band">
+      <div class="mock-scroll">
+        <div class="mock" style="min-width:700px">
+          <div class="mock-tb">
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="tb-title">README.md — arto</div>
+          </div>
+          <div class="mock-body" style="min-height:390px">
+            <div class="rail open qzone">
+              <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
+              <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
+            </div>
+            <div class="panel qzone" style="width:236px">
+              <div class="pane-top">
+                <div class="sect open">Workspace <span class="count">3</span></div>
+                <div class="rows">
+                  <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
+                  <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>crates</span></div>
+                  <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>docs</span></div>
+                  <div class="row ind sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
+                  <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
+                </div>
+              </div>
+              <div class="pane-div"></div>
+              <div class="pane-bottom" style="height:176px">
+                <div class="sect open">Documents <span class="count">2 pinned</span></div>
+                <div class="rows">
+                  <div class="row sel"><svg class="i sm pinmark"><use href="#ic-pin"/></svg><span>README.md</span><span class="sub">arto</span></div>
+                  <div class="row"><svg class="i sm pinmark"><use href="#ic-pin"/></svg><span>keybindings.md</span><span class="sub">docs</span></div>
+                  <div class="row-div">recent</div>
+                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>cli.md</span><span class="sub">14:52</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>ui-design.md</span><span class="sub">14:20</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>installation.md</span><span class="sub">昨日</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>ipc.md</span><span class="sub">昨日</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="stage" style="flex-direction:column">
+              <div class="hdr qzone">
+                <span class="q"><svg class="i md"><use href="#ic-left"/></svg></span>
+                <span class="crumb">arto <span style="color:var(--m-line)">/</span> <b>README.md</b> <span class="hint">⌘K</span></span>
+                <span class="spacer"></span>
+                <span class="q"><svg class="i md"><use href="#ic-search"/></svg></span>
+                <span class="q"><svg class="i md"><use href="#ic-narrow"/></svg></span>
+                <span class="q"><svg class="i md"><use href="#ic-sunmoon"/></svg></span>
+              </div>
+              <div style="display:flex;flex:1">
+                <div class="doc">
+                  <div class="doc-narrow">
+                    <h1>Arto</h1>
+                    <p>Arto — the Art of Reading Markdown. A desktop app that renders Markdown the way GitHub does, locally and offline.</p>
+                    <h2>Why</h2>
+                    <p>Most Markdown tools are built for writing. Arto is built for reading: the name is short for “Art of Reading”.</p>
+                  </div>
+                </div>
+                <div class="gutter">
+                  <span class="tick h1 cur"></span>
+                  <span class="tick h2"></span>
+                  <span class="tick h3"></span>
+                  <span class="tick h2 hit"></span>
+                  <span class="tick h2"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="caption">
+        <b>γ の下段。</b>留めた2本が上、その下は通ってきた順の履歴です。区切りの細線は<strong>同じ面が接する場所</strong>なので、
+        原則 07 のとおり線が正しい手段になります。留める／外すは行のホバーで出る印から。
+        <span class="mono">Recent</span> がここに入るので、レールは <span class="mono">Files</span> と <span class="mono">Starred</span> の2つに減ります。
+      </p>
+    </div>
+
+    <div class="col" style="margin-top:30px">
+      <h3>この案が抱えるもの</h3>
+      <ul class="list">
+        <li><span class="tag move">1</span><strong>「留める」と「お気に入り」が似ています。</strong><span class="why">留める＝いまの作業セット（そのワークスペース限り）、お気に入り＝恒久的な置き場（ライブラリに出る）。役割は違いますが、利用者から見て2つ覚える価値があるかは要検討です。統合するなら、お気に入りを消して「留めたものは残り続ける」に寄せる手もあります。</span></li>
+        <li><span class="tag move">2</span><strong>履歴の寿命を決める必要があります。</strong><span class="why">直近 50 件か、7日間か。溜まり続けると下段のスクロールが長くなります。留めたものは対象外です。</span></li>
+        <li><span class="tag keep">3</span><strong>ウィンドウ間のドラッグは残ります。</strong><span class="why">行をドラッグして別ウィンドウへ、はどの案でも同じです。移した先では履歴の先頭に入ります。</span></li>
+        <li><span class="tag move">4</span><strong>β のほうが正しい可能性もあります。</strong><span class="why">留める操作を実際にはほとんど使わないなら、γ は使われない機能を1つ抱えることになります。まず β（履歴だけ）で出して、留めたくなるかを見る、という順序もあり得ます。</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <section class="sec">
     <p class="sec-label">原則</p>
     <div class="col">
       <h2>押しやすさと存在感は、分けて設計できます</h2>
@@ -702,7 +867,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         </thead>
         <tbody>
           <tr><th scope="row">パネル ↔ 本文</th><td class="num">面 ＋ 線</td><td class="num">面のみ</td><td>地の色が違うので、線は二重</td></tr>
-          <tr><th scope="row">レール ↔ パネル</th><td class="num">線</td><td class="num">なし</td><td>同じ面 ―― そもそも1枚</td></tr>
+          <tr><th scope="row">レール ↔ パネル</th><td class="num">線</td><td class="num">なし</td><td>パネルが出ている間は同じ面 ―― 継ぎ目は見えなくて正しい。覗きの影も右側にしか落としません</td></tr>
           <tr><th scope="row">畳んだレール ↔ 本文</th><td class="num">線</td><td class="num">なし</td><td>本文の余白の中に印が並ぶだけ。ぶつかるものがない</td></tr>
           <tr><th scope="row">ヘッダー ↔ 本文</th><td class="num">線（常時）</td><td class="num">余白 ／ スクロール中だけ線</td><td>下を何かが通るときにだけ、線に仕事がある</td></tr>
           <tr><th scope="row">上段 ↔ 下段</th><td class="num">線</td><td class="num"><strong>線</strong>（残す）</td><td>同じ面が接する唯一の場所。ここだけは線でしか区別できない</td></tr>
@@ -1208,7 +1373,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <li><code>root_directory</code> をルートのリストへ。ツリーを複数ルート対応に</li>
             <li>アプリ横断の閲覧履歴を持つ（Recent の実体）</li>
             <li>レール（Files / Recent / Starred ＋ 歯車）と、上下2段のパネル。境界はドラッグで可変</li>
-            <li>下段の Open にタブの中身を移し、タブバーを外す。行のドラッグでウィンドウ間移動</li>
+            <li>下段に文書の一覧を置き、タブバーを外す。行のドラッグでウィンドウ間移動</li>
+            <li>下段の中身は α・β・γ のいずれか（「再考」の節）。内部の持ち方は履歴＋フラグなので、後から入れ替えられます</li>
             <li>畳む / 覗く / 留める の3状態と、<span class="mono">120ms</span> / <span class="mono">240ms</span> の滞留・猶予</li>
             <li>右サイドバーを廃止し、目次を本文右のガターへ</li>
           </ul>
@@ -1247,7 +1413,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <h2>触ってから決めたい3点</h2>
       <ul class="list" style="margin-top:18px">
         <li><span class="tag move">1</span><strong>30% は薄すぎませんか。</strong><span class="why">このページのデモは sRGB のブラウザ表示です。実機の輝度と GitHub テーマの背景では印象が変わるので、Phase 0 で 30 / 40 / 50 を並べて決めましょう。high contrast テーマでは自動的に 1段階上げる想定です。</span></li>
-        <li><span class="tag move">2</span><strong>下段は Open だけで足りますか。</strong><span class="why">Recent（最近閉じたもの）は性質が近いので、下段を「開いているものを上に、閉じたものを区切り線の下に」という一本のリストにして、レールを Files / Starred の2つに減らす案もあります。どちらが自然かは、閉じた文書へ戻る頻度次第です。</span></li>
+        <li><span class="tag move">2</span><strong>下段は α・β・γ のどれにしますか。</strong><span class="why">「再考」の節にまとめました。α＝開いている集合を持つ（現案）、β＝履歴だけ、γ＝履歴の中に留めを持つ。私は γ を推しますが、留める操作を使わないと見るなら β のほうが素直です。ここが決まると、レールが3つか2つかも決まります。</span></li>
         <li><span class="tag move">4</span><strong>覗きの 120ms / 240ms は妥当ですか。</strong><span class="why">短いと通り抜けで開き、長いと反応が鈍く感じます。Phase 1 で 80 / 120 / 200ms を試して決めましょう。設定で切れるようにもします。</span></li>
         <li><span class="tag move">3</span><strong>ヘッダーの3つは、これで合っていますか。</strong><span class="why">検索・幅・テーマを選びました。ここは「読んでいる最中に触るもの」だけを置く場所なので、実際の使用頻度と合わなければ入れ替えます（候補: 印刷、Finder で表示、ズーム）。</span></li>
       </ul>
