@@ -186,29 +186,29 @@ mod tests {
         let bindings = BindingSet {
             menu_shortcuts: vec![KeyAction {
                 key: "Cmd+w".to_string(),
-                action: "tab.close".to_string(),
+                action: "file.open".to_string(),
             }],
             global: vec![KeyAction {
                 key: "x".to_string(),
-                action: "tab.close".to_string(),
+                action: "file.open".to_string(),
             }],
             sidebar: vec![KeyAction {
                 key: "d".to_string(),
-                action: "tab.close".to_string(),
+                action: "file.open".to_string(),
             }],
             ..Default::default()
         };
 
         assert_eq!(
-            hint_for_action(&bindings, "tab.close", Some(KeyContext::Sidebar)),
+            hint_for_action(&bindings, "file.open", Some(KeyContext::Sidebar)),
             Some(format_shortcut_hint("d"))
         );
         assert_eq!(
-            hint_for_action(&bindings, "tab.close", Some(KeyContext::Content)),
+            hint_for_action(&bindings, "file.open", Some(KeyContext::Content)),
             Some(format_shortcut_hint("x"))
         );
         assert_eq!(
-            hint_for_action(&bindings, "tab.close", None),
+            hint_for_action(&bindings, "file.open", None),
             Some(format_shortcut_hint("x"))
         );
 
@@ -217,7 +217,7 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            hint_for_action(&menu_only, "tab.close", None),
+            hint_for_action(&menu_only, "file.open", None),
             Some(format_shortcut_hint("Cmd+w"))
         );
         assert_eq!(hint_for_action(&menu_only, "no.such.action", None), None);

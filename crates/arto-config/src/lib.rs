@@ -215,7 +215,7 @@ mod tests {
             keybindings: BindingSet {
                 global: vec![KeyAction {
                     key: "Ctrl+k".to_string(),
-                    action: "tab.close".to_string(),
+                    action: "file.open".to_string(),
                 }],
                 ..Default::default()
             },

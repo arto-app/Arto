@@ -92,7 +92,7 @@ mod tests {
     #[test]
     fn structured_json() {
         let json = r#"{
-            "global": [{"key": "x", "action": "tab.close"}],
+            "global": [{"key": "x", "action": "file.open"}],
             "sidebar": [{"key": "o", "action": "cursor.enter"}]
         }"#;
         let set: BindingSet = serde_json::from_str(json).unwrap();

@@ -351,7 +351,7 @@ mod tests {
             global: vec![
                 KeyAction {
                     key: "Ctrl+Shift+x".to_string(),
-                    action: "tab.close".to_string(),
+                    action: "file.open".to_string(),
                 },
                 KeyAction {
                     key: "Ctrl+Alt+v".to_string(),
