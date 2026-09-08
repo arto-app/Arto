@@ -148,10 +148,12 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
   width: 30px; height: 30px; border-radius: 5px; color: var(--m-text);
   opacity: var(--qo, .30); transition: opacity .18s ease, background-color .18s ease;
 }
-.qzone:hover .q { --qo: .72; }
-.force-hover .q { --qo: .72; }
+/* State is ink density, not hue: the active control simply sits one
+   step further up the same scale everything else moves along. */
+.q.on { --qo: .65; }
+.qzone:hover .q, .force-hover .q { --qo: .72; }
+.qzone:hover .q.on, .force-hover .q.on { --qo: 1; }
 .q:hover { --qo: 1; background: var(--m-sel); }
-.q.on { --qo: 1; color: var(--m-accent); }
 
 .doc { flex: 1; padding: 26px 34px; min-width: 0; }
 .doc-narrow { max-width: 460px; margin: 0 auto; }
@@ -170,11 +172,15 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .spacer { flex: 1; }
 
 /* Panel -------------------------------------------------------------- */
-/* Rail — the panel's spine and its hover handle. Same quiet spec as
-   every other control: 16px glyph, no fill, accent + 2px indicator. */
-.rail { width: 40px; flex: none; border-right: 1px solid var(--m-line); background: var(--m-chrome); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; }
+/* Rail — the panel's spine and its hover handle. It carries no surface
+   of its own: pinned, it is simply the panel's left 40px; collapsed, it
+   is the document's own ground with a hairline and a few marks on it. */
+.rail { width: 40px; flex: none; background: var(--m-chrome); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; }
+/* Collapsed: no surface of its own — the document's ground, a hairline,
+   and a few marks. Pinned: the same surface as the panel, no line between. */
+.rail.alone { background: transparent; border-right: 1px solid var(--m-line); }
 .rail .q { position: relative; }
-.rail .q.on::before { content: ""; position: absolute; left: -5px; top: 6px; width: 2px; height: 18px; border-radius: 1px; background: var(--m-accent); }
+.rail .q.on::before { content: ""; position: absolute; left: -5px; top: 6px; width: 2px; height: 18px; border-radius: 1px; background: currentColor; opacity: .55; }
 .rail .rail-foot { margin-top: auto; }
 
 .panel { width: 226px; flex: none; border-right: 1px solid var(--m-line); background: var(--m-chrome); display: flex; flex-direction: column; }
@@ -217,7 +223,7 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .row { display: flex; align-items: center; gap: 7px; padding: 4px 12px; font-size: 11px; color: var(--m-dim); white-space: nowrap; overflow: hidden; border-radius: 4px; margin: 0 4px; }
 .row span { overflow: hidden; text-overflow: ellipsis; }
 .row .sub { color: var(--m-faint); font-size: 10px; margin-left: auto; font-family: var(--mono); flex: none; }
-.row.sel { background: var(--m-sel); color: var(--m-text); box-shadow: inset 2px 0 0 var(--m-accent); }
+.row.sel { background: var(--m-sel); color: var(--m-text); font-weight: 500; }
 .row.ind { padding-left: 24px; }
 .row.ind2 { padding-left: 36px; }
 .row.quiet { color: var(--m-faint); }
@@ -228,7 +234,7 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .gutter { width: 24px; flex: none; padding: 28px 0 0; display: flex; flex-direction: column; align-items: center; gap: 5px; }
 .tick { height: 2px; border-radius: 1px; background: var(--m-line); }
 .tick.h1 { width: 14px; } .tick.h2 { width: 9px; } .tick.h3 { width: 5px; }
-.tick.cur { background: var(--m-accent); height: 3px; }
+.tick.cur { background: var(--m-text); height: 3px; opacity: .75; }
 .tick.hit { background: var(--care); }
 
 /* Palette ------------------------------------------------------------ */
@@ -236,12 +242,12 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .dim { position: absolute; inset: 0; background: var(--m-bg); opacity: .72; }
 .palette { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); width: 450px; background: var(--m-bg); border: 1px solid var(--m-line); border-radius: 10px; box-shadow: var(--m-shadow); overflow: hidden; }
 .palette .qy { display: flex; align-items: center; gap: 9px; padding: 11px 13px; border-bottom: 1px solid var(--m-line); font-size: 13px; color: var(--m-text); }
-.palette .qy .cursor { width: 1px; height: 15px; background: var(--m-accent); }
+.palette .qy .cursor { width: 1px; height: 15px; background: var(--m-text); opacity: .7; }
 .pgroup { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-faint); padding: 9px 13px 4px; }
 .prow { display: flex; align-items: center; gap: 9px; padding: 5px 13px; font-size: 11.5px; color: var(--m-dim); }
-.prow.sel { background: var(--m-accent-bg); color: var(--m-text); }
+.prow.sel { background: var(--m-sel); color: var(--m-text); }
 .prow .path { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--m-faint); }
-.prow mark { background: transparent; color: var(--m-accent); font-weight: 600; }
+.prow mark { background: transparent; color: var(--m-text); font-weight: 600; }
 .palette .foot { display: flex; gap: 14px; padding: 7px 13px; border-top: 1px solid var(--m-line); font-family: var(--mono); font-size: 9.5px; color: var(--m-faint); }
 
 /* Library ------------------------------------------------------------ */
@@ -423,7 +429,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>CONTRIBUTING.md</span></div>
           </div>
         </div>
-        <p class="demo-cap">16px・線幅 1.5・不透明度 30% ／ 塗りなし・2px の指示線 ／ 幅 40px ／ 項目 3</p>
+        <p class="demo-cap">16px・線幅 1.5・不透明度 30% ／ 塗りなし・無彩色 ／ 幅 40px ／ 項目 3</p>
       </div>
     </div>
 
@@ -532,7 +538,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <p class="caption">
         <b>上段にツリー、下段に開いている12本。</b>レールにポインタを乗せると3つのグリフが起き、
         段の境界にはドラッグ用の摘みが現れます。下段の行はドラッグでウィンドウ間に移せます ―― タブでやっていた操作の行き先です。
-        読んでいる間に見えているグリフは、レールの4つとヘッダー右の3つ、合計7つ。すべて 30% で、面も枠も持ちません。
+        読んでいる間に見えているグリフは、レールの4つとヘッダー右の3つ、合計7つ。選ばれている1つだけ 65%、残りは 30% で、
+        面も枠も色も持ちません ―― レールにあるのは、グリフの左に添えた無彩色 2px だけです。
       </p>
     </div>
   </section>
@@ -601,15 +608,22 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <div class="rule">
         <div class="n">04</div>
         <div>
-          <b>状態は色で示し、面では示さない</b>
-          <p>選択中・有効中は accent 色と 2px の指示線だけ。塗りつぶしのチップは、静止画面に「強い矩形」を増やすので使いません。</p>
+          <b>状態は濃さで示す</b>
+          <p>選択中・有効中には色を付けません。同じ不透明度の尺の上で<strong>一段だけ濃い</strong>（30% → 65%）。位置が要るところにだけ、無彩色の 2px を添えます。</p>
         </div>
         <div class="demo">
-          <div class="demo-box" style="padding:6px 0">
-            <div class="row sel" style="margin:0 6px"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
-            <div class="row" style="margin:0 6px"><svg class="i sm"><use href="#ic-file"/></svg><span>cli.md</span></div>
+          <div class="demo-box" style="padding:0;display:flex;overflow:hidden">
+            <div class="rail" style="padding:6px 0;background:transparent">
+              <span class="q on"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
+              <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
+            </div>
+            <div style="flex:1;padding:10px 0;min-width:0">
+              <div class="row sel" style="margin:0 8px 0 0"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
+              <div class="row" style="margin:0 8px 0 0"><svg class="i sm"><use href="#ic-file"/></svg><span>cli.md</span></div>
+            </div>
           </div>
-          <p class="demo-cap">左 2px の線 ＋ 文字色。塗りは 4% 相当</p>
+          <p class="demo-cap">選択行は地と文字の太さ。レールは 65% と無彩色 2px</p>
         </div>
       </div>
 
@@ -641,6 +655,19 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <p class="demo-cap">ホバーで面と <kbd>⌘K</kbd> のヒントが出る</p>
         </div>
       </div>
+    </div>
+
+    <div class="col" style="margin-top:34px">
+      <h3>結果として、クロームから色が消えます</h3>
+      <p>
+        04 を通すと、accent 色を使う場所が UI から無くなります。残る色は<strong>本文の中だけ</strong> ――
+        リンク、コードのシンタックス、そしてピン留め検索の色です。あの色は利用者が自分で付けたもので、
+        これは意味を持つ唯一の色として残す価値があります。
+      </p>
+      <p>
+        目次ガターの現在地も同じ扱いにしました。青い目盛りではなく、周りが 30% の中で<strong>そこだけ 75%</strong> です。
+        位置は濃さと場所で分かるので、色を使う理由がありません。
+      </p>
     </div>
   </section>
 
@@ -713,7 +740,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <div class="tb-title">README.md — arto</div>
           </div>
           <div class="mock-body" style="min-height:320px">
-            <div class="rail force-hover">
+            <div class="rail alone force-hover">
               <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
               <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
@@ -765,7 +792,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <div class="tb-title">README.md — arto</div>
           </div>
           <div class="mock-body" style="min-height:210px">
-            <div class="rail">
+            <div class="rail alone">
               <span class="q" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
               <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
@@ -791,7 +818,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <p class="caption">
         <b>畳んで（<kbd>⌘B</kbd>）、全幅にし、ダークにした状態。</b>ヘッダーにポインタが乗っているときの見え方です。
         レールは残っているので、戻す手段を別に用意する必要がありません ―― 乗せれば覗け、押せば留まります。
-        どのセクションも選ばれていないので、レールに指示線はありません。有効中の幅トグルは accent 色 ―― 塗りつぶしではありません。
+        どのセクションも選ばれていないので、レールに指示線はありません。有効中の幅トグルは 65% ―― 色でも塗りでもありません。
+        レールは自分の背景を持たないので、畳んでいる間は本文と同じ地の上に、1px の境界と印だけが残ります。
       </p>
     </div>
   </section>
@@ -818,13 +846,13 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           </tr>
         </thead>
         <tbody>
-          <tr><th scope="row">上段の切替（Files / Recent / Starred）</th><td>レールの3グリフ</td><td class="num">30% ／ 選択中は accent + 2px 線</td><td><span class="k">⌘1–⌘3</span></td></tr>
+          <tr><th scope="row">上段の切替（Files / Recent / Starred）</th><td>レールの3グリフ</td><td class="num">30% ／ 選択中は 65% ＋ 無彩色 2px</td><td><span class="k">⌘1–⌘3</span></td></tr>
           <tr><th scope="row">開いている文書の一覧</th><td>パネル下段（切り替わらない常設）</td><td class="num">常時</td><td><span class="k">⌘0</span></td></tr>
           <tr><th scope="row">上下段の高さ</th><td>段の境界をドラッグ</td><td class="num">1px の線のみ ／ 摘みはホバー時</td><td>—</td></tr>
           <tr><th scope="row">戻る / 進む</th><td>ヘッダー左（16px）</td><td class="num">30% ／ 不能なら非表示</td><td><span class="k">⌘[ ⌘]</span></td></tr>
           <tr><th scope="row">移動・コマンド（⌘K）</th><td>ヘッダーのパンくずをクリック</td><td class="num">文字として常時</td><td><span class="k">⌘K</span></td></tr>
           <tr><th scope="row">ページ内検索</th><td>ヘッダー右（16px）</td><td class="num">30%</td><td><span class="k">⌘F</span></td></tr>
-          <tr><th scope="row">幅（読み幅 / 全幅）</th><td>ヘッダー右（16px）</td><td class="num">30% ／ 有効中は accent</td><td><span class="k">⌘⇧W</span></td></tr>
+          <tr><th scope="row">幅（読み幅 / 全幅）</th><td>ヘッダー右（16px）</td><td class="num">30% ／ 有効中は 65%</td><td><span class="k">⌘⇧W</span></td></tr>
           <tr><th scope="row">テーマ（Light / Dark / Auto）</th><td>ヘッダー右（16px）</td><td class="num">30% ／ 現在の状態を表示</td><td><span class="k">⌘⇧T</span></td></tr>
           <tr><th scope="row">目次</th><td>本文右のガター（目盛り）</td><td class="num">2px の線のみ</td><td><span class="k">⌘J</span></td></tr>
           <tr><th scope="row">設定</th><td>レール下端の歯車</td><td class="num">30%</td><td><span class="k">⌘,</span></td></tr>
@@ -844,7 +872,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         テーマは<strong>クリックで巡回</strong>します（Light → Dark → Auto）。今のドロップダウンは畳んで、
         アイコンが現在の状態そのものになります ―― <span class="mono">sun</span> / <span class="mono">moon</span> / <span class="mono">sun-moon</span> の3つは既にあります。
         3つを一覧したいときは右クリックでメニュー。幅は <span class="mono">viewport-wide</span> ⇄ <span class="mono">viewport-narrow</span> の2状態で、
-        有効中だけ accent 色になります。
+        有効中だけ一段濃く（65%）なります。
       </p>
     </div>
   </section>
@@ -878,7 +906,9 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">領域ホバー時</th><td class="num">—</td><td class="num">0.72 <span class="k">--opacity-woken</span></td><td>新規トークン。親の <span class="mono">:hover</span> で切替</td></tr>
           <tr><th scope="row">直接ホバー時</th><td class="num">0.8 <span class="k">--opacity-hover</span></td><td class="num">1.0</td><td>面は <span class="mono">--bg-secondary</span>、枠なし</td></tr>
           <tr><th scope="row">遷移</th><td class="num">0.2s</td><td class="num">0.18s ease</td><td><span class="mono">opacity</span> と <span class="mono">background-color</span> のみ</td></tr>
-          <tr><th scope="row">有効中</th><td class="num">accent 背景 8–10%</td><td class="num">accent 文字色のみ</td><td>選択行とレールは 2px の指示線</td></tr>
+          <tr><th scope="row">有効中・選択中</th><td class="num">accent 背景 8–10%</td><td class="num">不透明度 0.65 <span class="k">--opacity-active</span></td><td>新規トークン。色は付けない</td></tr>
+          <tr><th scope="row">選択行</th><td class="num">accent 枠 + accent 8% の地</td><td class="num"><span class="mono">--bg-secondary</span> ＋ 文字 500</td><td>左の accent 線は廃止</td></tr>
+          <tr><th scope="row">レールの地</th><td class="num">—</td><td class="num">持たない</td><td>留めている間はパネルと同一面（境界線なし）、畳めば本文と同じ地</td></tr>
           <tr><th scope="row">レール幅</th><td class="num">—</td><td class="num">40px</td><td>グリフ 16px を 30×30 の判定で中央に</td></tr>
           <tr><th scope="row">覗きの開始</th><td class="num">即時（端 1px）</td><td class="num">120ms の滞留（レール上）</td><td><span class="mono">--peek-open-delay</span></td></tr>
           <tr><th scope="row">覗きの終了</th><td class="num">即時</td><td class="num">240ms の猶予</td><td><span class="mono">--peek-close-delay</span>。斜め移動を許容</td></tr>
