@@ -240,6 +240,10 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .row-div { display: flex; align-items: center; gap: 8px; margin: 5px 12px 4px; font-family: var(--mono); font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-faint); }
 .row-div::after { content: ""; flex: 1; height: 1px; background: var(--m-line); }
 .row .pinmark { color: var(--m-faint); flex: none; }
+.row-fold { display: flex; align-items: center; gap: 7px; margin: 2px 8px; padding: 4px 4px; border-radius: 4px; font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; color: var(--m-faint); }
+.row-fold:hover { background: var(--m-sel); }
+.row-fold .cnt { margin-left: auto; letter-spacing: .04em; }
+.filter-hint { display: flex; align-items: center; gap: 7px; margin: 0 8px 4px; padding: 4px 6px; font-size: 10.5px; color: var(--m-faint); opacity: .55; }
 .panel-foot { margin-top: auto; display: flex; align-items: center; padding: 4px 6px; border-top: 1px solid var(--m-line); }
 
 /* TOC gutter --------------------------------------------------------- */
@@ -518,8 +522,9 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
     <div class="mock-band">
       <h3 style="margin-top:34px">パターン A — パネルの1面にする</h3>
       <p class="caption" style="margin:0 0 14px">
-        レールの <span class="mono">Recent</span> を押すと、パネルがまるごと履歴になります。日付でまとまり、下へ辿れば先週まで。
-        ツリーと同時には見えませんが、切り替えは1クリックです。
+        レールの <span class="mono">Recent</span> を押すと、パネルがまるごと履歴になります。<strong>全期間が辿れます</strong> ――
+        近いところは日ごと、遡るにつれて週・月・年へとまとまりが粗くなり、古い束は畳んだまま件数だけを出します。
+        打ち始めれば、その場で絞り込みに変わります。
       </p>
       <div class="mock-scroll">
         <div class="mock" style="min-width:700px">
@@ -537,17 +542,23 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <div class="panel qzone" style="width:230px">
               <div class="sect open">Recent</div>
               <div class="rows">
+                <div class="filter-hint"><svg class="i sm"><use href="#ic-search"/></svg><span>打つと絞り込み</span></div>
                 <div class="row-div">今日</div>
                 <div class="row sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span><span class="sub">15:31</span></div>
                 <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>keybindings.md</span><span class="sub">15:20</span></div>
                 <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>ui-design.md</span><span class="sub">14:52</span></div>
-                <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>cli.md</span><span class="sub">11:07</span></div>
                 <div class="row-div">昨日</div>
                 <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>installation.md</span><span class="sub">19:44</span></div>
-                <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>CONTRIBUTING.md</span><span class="sub">18:02</span></div>
                 <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>ipc.md</span><span class="sub">17:31</span></div>
-                <div class="row-div">先週</div>
+                <div class="row-div">今週</div>
                 <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>windows.md</span><span class="sub">金</span></div>
+                <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>CONTRIBUTING.md</span><span class="sub">木</span></div>
+                <div class="row-fold"><svg class="i xs"><use href="#ic-right"/></svg><span>先週</span><span class="cnt">12</span></div>
+                <div class="row-fold"><svg class="i xs"><use href="#ic-right"/></svg><span>10月</span><span class="cnt">64</span></div>
+                <div class="row-fold"><svg class="i xs"><use href="#ic-right"/></svg><span>9月</span><span class="cnt">41</span></div>
+                <div class="row-fold"><svg class="i xs"><use href="#ic-right"/></svg><span>8月</span><span class="cnt">57</span></div>
+                <div class="row-fold"><svg class="i xs"><use href="#ic-right"/></svg><span>2024年</span><span class="cnt">318</span></div>
+                <div class="row-fold"><svg class="i xs"><use href="#ic-right"/></svg><span>2023年</span><span class="cnt">96</span></div>
               </div>
             </div>
             <div class="stage" style="flex-direction:column">
@@ -571,6 +582,39 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="col" style="margin-top:22px">
+      <h3>まとまりの粗さ</h3>
+      <p>
+        近いものほど細かく、遠いものほど粗く。境目は重ならないように順に切ります。
+      </p>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">範囲</th><th scope="col">見出し</th><th scope="col">既定</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">今日 / 昨日</th><td>日ごと</td><td class="num">開いている</td></tr>
+          <tr><th scope="row">今週（今日・昨日を除く）</th><td>今週</td><td class="num">開いている</td></tr>
+          <tr><th scope="row">先週</th><td>先週</td><td class="num">畳んでいる</td></tr>
+          <tr><th scope="row">今年の、それ以前</th><td>月ごと（10月、9月…）</td><td class="num">畳んでいる</td></tr>
+          <tr><th scope="row">昨年以前</th><td>年ごと（2024年…）</td><td class="num">畳んでいる</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col" style="margin-top:22px">
+      <p>
+        畳んだ束は見出しと件数の1行だけなので、<strong>5年分あってもリストは十数行で収まります</strong>。
+        開けばその中がまた日付順に並びます。開閉の状態は覚えません ―― 次に開いたときは既定に戻ります。
+      </p>
+      <p>
+        全期間を持つので、保持の上限は<strong>件数だけ</strong>にします（既定 5,000 件）。
+        消えたファイルの行は残し、30% の文字で「見つかりません」と添えて、クリックしても開きません ――
+        いつ何を読んだかという記録は、ファイルが動いても価値があるからです。
+      </p>
     </div>
 
     <!-- パターン B -->
@@ -825,7 +869,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         <tbody>
           <tr>
             <th scope="row">最近読んだものを余白に表示</th>
-            <td>常に表示 ／ <strong>パネルを畳んでいるときだけ</strong> ／ 表示しない</td>
+            <td>常に表示（全幅でも）／ <strong>パネルを畳んでいるときだけ</strong> ／ 表示しない</td>
             <td class="num">畳んでいるときだけ</td>
           </tr>
           <tr><th scope="row">表示する件数</th><td>4 – 8</td><td class="num">6</td></tr>
@@ -840,8 +884,62 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         「戻る先が見えていてほしい」という需要がちょうど立ち上がります。
       </p>
       <p>
-        全幅表示（<span class="mono">viewport-wide</span>）のときは、本文が余白を使い切るので自動的に引っ込めます。
-        設定が「常に表示」でも、そこは本文が優先です。
+        「常に表示」は<strong>全幅表示（<span class="mono">viewport-wide</span>）でも出します</strong>。
+        そのために痕跡は自分の列を持ち、本文と場所を取り合いません ―― 全幅とは
+        「本文が<strong>残りの幅</strong>を使い切る」という意味になります。勝手に引っ込む例外は作りません。
+      </p>
+      <p>
+        代わりに、選んだ結果は見たとおりです。パネルを留めたうえで全幅にして「常に表示」なら、
+        レール・パネル・痕跡・本文が並びます ―― それを選べる、というだけの話です。
+      </p>
+    </div>
+
+    <div class="mock-band">
+      <div class="mock-scroll">
+        <div class="mock" style="min-width:760px">
+          <div class="mock-tb">
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="tb-title">README.md — arto</div>
+          </div>
+          <div class="mock-body" style="min-height:240px">
+            <div class="rail qzone">
+              <span class="q" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
+              <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
+              <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
+            </div>
+            <div class="stage" style="flex-direction:column">
+              <div class="hdr qzone">
+                <span class="q"><svg class="i md"><use href="#ic-left"/></svg></span>
+                <span class="crumb">arto <span style="color:var(--m-line)">/</span> <b>README.md</b> <span class="hint">⌘K</span></span>
+                <span class="spacer"></span>
+                <span class="q"><svg class="i md"><use href="#ic-search"/></svg></span>
+                <span class="q on"><svg class="i md"><use href="#ic-wide"/></svg></span>
+                <span class="q"><svg class="i md"><use href="#ic-sunmoon"/></svg></span>
+              </div>
+              <div style="display:flex;flex:1">
+                <div class="trace qzone">
+                  <span class="trace-label">最近</span>
+                  <span class="trace-item">keybindings.md</span>
+                  <span class="trace-item">ui-design.md</span>
+                  <span class="trace-item">cli.md</span>
+                  <span class="trace-item">installation.md</span>
+                  <span class="trace-item">ipc.md</span>
+                  <span class="trace-item">windows.md</span>
+                </div>
+                <div class="doc" style="padding-left:8px">
+                  <h1 style="max-width:none">Arto</h1>
+                  <p style="max-width:none">Arto — the Art of Reading Markdown. A desktop app that renders Markdown the way GitHub does, locally and offline. Most Markdown tools are built for writing; Arto is built for reading, and the name is short for “Art of Reading”.</p>
+                  <p style="max-width:none">Markdown is where documentation, communication and thinking now live, and reading it deserves more than a preview pane. The trace keeps its own column, so full width means the text uses whatever is left rather than every last pixel.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="caption">
+        <b>「常に表示」＋全幅。</b>痕跡は自分の列を保ち、本文はその右を全部使います。
+        引っ込む条件が無いので、設定を見なくても画面を見れば何が起きているか分かります。
       </p>
     </div>
   </section>
@@ -1273,7 +1371,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">覗きの開始</th><td class="num">即時（端 1px）</td><td class="num">120ms の滞留（レール上）</td><td><span class="mono">--peek-open-delay</span></td></tr>
           <tr><th scope="row">覗きの終了</th><td class="num">即時</td><td class="num">240ms の猶予</td><td><span class="mono">--peek-close-delay</span>。斜め移動を許容</td></tr>
           <tr><th scope="row">覗きの重なり</th><td class="num">押し出し</td><td class="num">オーバーレイ＋影</td><td>本文を再レイアウトしない</td></tr>
-          <tr><th scope="row">履歴の保持</th><td class="num">—</td><td class="num">直近 100 件 / 30 日</td><td>どちらか早いほうで落とす。<code>config.json</code> に保存</td></tr>
+          <tr><th scope="row">履歴の保持</th><td class="num">—</td><td class="num">5,000 件（期限なし）</td><td>古いものから落とす。<code>config.json</code> とは別ファイルに保存</td></tr>
           <tr><th scope="row">余白の痕跡（D）</th><td class="num">—</td><td class="num">文字 10.5px / 不透明度 30%</td><td>領域ホバーで 72%。全幅表示のときは自動で引っ込む</td></tr>
         </tbody>
       </table>
