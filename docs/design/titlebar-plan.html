@@ -1,4 +1,4 @@
-<title>帯をゼロにする</title>
+<title>タイトルバーに寄せる</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;450;500;600&display=swap">
@@ -374,7 +374,9 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
   color: #2b2b2b;
   font-size: 11.5px;
 }
-:root:not([data-theme="light"]) .menubar { background: #ebeae8; border-bottom-color: #cfcbc6; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .menubar { background: #ebeae8; border-bottom-color: #cfcbc6; }
+}
 :root[data-theme="dark"] .menubar { background: #ebeae8; border-bottom-color: #cfcbc6; }
 
 /* A menu dropped from a header glyph. Same surface as the breadcrumb's
@@ -694,6 +696,85 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
 }
 .figcap b { color: var(--ink); font-weight: 500; }
 
+/* A GTK header bar, drawn as GTK draws it — the point of that figure is
+   that none of Arto's CSS reaches it. */
+.gtk-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+  padding: 0 6px 0 12px;
+  background: linear-gradient(180deg, #f6f5f4, #edebe9);
+  border-bottom: 1px solid #cfcbc6;
+  color: #2e3436;
+}
+.gtk-title {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+}
+.gtk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  border: 1px solid #c6c1bb;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #fbfafa, #f0eeec);
+  color: #2e3436;
+}
+.gtk-bar .gcaps { padding-left: 8px; }
+.gtk-bar .gcaps b { background: #dcd8d4; }
+.gtk-bar .gcaps b::before,
+.gtk-bar .gcaps b::after { background: #2e3436; }
+.gtk-bar .gcaps b:nth-child(2)::before { border-color: #2e3436; background: none; }
+
+/* The desktop's own dark theme, for a viewer reading the page in dark. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .gtk-bar {
+    background: linear-gradient(180deg, #3b3b3b, #303030);
+    border-bottom-color: #1f1f1f;
+    color: #e6e6e6;
+  }
+  :root:not([data-theme="light"]) .gtk-btn {
+    border-color: #1f1f1f;
+    background: linear-gradient(180deg, #454545, #3a3a3a);
+    color: #e6e6e6;
+  }
+  :root:not([data-theme="light"]) .gtk-bar .gcaps b { background: #4d4d4d; }
+  :root:not([data-theme="light"]) .gtk-bar .gcaps b::before,
+  :root:not([data-theme="light"]) .gtk-bar .gcaps b::after { background: #e6e6e6; }
+  :root:not([data-theme="light"]) .gtk-bar .gcaps b:nth-child(2)::before {
+    border-color: #e6e6e6;
+    background: none;
+  }
+}
+
+:root[data-theme="dark"] .gtk-bar {
+  background: linear-gradient(180deg, #3b3b3b, #303030);
+  border-bottom-color: #1f1f1f;
+  color: #e6e6e6;
+}
+:root[data-theme="dark"] .gtk-btn {
+  border-color: #1f1f1f;
+  background: linear-gradient(180deg, #454545, #3a3a3a);
+  color: #e6e6e6;
+}
+:root[data-theme="dark"] .gtk-bar .gcaps b { background: #4d4d4d; }
+:root[data-theme="dark"] .gtk-bar .gcaps b::before,
+:root[data-theme="dark"] .gtk-bar .gcaps b::after { background: #e6e6e6; }
+:root[data-theme="dark"] .gtk-bar .gcaps b:nth-child(2)::before {
+  border-color: #e6e6e6;
+  background: none;
+}
+
+/* Windows caption buttons that DWM still owns: no red at rest, because we
+   are not the ones deciding when they light up. */
+.caps.native b.cls { background: transparent; }
+.caps.native b.cls::before,
+.caps.native b.cls::after { background: var(--m-dim); }
+
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -725,13 +806,29 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
 
   <header class="masthead">
     <p class="eyebrow">Arto ／ 実装計画</p>
-    <h1>帯を<em>ゼロ</em>にする</h1>
+    <h1>タイトルバーに<em>寄せる</em></h1>
     <p class="lede">
-      決まったのは <strong>E</strong>（タイトルバーに畳む。B のグリフはその中に住みます）と <strong>D</strong>（<span class="mono">⌘K</span> をコマンドパレットに）。
-      3つのプラットフォームすべてで行い、<strong>macOS はネイティブメニューを残します</strong>。窓ボタンも各 OS の作法どおりに揃えます。
-      着手の前に、沈む可能性のあった6点を先に調べました ―― 5つは通り、1つは通りませんでした。
+      やりたいのは「タイトルバーに操作子を足す」ことで、タイトルバーを<em>乗っ取る</em>ことではありません。
+      その一点で方針が決まりました ―― <strong>窓ボタンは、どのプラットフォームでも自前で描きません</strong>。
+      OS が用意している口を使い、無ければその OS だけ持ち方を変えます。あわせて <strong>D</strong>（<span class="mono">⌘K</span> をコマンドパレットに）。
+      macOS はネイティブメニューも残します。
     </p>
   </header>
+
+  <div class="sec">
+    <p class="sec-label">なぜ「描かない」を先に置くか</p>
+    <p>
+      窓ボタンを自前で描くと、いま OS が無償でやっていることを全部引き取ることになります ――
+      <b>影</b>（装飾を外すと消えます）、<b>8方向のリサイズの縁</b>、<b>タイトルバーの右クリックメニュー</b>、
+      <b>中クリックで背面へといった利用者ごとの設定</b>、<b>高コントラストや大きな文字への追随</b>、
+      <b>分数スケーリングでの精細さ</b>。
+    </p>
+    <p>
+      これは Linux で Electron 製のアプリが嫌われる理由のほぼ一覧そのものです。
+      対して得られるのは「帯が1本減る」だけ。<strong>釣り合いません。</strong>
+      そこで各 OS の口を先に探しました ―― 2つには在り、1つには在りませんでした。
+    </p>
+  </div>
 
   <div class="sec">
     <p class="sec-label">先に潰した6点</p>
@@ -757,12 +854,17 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <div class="rule">
         <span class="n">②</span>
         <div>
-          <b>装飾を外した窓をリサイズできるか</b>
+          <b>タイトルバーに操作子を足す口が、OS 側にあるか</b>
           <p>
-            macOS は<strong>そもそも装飾を外しません</strong>（③ の表）。枠は native のままなので OS 任せ。
-            Windows は tao 側が <span class="mono">WM_NCCALCSIZE</span> / <span class="mono">WM_NCHITTEST</span> を処理していて、
-            コメントにも「装飾なし窓のリサイズを許可する」と書かれています。Linux は <span class="mono">drag_resize_window(direction)</span> が実装済み。
-            <span class="chip ok">通る</span>
+            <strong>Linux にはあります。</strong><span class="mono">GtkHeaderBar</span> は
+            <span class="mono">pack_start</span> / <span class="mono">pack_end</span> でウィジェットを受け取り、
+            <span class="mono">set_show_close_button(true)</span> で窓ボタンも GTK が描きます。
+            tao が <span class="mono">gtk_window()</span> を公開しているので、<span class="mono">set_titlebar</span> で据えられます。
+            <strong>macOS にもあります</strong>（<span class="mono">NSTitlebarAccessoryViewController</span>）が、
+            透過タイトルバーのほうが本文をそのまま通せるので、そちらを採ります。
+            <strong>Windows にはありません</strong> ―― Win32 にキャプションへ任意のボタンを足す API は無く、
+            <span class="mono">WS_EX_CONTEXTHELP</span> の「?」だけが例外です。
+            <span class="chip ok">2つに在り、1つに無い</span>
           </p>
         </div>
       </div>
@@ -785,11 +887,16 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         <div>
           <b>Windows 11 のスナップレイアウト</b>
           <p>
-            最大化ボタンにホバーすると出るあの吹き出しは、<span class="mono">WM_NCHITTEST</span> に <span class="mono">HTMAXBUTTON</span> を返して初めて出ます。
-            tao が返すのは <span class="mono">HTCAPTION</span> と <span class="mono">HTCLIENT</span> だけ。
-            逃げ道の <span class="mono">with_msg_hook</span> は<strong>イベントループのキューの手前</strong>に入るもので、
-            <span class="mono">WM_NCHITTEST</span> は <span class="mono">SendMessage</span> で窓プロシージャへ直接届くためキューを通りません ―― 見ることも答えることもできません。
-            <span class="chip no">通らない</span>
+            装飾を外して自前で描く道を採っていたら、ここは<strong>諦めるしかありませんでした</strong> ――
+            あの吹き出しは <span class="mono">WM_NCHITTEST</span> に <span class="mono">HTMAXBUTTON</span> を返して初めて出ますが、
+            tao が返すのは <span class="mono">HTCAPTION</span> と <span class="mono">HTCLIENT</span> だけ、
+            逃げ道の <span class="mono">with_msg_hook</span> はメッセージキューの手前にあり、
+            <span class="mono">SendMessage</span> で直接届く <span class="mono">WM_NCHITTEST</span> は通りません。
+          </p>
+          <p style="margin-top:8px">
+            <strong>キャプションボタンを DWM に描かせたままにすると、この問題ごと消えます。</strong>
+            ホバーもスナップも native の実装が担当するからです。「描かない」を選んだことで、懸案が1つ勝手に片付きました。
+            <span class="chip ok">選択の結果、消滅</span>
           </p>
         </div>
       </div>
@@ -797,21 +904,17 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <div class="rule">
         <span class="n">⑤</span>
         <div>
-          <b>環境ごとの窓ボタン配置を読めるか</b>
+          <b>環境ごとの窓ボタン配置</b>
           <p>
-            はじめ GNOME の <span class="mono">org.gnome.desktop.wm.preferences</span> を読むつもりでいましたが、
-            <strong>それでは GNOME しか見ていないことになります</strong>。Linux はそこだけではありません。
-            正しい口は一段下、<strong>GTK 自身</strong>にありました ―― <span class="mono">GtkSettings</span> の
-            <span class="mono">gtk-decoration-layout</span> です。GNOME・Xfce・Cinnamon・MATE は XSETTINGS 経由でここへ書き、
-            KDE も <span class="mono">kde-gtk-config</span> が kwin の設定をここへ写します。
-            何も書かれない環境（sway など）では GTK 自身の既定に落ちます。
-            <span class="mono">connect_gtk_decoration_layout_notify</span> で変更にも追随できます。
-            <span class="chip ok">通る（GNOME 限定ではなくなった）</span>
+            はじめ GNOME の <span class="mono">org.gnome.desktop.wm.preferences</span> を読むつもりでいて、
+            それでは GNOME しか見ていないと気づき、GTK の <span class="mono">gtk-decoration-layout</span> に切り替えました。
+            そして<strong>窓ボタンを GTK に描かせる以上、こちらは何も読みません</strong> ―― 配置も順序も GTK の仕事です。
+            <span class="chip ok">読む必要そのものが消滅</span>
           </p>
           <p style="margin-top:8px">
-            既定値はこの機械（GTK 3.24・デスクトップ環境なし）で実測しました ――
-            <span class="mono">menu:minimize,maximize,close</span>。プロパティ自身の既定値も同じです。
-            <span class="mono">gio</span> を直接足す必要も、スキーマが無い機械で <span class="mono">Settings::new</span> が abort する心配も、まとめて消えました。
+            参考までに、既定値はこの機械（GTK 3.24・デスクトップ環境なし）で実測しました ――
+            <span class="mono">menu:minimize,maximize,close</span>。
+            <span class="mono">gio</span> を直接足す必要も、スキーマの無い機械で <span class="mono">Settings::new</span> が abort する心配も、まとめて消えました。
           </p>
         </div>
       </div>
@@ -821,10 +924,11 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         <div>
           <b>位置とサイズの保存が壊れないか</b>
           <p>
-            <span class="mono">capture_window_metrics</span> は outer から <span class="mono">chrome_inset</span>（タイトルバーの高さ）を引いて inner を出しています。
-            装飾を外すと inset は 0 になり、式はそのまま成立します。
-            ただし<strong>装飾ありで保存された <span class="mono">state.json</span> からは、タイトルバー1本分だけ大きく復元されます</strong> ―― 移行時に一度だけ効く歪みです。
-            <span class="chip care">通るが、移行に一手</span>
+            <span class="mono">capture_window_metrics</span> は outer から <span class="mono">chrome_inset</span>（タイトルバーの高さ）を引いています。
+            <strong>装飾を外さない道に変えたので、この式はどこでも今のまま成立します。</strong>
+            macOS は透過にするだけ、Linux はヘッダーバーに差し替えるだけ、Windows だけキャプションの扱いが変わるので、
+            そこは実機で inset を測り直します。
+            <span class="chip ok">ほぼ影響なし（Windows のみ要確認）</span>
           </p>
         </div>
       </div>
@@ -834,15 +938,16 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
   <div class="sec">
     <p class="sec-label">実装イメージ</p>
     <p>
-      3つとも「ヘッダーがそのままタイトルバーになる」形です。帯は1本も無く、本文は窓の縁まで届きます。
-      違うのは<strong>窓ボタンを誰が描くか</strong>だけです。
+      3つとも窓ボタンは OS のものです。違うのは<strong>タイトルバーに何を置けるか</strong> ――
+      macOS と Windows は<em>本文（HTML）</em>を置けるので帯は1本、Linux は<em>ウィジェット</em>しか置けないので帯が2本になります。
     </p>
 
-    <h3 style="margin-top:30px">macOS ―― 信号機は AppKit のまま</h3>
+    <h3 style="margin-top:30px">macOS ―― 1本。中身は Arto のもの</h3>
     <p class="caption">
-      装飾は外しません。タイトルバーを透過にして本文をその下まで伸ばすだけなので、
-      <b>ドラッグ・リサイズ・信号機・緑ボタンのフルスクリーンは全部 native の挙動</b>です。
-      画面上端のメニューバーにも一切触れません。左に信号機の分だけ場所を空けます。
+      装飾は外しません。タイトルバーを透過にして本文をその下まで伸ばすだけ（<span class="mono">fullsize_content_view</span>）。
+      <b>信号機は AppKit が描き続け</b>、ドラッグもリサイズも緑ボタンのフルスクリーンも native のまま。
+      ヘッダーがそのままタイトルバーになるので、パンくずもグリフも今の見た目のまま入ります。
+      画面上端のメニューバーにも触りません。
     </p>
     <div class="mock-scroll">
       <div class="mock" style="min-width:640px">
@@ -855,21 +960,23 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <span class="q sm-q"><svg class="i sm"><use href="#ic-narrow"/></svg></span>
           <span class="q sm-q"><svg class="i sm"><use href="#ic-sunmoon"/></svg></span>
         </div>
-        <div class="mock-body" style="min-height:150px">
+        <div class="mock-body" style="min-height:140px">
           <div class="rail qzone">
             <span class="q"><svg class="i md"><use href="#ic-folder"/></svg></span>
             <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
             <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
           </div>
-          <div style="flex:1;min-width:0"><div class="doc" style="padding-top:16px"><div class="doc-narrow"><h1>Arto</h1><p>Arto — the Art of Reading Markdown.</p></div></div></div>
+          <div style="flex:1;min-width:0"><div class="doc" style="padding-top:14px"><div class="doc-narrow"><h1>Arto</h1><p>Arto — the Art of Reading Markdown.</p></div></div></div>
         </div>
       </div>
     </div>
+    <p class="figcap">信号機の分だけ左を空けます。フルスクリーン中は AppKit が隠すので、空きも畳みます。</p>
 
-    <h3 style="margin-top:34px">Windows ―― 46×32 の3つを自前で</h3>
+    <h3 style="margin-top:34px">Windows ―― 1本。キャプションボタンは DWM のもの</h3>
     <p class="caption">
-      装飾なし。右端に 最小化 / 最大化・元に戻す / 閉じる を Windows 11 の寸法で描きます。
-      <b>閉じるのホバーだけが赤</b>（<span class="mono">#c42b1c</span>）で、他はグレーの薄い面 ―― 下の図はその閉じるにポインタが乗っている状態です。
+      Win32 には<b>キャプションにボタンを足す API がありません</b>（「?」ボタンだけが例外）。
+      なので Windows だけはキャプションを<em>持ち</em>ます ―― ただし <span class="mono">DwmExtendFrameIntoClientArea</span> で本文を帯まで伸ばし、
+      <b>3つのボタンは DWM に描かせたまま</b>にします。ホバーもスナップレイアウトも native の挙動が残ります。
     </p>
     <div class="mock-scroll">
       <div class="mock" style="min-width:640px">
@@ -880,7 +987,41 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <span class="q sm-q"><svg class="i sm"><use href="#ic-search"/></svg></span>
           <span class="q sm-q"><svg class="i sm"><use href="#ic-narrow"/></svg></span>
           <span class="q sm-q"><svg class="i sm"><use href="#ic-sunmoon"/></svg></span>
-          <span class="caps"><b class="min"></b><b class="max"></b><b class="cls"></b></span>
+          <span class="caps native"><b class="min"></b><b class="max"></b><b class="cls"></b></span>
+        </div>
+        <div class="mock-body" style="min-height:140px">
+          <div class="rail qzone">
+            <span class="q"><svg class="i md"><use href="#ic-folder"/></svg></span>
+            <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
+            <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
+          </div>
+          <div style="flex:1;min-width:0"><div class="doc" style="padding-top:14px"><div class="doc-narrow"><h1>Arto</h1><p>Arto — the Art of Reading Markdown.</p></div></div></div>
+        </div>
+      </div>
+    </div>
+    <p class="figcap">
+      右の3つは <b>Arto が描いたものではありません</b>。ここが灰色に見えるのは、DWM がそのまま描いているからです。
+      <span class="chip care">この前提だけ未検証</span>
+    </p>
+
+    <h3 style="margin-top:34px">Linux ―― 2本。ボタンは GTK のもの</h3>
+    <p class="caption">
+      GTK には「タイトルバーの下に本文を通す」に相当する機能がありません。代わりに
+      <b><span class="mono">GtkHeaderBar</span> はウィジェットを受け取ります</b> ―― tao が <span class="mono">gtk_window()</span> を公開しているので、
+      <span class="mono">set_titlebar</span> で据えて <span class="mono">pack_end</span> でこちらの操作子を足せます。
+      <b>窓ボタンも、足したボタンも、描くのは GTK</b>。テーマ・サイズ・配置・HiDPI すべて追随します。
+      パンくずは HTML のままなので、その分だけ下に薄い帯が残ります。
+    </p>
+    <div class="mock-scroll">
+      <div class="mock" style="min-width:640px">
+        <div class="gtk-bar">
+          <span class="gtk-title">Arto</span>
+          <span class="spacer"></span>
+          <span class="gtk-btn"><svg class="i sm"><use href="#ic-menu"/></svg></span>
+          <span class="gtk-btn"><svg class="i sm"><use href="#ic-search"/></svg></span>
+          <span class="gtk-btn"><svg class="i sm"><use href="#ic-narrow"/></svg></span>
+          <span class="gtk-btn"><svg class="i sm"><use href="#ic-sunmoon"/></svg></span>
+          <span class="gcaps"><b></b><b></b><b></b></span>
         </div>
         <div class="mock-body" style="min-height:150px">
           <div class="rail qzone">
@@ -888,88 +1029,49 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
             <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
           </div>
-          <div style="flex:1;min-width:0"><div class="doc" style="padding-top:16px"><div class="doc-narrow"><h1>Arto</h1><p>Arto — the Art of Reading Markdown.</p></div></div></div>
-        </div>
-      </div>
-    </div>
-
-    <h3 style="margin-top:34px">Linux ―― 位置は環境に従い、見た目は Arto のもの</h3>
-    <p class="caption">
-      装飾なし。並びは <span class="mono">gtk-decoration-layout</span>（⑤）をそのまま読みます ――
-      <span class="mono">:</span> の左に書かれたものが左、右に書かれたものが右。
-      <b>各テーマの見た目は真似しません。</b>位置と順序だけ環境に従い、描くのはヘッダーの他の操作子と同じ静かな印です。
-      GNOME・Xfce・Cinnamon・MATE・KDE のどれでも、この1つの文字列で足ります。
-    </p>
-
-    <div class="mock-scroll">
-      <div class="mock" style="min-width:640px">
-        <div class="mock-tb csd gnome">
-          <span class="q sm-q"><svg class="i sm"><use href="#ic-menu"/></svg></span>
-          <span class="crumb" style="font-size:12px">demo <span style="color:var(--m-line)">/</span> <b>README.md</b></span>
-          <span class="spacer"></span>
-          <span class="q sm-q"><svg class="i sm"><use href="#ic-search"/></svg></span>
-          <span class="q sm-q"><svg class="i sm"><use href="#ic-narrow"/></svg></span>
-          <span class="q sm-q"><svg class="i sm"><use href="#ic-sunmoon"/></svg></span>
-          <span class="gcaps"><b></b><b></b><b></b></span>
-        </div>
-        <div class="mock-body" style="min-height:130px">
-          <div class="rail qzone">
-            <span class="q"><svg class="i md"><use href="#ic-folder"/></svg></span>
-            <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
-            <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
+          <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+            <div class="hdr qzone">
+              <span class="crumb">demo <span style="color:var(--m-line)">/</span> <b>README.md</b></span>
+            </div>
+            <div class="doc"><div class="doc-narrow"><h1>Arto</h1><p>Arto — the Art of Reading Markdown.</p></div></div>
           </div>
-          <div style="flex:1;min-width:0"><div class="doc" style="padding-top:16px"><div class="doc-narrow"><h1>Arto</h1><p>Arto — the Art of Reading Markdown.</p></div></div></div>
-        </div>
-      </div>
-    </div>
-    <p class="figcap"><span class="mono">menu:minimize,maximize,close</span> ―― 何も設定されていないときの GTK の既定。実測値です。</p>
-
-    <div class="mock-scroll" style="margin-top:18px">
-      <div class="mock" style="min-width:640px">
-        <div class="mock-tb csd gnome">
-          <span class="gcaps left"><b class="cls"></b><b></b><b></b></span>
-          <span class="q sm-q"><svg class="i sm"><use href="#ic-menu"/></svg></span>
-          <span class="crumb" style="font-size:12px">demo <span style="color:var(--m-line)">/</span> <b>README.md</b></span>
-          <span class="spacer"></span>
-          <span class="q sm-q"><svg class="i sm"><use href="#ic-search"/></svg></span>
-          <span class="q sm-q"><svg class="i sm"><use href="#ic-narrow"/></svg></span>
-          <span class="q sm-q"><svg class="i sm"><use href="#ic-sunmoon"/></svg></span>
-        </div>
-        <div class="mock-body" style="min-height:130px">
-          <div class="rail qzone">
-            <span class="q"><svg class="i md"><use href="#ic-folder"/></svg></span>
-            <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
-            <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
-          </div>
-          <div style="flex:1;min-width:0"><div class="doc" style="padding-top:16px"><div class="doc-narrow"><h1>Arto</h1><p>Arto — the Art of Reading Markdown.</p></div></div></div>
         </div>
       </div>
     </div>
     <p class="figcap">
-      <span class="mono">close,minimize,maximize:</span> ―― 左に寄せた設定のとき。
-      <b>順序もそのまま従います</b>（この例では閉じるが先頭）。メニューのグリフは窓ボタンの内側へ下がり、
-      パンくずとの間合いは変わりません。
+      上の帯は <b>GTK が描いたヘッダーバー</b>で、Arto の CSS は一切効いていません ―― だから 16px・30% ではなく、
+      その環境のボタンに見えます。<b>これが「描かない」ことの代償</b>で、影・リサイズ・窓メニュー・テーマ追随と引き換えです。
+      下の薄い帯はパンくずだけを持つ HTML のヘッダー。
+    </p>
+    <p class="figcap">
+      窓ボタンの左右と順序は <span class="mono">gtk-decoration-layout</span> のとおりに GTK が置きます ――
+      <b>こちらは何も読みません</b>。左寄せの環境なら、そのまま左に出ます。
     </p>
   </div>
 
   <div class="sec">
-    <p class="sec-label">窓ボタン</p>
+    <p class="sec-label">並べて見る</p>
     <div class="tbl-scroll">
       <table class="matrix">
         <thead>
-          <tr><th></th><th>誰が描くか</th><th>並び</th><th>中央のボタン</th><th>ドラッグ</th><th>リサイズ</th></tr>
+          <tr><th></th><th>窓ボタンを描くのは</th><th>帯</th><th>タイトルバーの中身</th><th>見た目</th><th>検証</th></tr>
         </thead>
         <tbody>
-          <tr><th>macOS</th><td class="yes">AppKit</td><td>左・信号機</td><td>フルスクリーン<span class="dimtext">（native）</span></td><td>native</td><td>native</td></tr>
-          <tr><th>Windows</th><td class="part">自前</td><td>右・46×32</td><td>最大化 / 元に戻す</td><td><span class="mono">drag()</span></td><td>tao の枠</td></tr>
-          <tr><th>Linux</th><td class="part">自前</td><td><span class="mono">gtk-decoration-layout</span> に従う</td><td>最大化 / 元に戻す</td><td><span class="mono">drag()</span></td><td><span class="mono">drag_resize_window</span></td></tr>
+          <tr><th>macOS</th><td class="yes">AppKit</td><td class="yes">1本</td><td>HTML</td><td>Arto</td><td class="yes">ソース確認済</td></tr>
+          <tr><th>Windows</th><td class="yes">DWM</td><td class="yes">1本</td><td>HTML</td><td>Arto</td><td class="part">前提が未検証</td></tr>
+          <tr><th>Linux</th><td class="yes">GTK</td><td class="part">2本</td><td>ウィジェット</td><td>デスクトップ</td><td class="yes">ソース確認済</td></tr>
         </tbody>
       </table>
     </div>
     <p class="caption">
-      中央を macOS だけフルスクリーンにするのは、緑ボタンが native でそう振る舞うからです ――
-      Windows / Linux で真のフルスクリーンにすると、その OS の作法から外れます。
-      <b>「全画面」は macOS では緑ボタン、他では最大化</b>と読み替えています。違えば直します。
+      <b>3つとも「窓ボタンは自前で描かない」を満たします。</b>揃わないのはその先です ――
+      Linux だけ帯が2本になり、操作子の見た目もその環境のものになります。
+      GTK に「タイトルバーの下に本文を通す」機能が無い、という一点から出ている差で、
+      工夫で消せるものではありません（子 WebView を仕込む手はありますが、WebView が2つになるので採りません）。
+    </p>
+    <p class="caption">
+      中央のボタンは各 OS の作法どおり ―― <b>macOS は緑ボタンのフルスクリーン、Windows と Linux は最大化・元に戻す</b>。
+      どれも OS が描き、OS が決めます。
     </p>
   </div>
 
@@ -1009,7 +1111,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         <span class="when">E-1</span>
         <div>
           <h3>2　macOS のタイトルバー</h3>
-        <ul>
+          <ul>
           <li>いちばんリスクが低く、いちばん早く形が見えるのでここから。</li>
           <li>ネイティブメニューは <span class="mono">menu.rs</span> のまま。触りません。</li>
           <li>信号機の位置をヘッダーの 30px の当たりに合わせ、CSS 側で左に空きを作ります。</li>
@@ -1032,53 +1134,54 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <div class="phase">
         <span class="when">E-2</span>
         <div>
-          <h3>3　Windows と Linux</h3>
-        <ul>
-          <li>装飾を外し、窓ボタンを自前で描きます。二度手間を避けるため、2つは同じコンポーネントで、並びだけ差し替えます。</li>
-          <li>タイトルバーの空き地を押したら <span class="mono">drag()</span>、ダブルクリックで最大化・元に戻す。</li>
-          <li>Linux は8方向のリサイズ帯を自分で持ちます（Windows は tao の枠が担当）。</li>
-          <li>Linux の並びは <span class="mono">gtk-decoration-layout</span> ひとつ。GNOME でも KDE でも Xfce でも同じ口です。</li>
-        </ul>
-        <div class="code-block"><pre><code>#[cfg(target_os = "windows")]
+          <h3>3　Linux のヘッダーバー</h3>
+          <ul>
+            <li>装飾は外しません。<span class="mono">gtk_window()</span> から <span class="mono">set_titlebar</span> でヘッダーバーを据えます。</li>
+            <li>窓ボタンは <span class="mono">set_show_close_button(true)</span> ―― 描くのも並べるのも GTK。こちらは配置を読みません。</li>
+            <li>こちらの操作子は <span class="mono">pack_end</span> で足します。アイコンは Arto の SVG、器は GTK のボタン。</li>
+            <li>HTML のヘッダーからその4つを抜き、パンくずと戻る／進むだけを残します。</li>
+          </ul>
+          <div class="code-block"><pre><code>#[cfg(target_os = "linux")]
 {
-    use dioxus::desktop::tao::platform::windows::WindowBuilderExtWindows;
-    // 影を残すと、tao がまだ持っている枠でリサイズの当たりも生きます。
-    builder = builder.with_decorations(false).with_undecorated_shadow(true);
-}
+    use dioxus::desktop::tao::platform::unix::WindowExtUnix;
+    use gtk::prelude::*;
 
-#[cfg(target_os = "linux")]
-{
-    builder = builder.with_decorations(false);
+    let bar = gtk::HeaderBar::new();
+    // 窓ボタンは GTK に任せます。左右も順序も、利用者の設定どおりに
+    // GTK が置くので、<span class="cm">gtk-decoration-layout</span> をこちらで読む必要はありません。
+    bar.set_show_close_button(true);
+    for control in [menu, search, width, theme] {
+        bar.pack_end(&control);   // 器は GTK、中のアイコンは Arto の SVG
+    }
+    window.gtk_window().set_titlebar(Some(&bar));
+    bar.show_all();
 }</code></pre></div>
-        <div class="code-block"><pre><code>// GNOME だけの話にはしません。GTK 自身がこの文字列を持っていて、
-// GNOME・Xfce・Cinnamon・MATE は XSETTINGS で、KDE は <span class="cm">kde-gtk-config</span>
-// 経由でここへ流し込みます。何も無ければ GTK の既定に落ちます。
-#[cfg(target_os = "linux")]
-fn decoration_layout() -&gt; String {
-    gtk::Settings::default()
-        .and_then(|settings| settings.gtk_decoration_layout())
-        .map(|layout| layout.to_string())
-        // 実測した既定値。デスクトップ環境の無い機械はここに来ます。
-        .unwrap_or_else(|| "menu:minimize,maximize,close".to_string())
-}
-
-/// <span class="cm">"close,minimize,maximize:"</span> なら左に3つ、右に0。書かれた順に並べます。
-fn split_layout(layout: &amp;str) -&gt; (Vec&lt;Control&gt;, Vec&lt;Control&gt;) {
-    let (left, right) = layout.split_once(':').unwrap_or((layout, ""));
-    (parse_side(left), parse_side(right))
-}</code></pre></div>
+        </div>
       </div>
 
       <div class="phase">
         <span class="when">E-3</span>
         <div>
-          <h3>4　掃除</h3>
-        <ul>
-          <li><span class="mono">menu.rs</span>（muda）を <strong>macOS 専用</strong>に。Linux で窓の中にバーを描かせません。</li>
-          <li><span class="mono">win_hamburger.rs</span> を <span class="mono">app_menu.rs</span> に改名し、3つとも同じものを使います。</li>
-          <li>ヘッダーはタイトルバーの中身になるので、<span class="mono">header.rs</span> と <span class="mono">titlebar.rs</span> の境目を決めます。</li>
-          <li><span class="mono">chrome_inset</span> の意味が変わるので、⑥ の移行を1度だけ通します。</li>
-        </ul>
+          <h3>4　Windows のキャプション</h3>
+          <ul>
+            <li><strong>まず前提を確かめます</strong> ―― 「DWM がキャプションボタンを描き続けるのか、それとも結局こちらが描くのか」。ここが崩れたら W1（キャプションを配色するだけ）に落とします。</li>
+            <li>装飾は残したまま、<span class="mono">DwmExtendFrameIntoClientArea</span> で本文を帯まで伸ばします。</li>
+            <li><span class="mono">WM_NCCALCSIZE</span> と <span class="mono">WM_NCHITTEST</span> を握るため、HWND をサブクラス化します。<span class="mono">hwnd()</span> は tao が公開済み。</li>
+            <li>tao の <span class="mono">WM_NCCALCSIZE</span> は<strong>装飾ありのとき <span class="mono">DefSubclassProc</span> に抜ける</strong>ので、こちらの処理と喧嘩しません（確認済み）。</li>
+            <li>キャプションボタンの当たり判定とホバーは <span class="mono">DwmDefWindowProc</span> に渡します。</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <span class="when">E-4</span>
+        <div>
+          <h3>5　掃除</h3>
+          <ul>
+            <li><span class="mono">menu.rs</span>（muda）を <strong>macOS 専用</strong>に。Linux で窓の中にバーを描かせません。</li>
+            <li><span class="mono">win_hamburger.rs</span> を <span class="mono">app_menu.rs</span> に改名し、macOS と Windows で共有します（Linux はヘッダーバーのボタンから開きます）。</li>
+            <li>ヘッダーの中身がプラットフォームで変わるので、<span class="mono">header.rs</span> にその分岐を1か所だけ作ります。</li>
+          </ul>
         </div>
       </div>
 
@@ -1088,28 +1191,31 @@ fn split_layout(layout: &amp;str) -&gt; (Vec&lt;Control&gt;, Vec&lt;Control&gt;)
   <div class="sec">
     <p class="sec-label">残る危なさ</p>
     <ul class="list wide">
-      <li><span class="tag">④</span><b>Windows のスナップレイアウトは出ません。</b><span class="why">調べた結果、tao の口からは届きません。<span class="mono">Win</span>＋矢印と、端へのドラッグは普通に効きます（窓は普通のトップレベルのままなので）。どうしても要るなら HWND を自前でサブクラス化する話になり、<span class="mono">windows</span> クレートへの直接依存と unsafe が増えます ―― 別の判断として切り出します。</span></li>
-      <li><span class="tag">高</span><b>WebView がマウスを飲む。</b><span class="why">ドラッグは押した瞬間に <span class="mono">drag()</span> を呼ぶ必要があり、テキスト選択やボタンの上では呼んではいけません。当たり判定の線引きを間違えると「窓が動かない」か「文字が選べない」のどちらかになります。</span></li>
-      <li><span class="tag">中</span><b>ダブルクリックで最大化。</b><span class="why">OS がやってくれていた作法で、自前になります。3つとも同じ判定にします。</span></li>
-      <li><span class="tag">中</span><b>HiDPI と分数スケール。</b><span class="why">窓ボタンは物理ピクセルに寄る部品なので、150% や 175% で滲みやすいところです。Linux の実機で見ます。</span></li>
-      <li><span class="tag">低</span><b>復元位置のずれ。</b><span class="why">⑥。装飾ありで保存された値から一度だけ、タイトルバー1本分。</span></li>
+      <li><span class="tag">高</span><b>Windows の前提が未検証。</b><span class="why">「DWM がキャプションボタンを描き続ける」は Microsoft の documented な型に基づく話で、このセッションに Windows 機が無いため<strong>確かめていません</strong>。他の項目は全部ソースを読むかこの機械で実測したものです。Microsoft のサンプル自身がボタンを描いている以上、<span class="mono">DwmDefWindowProc</span> が引き受けるのは当たり判定とホバーだけ、という可能性が残ります。<b>Phase 4 の最初の一手はここの確認</b>で、崩れたら W1 に落とします。</span></li>
+      <li><span class="tag">中</span><b>Linux だけ見た目が違う。</b><span class="why">ボタンの器が GTK なので、16px・stroke 1.5・静止 30% は効きません。これは避けようがなく、「描かない」を選んだ時点で決まった代償です。せめてアイコンは Arto の SVG を渡します。</span></li>
+      <li><span class="tag">中</span><b>Linux だけ帯が2本。</b><span class="why">パンくずは HTML のままなので、ヘッダーバーの下に薄い帯が残ります。ここに操作子はもう無いので、文字の行として読めるはずですが、実機で見るまで断定はできません。</span></li>
+      <li><span class="tag">中</span><b>macOS のフルスクリーン。</b><span class="why">AppKit が信号機を隠すので、左に空けた分を畳む必要があります。専用のイベントは無いので <span class="mono">Resized</span> で見直します。</span></li>
+      <li><span class="tag">低</span><b>HTML の帯でのドラッグ。</b><span class="why">macOS と Windows はタイトルバーが HTML になるので、空き地を押したら <span class="mono">drag()</span> を呼びます。文字選択やボタンの上で呼ばないよう線を引きます。Linux はヘッダーバーが native なので、この心配がありません。</span></li>
+      <li><span class="tag">低</span><b>Windows の inset。</b><span class="why">キャプションの扱いが変わるので、<span class="mono">chrome_inset</span> を実機で測り直します。macOS と Linux は今のままです。</span></li>
     </ul>
   </div>
 
   <div class="sec">
     <p class="sec-label">完了条件</p>
     <ul class="list">
-      <li><span class="tag">✓</span>3つとも帯が0本。本文が窓の縁まで届く。</li>
-      <li><span class="tag">✓</span>閉じる・しまう・最大化（macOS は緑のフルスクリーン）が各 OS の作法どおりに動く。</li>
-      <li><span class="tag">✓</span>タイトルバーの空き地でドラッグでき、文字は普通に選べる。</li>
-      <li><span class="tag">✓</span>macOS の画面上端のメニューバーは、いまと同じまま。</li>
+      <li><span class="tag">✓</span><b>窓ボタンを1つも自前で描いていない。</b>3つとも OS が描き、OS が決めている。</li>
+      <li><span class="tag">✓</span>閉じる・しまう・最大化（macOS は緑のフルスクリーン）が、各 OS の作法そのままに動く。</li>
+      <li><span class="tag">✓</span>Linux で影・8方向のリサイズ・タイトルバーの右クリックメニューが<b>今までどおり</b>効く。</li>
+      <li><span class="tag">✓</span>Linux の窓ボタンが、利用者の設定した側と順序に出る（こちらは何もしていない）。</li>
+      <li><span class="tag">✓</span>Windows でスナップレイアウトの吹き出しが出る。</li>
+      <li><span class="tag">✓</span>窓の中に OS のメニューバーが無い。macOS の画面上端のものは、いまと同じまま。</li>
       <li><span class="tag">✓</span><span class="mono">⌘K</span> で <span class="mono">print</span> と打つと Print が出て、⏎ で印刷が始まる。空クエリでは履歴だけ。</li>
       <li><span class="tag">✓</span><span class="mono">just fmt check test</span> と <span class="mono">just docs</span> が通る。</li>
     </ul>
   </div>
 
   <footer class="meta">
-    Arto — タイトルバーとコマンドパレットの実装計画。
+    Arto — タイトルバーへの寄せ方とコマンドパレットの実装計画。
     案の比較は <span class="mono">docs/design/platform-menus.html</span>、仕様は
     <span class="mono">docs/design/quiet-chrome.html</span> にあります。
     調査は <span class="mono">tao 0.34.8</span> / <span class="mono">wry 0.53.5</span> / <span class="mono">dioxus-desktop 0.7.10</span> のソースに当たったものです。
