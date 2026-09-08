@@ -14,10 +14,7 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
     let shortcut = |action| crate::keybindings::shortcut_hint_for_global_action(action);
 
     // Get information on the currently open file (for invalidation determination)
-    let current_tab = state.current_tab();
-    let current_file = current_tab
-        .as_ref()
-        .and_then(|t| t.file().map(|f| f.to_path_buf()));
+    let current_file = state.current_file();
     let has_file = current_file.is_some();
 
     let close = move || on_close.call(());
@@ -56,7 +53,7 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
                     close();
                 } }
                 ContextMenuItem { label: "Duplicate Window", shortcut: shortcut("window.duplicate"), on_click: move |_| {
-                    crate::keybindings::dispatcher::dispatch_action(&arto_keybindings::Action::WindowDuplicate, state);
+                    crate::keybindings::dispatcher::dispatch_action(&crate::keybindings::Action::WindowDuplicate, state);
                     close();
                 } }
                 ContextMenuItem { label: "New Document", shortcut: shortcut("window.new_document"), icon: Some(IconName::Add), on_click: move |_| {

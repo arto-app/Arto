@@ -468,17 +468,16 @@ mod tests {
         assert_eq!(key, canonical_key(&p("/w/arto/crates")));
     }
 
+    // Windows needs a privilege to create a symlink that CI does not grant,
+    // so the check runs where symlinks are ordinary.
+    #[cfg(unix)]
     #[test]
     fn canonical_key_resolves_a_symlink_to_its_target() {
         let temp = TempDir::new().unwrap();
         let real = temp.path().join("real");
         fs::create_dir(&real).unwrap();
         let link = temp.path().join("link");
-
-        #[cfg(unix)]
         std::os::unix::fs::symlink(&real, &link).unwrap();
-        #[cfg(not(unix))]
-        return;
 
         assert_eq!(canonical_key(&link), canonical_key(&real));
     }
