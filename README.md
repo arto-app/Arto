@@ -90,10 +90,22 @@ Full flags and behaviour: [CLI usage](./docs/cli.md).
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup and guidelines.
 
+## Sponsors
+
+<p align="center">
+  <a href="https://blacksmith.sh/">
+    <img src="./docs/images/blacksmith-powered.jpg" alt="CI powered by Blacksmith" width="368">
+  </a>
+</p>
+
+Arto's CI and release builds run on runners provided by **[Blacksmith]** through
+their open source program.
+
 ## License
 
 See [LICENSE](./LICENSE).
 
+[Blacksmith]: https://blacksmith.sh/
 [Dioxus]: https://dioxuslabs.com/
 [ox-content]: https://github.com/ubugeeei-prod/ox-content
 [KaTeX]: https://katex.org/
