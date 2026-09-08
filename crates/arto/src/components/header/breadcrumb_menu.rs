@@ -140,7 +140,13 @@ fn trail(root: &Path, parent: &Path) -> String {
         );
     }
 
-    format!("{} / ", names.join(" / "))
+    // The trailing separator ends the string with neutral characters, and the
+    // element they land in is `direction: rtl` so that it truncates from the
+    // left. Bidi resolves trailing neutrals to the paragraph's direction,
+    // which put the separator at the visual *start* — "/ demo README.md". A
+    // left-to-right mark closes the run with a strong character, so the whole
+    // trail is one LTR run and reads in the order it was written.
+    format!("{} / \u{200e}", names.join(" / "))
 }
 
 #[cfg(test)]
@@ -152,13 +158,13 @@ mod tests {
     fn the_trail_starts_at_the_root_it_came_from() {
         let root = PathBuf::from("/home/reader/arto");
         let parent = PathBuf::from("/home/reader/arto/docs/design");
-        assert_eq!(trail(&root, &parent), "arto / docs / design / ");
+        assert_eq!(trail(&root, &parent), "arto / docs / design / \u{200e}");
     }
 
     #[test]
     fn a_document_in_the_root_names_only_the_root() {
         let root = PathBuf::from("/home/reader/arto");
-        assert_eq!(trail(&root, &root), "arto / ");
+        assert_eq!(trail(&root, &root), "arto / \u{200e}");
     }
 
     #[test]
@@ -167,6 +173,6 @@ mod tests {
         // defensive case rather than one the app reaches.
         let root = PathBuf::from("/home/reader/arto");
         let parent = PathBuf::from("/elsewhere");
-        assert_eq!(trail(&root, &parent), "arto / ");
+        assert_eq!(trail(&root, &parent), "arto / \u{200e}");
     }
 }
