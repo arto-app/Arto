@@ -33,6 +33,7 @@ These are the shortcuts as currently bound. Change them in Preferences → Keybi
   <div>
     <table>
       <tr><td><code>{{search.open}}</code></td><td>Find in page</td></tr>
+      <tr><td><code>{{contents.toggle}}</code></td><td>Contents</td></tr>
       <tr><td><code>{{zoom.reset}}</code></td><td>Actual size</td></tr>
       <tr><td><code>{{zoom.in}}</code></td><td>Zoom in</td></tr>
       <tr><td><code>{{zoom.out}}</code></td><td>Zoom out</td></tr>

@@ -10,10 +10,7 @@ use dioxus::prelude::*;
 use crate::state::{AppState, Face, FocusedPanel};
 
 #[component]
-pub fn Sidebar(
-    on_pin_toggle: Option<EventHandler<()>>,
-    on_resize_change: Option<EventHandler<bool>>,
-) -> Element {
+pub fn Sidebar(on_resize_change: Option<EventHandler<bool>>) -> Element {
     let mut state = use_context::<AppState>();
     let sidebar_state = state.sidebar.read();
     let width = sidebar_state.width;
@@ -25,7 +22,6 @@ pub fn Sidebar(
         focused_panel == FocusedPanel::LeftSidebar || focused_panel == FocusedPanel::QuickAccess;
     let mut is_resizing = use_signal(|| false);
 
-    let _ = on_pin_toggle;
     let outer_style = format!("width: {}px;", width);
     let inner_style = format!("zoom: {};", zoom_level);
 

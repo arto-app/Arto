@@ -10,6 +10,17 @@ use crate::state::AppState;
 pub(super) fn setup_cross_window_open_listeners(mut state: AppState) {
     let current_window_id = window().id();
 
+    // A saved preference has to reach the windows already open. The
+    // configuration is not a signal, so this is what makes anything derived
+    // from it — the layout thresholds, the margin trace — redraw.
+    use_future(move || async move {
+        let mut rx = crate::config::CONFIG_CHANGED_BROADCAST.subscribe();
+        while rx.recv().await.is_ok() {
+            let next = state.config_revision.read().wrapping_add(1);
+            state.config_revision.set(next);
+        }
+    });
+
     // Listen for sidebar zoom changes made in the preferences window
     use_future(move || async move {
         let mut rx = SET_SIDEBAR_ZOOM_IN_WINDOW.subscribe();
@@ -45,8 +56,10 @@ pub(super) fn setup_cross_window_open_listeners(mut state: AppState) {
             if target_window_id == current_window_id {
                 tracing::info!(?path, "Opening directory from cross-window request");
                 state.add_root(&path);
-                // Pin the sidebar so users can see the directory tree
-                state.sidebar.write().pinned = true;
+                // Bring the tree out so the directory just opened is visible;
+                // a window too narrow to hold the panel shows it over the
+                // document instead of not at all.
+                state.show_face(crate::state::Face::Files);
             }
         }
     });

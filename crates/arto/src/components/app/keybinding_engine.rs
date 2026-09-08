@@ -196,6 +196,8 @@ pub(super) fn setup_keybinding_engine(
                             engine.read().borrow_mut().reset();
                             state.focused_panel.set(crate::state::FocusedPanel::Content);
                             state.left_hover_active.set(false);
+                            state.contents_open.set(false);
+                            state.palette_open.set(false);
                             if *state.search_open.read() {
                                 state.toggle_search();
                             }

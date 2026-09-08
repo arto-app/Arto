@@ -166,6 +166,10 @@
     {
       "key": "Cmd+k",
       "action": "palette.open"
+    },
+    {
+      "key": "Ctrl+x t",
+      "action": "contents.toggle"
     }
   ],
   "content": [

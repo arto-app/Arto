@@ -1,3 +1,4 @@
+mod contents_overlay;
 mod context_menu;
 mod context_menu_state;
 mod file_error_view;
@@ -13,6 +14,7 @@ use dioxus::prelude::*;
 
 use crate::scroll_anchor::ScrollAnchor;
 use crate::state::{AppState, DocumentContent};
+use contents_overlay::ContentsOverlay;
 use file_error_view::FileErrorView;
 use file_viewer::FileViewer;
 use gutter::ContentsGutter;
@@ -56,6 +58,7 @@ pub fn Content() -> Element {
     // window folds them and widening brings them back as configured.
     let trace_visible = use_memo(move || state.trace_visible());
     let gutter_visible = use_memo(move || state.visible_chrome().gutter);
+    let trace_count = use_memo(move || state.trace_count());
 
     // With nothing to read, the whole area is the library — the trace and the
     // gutter have nothing to say beside it.
@@ -67,7 +70,7 @@ pub fn Content() -> Element {
 
         // The documents read before this one, at the edge of the page.
         if trace_visible() && !showing_library() {
-            trace::MarginTrace { count: crate::config::CONFIG.read().sidebar.recent_trace_count }
+            trace::MarginTrace { count: trace_count() }
         }
 
         div {
@@ -104,6 +107,12 @@ pub fn Content() -> Element {
         // accident because there is nothing to open.
         if gutter_visible() && !showing_library() {
             ContentsGutter { headings: headings() }
+        }
+
+        // Asked for by name, and the only way to the headings at a width
+        // that folded the gutter away.
+        if *state.contents_open.read() {
+            ContentsOverlay { headings: headings() }
         }
         }
     }

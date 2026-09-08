@@ -3,6 +3,7 @@
 @import url("./content/markdown-viewer.css");
 @import url("./content/library.css");
 @import url("./content/margin-trace.css");
+@import url("./content/contents-overlay.css");
 
 .content {
   flex: 1;

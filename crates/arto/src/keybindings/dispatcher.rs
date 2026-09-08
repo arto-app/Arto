@@ -77,17 +77,9 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::WindowCloseAllWindows => {
             crate::window::close_all_main_windows();
         }
-        Action::WindowToggleSidebar => {
-            let closing = state.sidebar.read().pinned;
-            state.toggle_sidebar();
-            // Return focus to Content when closing a focused sidebar panel
-            if closing {
-                let panel = *state.focused_panel.read();
-                if matches!(panel, FocusedPanel::LeftSidebar | FocusedPanel::QuickAccess) {
-                    state.focused_panel.set(FocusedPanel::Content);
-                }
-            }
-        }
+        // Closing the panel hands the keyboard back to the document; that
+        // belongs to `hide_panel`, so both the rail and this go through it.
+        Action::WindowToggleSidebar => state.toggle_sidebar(),
         Action::WindowReload => {
             let current = *state.reload_trigger.read();
             state.reload_trigger.set(current + 1);
@@ -126,10 +118,9 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
 
         // --- Focus ---
         Action::FocusLeftSidebar => {
-            // Show overlay if not pinned, then focus it
-            if !state.sidebar.read().pinned {
-                state.left_hover_active.set(true);
-            }
+            // The tree is a face of the panel, so focusing it means showing
+            // that face — and bringing the panel out to show it.
+            state.show_face(crate::state::Face::Files);
             state.focused_panel.set(FocusedPanel::LeftSidebar);
             // Initialize cursor to first item if not set
             if state.sidebar_cursor.read().is_none() {
@@ -142,10 +133,10 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
             }
         }
         Action::FocusQuickAccess => {
-            // Show overlay if not pinned (quick access is part of sidebar)
-            if !state.sidebar.read().pinned {
-                state.left_hover_active.set(true);
-            }
+            // The bookmarks are a face of the panel, so focusing them means
+            // showing that face: a cursor moving over rows nobody can see
+            // would be the alternative.
+            state.show_face(crate::state::Face::Starred);
             state.focused_panel.set(FocusedPanel::QuickAccess);
             // Initialize cursor to first bookmark if not set
             if state.quick_access_cursor.read().is_none()
@@ -190,6 +181,9 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
 
         // --- Palette ---
         Action::PaletteOpen => state.toggle_palette(),
+
+        // --- Contents ---
+        Action::ContentsToggle => state.toggle_contents(),
 
         // --- File ---
         Action::SidebarFaceFiles => state.show_face(crate::state::Face::Files),

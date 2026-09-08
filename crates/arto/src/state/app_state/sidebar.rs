@@ -1,4 +1,4 @@
-use super::AppState;
+use super::{AppState, FocusedPanel};
 use crate::bookmarks::BOOKMARKS;
 use crate::roots::{canonical_key, Origin, Roots};
 use dioxus::prelude::*;
@@ -86,23 +86,92 @@ impl Sidebar {
 }
 
 impl AppState {
-    /// Toggle sidebar between pinned (flex layout) and unpinned (overlay/hover).
-    ///
-    /// - Pinned: visible in flex layout, pushes content aside
-    /// - Unpinned: accessible from the rail as an overlay
-    pub fn toggle_sidebar(&mut self) {
-        let mut sidebar = self.sidebar.write();
-        sidebar.pinned = !sidebar.pinned;
+    /// Whether the panel is on screen, pinned beside the document or peeking
+    /// over it.
+    pub fn panel_is_showing(&self) -> bool {
+        (self.sidebar.read().pinned && self.visible_chrome().panel)
+            || *self.left_hover_active.read()
     }
 
-    /// Show one of the panel's three faces, pinning the panel if it is away.
+    /// Put the panel away, however it is showing.
+    ///
+    /// A keyboard cursor inside it goes with it: leaving the focus on rows
+    /// that are no longer drawn would send the next keystroke somewhere the
+    /// reader cannot see.
+    pub fn hide_panel(&mut self) {
+        self.sidebar.write().pinned = false;
+        self.left_hover_active.set(false);
+        self.release_panel_focus();
+    }
+
+    /// Return the keyboard focus to the document if it is sitting in the
+    /// panel.
+    fn release_panel_focus(&mut self) {
+        if matches!(
+            *self.focused_panel.read(),
+            FocusedPanel::LeftSidebar | FocusedPanel::QuickAccess
+        ) {
+            self.focused_panel.set(FocusedPanel::Content);
+        }
+    }
+
+    /// Bring the panel out, in whichever way the width allows.
+    ///
+    /// A window wide enough holds it beside the document; a narrower one
+    /// shows it over the document instead, so Cmd+B still opens something
+    /// when the layout has folded the panel away. The pinned choice is left
+    /// alone in that case, so widening the window restores it as configured.
+    pub fn show_panel(&mut self) {
+        if self.visible_chrome().panel {
+            self.sidebar.write().pinned = true;
+            self.left_hover_active.set(false);
+        } else {
+            self.left_hover_active.set(true);
+        }
+    }
+
+    /// Toggle the panel, whichever way it is currently showing.
+    pub fn toggle_sidebar(&mut self) {
+        if self.panel_is_showing() {
+            self.hide_panel();
+        } else {
+            self.show_panel();
+        }
+    }
+
+    /// Show one of the panel's three faces, bringing the panel out if it is
+    /// away.
     ///
     /// Asking for a face is asking to look at it, so it does not also require
     /// opening the panel first.
     pub fn show_face(&mut self, face: Face) {
-        let mut sidebar = self.sidebar.write();
-        sidebar.face = face;
-        sidebar.pinned = true;
+        // Each face is a different list, so a cursor left over from the last
+        // one would move over rows nobody can see. The face that owns the
+        // focused panel keeps it; any other change hands it back.
+        let keeps_focus = match *self.focused_panel.read() {
+            FocusedPanel::LeftSidebar => face == Face::Files,
+            FocusedPanel::QuickAccess => face == Face::Starred,
+            _ => true,
+        };
+        if !keeps_focus {
+            self.release_panel_focus();
+        }
+
+        self.sidebar.write().face = face;
+        self.show_panel();
+    }
+
+    /// The rail's own gesture: show this face, or put the panel away when it
+    /// is already the one showing.
+    ///
+    /// The same glyph that brought the panel out puts it back, so nothing
+    /// else has to be found.
+    pub fn toggle_face(&mut self, face: Face) {
+        if self.panel_is_showing() && self.sidebar.read().face == face {
+            self.hide_panel();
+        } else {
+            self.show_face(face);
+        }
     }
 
     /// Take in the current bookmarked directories as the tree's places.
@@ -120,12 +189,18 @@ impl AppState {
     /// Explicit: it joins even when an existing root already covers it, since
     /// pointing at it is the whole of the intent. Only an exact duplicate is
     /// refused, and then it is revealed instead.
+    ///
+    /// Pointing at a folder is asking to see it, so the tree comes to the
+    /// front — through [`Self::show_face`], which is what keeps the keyboard
+    /// cursor and the face in step.
     pub fn add_root(&mut self, path: impl AsRef<Path>) {
         let key = canonical_key(path.as_ref());
-        let mut sidebar = self.sidebar.write();
-        let decision = sidebar.roots.decide(&key, Origin::Explicit);
-        sidebar.roots.apply(&decision);
-        sidebar.face = Face::Files;
+        {
+            let mut sidebar = self.sidebar.write();
+            let decision = sidebar.roots.decide(&key, Origin::Explicit);
+            sidebar.roots.apply(&decision);
+        }
+        self.show_face(Face::Files);
     }
 
     /// Make room in the tree for a document that is about to be opened.
@@ -206,9 +281,10 @@ mod tests {
         assert!(sidebar.expanded_dirs.contains(&path2));
     }
 
-    /// Simulates the toggle logic from `AppState::toggle_sidebar()`.
-    /// The actual method operates on `Signal<Sidebar>`, but the state
-    /// transition logic is identical.
+    /// The pinned flag on its own, which is what `AppState::show_panel` and
+    /// `AppState::hide_panel` write. Whether a pinned panel is actually drawn
+    /// also depends on the width, and that rule is tested in
+    /// `crate::hooks::layout_budget`.
     fn apply_toggle(sidebar: &mut Sidebar) {
         sidebar.pinned = !sidebar.pinned;
     }

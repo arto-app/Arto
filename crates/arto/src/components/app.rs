@@ -265,7 +265,11 @@ pub fn App(
             if rail_visible() {
                 crate::components::sidebar::rail::Rail {
                     on_peek: move |_| {
-                        if !state.sidebar.read().pinned {
+                        // Nothing to peek at while the panel is already
+                        // standing beside the document; at a width that
+                        // folded it away, resting on the rail brings it
+                        // over the document instead.
+                        if !left_pinned {
                             left_hover_active.set(true);
                             left_hide_gen.set(left_hide_gen() + 1);
                         }
@@ -275,12 +279,9 @@ pub fn App(
 
             // Left sidebar: pinned → flex layout, unpinned → overlay with animation
             if left_pinned {
-                Sidebar {
-                    on_pin_toggle: move |_| {
-                        state.sidebar.write().pinned = false;
-                        left_hover_active.set(true);
-                    },
-                }
+                // Pinned: the panel stands beside the document. The rail is
+                // what pins and unpins it, so there is no control inside.
+                Sidebar {}
             }
 
             div {
@@ -315,10 +316,6 @@ pub fn App(
                         });
                     },
                     Sidebar {
-                        on_pin_toggle: move |_| {
-                            state.sidebar.write().pinned = true;
-                            left_hover_active.set(false);
-                        },
                         on_resize_change: move |resizing: bool| {
                             if resizing {
                                 // Cancel any pending hide timer

@@ -1,0 +1,75 @@
+/* =================================
+   Contents overlay
+   =================================
+
+   The gutter's list, asked for by name. It exists because a narrow window
+   folds the gutter away, and the headings have to stay reachable; depth is
+   the indent here rather than the tick's length, so it is the same list
+   read a second way. */
+
+.contents-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-backdrop);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+  background: color-mix(in srgb, var(--bg-color) 45%, transparent);
+}
+
+.contents-overlay {
+  display: flex;
+  flex-direction: column;
+  width: min(420px, calc(100vw - 48px));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--bg-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.contents-overlay-row {
+  padding: 5px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-color);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.contents-overlay-row:hover {
+  background: var(--bg-secondary);
+}
+
+/* Depth reads as indent, and as the same ink the gutter's ticks fade by. */
+.contents-overlay-row[data-level="2"] {
+  padding-left: 26px;
+}
+
+.contents-overlay-row[data-level="3"] {
+  padding-left: 42px;
+  opacity: var(--opacity-hover);
+}
+
+.contents-overlay-row[data-level="4"],
+.contents-overlay-row[data-level="5"],
+.contents-overlay-row[data-level="6"] {
+  padding-left: 58px;
+  opacity: var(--opacity-secondary);
+}
+
+.contents-overlay-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}

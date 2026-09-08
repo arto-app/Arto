@@ -97,47 +97,41 @@ pub fn FileExplorer() -> Element {
         }
     });
 
-    let has_roots = !places().is_empty() || !temps().is_empty();
-
     rsx! {
         div {
             class: "left-sidebar-explorer",
             key: "{refresh_counter}",
 
-            if has_roots {
-                if !places().is_empty() {
-                    RootGroup {
-                        label: "Places",
-                        roots: places(),
-                        closable: false,
-                        refresh_counter,
+            if !places().is_empty() {
+                RootGroup {
+                    label: "Places",
+                    roots: places(),
+                    closable: false,
+                    refresh_counter,
+                }
+            }
+
+            // Always drawn, and never more useful than with nothing above it:
+            // a folder chosen through a dialog is a deliberate act, so it
+            // becomes a place — bookmarking it and rooting the tree at it are
+            // the same thing.
+            div {
+                class: "left-sidebar-add-root",
+                onclick: move |_| {
+                    if let Some(dir) = rfd::FileDialog::new().pick_folder() {
+                        crate::bookmarks::toggle_bookmark(dir);
                     }
-                }
-                div {
-                    class: "left-sidebar-add-root",
-                    // A folder chosen through a dialog is a deliberate act, so it
-                    // becomes a place: bookmarking it and rooting the tree at it
-                    // are the same thing.
-                    onclick: move |_| {
-                        if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-                            crate::bookmarks::toggle_bookmark(dir);
-                        }
-                    },
-                    Icon { name: IconName::FolderPlus, size: 12 }
-                    span { "Add folder…" }
-                }
-                if !temps().is_empty() {
-                    RootGroup {
-                        label: "This window",
-                        roots: temps(),
-                        closable: true,
-                        refresh_counter,
-                    }
-                }
-            } else {
-                div {
-                    class: "left-sidebar-explorer-empty",
-                    "No directory open"
+                },
+                Icon { name: IconName::FolderPlus, size: 12 }
+                span { "Add folder…" }
+            }
+
+            if !temps().is_empty() {
+                RootGroup {
+                    label: "This window",
+                    roots: temps(),
+                    closable: true,
+                    refresh_counter,
                 }
             }
         }

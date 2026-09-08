@@ -146,6 +146,10 @@
     {
       "key": "Cmd+k",
       "action": "palette.open"
+    },
+    {
+      "key": "Cmd+j",
+      "action": "contents.toggle"
     }
   ],
   "content": [

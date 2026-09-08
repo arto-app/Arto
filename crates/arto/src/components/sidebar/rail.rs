@@ -24,26 +24,16 @@ const PEEK_DWELL_MS: u64 = 120;
 pub fn Rail(on_peek: EventHandler<()>) -> Element {
     let mut state = use_context::<AppState>();
     let mut dwell = use_signal(|| 0u32);
-    let sidebar = state.sidebar.read();
-    let (face, pinned) = (sidebar.face, sidebar.pinned);
-    drop(sidebar);
-
-    // Clicking the face already showing closes the panel: the same glyph that
-    // brought it out puts it away, so nothing else has to be found.
-    let mut choose = move |wanted: Face| {
-        let mut sidebar = state.sidebar.write();
-        if sidebar.pinned && sidebar.face == wanted {
-            sidebar.pinned = false;
-        } else {
-            sidebar.face = wanted;
-            sidebar.pinned = true;
-        }
-    };
+    let face = state.sidebar.read().face;
+    // A face is marked only while its panel is actually on screen: with the
+    // panel away there is no section selected, so the rail carries no
+    // indicator at all.
+    let showing = state.panel_is_showing();
 
     rsx! {
         div {
             class: "left-rail",
-            class: if pinned { "open" },
+            class: if showing { "open" },
             // Dwell, not entry: passing over the rail on the way somewhere
             // else leaves before this fires, and nothing opens.
             onmouseenter: move |_| {
@@ -63,20 +53,20 @@ pub fn Rail(on_peek: EventHandler<()>) -> Element {
             RailButton {
                 icon: IconName::Folder,
                 label: "Files",
-                active: face == Face::Files,
-                on_click: move |_| choose(Face::Files),
+                active: showing && face == Face::Files,
+                on_click: move |_| state.toggle_face(Face::Files),
             }
             RailButton {
                 icon: IconName::History,
                 label: "Recent",
-                active: face == Face::Recent,
-                on_click: move |_| choose(Face::Recent),
+                active: showing && face == Face::Recent,
+                on_click: move |_| state.toggle_face(Face::Recent),
             }
             RailButton {
                 icon: IconName::StarFilled,
                 label: "Starred",
-                active: face == Face::Starred,
-                on_click: move |_| choose(Face::Starred),
+                active: showing && face == Face::Starred,
+                on_click: move |_| state.toggle_face(Face::Starred),
             }
 
             div { class: "left-rail-spacer" }

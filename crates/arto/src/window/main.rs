@@ -76,9 +76,6 @@ pub struct CreateMainWindowConfigParams {
     pub zoom_level: f64,
     pub size: LogicalSize<u32>,
     pub position: LogicalPosition<i32>,
-    /// Skip position shifting for overlap avoidance.
-    /// Used for preview windows during drag where exact cursor-relative position is required.
-    pub skip_position_shift: bool,
     /// Take the keyboard focus once the window exists. `arto --behind` clears
     /// it so the window can appear without interrupting what the user is doing.
     pub focused: bool,
@@ -108,7 +105,6 @@ impl CreateMainWindowConfigParams {
             zoom_level: zoom_pref.zoom_level,
             size: size_pref.size,
             position: position_pref.position,
-            skip_position_shift: false,
             focused: true,
         }
     }
@@ -276,14 +272,6 @@ pub(crate) fn resolve_directory(
 
 /// Compute the shifted position for a new window, avoiding overlap with existing windows.
 fn compute_shifted_position(params: &CreateMainWindowConfigParams) -> LogicalPosition<i32> {
-    if params.skip_position_shift {
-        tracing::debug!(
-            resolved_position=?params.position,
-            "Position shift skipped (skip_position_shift=true)"
-        );
-        return params.position;
-    }
-
     let position_offset = CONFIG.read().window_position.position_offset;
     let (screen_origin, screen_size) = get_current_display_bounds()
         .unwrap_or_else(|| (LogicalPosition::new(0, 0), LogicalSize::new(1000, 800)));

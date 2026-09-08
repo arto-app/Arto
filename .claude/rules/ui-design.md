@@ -140,6 +140,13 @@ What comes back is state, never settings: widening the window restores the
 panel exactly as configured. The one thing width never overrides is a panel
 the reader folded with Cmd+B, because that was intent.
 
+Nothing folds without something behind it. The panel is the clearest case:
+`AppState::show_panel` pins it beside the document when the width allows and
+peeks it over the document when it does not, so Cmd+B and the rail still open
+something at any width — and the pinned choice itself is left untouched, which
+is what lets widening restore it. The contents gutter has the same
+arrangement: `contents.toggle` opens the same headings as an overlay.
+
 The header's right takes none of the document's width, so it never folds into
 an overflow menu; the breadcrumb's trail truncates from the left instead
 (`arto / … / README.md`) and absorbs the shrink.

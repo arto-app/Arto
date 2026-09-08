@@ -274,6 +274,10 @@
     {
       "key": "Cmd+k",
       "action": "palette.open"
+    },
+    {
+      "key": "g o",
+      "action": "contents.toggle"
     }
   ],
   "content": [

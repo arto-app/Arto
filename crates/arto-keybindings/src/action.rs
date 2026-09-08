@@ -92,6 +92,9 @@ pub enum Action {
     // Palette (1) — the history, two keystrokes away
     PaletteOpen,
 
+    // Contents (1) — the gutter's list, for widths that folded the gutter
+    ContentsToggle,
+
     // Sidebar (4)
     SidebarToggleShowAllFiles,
     SidebarFaceFiles,
@@ -221,6 +224,7 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
         ],
     ),
     ("Palette", &[Action::PaletteOpen]),
+    ("Contents", &[Action::ContentsToggle]),
     (
         "Sidebar",
         &[
@@ -399,6 +403,7 @@ action_strings! {
     AppGoToHomepage => "app.go_to_homepage",
     HelpShowKeyboardShortcuts => "help.show_keyboard_shortcuts",
     PaletteOpen => "palette.open",
+    ContentsToggle => "contents.toggle",
     SidebarToggleShowAllFiles => "sidebar.toggle_show_all_files",
     SidebarFaceFiles => "sidebar.face_files",
     SidebarFaceRecent => "sidebar.face_recent",
@@ -434,7 +439,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 77);
+        assert_eq!(all_actions().len(), 78);
     }
 
     #[test]

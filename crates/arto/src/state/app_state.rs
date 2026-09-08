@@ -70,6 +70,19 @@ pub struct AppState {
     pub headings: Signal<Vec<HeadingInfo>>,
     pub position: Signal<LogicalPosition<i32>>,
     pub size: Signal<LogicalSize<u32>>,
+    /// Bumped whenever `config.json` changes.
+    ///
+    /// The configuration lives behind a plain lock rather than a signal, so
+    /// nothing subscribes to it. Anything derived from it reads this instead,
+    /// which is what makes a saved preference redraw the window that is
+    /// looking at it.
+    pub config_revision: Signal<u32>,
+    /// Whether the contents overlay is showing.
+    ///
+    /// The gutter beside the document is the everyday way into the headings;
+    /// this is the one that still works at a width that folded the gutter
+    /// away.
+    pub contents_open: Signal<bool>,
     /// Whether the palette is showing.
     ///
     /// It is the quickest window on the history — open, return, back to the
@@ -140,6 +153,8 @@ impl AppState {
             position: Signal::new(Default::default()),
             size: Signal::new(Default::default()),
             // Search state
+            config_revision: Signal::new(0),
+            contents_open: Signal::new(false),
             palette_open: Signal::new(false),
             search_open: Signal::new(false),
             search_match_count: Signal::new(0),
@@ -197,6 +212,12 @@ impl AppState {
     fn step_zoom(&mut self, delta: f64) {
         let current = normalize_content_zoom(*self.zoom_level.read());
         self.zoom_level.set(normalize_content_zoom(current + delta));
+    }
+
+    /// Toggle the contents overlay.
+    pub fn toggle_contents(&mut self) {
+        let open = !*self.contents_open.read();
+        self.contents_open.set(open);
     }
 
     /// Toggle the palette.
