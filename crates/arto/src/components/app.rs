@@ -53,6 +53,9 @@ pub fn App(
     zoom_level: f64,
 ) -> Element {
     // Initialize application state with the provided document
+    // Taken mutably only by the menu handler, which is not built on Windows —
+    // there is no native menu there, so nothing on that platform needs `mut`.
+    #[cfg_attr(target_os = "windows", allow(unused_mut))]
     let mut state = use_context_provider(|| {
         let mut app_state = AppState::new(theme);
         // A duplicated window arrives with the place its original had reached
@@ -61,6 +64,13 @@ pub fn App(
             app_state
                 .pending_scroll_anchor
                 .set(Some(entry.scroll_anchor));
+        }
+        // A document a window is born with — from the command line, from the
+        // Finder, from "Open in New Window" — was read just as much as one
+        // opened later, and the palette's "back to the previous one" counts
+        // on the current document heading the list.
+        if let Some(file) = document.file() {
+            crate::visits::record_visit(file);
         }
         app_state.document.set(document);
         app_state.content_full_width.set(content_full_width);
