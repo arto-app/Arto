@@ -302,6 +302,9 @@ th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--li
 thead th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 400; border-bottom: 1px solid var(--line); }
 tbody th { font-weight: 450; color: var(--ink); }
 td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-2); white-space: nowrap; }
+td.ctr { text-align: center; font-family: var(--mono); font-size: 13px; }
+td.ctr .yes { color: var(--ink); }
+td.ctr .no { color: var(--muted); opacity: .45; }
 td .k { font-family: var(--mono); font-size: 11px; color: var(--muted); }
 .badge { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
 .badge.has { color: var(--keep); }
@@ -859,47 +862,76 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
     <div class="col" style="margin-top:34px">
       <h3>D は設定で切り替えます</h3>
       <p>
-        D だけは、読んでいる面の中に文字を置きます。好みがはっきり分かれるところなので、
-        既存の option-cards（<code>.claude/rules/ui-design.md</code>）で3択にします。
+        D だけは、読んでいる面の中に文字を置きます。しかも「出したい／出したくない」は
+        <strong>パネルが出ているか</strong>と<strong>全幅かどうか</strong>という2つの状況で変わります。
+        そこで既存の option-cards（<code>.claude/rules/ui-design.md</code>）で4択にします。
       </p>
     </div>
 
     <div class="tbl-scroll">
       <table>
         <thead>
-          <tr><th scope="col">設定</th><th scope="col">値</th><th scope="col">既定</th></tr>
+          <tr>
+            <th scope="col">最近読んだものを余白に表示</th>
+            <th scope="col">パネルあり<br>読み幅</th>
+            <th scope="col">パネルあり<br>全幅</th>
+            <th scope="col">パネル畳み<br>読み幅</th>
+            <th scope="col">パネル畳み<br>全幅</th>
+          </tr>
         </thead>
         <tbody>
           <tr>
-            <th scope="row">最近読んだものを余白に表示</th>
-            <td>常に表示（全幅でも）／ <strong>パネルを畳んでいるときだけ</strong> ／ 表示しない</td>
-            <td class="num">畳んでいるときだけ</td>
+            <th scope="row">出さない</th>
+            <td class="ctr"><span class="no">–</span></td><td class="ctr"><span class="no">–</span></td>
+            <td class="ctr"><span class="no">–</span></td><td class="ctr"><span class="no">–</span></td>
           </tr>
-          <tr><th scope="row">表示する件数</th><td>4 – 8</td><td class="num">6</td></tr>
+          <tr>
+            <th scope="row">サイドバーが出ていれば出さない <span class="k">既定</span></th>
+            <td class="ctr"><span class="no">–</span></td><td class="ctr"><span class="no">–</span></td>
+            <td class="ctr"><span class="yes">●</span></td><td class="ctr"><span class="yes">●</span></td>
+          </tr>
+          <tr>
+            <th scope="row">全幅であれば出さない</th>
+            <td class="ctr"><span class="yes">●</span></td><td class="ctr"><span class="no">–</span></td>
+            <td class="ctr"><span class="yes">●</span></td><td class="ctr"><span class="no">–</span></td>
+          </tr>
+          <tr>
+            <th scope="row">常に出す</th>
+            <td class="ctr"><span class="yes">●</span></td><td class="ctr"><span class="yes">●</span></td>
+            <td class="ctr"><span class="yes">●</span></td><td class="ctr"><span class="yes">●</span></td>
+          </tr>
         </tbody>
       </table>
     </div>
 
     <div class="col" style="margin-top:26px">
       <p>
-        既定を「畳んでいるときだけ」にする理由は、<strong>そのときだけ左の余白が空くから</strong>です。
-        パネルを留めていれば A がそこにあり、痕跡は重複になります。畳めば余白が生まれ、
-        「戻る先が見えていてほしい」という需要がちょうど立ち上がります。
+        真ん中の2つは、どちらが「多く出る」とは言えません ―― <strong>抑える理由が違う</strong>だけです。
+        「サイドバーが出ていれば出さない」は<strong>重複</strong>を避けます（パネルに A があるなら痕跡は要らない）。
+        「全幅であれば出さない」は<strong>意図</strong>を汲みます（広く読むと決めたなら余白を明け渡す）。
+        既定は前者にしました ―― 痕跡が最も役に立つのは、パネルを畳んで左が空いているときだからです。
       </p>
       <p>
-        「常に表示」は<strong>全幅表示（<span class="mono">viewport-wide</span>）でも出します</strong>。
-        そのために痕跡は自分の列を持ち、本文と場所を取り合いません ―― 全幅とは
-        「本文が<strong>残りの幅</strong>を使い切る」という意味になります。勝手に引っ込む例外は作りません。
+        「常に出す」を選べば、全幅表示でも出ます。そのために痕跡は自分の列を持ち、本文と場所を取り合いません ――
+        全幅とは「本文が<strong>残りの幅</strong>を使い切る」という意味になります。
+        パネルを留めたうえで全幅にして「常に出す」なら、レール・パネル・痕跡・本文が並びます。
       </p>
       <p>
-        代わりに、選んだ結果は見たとおりです。パネルを留めたうえで全幅にして「常に表示」なら、
-        レール・パネル・痕跡・本文が並びます ―― それを選べる、というだけの話です。
-      </p>
-      <p>
-        引っ込むのは<strong>窓そのものが狭いとき</strong>だけで、これは全幅表示かどうかとは別の話です。
-        次の節のとおり、その規則は D に限らず全部に効きます。
+        どれを選んでも、<strong>窓そのものが狭いときは隠れます</strong> ―― 次の節のとおり、その規則は D に限らず全部に効きます。
       </p>
     </div>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">その他の設定</th><th scope="col">値</th><th scope="col">既定</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">表示する件数</th><td>4 – 8</td><td class="num">6</td></tr>
+        </tbody>
+      </table>
+    </div>
+
 
     <div class="mock-band">
       <div class="mock-scroll">
@@ -1357,33 +1389,54 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         <li><span class="tag drop">1</span><strong>余白の痕跡（D）</strong><span class="why">いちばん周辺的で、履歴には他に3つ窓口があります。まずここが引っ込みます。</span></li>
         <li><span class="tag drop">2</span><strong>パネル</strong><span class="why">自動で畳みます。レールは残るので、覗きも留め直しもそのままできます ―― 見えなくなるだけで、届かなくはなりません。</span></li>
         <li><span class="tag drop">3</span><strong>目次のガター</strong><span class="why">24px ですが、この幅では本文の1〜2文字分が惜しくなります。<kbd>⌘J</kbd> のオーバーレイは使えます。</span></li>
-        <li><span class="tag drop">4</span><strong>ヘッダー右のグリフ</strong><span class="why">3つまとめて <span class="mono">…</span> 1つに畳みます。どれも <kbd>⌘K</kbd> とメニューに二重化されています。</span></li>
-        <li><span class="tag drop">5</span><strong>レール</strong><span class="why">最後に隠れます。ここまで来ると取っ手が無くなるので、パネルは <kbd>⌘B</kbd> でオーバーレイとして開きます。</span></li>
+        <li><span class="tag drop">4</span><strong>レール</strong><span class="why">ここで譲れるものが尽きます。取っ手が無くなるので、パネルは <kbd>⌘B</kbd> でオーバーレイとして開きます。</span></li>
+        <li><span class="tag drop">5</span><strong>ヘッダー右のグリフ</strong><span class="why">これだけは別の判定です ―― ヘッダーの右は本文の幅を取らないので、パンくずを省略してもファイル名と並びきらないときに <span class="mono">…</span> 1つへ畳みます。どれも <kbd>⌘K</kbd> とメニューに二重化されています。</span></li>
         <li><span class="tag keep">6</span><strong>本文</strong><span class="why">外れません。パンくずも左から省略して（<span class="mono">arto / … / README.md</span>）、最後はファイル名だけ残します。</span></li>
       </ul>
     </div>
 
     <div class="col" style="margin-top:30px">
-      <h3>目安の幅</h3>
+      <h3>閾値は「本文の最小幅」ひとつから決まります</h3>
+      <p>
+        刻みを5つ持つのではなく、<strong>設定はひとつ</strong>です ――
+        <strong>本文の最小幅</strong>（既定 640px、360〜900px）。あとの閾値は、そのときまだ残っている
+        周辺要素の幅を足すだけで決まります。<strong>本文の最小幅 ＋ 残りの周辺幅</strong>、それが全部です。
+      </p>
       <p>
         判定は<strong>ズームを適用したあとの実効幅</strong>で行います ―― 拡大すれば、窓を狭めたのと同じことが起きます。
-        下の数字は既定のズームと既定の幅での結果で、規則そのものは「本文に読み幅を残す」の一行です。
+        パネルの幅も可変なので、パネルを広げれば閾値もその分だけ上がります。
       </p>
     </div>
     <div class="tbl-scroll">
       <table>
         <thead>
-          <tr><th scope="col">実効幅</th><th scope="col">引っ込むもの</th><th scope="col">本文に残る幅</th></tr>
+          <tr><th scope="col">順</th><th scope="col">引っ込むもの</th><th scope="col">閾値の式</th><th scope="col">既定での値</th></tr>
         </thead>
         <tbody>
-          <tr><th scope="row">1100px 以上</th><td>なし ―― 設定どおり全部</td><td class="num">670px 〜</td></tr>
-          <tr><th scope="row">1100px 未満</th><td>余白の痕跡</td><td class="num">610px 〜</td></tr>
-          <tr><th scope="row">900px 未満</th><td>＋ パネル（畳む）</td><td class="num">640px 〜</td></tr>
-          <tr><th scope="row">700px 未満</th><td>＋ 目次のガター</td><td class="num">610px 〜</td></tr>
-          <tr><th scope="row">560px 未満</th><td>＋ ヘッダー右のグリフ</td><td class="num">470px 〜</td></tr>
-          <tr><th scope="row">440px 未満</th><td>＋ レール</td><td class="num">390px 〜</td></tr>
+          <tr><th scope="row">1</th><td>余白の痕跡（138px）</td><td class="num">最小幅 + レール + パネル + 痕跡 + ガター</td><td class="num">1068px 未満</td></tr>
+          <tr><th scope="row">2</th><td>パネル（既定 226px・可変）</td><td class="num">最小幅 + レール + パネル + ガター</td><td class="num">930px 未満</td></tr>
+          <tr><th scope="row">3</th><td>目次のガター（24px）</td><td class="num">最小幅 + レール + ガター</td><td class="num">704px 未満</td></tr>
+          <tr><th scope="row">4</th><td>レール（40px）</td><td class="num">最小幅 + レール</td><td class="num">680px 未満</td></tr>
+          <tr><th scope="row">5</th><td>ヘッダー右のグリフ</td><td class="num">パンくずを省略しても収まらないとき</td><td class="num">440px 前後</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="col" style="margin-top:26px">
+      <p>
+        3 と 4 が 24px しか離れていないのは偶然ではありません。ガターとレールを足しても 64px しかなく、
+        <strong>そこまで来ると譲れるものが尽きます</strong>。以降、本文は最小幅を割り込みながら窓に従います ――
+        最小幅は目標であって、床ではありません。
+      </p>
+      <p>
+        5 だけは別の判定です。ヘッダーの右は本文の幅を取らないので、
+        パンくずを左から省略してもファイル名とグリフが並びきらないときに畳みます。
+      </p>
+      <p>
+        この設定を大きくすると、<strong>広い窓でも早めに畳まれます</strong> ――
+        「本文は 800px 未満では読みたくない」という人は、そう設定すればパネルが 1090px で畳まれるようになります。
+        逆に 360px にすれば、ほとんど畳まれません。
+      </p>
     </div>
 
     <div class="narrows">
@@ -1417,7 +1470,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           </div>
         </div>
         <p class="caption">
-          <b>700px を切ったところ。</b>痕跡・パネル・ガターが引っ込み、レールとヘッダーは残っています。
+          <b>閾値 3 を切ったところ（既定で 704px）。</b>痕跡・パネル・ガターが引っ込み、レールとヘッダーは残っています。
           パネルはレールに乗せれば覗けるので、届かなくなったものはありません。
         </p>
       </div>
@@ -1444,7 +1497,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           </div>
         </div>
         <p class="caption">
-          <b>440px を切ったところ。</b>レールも隠れ、ヘッダーの右は <span class="mono">…</span> 1つに。
+          <b>さらに切り詰めたところ。</b>レールも隠れ、ヘッダーの右は <span class="mono">…</span> 1つに。
           パンくずは左から省略されてファイル名だけが残ります。<kbd>⌘B</kbd> と <kbd>⌘K</kbd> は効いたままです。
         </p>
       </div>
@@ -1503,7 +1556,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">覗きの重なり</th><td class="num">押し出し</td><td class="num">オーバーレイ＋影</td><td>本文を再レイアウトしない</td></tr>
           <tr><th scope="row">履歴の保持</th><td class="num">—</td><td class="num">5,000 件（期限なし）</td><td>古いものから落とす。<code>config.json</code> とは別ファイルに保存</td></tr>
           <tr><th scope="row">余白の痕跡（D）</th><td class="num">—</td><td class="num">文字 10.5px / 不透明度 30%</td><td>領域ホバーで 72%。列幅 138px を確保する</td></tr>
-          <tr><th scope="row">幅が足りないとき</th><td class="num">—</td><td class="num">外側から順に引っ込める</td><td>痕跡 → パネル → ガター → ヘッダー右 → レール。状態であって設定は書き換えない</td></tr>
+          <tr><th scope="row">幅が足りないとき</th><td class="num">—</td><td class="num">外側から順に引っ込める</td><td>痕跡 → パネル → ガター → レール → ヘッダー右。状態であって設定は書き換えない</td></tr>
+          <tr><th scope="row">本文の最小幅</th><td class="num">—</td><td class="num">640px（360–900 で設定可）</td><td>上の閾値はすべてここから導く</td></tr>
         </tbody>
       </table>
     </div>
@@ -1762,7 +1816,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <h2>触ってから決めたい3点</h2>
       <ul class="list" style="margin-top:18px">
         <li><span class="tag move">1</span><strong>30% は薄すぎませんか。</strong><span class="why">このページのデモは sRGB のブラウザ表示です。実機の輝度と GitHub テーマの背景では印象が変わるので、Phase 0 で 30 / 40 / 50 を並べて決めましょう。high contrast テーマでは自動的に 1段階上げる想定です。</span></li>
-        <li><span class="tag move">3</span><strong>狭いときの閾値は、この刻みで良いですか。</strong><span class="why">1100 / 900 / 700 / 560 / 440px は「本文に読み幅を残す」から逆算した目安です。実機で窓を縮めながら、どこで畳まれると自然かを見て決めましょう。特にパネルが畳まれる 900px は、半画面で並べて使うときに触れる幅です。</span></li>
+        <li><span class="tag move">3</span><strong>本文の最小幅の既定は 640px で良いですか。</strong><span class="why">この1つから5つの閾値が決まります。既定ではパネルが 930px で畳まれる計算で、半画面で並べて使う幅にちょうど触れます。実機で窓を縮めながら、どこで畳まれると自然かを見て決めましょう。</span></li>
         <li><span class="tag move">2</span><strong>D の既定は「畳んでいるときだけ」で良いですか。</strong><span class="why">A・B・C は入れる前提です。D だけは読んでいる面に文字が乗るので、既定を「表示しない」にする判断もあり得ます。畳んで読む頻度が高いなら、いまの既定のほうが親切です。件数の既定 6 も、実際に置いてみて決めましょう。</span></li>
         <li><span class="tag move">4</span><strong>覗きの 120ms / 240ms は妥当ですか。</strong><span class="why">短いと通り抜けで開き、長いと反応が鈍く感じます。Phase 1 で 80 / 120 / 200ms を試して決めましょう。設定で切れるようにもします。</span></li>
         <li><span class="tag move">3</span><strong>ヘッダーの3つは、これで合っていますか。</strong><span class="why">検索・幅・テーマを選びました。ここは「読んでいる最中に触るもの」だけを置く場所なので、実際の使用頻度と合わなければ入れ替えます（候補: 印刷、Finder で表示、ズーム）。</span></li>
