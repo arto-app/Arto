@@ -33,6 +33,7 @@
   --m-accent:   #0969da;
   --m-accent-bg:#ddf4ff;
   --m-sel:      #eef2f6;
+  --m-sel2:     #e1e7ee;
   --m-shadow:   0 1px 2px rgba(31, 35, 40, .08), 0 12px 40px -18px rgba(31, 35, 40, .5);
 
   --serif: "Newsreader", "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif;
@@ -48,7 +49,7 @@
     --keep: #3fb950; --care: #d29922; --drop: #f85149;
     --m-bg: #0d1117; --m-chrome: #151b23; --m-line: #3d444d;
     --m-text: #e6edf3; --m-dim: #9198a1; --m-faint: #656c76;
-    --m-accent: #4493f8; --m-accent-bg: #121d2f; --m-sel: #171d25;
+    --m-accent: #4493f8; --m-accent-bg: #121d2f; --m-sel: #171d25; --m-sel2: #202832;
     --m-shadow: 0 1px 2px rgba(1, 4, 9, .5), 0 12px 40px -18px rgba(1, 4, 9, .9);
   }
 }
@@ -59,7 +60,7 @@
   --keep: #3fb950; --care: #d29922; --drop: #f85149;
   --m-bg: #0d1117; --m-chrome: #151b23; --m-line: #3d444d;
   --m-text: #e6edf3; --m-dim: #9198a1; --m-faint: #656c76;
-  --m-accent: #4493f8; --m-accent-bg: #121d2f; --m-sel: #171d25;
+  --m-accent: #4493f8; --m-accent-bg: #121d2f; --m-sel: #171d25; --m-sel2: #202832;
   --m-shadow: 0 1px 2px rgba(1, 4, 9, .5), 0 12px 40px -18px rgba(1, 4, 9, .9);
 }
 
@@ -128,7 +129,7 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .mock.dark {
   --m-bg: #0d1117; --m-chrome: #151b23; --m-line: #3d444d; --m-text: #e6edf3;
   --m-dim: #9198a1; --m-faint: #656c76; --m-accent: #4493f8;
-  --m-accent-bg: #121d2f; --m-sel: #171d25;
+  --m-accent-bg: #121d2f; --m-sel: #171d25; --m-sel2: #202832;
   --m-shadow: 0 1px 2px rgba(1, 4, 9, .5), 0 12px 40px -18px rgba(1, 4, 9, .9);
 }
 .mock-tb { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 12px; background: var(--m-chrome); border-bottom: 1px solid var(--m-line); }
@@ -163,7 +164,8 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .doc .code { font-family: var(--mono); font-size: 10.5px; background: var(--m-chrome); border: 1px solid var(--m-line); border-radius: 6px; padding: 8px 10px; color: var(--m-dim); margin: 10px 0; white-space: pre; }
 
 /* Document header band ---------------------------------------------- */
-.hdr { display: flex; align-items: center; gap: 2px; padding: 4px 8px 4px 6px; border-bottom: 1px solid var(--m-line); background: var(--m-bg); }
+.hdr { display: flex; align-items: center; gap: 2px; padding: 4px 8px 4px 6px; background: var(--m-bg); }
+.hdr.scrolled { box-shadow: 0 1px 0 var(--m-line); }
 .crumb { display: flex; align-items: baseline; gap: 6px; padding: 3px 8px; border-radius: 5px; font-size: 12px; color: var(--m-faint); margin-left: 4px; }
 .crumb b { font-weight: 500; color: var(--m-text); }
 .crumb:hover { background: var(--m-sel); }
@@ -178,12 +180,12 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .rail { width: 40px; flex: none; background: var(--m-chrome); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; }
 /* Collapsed: no surface of its own — the document's ground, a hairline,
    and a few marks. Pinned: the same surface as the panel, no line between. */
-.rail.alone { background: transparent; border-right: 1px solid var(--m-line); }
+.rail.alone { background: transparent; }
 .rail .q { position: relative; }
 .rail .q.on::before { content: ""; position: absolute; left: -5px; top: 6px; width: 2px; height: 18px; border-radius: 1px; background: currentColor; opacity: .55; }
 .rail .rail-foot { margin-top: auto; }
 
-.panel { width: 226px; flex: none; border-right: 1px solid var(--m-line); background: var(--m-chrome); display: flex; flex-direction: column; }
+.panel { width: 226px; flex: none; background: var(--m-chrome); display: flex; flex-direction: column; }
 .panel.peek { position: absolute; left: 0; top: 0; bottom: 0; z-index: 5; box-shadow: 8px 0 28px -12px rgba(1, 4, 9, .45); }
 .pane-top { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 .pane-bottom { flex: none; height: 158px; display: flex; flex-direction: column; }
@@ -223,7 +225,7 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .row { display: flex; align-items: center; gap: 7px; padding: 4px 12px; font-size: 11px; color: var(--m-dim); white-space: nowrap; overflow: hidden; border-radius: 4px; margin: 0 4px; }
 .row span { overflow: hidden; text-overflow: ellipsis; }
 .row .sub { color: var(--m-faint); font-size: 10px; margin-left: auto; font-family: var(--mono); flex: none; }
-.row.sel { background: var(--m-sel); color: var(--m-text); font-weight: 500; }
+.row.sel { background: var(--m-sel2); color: var(--m-text); font-weight: 500; }
 .row.ind { padding-left: 24px; }
 .row.ind2 { padding-left: 36px; }
 .row.quiet { color: var(--m-faint); }
@@ -240,30 +242,30 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 /* Palette ------------------------------------------------------------ */
 .stage { position: relative; flex: 1; display: flex; }
 .dim { position: absolute; inset: 0; background: var(--m-bg); opacity: .72; }
-.palette { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); width: 450px; background: var(--m-bg); border: 1px solid var(--m-line); border-radius: 10px; box-shadow: var(--m-shadow); overflow: hidden; }
-.palette .qy { display: flex; align-items: center; gap: 9px; padding: 11px 13px; border-bottom: 1px solid var(--m-line); font-size: 13px; color: var(--m-text); }
+.palette { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); width: 450px; background: var(--m-bg); border-radius: 10px; box-shadow: var(--m-shadow); overflow: hidden; }
+.palette .qy { display: flex; align-items: center; gap: 9px; padding: 12px 13px; font-size: 13px; color: var(--m-text); }
 .palette .qy .cursor { width: 1px; height: 15px; background: var(--m-text); opacity: .7; }
 .pgroup { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-faint); padding: 9px 13px 4px; }
 .prow { display: flex; align-items: center; gap: 9px; padding: 5px 13px; font-size: 11.5px; color: var(--m-dim); }
 .prow.sel { background: var(--m-sel); color: var(--m-text); }
 .prow .path { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--m-faint); }
 .prow mark { background: transparent; color: var(--m-text); font-weight: 600; }
-.palette .foot { display: flex; gap: 14px; padding: 7px 13px; border-top: 1px solid var(--m-line); font-family: var(--mono); font-size: 9.5px; color: var(--m-faint); }
+.palette .foot { display: flex; gap: 14px; padding: 9px 13px 10px; font-family: var(--mono); font-size: 9.5px; color: var(--m-faint); }
 
 /* Library ------------------------------------------------------------ */
 .lib { flex: 1; padding: 22px 28px; }
 .lib-h { font-family: var(--sans); font-size: 15px; font-weight: 600; margin: 0 0 2px; }
 .lib-sub { font-size: 11px; color: var(--m-faint); margin: 0 0 16px; }
-.lib-find { display: flex; align-items: center; gap: 8px; border: 1px solid var(--m-line); border-radius: 7px; padding: 7px 11px; font-size: 12px; color: var(--m-faint); margin-bottom: 20px; }
+.lib-find { display: flex; align-items: center; gap: 8px; background: var(--m-sel); border-radius: 7px; padding: 8px 11px; font-size: 12px; color: var(--m-faint); margin-bottom: 20px; }
 .lib-find .k { margin-left: auto; font-family: var(--mono); font-size: 9.5px; }
 .lib-sect { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-faint); margin: 16px 0 9px; display: flex; align-items: center; gap: 8px; }
 .lib-sect:after { content: ""; flex: 1; height: 1px; background: var(--m-line); }
 .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
-.card { border: 1px solid var(--m-line); border-radius: 7px; padding: 10px 11px; display: flex; flex-direction: column; gap: 5px; background: var(--m-bg); min-height: 58px; }
+.card { border-radius: 7px; padding: 10px 11px; display: flex; flex-direction: column; gap: 5px; background: var(--m-sel); min-height: 58px; }
 .card .t { font-size: 11.5px; font-weight: 500; color: var(--m-text); }
 .card .p { font-size: 9.5px; color: var(--m-faint); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card .ic { color: var(--m-faint); }
-.card.folder { background: var(--m-chrome); }
+.card.folder { background: var(--m-sel); }
 .recents { display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; }
 
 /* Comparison strip: rail vs words ------------------------------------ */
@@ -655,6 +657,61 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <p class="demo-cap">ホバーで面と <kbd>⌘K</kbd> のヒントが出る</p>
         </div>
       </div>
+
+      <div class="rule">
+        <div class="n">07</div>
+        <div>
+          <b>境界線は、他に手がかりが無いときだけ</b>
+          <p>面が違えば線は要りません。余白が足りていれば、面すら要りません。<strong>1つの境界に1つの手段</strong>で、線が残るのは他のどれも使えないところだけです。</p>
+        </div>
+        <div class="demo">
+          <div class="demo-box" style="padding:0;display:flex;overflow:hidden;height:96px">
+            <div class="rail alone" style="padding:6px 0">
+              <span class="q on"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
+            </div>
+            <div style="flex:1;background:var(--m-chrome);display:flex;flex-direction:column">
+              <div style="flex:1;padding:8px 0"><div class="row"><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div></div>
+              <div class="pane-div"></div>
+              <div style="height:34px;padding:8px 0"><div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div></div>
+            </div>
+          </div>
+          <p class="demo-cap">線は上下段の間だけ ―― 同じ面が接する唯一の場所</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col" style="margin-top:34px">
+      <h3>どの境界を、何で示すか</h3>
+      <p>
+        線・面・余白・影のうち<strong>どれか1つ</strong>を割り当てます。重ねると、境界そのものが主張しはじめます。
+      </p>
+    </div>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">境界</th><th scope="col">これまで</th><th scope="col">これから</th><th scope="col">理由</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">パネル ↔ 本文</th><td class="num">面 ＋ 線</td><td class="num">面のみ</td><td>地の色が違うので、線は二重</td></tr>
+          <tr><th scope="row">レール ↔ パネル</th><td class="num">線</td><td class="num">なし</td><td>同じ面 ―― そもそも1枚</td></tr>
+          <tr><th scope="row">畳んだレール ↔ 本文</th><td class="num">線</td><td class="num">なし</td><td>本文の余白の中に印が並ぶだけ。ぶつかるものがない</td></tr>
+          <tr><th scope="row">ヘッダー ↔ 本文</th><td class="num">線（常時）</td><td class="num">余白 ／ スクロール中だけ線</td><td>下を何かが通るときにだけ、線に仕事がある</td></tr>
+          <tr><th scope="row">上段 ↔ 下段</th><td class="num">線</td><td class="num"><strong>線</strong>（残す）</td><td>同じ面が接する唯一の場所。ここだけは線でしか区別できない</td></tr>
+          <tr><th scope="row">覗いているパネル ↔ 本文</th><td class="num">—</td><td class="num">影</td><td>本当に上に浮いている。影はその事実の表示</td></tr>
+          <tr><th scope="row">ライブラリのカード</th><td class="num">枠</td><td class="num">面</td><td>16枚の枠は 16 個の矩形。面なら塊として読める</td></tr>
+          <tr><th scope="row">⌘K のパレット</th><td class="num">枠 ＋ 影</td><td class="num">影のみ</td><td>浮いているものに枠は要らない</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col" style="margin-top:26px">
+      <h3>線を外した分、行の状態は面の段階で示します</h3>
+      <p>
+        色も枠も無くなるので、選択が弱くなりすぎないよう、行の地に段階を持たせます ――
+        ホバーは1段、選択中は2段。文字も 400 → 500 に上げます。ここが今回いちばん実機で確かめたい点です。
+      </p>
     </div>
 
     <div class="col" style="margin-top:34px">
@@ -799,7 +856,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
               <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
             <div class="stage" style="flex-direction:column">
-              <div class="hdr force-hover">
+              <div class="hdr scrolled force-hover">
                 <span class="q"><svg class="i md"><use href="#ic-left"/></svg></span>
                 <span class="crumb">arto <span style="color:var(--m-line)">/</span> <b>README.md</b> <span class="hint">⌘K</span></span>
                 <span class="spacer"></span>
@@ -819,7 +876,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         <b>畳んで（<kbd>⌘B</kbd>）、全幅にし、ダークにした状態。</b>ヘッダーにポインタが乗っているときの見え方です。
         レールは残っているので、戻す手段を別に用意する必要がありません ―― 乗せれば覗け、押せば留まります。
         どのセクションも選ばれていないので、レールに指示線はありません。有効中の幅トグルは 65% ―― 色でも塗りでもありません。
-        レールは自分の背景を持たないので、畳んでいる間は本文と同じ地の上に、1px の境界と印だけが残ります。
+        レールは自分の背景も境界線も持たないので、畳んでいる間は本文と同じ地の上に、4つの印だけが残ります。
+        ヘッダーの下に線が引かれているのは、本文がスクロールされて下を通っているからです ―― 先頭に戻れば消えます。
       </p>
     </div>
   </section>
@@ -907,7 +965,10 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">直接ホバー時</th><td class="num">0.8 <span class="k">--opacity-hover</span></td><td class="num">1.0</td><td>面は <span class="mono">--bg-secondary</span>、枠なし</td></tr>
           <tr><th scope="row">遷移</th><td class="num">0.2s</td><td class="num">0.18s ease</td><td><span class="mono">opacity</span> と <span class="mono">background-color</span> のみ</td></tr>
           <tr><th scope="row">有効中・選択中</th><td class="num">accent 背景 8–10%</td><td class="num">不透明度 0.65 <span class="k">--opacity-active</span></td><td>新規トークン。色は付けない</td></tr>
-          <tr><th scope="row">選択行</th><td class="num">accent 枠 + accent 8% の地</td><td class="num"><span class="mono">--bg-secondary</span> ＋ 文字 500</td><td>左の accent 線は廃止</td></tr>
+          <tr><th scope="row">行のホバー</th><td class="num">—</td><td class="num">地を1段 <span class="k">--bg-row-hover</span></td><td>新規トークン</td></tr>
+          <tr><th scope="row">選択行</th><td class="num">accent 枠 + accent 8% の地</td><td class="num">地を2段 <span class="k">--bg-row-active</span> ＋ 文字 500</td><td>左の accent 線は廃止</td></tr>
+          <tr><th scope="row">パネルの境界線</th><td class="num">1px</td><td class="num">なし</td><td>地の違いで示す</td></tr>
+          <tr><th scope="row">ヘッダーの境界線</th><td class="num">1px（常時）</td><td class="num">スクロール位置 &gt; 0 のときだけ</td><td>0 に戻れば消える</td></tr>
           <tr><th scope="row">レールの地</th><td class="num">—</td><td class="num">持たない</td><td>留めている間はパネルと同一面（境界線なし）、畳めば本文と同じ地</td></tr>
           <tr><th scope="row">レール幅</th><td class="num">—</td><td class="num">40px</td><td>グリフ 16px を 30×30 の判定で中央に</td></tr>
           <tr><th scope="row">覗きの開始</th><td class="num">即時（端 1px）</td><td class="num">120ms の滞留（レール上）</td><td><span class="mono">--peek-open-delay</span></td></tr>
