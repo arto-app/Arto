@@ -68,7 +68,7 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
                 } }
                 ContextMenuItem { label: "Open Directory...", shortcut: shortcut("file.open_directory"), icon: Some(IconName::FolderOpen), on_click: move |_| {
                     if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-                        state.set_root_directory(dir);
+                        state.add_root(dir);
                     }
                     close();
                 } }
@@ -124,10 +124,6 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
             ContextMenuSubmenu { label: "View",
                 ContextMenuItem { label: "Toggle Left Sidebar", shortcut: shortcut("window.toggle_sidebar"), icon: Some(IconName::Sidebar), on_click: move |_| {
                     state.toggle_sidebar();
-                    close();
-                } }
-                ContextMenuItem { label: "Toggle Right Sidebar", shortcut: shortcut("window.toggle_right_sidebar"), icon: Some(IconName::List), on_click: move |_| {
-                    state.toggle_right_sidebar();
                     close();
                 } }
                 ContextMenuSeparator {}

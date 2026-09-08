@@ -10,7 +10,6 @@ pub enum FocusedPanel {
     #[default]
     Content,
     LeftSidebar,
-    RightSidebar,
     QuickAccess,
 }
 
@@ -20,7 +19,6 @@ impl FocusedPanel {
         match self {
             Self::Content => KeyContext::Content,
             Self::LeftSidebar => KeyContext::Sidebar,
-            Self::RightSidebar => KeyContext::RightSidebar,
             Self::QuickAccess => KeyContext::QuickAccess,
         }
     }
@@ -43,14 +41,6 @@ mod tests {
     #[test]
     fn left_sidebar_maps_to_sidebar_context() {
         assert_eq!(FocusedPanel::LeftSidebar.key_context(), KeyContext::Sidebar);
-    }
-
-    #[test]
-    fn right_sidebar_maps_to_right_sidebar_context() {
-        assert_eq!(
-            FocusedPanel::RightSidebar.key_context(),
-            KeyContext::RightSidebar
-        );
     }
 
     #[test]

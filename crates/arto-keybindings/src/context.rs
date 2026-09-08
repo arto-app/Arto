@@ -12,7 +12,6 @@ use std::str::FromStr;
 pub enum KeyContext {
     Content,
     Sidebar,
-    RightSidebar,
     QuickAccess,
     Search,
 }
@@ -33,7 +32,6 @@ impl fmt::Display for KeyContext {
         match self {
             Self::Content => f.write_str("content"),
             Self::Sidebar => f.write_str("sidebar"),
-            Self::RightSidebar => f.write_str("right_sidebar"),
             Self::QuickAccess => f.write_str("quick_access"),
             Self::Search => f.write_str("search"),
         }
@@ -47,7 +45,6 @@ impl FromStr for KeyContext {
         match s {
             "content" => Ok(Self::Content),
             "sidebar" => Ok(Self::Sidebar),
-            "right_sidebar" => Ok(Self::RightSidebar),
             "quick_access" => Ok(Self::QuickAccess),
             "search" => Ok(Self::Search),
             _ => Err(KeyContextParseError(s.to_string())),
@@ -64,7 +61,6 @@ mod tests {
         let contexts = [
             KeyContext::Content,
             KeyContext::Sidebar,
-            KeyContext::RightSidebar,
             KeyContext::QuickAccess,
             KeyContext::Search,
         ];
@@ -77,9 +73,9 @@ mod tests {
 
     #[test]
     fn serde_roundtrip() {
-        let ctx = KeyContext::RightSidebar;
+        let ctx = KeyContext::QuickAccess;
         let json = serde_json::to_string(&ctx).unwrap();
-        assert_eq!(json, r#""right_sidebar""#);
+        assert_eq!(json, r#""quick_access""#);
         let parsed: KeyContext = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, ctx);
     }

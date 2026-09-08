@@ -17,7 +17,6 @@ mod color_theme;
 mod directory_config;
 mod file_open_behavior;
 mod persistence;
-mod right_sidebar_config;
 mod sidebar_config;
 mod theme;
 mod theme_config;
@@ -33,7 +32,6 @@ pub use color_theme::*;
 pub use directory_config::*;
 pub use file_open_behavior::*;
 pub use persistence::*;
-pub use right_sidebar_config::*;
 pub use sidebar_config::*;
 pub use theme::*;
 pub use theme_config::*;
@@ -53,7 +51,6 @@ pub struct Config {
     pub markdown: RenderOptions,
     pub theme: ThemeConfig,
     pub sidebar: SidebarConfig,
-    pub right_sidebar: RightSidebarConfig,
     pub window_position: WindowPositionConfig,
     pub window_size: WindowSizeConfig,
     pub zoom: ZoomConfig,
@@ -73,7 +70,6 @@ mod tests {
         assert!(set.content.is_empty());
         assert!(set.sidebar.is_empty());
         assert!(set.quick_access.is_empty());
-        assert!(set.right_sidebar.is_empty());
         assert!(set.search.is_empty());
     }
 
@@ -102,16 +98,6 @@ mod tests {
         assert_eq!(config.sidebar.default_zoom_level, 1.0);
         assert_eq!(config.sidebar.on_startup, StartupBehavior::Default);
         assert_eq!(config.sidebar.on_new_window, NewWindowBehavior::Default);
-
-        // Right sidebar defaults
-        assert!(!config.right_sidebar.default_pinned);
-        assert_eq!(config.right_sidebar.default_width, 220.0);
-        assert_eq!(config.right_sidebar.default_zoom_level, 1.0);
-        assert_eq!(config.right_sidebar.on_startup, StartupBehavior::Default);
-        assert_eq!(
-            config.right_sidebar.on_new_window,
-            NewWindowBehavior::Default
-        );
 
         // Window size defaults
         assert_eq!(config.window_size.default_size.width.value, 1000.0);
@@ -187,14 +173,6 @@ mod tests {
                 on_startup: StartupBehavior::LastClosed,
                 on_new_window: NewWindowBehavior::LastFocused,
             },
-            right_sidebar: RightSidebarConfig {
-                default_pinned: true,
-                default_width: 250.0,
-                default_tab: Default::default(),
-                default_zoom_level: 0.8,
-                on_startup: StartupBehavior::LastClosed,
-                on_new_window: NewWindowBehavior::LastFocused,
-            },
             window_position: WindowPositionConfig {
                 default_position: WindowPosition {
                     x: WindowDimension {
@@ -255,9 +233,6 @@ mod tests {
         assert!(!parsed.sidebar.default_pinned);
         assert_eq!(parsed.sidebar.default_width, 320.0);
         assert_eq!(parsed.sidebar.default_zoom_level, 1.2);
-        assert!(parsed.right_sidebar.default_pinned);
-        assert_eq!(parsed.right_sidebar.default_width, 250.0);
-        assert_eq!(parsed.right_sidebar.default_zoom_level, 0.8);
         assert_eq!(parsed.window_position.default_position.x.value, 10.0);
         assert_eq!(
             parsed.window_position.default_position.x.unit,
@@ -294,7 +269,6 @@ mod tests {
 
         // Sidebar zoom defaults
         assert_eq!(parsed.sidebar.default_zoom_level, 1.0);
-        assert_eq!(parsed.right_sidebar.default_zoom_level, 1.0);
         assert_eq!(parsed.file_open, FileOpenBehavior::LastFocused);
     }
 

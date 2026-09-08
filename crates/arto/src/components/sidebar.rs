@@ -1,11 +1,13 @@
 pub mod context_menu;
 pub mod file_explorer;
 pub mod quick_access;
+pub mod rail;
+pub mod recent;
 
 use dioxus::document;
 use dioxus::prelude::*;
 
-use crate::state::{AppState, FocusedPanel};
+use crate::state::{AppState, Face, FocusedPanel};
 
 #[component]
 pub fn Sidebar(
@@ -16,12 +18,14 @@ pub fn Sidebar(
     let sidebar_state = state.sidebar.read();
     let width = sidebar_state.width;
     let zoom_level = sidebar_state.zoom_level;
+    let face = sidebar_state.face;
     drop(sidebar_state);
     let focused_panel = *state.focused_panel.read();
     let is_panel_focused =
         focused_panel == FocusedPanel::LeftSidebar || focused_panel == FocusedPanel::QuickAccess;
     let mut is_resizing = use_signal(|| false);
 
+    let _ = on_pin_toggle;
     let outer_style = format!("width: {}px;", width);
     let inner_style = format!("zoom: {};", zoom_level);
 
@@ -37,9 +41,11 @@ pub fn Sidebar(
                 class: "left-sidebar-inner",
                 style: "{inner_style}",
 
-                // File explorer content (always mounted for animation)
-                file_explorer::FileExplorer {
-                    on_pin_toggle,
+                // One face at a time; the rail is what switches them.
+                match face {
+                    Face::Files => rsx! { file_explorer::FileExplorer {} },
+                    Face::Recent => rsx! { recent::RecentFace {} },
+                    Face::Starred => rsx! { quick_access::StarredFace {} },
                 }
             }
 

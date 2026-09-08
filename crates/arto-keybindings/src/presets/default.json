@@ -58,10 +58,6 @@
       "action": "window.toggle_sidebar"
     },
     {
-      "key": "Cmd+Shift+b",
-      "action": "window.toggle_right_sidebar"
-    },
-    {
       "key": "Cmd+0",
       "action": "zoom.reset"
     },
@@ -152,12 +148,20 @@
       "action": "focus.left_sidebar"
     },
     {
-      "key": "Ctrl+ArrowRight",
-      "action": "focus.right_sidebar"
-    },
-    {
       "key": "Escape",
       "action": "cancel"
+    },
+    {
+      "key": "Cmd+1",
+      "action": "sidebar.face_files"
+    },
+    {
+      "key": "Cmd+2",
+      "action": "sidebar.face_recent"
+    },
+    {
+      "key": "Cmd+3",
+      "action": "sidebar.face_starred"
     }
   ],
   "content": [
@@ -184,10 +188,6 @@
     {
       "key": "Ctrl+ArrowLeft",
       "action": "focus.left_sidebar"
-    },
-    {
-      "key": "Ctrl+ArrowRight",
-      "action": "focus.right_sidebar"
     }
   ],
   "search": [
@@ -244,36 +244,6 @@
     {
       "key": "Ctrl+ArrowDown",
       "action": "focus.quick_access"
-    }
-  ],
-  "rightSidebar": [
-    {
-      "key": "ArrowDown",
-      "action": "cursor.down"
-    },
-    {
-      "key": "ArrowUp",
-      "action": "cursor.up"
-    },
-    {
-      "key": "ArrowRight",
-      "action": "cursor.open"
-    },
-    {
-      "key": "Enter",
-      "action": "cursor.open"
-    },
-    {
-      "key": "ArrowLeft",
-      "action": "cursor.collapse"
-    },
-    {
-      "key": "Ctrl+ArrowRight",
-      "action": "focus.right_sidebar"
-    },
-    {
-      "key": "Ctrl+ArrowLeft",
-      "action": "focus.content"
     }
   ],
   "quickAccess": [

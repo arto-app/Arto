@@ -128,10 +128,6 @@
       "action": "focus.quick_access"
     },
     {
-      "key": "Ctrl+x 4 r",
-      "action": "window.toggle_right_sidebar"
-    },
-    {
       "key": "Ctrl+x Ctrl+r",
       "action": "window.reload"
     },
@@ -168,10 +164,6 @@
       "action": "tab.open_in_new_window"
     },
     {
-      "key": "Ctrl+x o",
-      "action": "focus.right_sidebar"
-    },
-    {
       "key": "Ctrl+x Ctrl+c",
       "action": "app.quit"
     },
@@ -186,6 +178,18 @@
     {
       "key": "Ctrl+x r m",
       "action": "file.toggle_bookmark"
+    },
+    {
+      "key": "Cmd+1",
+      "action": "sidebar.face_files"
+    },
+    {
+      "key": "Cmd+2",
+      "action": "sidebar.face_recent"
+    },
+    {
+      "key": "Cmd+3",
+      "action": "sidebar.face_starred"
     }
   ],
   "content": [
@@ -274,32 +278,6 @@
       "action": "focus.quick_access"
     }
   ],
-  "rightSidebar": [
-    {
-      "key": "Ctrl+n",
-      "action": "cursor.down"
-    },
-    {
-      "key": "Ctrl+p",
-      "action": "cursor.up"
-    },
-    {
-      "key": "Ctrl+f",
-      "action": "cursor.open"
-    },
-    {
-      "key": "Enter",
-      "action": "cursor.open"
-    },
-    {
-      "key": "Ctrl+b",
-      "action": "cursor.collapse"
-    },
-    {
-      "key": "Ctrl+x o",
-      "action": "focus.content"
-    }
-  ],
   "quickAccess": [
     {
       "key": "Ctrl+n",
@@ -320,10 +298,6 @@
     {
       "key": "Ctrl+b",
       "action": "cursor.collapse"
-    },
-    {
-      "key": "Ctrl+x o",
-      "action": "focus.right_sidebar"
     },
     {
       "key": "Ctrl+x Ctrl+k",

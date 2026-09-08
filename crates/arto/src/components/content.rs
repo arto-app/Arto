@@ -2,6 +2,7 @@ mod context_menu;
 mod context_menu_state;
 mod file_error_view;
 mod file_viewer;
+mod gutter;
 mod inline_viewer;
 mod no_file_view;
 mod preferences_view;
@@ -13,6 +14,7 @@ use crate::scroll_anchor::ScrollAnchor;
 use crate::state::{AppState, TabContent};
 use file_error_view::FileErrorView;
 use file_viewer::FileViewer;
+use gutter::ContentsGutter;
 use inline_viewer::InlineViewer;
 use no_file_view::NoFileView;
 
@@ -46,7 +48,12 @@ pub fn Content() -> Element {
     // Set up scroll position tracking via JavaScript
     use_scroll_anchor_tracker(state);
 
+    let headings = state.headings;
+
     rsx! {
+        div {
+            class: "content-area",
+
         div {
             class: "content",
 
@@ -72,6 +79,12 @@ pub fn Content() -> Element {
                     _ => rsx! { NoFileView {} },
                 }
             }
+        }
+
+        // The contents live beside the document rather than in a panel of
+        // their own: always there, 24px wide, and impossible to open by
+        // accident because there is nothing to open.
+        ContentsGutter { headings: headings() }
         }
     }
 }

@@ -97,7 +97,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                         match render_to_html_with_toc(&content, &file) {
                             Ok((rendered, headings)) => {
                                 html.set(rendered);
-                                state.right_sidebar_headings.set(headings);
+                                state.headings.set(headings);
                                 tracing::trace!("Rendered as Markdown: {:?}", &file);
                             }
                             Err(e) => {
@@ -113,7 +113,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                                     escaped_content
                                 );
                                 html.set(plain_html);
-                                state.right_sidebar_headings.set(Vec::new());
+                                state.headings.set(Vec::new());
                             }
                         }
                     } else {
@@ -125,7 +125,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                             escaped_content
                         );
                         html.set(plain_html);
-                        state.right_sidebar_headings.set(Vec::new());
+                        state.headings.set(Vec::new());
                     }
 
                     // Re-apply search highlighting after content changes

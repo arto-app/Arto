@@ -1,0 +1,163 @@
+/* =================================
+   Panel faces
+   =================================
+
+   Files, Recent and Starred are three views of the same panel; the rail is
+   what switches them. */
+
+.left-sidebar-face {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+/* --- Root groups (Files) --------------------------------------------- */
+
+/* Places above, this window's temporaries below. Two groups of the same
+   surface meeting is the one boundary a line is still the only device for. */
+.left-sidebar-root-group-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 12px 4px;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+.left-sidebar-root-group-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+
+.left-sidebar-root {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 4px;
+  margin: 0 4px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  color: var(--text-color);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.left-sidebar-root:hover {
+  background: var(--bg-secondary);
+}
+
+.left-sidebar-root-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.left-sidebar-root-close {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-color);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-quiet) ease;
+}
+
+.left-sidebar-root:hover .left-sidebar-root-close {
+  opacity: var(--opacity-rest);
+}
+
+.left-sidebar-root-close:hover {
+  opacity: 1;
+  background: var(--bg-secondary);
+}
+
+/* A folder chosen through a dialog is a place, so this row bookmarks it. */
+.left-sidebar-add-root {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  margin: 2px 4px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  opacity: var(--opacity-rest);
+  cursor: pointer;
+  transition: opacity var(--transition-quiet) ease;
+}
+
+.left-sidebar-add-root:hover {
+  opacity: 1;
+  background: var(--bg-secondary);
+}
+
+/* --- Recent ----------------------------------------------------------- */
+
+.left-sidebar-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 8px 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.left-sidebar-filter-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: var(--font-size-md);
+  outline: none;
+}
+
+.left-sidebar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 12px 4px;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+  cursor: pointer;
+}
+
+.left-sidebar-group::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+  order: 1;
+}
+
+.left-sidebar-group-count {
+  order: 2;
+  letter-spacing: 0.04em;
+}
+
+.left-sidebar-group:hover {
+  opacity: 1;
+}

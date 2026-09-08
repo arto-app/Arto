@@ -1,7 +1,6 @@
 use dioxus::document;
 use dioxus::prelude::*;
 
-use crate::components::right_sidebar::RightSidebarTab;
 use crate::document_link::{open_document_link, LinkOpen};
 use crate::pinned_search::add_pinned_search;
 use crate::state::sidebar_cursor;
@@ -107,13 +106,6 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
                 }
             }
         }
-        Action::WindowToggleRightSidebar => {
-            let closing = state.right_sidebar.read().pinned;
-            state.toggle_right_sidebar();
-            if closing && *state.focused_panel.read() == FocusedPanel::RightSidebar {
-                state.focused_panel.set(FocusedPanel::Content);
-            }
-        }
         Action::WindowReload => {
             let current = *state.reload_trigger.read();
             state.reload_trigger.set(current + 1);
@@ -155,37 +147,22 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
             // Show overlay if not pinned, then focus it
             if !state.sidebar.read().pinned {
                 state.left_hover_active.set(true);
-                state.right_hover_active.set(false);
             }
             state.focused_panel.set(FocusedPanel::LeftSidebar);
             // Initialize cursor to first item if not set
             if state.sidebar_cursor.read().is_none() {
                 if let Some((root, expanded, show_all)) = extract_sidebar_data(&state) {
-                    let items = sidebar_cursor::visible_items(&root, &expanded, show_all);
+                    let items = sidebar_cursor::visible_items_in_roots(&root, &expanded, show_all);
                     if let Some(first) = items.first() {
                         state.sidebar_cursor.set(Some(first.clone()));
                     }
                 }
             }
         }
-        Action::FocusRightSidebar => {
-            // Show overlay if not pinned, then focus it
-            if !state.right_sidebar.read().pinned {
-                state.right_hover_active.set(true);
-                state.left_hover_active.set(false);
-            }
-            state.focused_panel.set(FocusedPanel::RightSidebar);
-            // Initialize cursor to first heading if not set
-            if state.toc_cursor.read().is_none() && !state.right_sidebar_headings.read().is_empty()
-            {
-                state.toc_cursor.set(Some(0));
-            }
-        }
         Action::FocusQuickAccess => {
             // Show overlay if not pinned (quick access is part of sidebar)
             if !state.sidebar.read().pinned {
                 state.left_hover_active.set(true);
-                state.right_hover_active.set(false);
             }
             state.focused_panel.set(FocusedPanel::QuickAccess);
             // Initialize cursor to first bookmark if not set
@@ -198,7 +175,6 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::FocusContent => {
             state.focused_panel.set(FocusedPanel::Content);
             state.left_hover_active.set(false);
-            state.right_hover_active.set(false);
         }
 
         // --- Cursor ---
@@ -216,17 +192,25 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::ContentOpenViewer => open_content_viewer_from_cursor(&state),
 
         // --- Directory ---
+        // Walking the root itself is gone: a root's parent is added alongside
+        // it now rather than replacing it, and the tree holds several roots at
+        // once, so there is no single "current directory" to step through.
         Action::DirectoryParent => {
-            state.go_to_parent_directory();
-        }
-        Action::DirectoryBack => {
-            state.go_back_directory();
-        }
-        Action::DirectoryForward => {
-            state.go_forward_directory();
+            let parent = state
+                .sidebar
+                .read()
+                .primary_root()
+                .and_then(|root| root.parent().map(|p| p.to_path_buf()));
+            if let Some(parent) = parent {
+                state.add_root(parent);
+            }
         }
 
         // --- File ---
+        Action::SidebarFaceFiles => state.show_face(crate::state::Face::Files),
+        Action::SidebarFaceRecent => state.show_face(crate::state::Face::Recent),
+        Action::SidebarFaceStarred => state.show_face(crate::state::Face::Starred),
+
         Action::FileOpen => {
             if let Some(file) = pick_markdown_file() {
                 state.open_file(file);
@@ -234,7 +218,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         }
         Action::FileOpenDirectory => {
             if let Some(dir) = pick_directory() {
-                state.set_root_directory(dir);
+                state.add_root(dir);
             }
         }
         Action::FileSetParentAsRoot => set_parent_of_current_file_as_root(&mut state),
@@ -273,24 +257,6 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
             state.sidebar.write().show_all_files = !current;
         }
 
-        // --- Right sidebar ---
-        Action::RightSidebarShowContents => {
-            if !state.right_sidebar.read().pinned {
-                state.right_hover_active.set(true);
-                state.left_hover_active.set(false);
-            }
-            state.set_right_sidebar_tab(RightSidebarTab::Contents);
-            state.focused_panel.set(FocusedPanel::RightSidebar);
-        }
-        Action::RightSidebarShowSearch => {
-            if !state.right_sidebar.read().pinned {
-                state.right_hover_active.set(true);
-                state.left_hover_active.set(false);
-            }
-            state.set_right_sidebar_tab(RightSidebarTab::Search);
-            state.focused_panel.set(FocusedPanel::RightSidebar);
-        }
-
         // --- Theme ---
         Action::ThemeSetLight => state.current_theme.set(Theme::Light),
         Action::ThemeSetDark => state.current_theme.set(Theme::Dark),
@@ -303,51 +269,33 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
 
 /// Clone sidebar data needed for cursor navigation, releasing the read guard.
 ///
-/// Returns `(root_directory, expanded_dirs, show_all_files)` if a root is set.
+/// Returns `(roots, expanded_dirs, show_all_files)` if the tree has any root.
 fn extract_sidebar_data(
     state: &AppState,
 ) -> Option<(
-    std::path::PathBuf,
+    Vec<std::path::PathBuf>,
     std::collections::HashSet<std::path::PathBuf>,
     bool,
 )> {
     let sidebar = state.sidebar.read();
-    sidebar.root_directory.as_ref().map(|root| {
-        (
-            root.clone(),
-            sidebar.expanded_dirs.clone(),
-            sidebar.show_all_files,
-        )
-    })
+    let roots: Vec<_> = sidebar.roots.all().cloned().collect();
+    (!roots.is_empty()).then(|| (roots, sidebar.expanded_dirs.clone(), sidebar.show_all_files))
 }
 
-/// Cycle to next/previous tab, or toggle right sidebar tab when focused.
+/// Cycle to the next or previous tab.
 fn dispatch_tab_cycle(state: &mut AppState, forward: bool) {
-    if *state.focused_panel.read() == FocusedPanel::RightSidebar {
-        toggle_right_sidebar_tab(state);
-    } else {
-        let tabs_len = state.tabs.read().len();
-        if tabs_len > 1 {
-            let current = *state.active_tab.read();
-            let next = if forward {
-                (current + 1) % tabs_len
-            } else if current == 0 {
-                tabs_len - 1
-            } else {
-                current - 1
-            };
-            state.switch_to_tab(next);
-        }
+    let tabs_len = state.tabs.read().len();
+    if tabs_len > 1 {
+        let current = *state.active_tab.read();
+        let next = if forward {
+            (current + 1) % tabs_len
+        } else if current == 0 {
+            tabs_len - 1
+        } else {
+            current - 1
+        };
+        state.switch_to_tab(next);
     }
-}
-
-/// Cycle the right sidebar between Contents and Search tabs.
-fn toggle_right_sidebar_tab(state: &mut AppState) {
-    let tab = match state.right_sidebar.read().tab {
-        RightSidebarTab::Contents => RightSidebarTab::Search,
-        RightSidebarTab::Search => RightSidebarTab::Contents,
-    };
-    state.set_right_sidebar_tab(tab);
 }
 
 enum CursorDirection {
@@ -360,23 +308,13 @@ fn dispatch_cursor_move(state: &mut AppState, direction: CursorDirection) {
     match panel {
         FocusedPanel::LeftSidebar => {
             if let Some((root, expanded, show_all)) = extract_sidebar_data(state) {
-                let items = sidebar_cursor::visible_items(&root, &expanded, show_all);
+                let items = sidebar_cursor::visible_items_in_roots(&root, &expanded, show_all);
                 let current = state.sidebar_cursor.read().clone();
                 let next = match direction {
                     CursorDirection::Down => sidebar_cursor::move_down(&current, &items),
                     CursorDirection::Up => sidebar_cursor::move_up(&current, &items),
                 };
                 state.sidebar_cursor.set(next);
-                scroll_cursor_into_view();
-            }
-        }
-        FocusedPanel::RightSidebar => {
-            let headings_len = state.right_sidebar_headings.read().len();
-            if headings_len > 0 {
-                let current = *state.toc_cursor.read();
-                state
-                    .toc_cursor
-                    .set(move_index_cursor(current, headings_len, &direction));
                 scroll_cursor_into_view();
             }
         }
@@ -425,13 +363,12 @@ fn dispatch_cursor_enter(state: &mut AppState) {
             let cursor = state.sidebar_cursor.read().clone();
             let Some(path) = cursor else { return };
             if path.is_dir() {
-                state.set_root_directory(&path);
+                state.add_root(&path);
             } else {
                 state.open_file(&path);
             }
         }
-        // Right sidebar & quick access: same as cursor.open (scroll to heading / open bookmark)
-        FocusedPanel::RightSidebar => open_right_sidebar(state),
+        // Quick access: same as cursor.open (open the bookmark)
         FocusedPanel::QuickAccess => open_quick_access(state),
         FocusedPanel::Content => {}
     }
@@ -442,7 +379,6 @@ fn dispatch_cursor_open(state: &mut AppState) {
     let panel = *state.focused_panel.read();
     match panel {
         FocusedPanel::LeftSidebar => open_sidebar(state),
-        FocusedPanel::RightSidebar => open_right_sidebar(state),
         FocusedPanel::QuickAccess => open_quick_access(state),
         FocusedPanel::Content => {}
     }
@@ -469,7 +405,7 @@ fn open_sidebar(state: &mut AppState) {
         let Some((root, expanded, show_all)) = extract_sidebar_data(state) else {
             return;
         };
-        let items = sidebar_cursor::visible_items(&root, &expanded, show_all);
+        let items = sidebar_cursor::visible_items_in_roots(&root, &expanded, show_all);
         items
             .iter()
             .position(|p| p == &path)
@@ -479,36 +415,6 @@ fn open_sidebar(state: &mut AppState) {
         state.sidebar_cursor.set(Some(next));
         scroll_cursor_into_view();
     }
-}
-
-fn open_right_sidebar(state: &mut AppState) {
-    let heading_id = {
-        let idx = *state.toc_cursor.read();
-        idx.and_then(|i| {
-            state
-                .right_sidebar_headings
-                .read()
-                .get(i)
-                .map(|h| h.id.clone())
-        })
-    };
-    let Some(id) = heading_id else { return };
-    spawn_detached(async move {
-        let id_json = serde_json::to_string(&id).unwrap_or_else(|_| "null".to_string());
-        let js = format!(
-            r#"
-            (() => {{
-                const el = document.getElementById({id_json});
-                if (el) {{
-                    el.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
-                }}
-            }})();
-            "#,
-        );
-        if let Err(e) = document::eval(&js).await {
-            tracing::debug!(%id, "Failed to scroll to heading: {e}");
-        }
-    });
 }
 
 fn open_quick_access(state: &mut AppState) {
@@ -525,7 +431,7 @@ fn open_quick_access(state: &mut AppState) {
     if let Some((path, exists, is_dir)) = bookmark_info {
         if exists {
             if is_dir {
-                state.set_root_directory(&path);
+                state.add_root(&path);
             } else {
                 state.open_file(&path);
             }
@@ -548,7 +454,8 @@ fn dispatch_cursor_collapse(state: &mut AppState) {
                     // Move cursor to parent directory in the visible list
                     let parent =
                         extract_sidebar_data(state).and_then(|(root, expanded, show_all)| {
-                            let items = sidebar_cursor::visible_items(&root, &expanded, show_all);
+                            let items =
+                                sidebar_cursor::visible_items_in_roots(&root, &expanded, show_all);
                             sidebar_cursor::find_parent_dir(&path, &items)
                         });
                     if let Some(parent) = parent {
@@ -559,7 +466,7 @@ fn dispatch_cursor_collapse(state: &mut AppState) {
             }
         }
         // No-op for other panels
-        FocusedPanel::RightSidebar | FocusedPanel::QuickAccess | FocusedPanel::Content => {}
+        FocusedPanel::QuickAccess | FocusedPanel::Content => {}
     }
 }
 
@@ -992,7 +899,7 @@ fn get_bookmark_target_path(state: &AppState) -> Option<std::path::PathBuf> {
                 bookmarks.items.get(index).map(|b| b.path.clone())
             })
         }
-        FocusedPanel::RightSidebar | FocusedPanel::Content => None,
+        FocusedPanel::Content => None,
     }
 }
 
@@ -1197,7 +1104,7 @@ fn set_parent_of_current_file_as_root(state: &mut AppState) {
     let Some(parent) = file.parent() else {
         return;
     };
-    state.set_root_directory(parent.to_path_buf());
+    state.add_root(parent);
 }
 
 fn open_current_tab_in_new_window(state: &mut AppState) {

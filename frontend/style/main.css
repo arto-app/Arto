@@ -26,14 +26,16 @@
 @import url("./components/action-feedback.css");
 
 /* Left sidebar */
+@import url("./components/left-rail.css");
 @import url("./components/left-sidebar.css");
+@import url("./components/left-sidebar/faces.css");
 @import url("./components/left-sidebar/quick-access.css");
 
 /* Right sidebar */
-@import url("./components/right-sidebar.css");
 
 /* Content area */
 @import url("./components/content.css");
+@import url("./components/contents-gutter.css");
 @import url("./components/content/code-copy.css");
 @import url("./components/content/content-cursor.css");
 

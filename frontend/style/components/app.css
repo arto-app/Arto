@@ -99,10 +99,6 @@
   left: 0;
 }
 
-.sidebar-overlay-wrapper.right {
-  right: 0;
-}
-
 /* Slide animation for overlay sidebars */
 .sidebar-overlay-wrapper.left .left-sidebar {
   transform: translateX(-100%);
@@ -110,15 +106,6 @@
 }
 
 .sidebar-overlay-wrapper.left.visible .left-sidebar {
-  transform: translateX(0);
-}
-
-.sidebar-overlay-wrapper.right .right-sidebar {
-  transform: translateX(100%);
-  transition: transform var(--transition-normal) ease;
-}
-
-.sidebar-overlay-wrapper.right.visible .right-sidebar {
   transform: translateX(0);
 }
 

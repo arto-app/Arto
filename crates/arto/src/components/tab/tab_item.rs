@@ -141,7 +141,7 @@ pub fn TabItem(
     // Create new window first, then close tab (in case it's the last tab)
     let handle_open_in_new_window = move |_| {
         if let Some(tab) = state.get_tab(index) {
-            let directory = state.sidebar.read().root_directory.clone();
+            let directory = state.sidebar.read().primary_root().cloned();
 
             spawn(async move {
                 let params = crate::window::main::CreateMainWindowConfigParams {
@@ -180,7 +180,7 @@ pub fn TabItem(
         move |_| {
             if let Some(ref path) = file_path {
                 if let Some(parent) = path.parent() {
-                    state.set_root_directory(parent.to_path_buf());
+                    state.add_root(parent);
                 }
             }
             show_context_menu.set(false);

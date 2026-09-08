@@ -90,7 +90,6 @@ pub fn MainApp() -> Element {
     let directory_pref = settings::get_directory_preference(is_first_window);
     let theme_pref = settings::get_theme_preference(is_first_window);
     let sidebar_pref = settings::get_sidebar_preference(is_first_window);
-    let right_sidebar_pref = settings::get_right_sidebar_preference(is_first_window);
     let content_full_width = settings::get_content_full_width_preference();
     let zoom_pref = settings::get_zoom_preference(is_first_window);
 
@@ -113,10 +112,6 @@ pub fn MainApp() -> Element {
             sidebar_width: sidebar_pref.width,
             sidebar_show_all_files: sidebar_pref.show_all_files,
             sidebar_zoom_level: sidebar_pref.zoom_level,
-            right_sidebar_pinned: right_sidebar_pref.pinned,
-            right_sidebar_width: right_sidebar_pref.width,
-            right_sidebar_tab: right_sidebar_pref.tab,
-            right_sidebar_zoom_level: right_sidebar_pref.zoom_level,
             zoom_level: zoom_pref.zoom_level,
         }
     }

@@ -61,20 +61,18 @@ pub enum Action {
     CopyImageAsMarkdown,
     CopyLinkPath,
 
-    // Window (4)
+    // Window (5)
     WindowNew,
     WindowClose,
     WindowCloseAllChildWindows,
     WindowCloseAllWindows,
     WindowToggleSidebar,
-    WindowToggleRightSidebar,
 
     // Reload (1)
     WindowReload,
 
-    // Focus (4) — keyboard-only
+    // Focus (3) — keyboard-only
     FocusLeftSidebar,
-    FocusRightSidebar,
     FocusQuickAccess,
     FocusContent,
 
@@ -96,12 +94,11 @@ pub enum Action {
     AppGoToHomepage,
     HelpShowKeyboardShortcuts,
 
-    // Sidebar (1)
+    // Sidebar (4)
     SidebarToggleShowAllFiles,
-
-    // Right sidebar (2)
-    RightSidebarShowContents,
-    RightSidebarShowSearch,
+    SidebarFaceFiles,
+    SidebarFaceRecent,
+    SidebarFaceStarred,
 
     // Theme (3)
     ThemeSetLight,
@@ -122,10 +119,8 @@ pub enum Action {
     ContentPrevHeading,
     ContentOpenViewer,
 
-    // Directory — sidebar navigation (3) — keyboard-only
+    // Directory — sidebar navigation (1) — keyboard-only
     DirectoryParent,
-    DirectoryBack,
-    DirectoryForward,
 
     // Cancel (1) — keyboard-only
     Cancel,
@@ -203,7 +198,6 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::WindowCloseAllChildWindows,
             Action::WindowCloseAllWindows,
             Action::WindowToggleSidebar,
-            Action::WindowToggleRightSidebar,
             Action::WindowReload,
         ],
     ),
@@ -211,7 +205,6 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
         "Focus",
         &[
             Action::FocusLeftSidebar,
-            Action::FocusRightSidebar,
             Action::FocusQuickAccess,
             Action::FocusContent,
         ],
@@ -240,12 +233,13 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::HelpShowKeyboardShortcuts,
         ],
     ),
-    ("Sidebar", &[Action::SidebarToggleShowAllFiles]),
     (
-        "Right Sidebar",
+        "Sidebar",
         &[
-            Action::RightSidebarShowContents,
-            Action::RightSidebarShowSearch,
+            Action::SidebarToggleShowAllFiles,
+            Action::SidebarFaceFiles,
+            Action::SidebarFaceRecent,
+            Action::SidebarFaceStarred,
         ],
     ),
     (
@@ -276,14 +270,7 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::ContentOpenViewer,
         ],
     ),
-    (
-        "Directory",
-        &[
-            Action::DirectoryParent,
-            Action::DirectoryBack,
-            Action::DirectoryForward,
-        ],
-    ),
+    ("Directory", &[Action::DirectoryParent]),
     ("Cancel", &[Action::Cancel]),
 ];
 
@@ -310,7 +297,6 @@ pub const MENU_ACTIONS: &[Action] = &[
     Action::SearchNext,
     Action::SearchPrev,
     Action::WindowToggleSidebar,
-    Action::WindowToggleRightSidebar,
     Action::ZoomReset,
     Action::ZoomIn,
     Action::ZoomOut,
@@ -413,10 +399,8 @@ action_strings! {
     WindowCloseAllChildWindows => "window.close_all_child_windows",
     WindowCloseAllWindows => "window.close_all_windows",
     WindowToggleSidebar => "window.toggle_sidebar",
-    WindowToggleRightSidebar => "window.toggle_right_sidebar",
     WindowReload => "window.reload",
     FocusLeftSidebar => "focus.left_sidebar",
-    FocusRightSidebar => "focus.right_sidebar",
     FocusQuickAccess => "focus.quick_access",
     FocusContent => "focus.content",
     FileOpen => "file.open",
@@ -434,8 +418,9 @@ action_strings! {
     AppGoToHomepage => "app.go_to_homepage",
     HelpShowKeyboardShortcuts => "help.show_keyboard_shortcuts",
     SidebarToggleShowAllFiles => "sidebar.toggle_show_all_files",
-    RightSidebarShowContents => "right_sidebar.show_contents",
-    RightSidebarShowSearch => "right_sidebar.show_search",
+    SidebarFaceFiles => "sidebar.face_files",
+    SidebarFaceRecent => "sidebar.face_recent",
+    SidebarFaceStarred => "sidebar.face_starred",
     ThemeSetLight => "theme.set_light",
     ThemeSetDark => "theme.set_dark",
     ThemeSetAuto => "theme.set_auto",
@@ -450,8 +435,6 @@ action_strings! {
     ContentPrevHeading => "content.prev_heading",
     ContentOpenViewer => "content.open_viewer",
     DirectoryParent => "directory.parent",
-    DirectoryBack => "directory.back",
-    DirectoryForward => "directory.forward",
     Cancel => "cancel",
 }
 
@@ -469,7 +452,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 85);
+        assert_eq!(all_actions().len(), 82);
     }
 
     #[test]

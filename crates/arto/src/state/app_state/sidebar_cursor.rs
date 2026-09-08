@@ -14,19 +14,23 @@ use crate::utils::file::is_markdown_file;
 /// Prevents unbounded recursion from symlink cycles or extremely deep trees.
 const MAX_DEPTH: usize = 128;
 
-/// Build a flat list of visible tree nodes by walking the directory tree.
+/// Build a flat list of visible tree nodes, over every root the tree shows.
 ///
-/// Replicates the ordering in `file_explorer.rs`:
-/// directories first, then files, both alphabetical.
-/// Respects `show_all_files` filter (hides non-markdown files when false).
-/// Only recurses into expanded directories.
-pub fn visible_items(
-    root: &Path,
+/// Replicates the ordering in `file_explorer.rs`: each root heads its own
+/// subtree, directories before files and both alphabetical, so the cursor
+/// moves down through one root and on into the next exactly as the eye does.
+/// Respects `show_all_files` (hides non-markdown files when false) and only
+/// recurses into expanded directories.
+pub fn visible_items_in_roots(
+    roots: &[PathBuf],
     expanded: &HashSet<PathBuf>,
     show_all_files: bool,
 ) -> Vec<PathBuf> {
     let mut items = Vec::new();
-    collect_visible(root, expanded, show_all_files, &mut items, 0);
+    for root in roots {
+        items.push(root.clone());
+        collect_visible(root, expanded, show_all_files, &mut items, 0);
+    }
     items
 }
 
@@ -133,6 +137,18 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::TempDir;
+
+    /// One root's visible items, without the root row `visible_items_in_roots`
+    /// draws above them.
+    fn visible_items(
+        root: &Path,
+        expanded: &HashSet<PathBuf>,
+        show_all_files: bool,
+    ) -> Vec<PathBuf> {
+        let mut items = Vec::new();
+        collect_visible(root, expanded, show_all_files, &mut items, 0);
+        items
+    }
 
     fn setup_test_tree() -> TempDir {
         let tmp = TempDir::new().unwrap();

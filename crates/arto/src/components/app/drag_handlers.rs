@@ -327,7 +327,7 @@ fn compute_detach_transition(
                     tab: dragged.tab.clone(),
                     position: preview_position,
                     is_single_tab: active.source_tab_count == 1,
-                    directory: state.sidebar.read().root_directory.clone(),
+                    directory: state.sidebar.read().primary_root().cloned(),
                     sidebar: state.sidebar.read().clone(),
                     theme: *state.current_theme.read(),
                     zoom_level: *state.zoom_level.read(),

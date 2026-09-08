@@ -8,7 +8,6 @@ use tokio::sync::oneshot;
 use super::context_menu::{
     context_action_should_proceed, SidebarContextMenu, SidebarContextMenuData, SidebarItemKind,
 };
-use super::quick_access::QuickAccess;
 use crate::components::bookmark_button::BookmarkButton;
 use crate::components::icon::{Icon, IconName};
 use crate::state::{AppState, FocusedPanel};
@@ -77,281 +76,165 @@ fn read_sorted_entries(path: &PathBuf) -> Vec<FileEntry> {
 }
 
 #[component]
-pub fn FileExplorer(on_pin_toggle: Option<EventHandler<()>>) -> Element {
-    let state = use_context::<AppState>();
-    // A memo rather than a plain read: the watcher below must restart only
-    // when the root changes, not on every other sidebar field update.
-    let root_directory = use_memo(move || state.sidebar.read().root_directory.clone());
+pub fn FileExplorer() -> Element {
+    let mut state = use_context::<AppState>();
+    // Memos rather than plain reads: each root's watcher must restart only when
+    // the set of roots changes, not on every other sidebar field update.
+    let places = use_memo(move || state.sidebar.read().roots.places().to_vec());
+    let temps = use_memo(move || state.sidebar.read().roots.temps().to_vec());
 
     // Refresh counter to force DirectoryTree re-render. Sourced from AppState
     // (not a local signal) so the hoisted context menu's "Reload" action can
     // trigger a refresh from outside this subtree.
     let refresh_counter = state.sidebar_refresh_counter;
 
-    // Watch directory for file system changes
-    use_directory_watcher(root_directory.into(), refresh_counter);
+    // Bookmarking a folder is what makes it a place, so the two lists are one
+    // list seen twice; this is where the tree picks the change up.
+    use_future(move || async move {
+        let mut rx = crate::bookmarks::BOOKMARKS_CHANGED.subscribe();
+        while rx.recv().await.is_ok() {
+            state.sync_places();
+        }
+    });
+
+    let has_roots = !places().is_empty() || !temps().is_empty();
 
     rsx! {
         div {
             class: "left-sidebar-explorer",
             key: "{refresh_counter}",
 
-            if let Some(root) = root_directory() {
-                DirectoryNavigation { current_dir: root.clone(), on_pin_toggle }
-                DirectoryTree { path: root, refresh_counter }
+            if has_roots {
+                if !places().is_empty() {
+                    RootGroup {
+                        label: "Places",
+                        roots: places(),
+                        closable: false,
+                        refresh_counter,
+                    }
+                }
+                div {
+                    class: "left-sidebar-add-root",
+                    // A folder chosen through a dialog is a deliberate act, so it
+                    // becomes a place: bookmarking it and rooting the tree at it
+                    // are the same thing.
+                    onclick: move |_| {
+                        if let Some(dir) = rfd::FileDialog::new().pick_folder() {
+                            crate::bookmarks::toggle_bookmark(dir);
+                        }
+                    },
+                    Icon { name: IconName::FolderPlus, size: 12 }
+                    span { "Add folder…" }
+                }
+                if !temps().is_empty() {
+                    RootGroup {
+                        label: "This window",
+                        roots: temps(),
+                        closable: true,
+                        refresh_counter,
+                    }
+                }
             } else {
                 div {
                     class: "left-sidebar-explorer-empty",
                     "No directory open"
                 }
             }
-
-            // Quick Access section (fixed at bottom)
-            QuickAccess {}
         }
     }
 }
 
+/// One labelled group of roots — the places, or this window's temporaries.
+///
+/// The label is a hairline with a word on it, the same device the history uses
+/// for its date groups: two groups of the same surface meeting is the one place
+/// left where a line is the only thing that can separate them.
 #[component]
-fn DirectoryNavigation(current_dir: PathBuf, on_pin_toggle: Option<EventHandler<()>>) -> Element {
+fn RootGroup(
+    label: &'static str,
+    roots: Vec<PathBuf>,
+    closable: bool,
+    refresh_counter: Signal<u32>,
+) -> Element {
+    rsx! {
+        div {
+            class: "left-sidebar-root-group-label",
+            span { "{label}" }
+        }
+        for root in roots {
+            RootSubtree {
+                key: "{root.display()}",
+                root: root.clone(),
+                closable,
+                refresh_counter,
+            }
+        }
+    }
+}
+
+/// A root and everything shown under it.
+#[component]
+fn RootSubtree(root: PathBuf, closable: bool, refresh_counter: Signal<u32>) -> Element {
     let mut state = use_context::<AppState>();
-    let is_pinned = state.sidebar.read().pinned;
-    let sidebar = state.sidebar.read();
-    let show_all_files = sidebar.show_all_files;
-    let can_go_back = sidebar.can_go_back();
-    let can_go_forward = sidebar.can_go_forward();
-    drop(sidebar);
+    let watched = use_memo({
+        let root = root.clone();
+        move || Some(root.clone())
+    });
+    use_directory_watcher(watched.into(), refresh_counter);
 
-    let has_parent = current_dir.parent().is_some();
-
-    // Get current directory name
-    let dir_name = current_dir
+    let name = root
         .file_name()
         .and_then(|n| n.to_str())
-        .unwrap_or("..")
-        .to_string();
-
-    // Copy feedback state
-    let mut is_copied = use_signal(|| false);
-
-    // Reload state for animation
-    let is_reloading = use_signal(|| false);
-    let mut is_reloading_write = is_reloading;
-
-    let on_reload = {
-        let current_dir = current_dir.clone();
-        move |evt: Event<MouseData>| {
-            evt.stop_propagation();
-
-            // Set reloading state for animation
-            is_reloading_write.set(true);
-
-            // Force the file tree to remount and re-read the filesystem. Funnels
-            // through the shared method so every reload path stays consistent.
-            state.bump_sidebar_refresh();
-
-            // Reset reloading state after animation
-            let current_dir = current_dir.clone();
-            spawn(async move {
-                tokio::time::sleep(tokio::time::Duration::from_millis(600)).await;
-                is_reloading_write.set(false);
-                tracing::trace!(?current_dir, "Directory reloaded");
-            });
-        }
-    };
+        .map(str::to_string)
+        .unwrap_or_else(|| root.display().to_string());
+    let is_expanded = state.sidebar.read().expanded_dirs.contains(&root);
+    let subtree_root = root.clone();
 
     rsx! {
         div {
-            class: "left-sidebar-header",
+            class: "left-sidebar-root",
+            title: "{root.display()}",
 
-            // History navigation buttons
-            div {
-                class: "left-sidebar-header-history",
-
-                // Go back button
-                button {
-                    class: "left-sidebar-header-history-button",
-                    class: if !can_go_back { "disabled" },
-                    disabled: !can_go_back,
-                    title: "Go back",
-                    onclick: move |_| {
-                        state.go_back_directory();
-                    },
-                    Icon {
-                        name: IconName::ChevronLeft,
-                        size: 16,
+            span {
+                class: "left-sidebar-tree-chevron",
+                onclick: {
+                    let root = root.clone();
+                    move |evt: Event<MouseData>| {
+                        evt.stop_propagation();
+                        state.toggle_directory_expansion(&root);
                     }
-                }
-
-                // Go forward button
-                button {
-                    class: "left-sidebar-header-history-button",
-                    class: if !can_go_forward { "disabled" },
-                    disabled: !can_go_forward,
-                    title: "Go forward",
-                    onclick: move |_| {
-                        state.go_forward_directory();
-                    },
-                    Icon {
-                        name: IconName::ChevronRight,
-                        size: 16,
-                    }
+                },
+                Icon {
+                    name: if is_expanded { IconName::ChevronDown } else { IconName::ChevronRight },
+                    size: 12,
                 }
             }
-
-            // Parent directory navigation or root indicator
-            if has_parent {
-                div {
-                    class: "left-sidebar-header-nav",
-                    onclick: move |_| {
-                        state.go_to_parent_directory();
-                    },
-
-                    div {
-                        class: "left-sidebar-header-content",
-                        span {
-                            class: "left-sidebar-header-label",
-                            "{dir_name}"
-                        }
-
-                        // Bookmark button - outside actions div for independent visibility
-                        BookmarkButton { path: current_dir.clone() }
-
-                        // Action buttons (copy & reload) - shown on hover
-                        div {
-                            class: "left-sidebar-header-actions",
-
-                            // Copy path button
-                            button {
-                                class: "left-sidebar-action-button copy-button",
-                                class: if *is_copied.read() { "copied" },
-                                title: "Copy directory path",
-                                onclick: {
-                                    let current_dir = current_dir.clone();
-                                    move |evt: Event<MouseData>| {
-                                        evt.stop_propagation();
-                                        crate::utils::clipboard::copy_text(current_dir.to_string_lossy());
-                                        is_copied.set(true);
-                                        spawn(async move {
-                                            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                                            is_copied.set(false);
-                                        });
-                                    }
-                                },
-                                Icon {
-                                    name: if *is_copied.read() { IconName::Check } else { IconName::Copy },
-                                    size: 14,
-                                }
-                            }
-
-                            // Reload button
-                            button {
-                                class: "left-sidebar-action-button reload-button",
-                                class: if *is_reloading.read() { "reloading" },
-                                title: "Reload file explorer",
-                                onclick: on_reload,
-                                Icon {
-                                    name: IconName::Refresh,
-                                    size: 14,
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Show root indicator when at filesystem root
-                div {
-                    class: "left-sidebar-header-nav root-indicator",
-
-                    div {
-                        class: "left-sidebar-header-content",
-                        Icon {
-                            name: IconName::Server,
-                            size: 16,
-                            class: "left-sidebar-header-icon",
-                        }
-                        span {
-                            class: "left-sidebar-header-label",
-                            "/"
-                        }
-
-                        // Bookmark button - outside actions div for independent visibility
-                        BookmarkButton { path: current_dir.clone() }
-
-                        // Action buttons (copy & reload) - shown on hover
-                        div {
-                            class: "left-sidebar-header-actions",
-
-                            // Copy path button
-                            button {
-                                class: "left-sidebar-action-button copy-button",
-                                class: if *is_copied.read() { "copied" },
-                                title: "Copy directory path",
-                                onclick: {
-                                    let current_dir = current_dir.clone();
-                                    move |evt: Event<MouseData>| {
-                                        evt.stop_propagation();
-                                        crate::utils::clipboard::copy_text(current_dir.to_string_lossy());
-                                        is_copied.set(true);
-                                        spawn(async move {
-                                            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                                            is_copied.set(false);
-                                        });
-                                    }
-                                },
-                                Icon {
-                                    name: if *is_copied.read() { IconName::Check } else { IconName::Copy },
-                                    size: 14,
-                                }
-                            }
-
-                            // Reload button
-                            button {
-                                class: "left-sidebar-action-button reload-button",
-                                class: if *is_reloading.read() { "reloading" },
-                                title: "Reload file explorer",
-                                onclick: on_reload,
-                                Icon {
-                                    name: IconName::Refresh,
-                                    size: 14,
-                                }
-                            }
-                        }
-                    }
-                }
+            span {
+                class: "left-sidebar-root-name",
+                onclick: {
+                    let root = root.clone();
+                    move |_| state.toggle_directory_expansion(&root)
+                },
+                Icon { name: IconName::Folder, size: 12 }
+                span { "{name}" }
             }
-
-            // Toolbar buttons container
-            div {
-                class: "left-sidebar-header-toolbar",
-
-                // File visibility toggle button
+            if closable {
                 button {
-                    class: "left-sidebar-header-toolbar-button",
-                    title: if show_all_files { "Hide non-markdown files" } else { "Show all files" },
-                    onclick: move |_| {
-                        state.sidebar.write().show_all_files = !show_all_files;
-                    },
-                    Icon {
-                        name: if show_all_files { IconName::Eye } else { IconName::EyeOff },
-                        size: 20,
-                    }
-                }
-
-                // Pin/Unpin button
-                if let Some(handler) = on_pin_toggle {
-                    button {
-                        class: "left-sidebar-header-toolbar-button",
-                        class: if is_pinned { "pinned" },
-                        title: if is_pinned { "Unpin sidebar" } else { "Pin sidebar" },
-                        onclick: move |_| handler.call(()),
-                        Icon {
-                            name: if is_pinned { IconName::PinFilled } else { IconName::Pin },
-                            size: 20,
+                    class: "left-sidebar-root-close",
+                    title: "Close this root",
+                    onclick: {
+                        let root = root.clone();
+                        move |evt: Event<MouseData>| {
+                            evt.stop_propagation();
+                            state.close_root(&root);
                         }
-                    }
+                    },
+                    Icon { name: IconName::Close, size: 12 }
                 }
             }
+        }
+        if is_expanded {
+            DirectoryTree { path: subtree_root, refresh_counter }
         }
     }
 }
@@ -653,7 +536,7 @@ pub fn SidebarContextMenuHost() -> Element {
                 return;
             }
             if is_dir {
-                state.set_root_directory(&path);
+                state.add_root(&path);
             } else {
                 state.open_file(&path);
             }
@@ -669,7 +552,7 @@ pub fn SidebarContextMenuHost() -> Element {
                 state.close_sidebar_context_menu();
                 return;
             }
-            state.set_root_directory(&path);
+            state.add_root(&path);
             state.close_sidebar_context_menu();
         }
     };

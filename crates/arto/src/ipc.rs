@@ -272,7 +272,7 @@ fn open_request_with_behavior(
 
 fn apply_open_request_to_state(state: &mut crate::state::AppState, request: &OpenRequest) {
     if let Some(directory) = request.directory.as_ref() {
-        state.set_root_directory(directory.clone());
+        state.add_root(directory);
     }
     for path in &request.files {
         state.open_file(path);

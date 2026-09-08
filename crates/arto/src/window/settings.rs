@@ -2,7 +2,6 @@ use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
 use dioxus::prelude::*;
 use std::path::PathBuf;
 
-use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::{
     normalize_content_zoom, normalize_sidebar_zoom, NewWindowBehavior, StartupBehavior,
     WindowDimension, WindowDimensionUnit, WindowPosition, WindowPositionMode, WindowSize, CONFIG,
@@ -33,13 +32,6 @@ pub struct SidebarPreference {
     pub pinned: bool,
     pub width: f64,
     pub show_all_files: bool,
-    pub zoom_level: f64,
-}
-
-pub struct RightSidebarPreference {
-    pub pinned: bool,
-    pub width: f64,
-    pub tab: RightSidebarTab,
     pub zoom_level: f64,
 }
 
@@ -269,7 +261,7 @@ pub fn get_directory_preference(is_first_window: bool) -> DirectoryPreference {
             // directory. Only fall back to persisted state / config default
             // when there is no focused window to inherit from.
             resolve_from_state_or_persisted(
-                |state| state.sidebar.read().root_directory.clone(),
+                |state| state.sidebar.read().primary_root().cloned(),
                 |persisted| {
                     persisted
                         .directory
@@ -316,45 +308,6 @@ pub fn get_sidebar_preference(is_first_window: bool) -> SidebarPreference {
     );
     // Normalize zoom level to valid range with 0.1 step
     SidebarPreference {
-        zoom_level: normalize_sidebar_zoom(pref.zoom_level),
-        ..pref
-    }
-}
-
-pub fn get_right_sidebar_preference(is_first_window: bool) -> RightSidebarPreference {
-    let cfg = CONFIG.read();
-    let pref = choose_by_behavior(
-        is_first_window,
-        cfg.right_sidebar.on_startup,
-        cfg.right_sidebar.on_new_window,
-        || RightSidebarPreference {
-            pinned: cfg.right_sidebar.default_pinned,
-            width: cfg.right_sidebar.default_width,
-            tab: cfg.right_sidebar.default_tab,
-            zoom_level: cfg.right_sidebar.default_zoom_level,
-        },
-        || {
-            resolve_from_state_or_persisted(
-                |state| {
-                    let right_sidebar = state.right_sidebar.read();
-                    RightSidebarPreference {
-                        pinned: right_sidebar.pinned,
-                        width: right_sidebar.width,
-                        tab: right_sidebar.tab,
-                        zoom_level: right_sidebar.zoom_level,
-                    }
-                },
-                |persisted| RightSidebarPreference {
-                    pinned: persisted.right_sidebar_pinned,
-                    width: persisted.right_sidebar_width,
-                    tab: persisted.right_sidebar_tab,
-                    zoom_level: persisted.right_sidebar_zoom_level,
-                },
-            )
-        },
-    );
-    // Normalize zoom level to valid range with 0.1 step
-    RightSidebarPreference {
         zoom_level: normalize_sidebar_zoom(pref.zoom_level),
         ..pref
     }
@@ -519,28 +472,6 @@ mod tests {
         let result = get_sidebar_preference(false);
         // Should return a SidebarPreference
         assert!(result.width > 0.0);
-    }
-
-    #[test]
-    fn test_get_right_sidebar_preference_first_window() {
-        let result = get_right_sidebar_preference(true);
-        // Should return a RightSidebarPreference
-        assert!(result.width > 0.0);
-        assert!(matches!(
-            result.tab,
-            RightSidebarTab::Contents | RightSidebarTab::Search
-        ));
-    }
-
-    #[test]
-    fn test_get_right_sidebar_preference_new_window() {
-        let result = get_right_sidebar_preference(false);
-        // Should return a RightSidebarPreference
-        assert!(result.width > 0.0);
-        assert!(matches!(
-            result.tab,
-            RightSidebarTab::Contents | RightSidebarTab::Search
-        ));
     }
 
     #[test]

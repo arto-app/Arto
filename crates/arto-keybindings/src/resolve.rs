@@ -89,7 +89,6 @@ impl BindingSet {
         resolve(self.content, Some(KeyContext::Content));
         resolve(self.sidebar, Some(KeyContext::Sidebar));
         resolve(self.quick_access, Some(KeyContext::QuickAccess));
-        resolve(self.right_sidebar, Some(KeyContext::RightSidebar));
         resolve(self.search, Some(KeyContext::Search));
         (resolved, errors)
     }

@@ -1,0 +1,79 @@
+/* =================================
+   Left Rail
+   =================================
+
+   The panel's spine: what switches its faces, and what the pointer aims at to
+   bring the panel back. It owns no surface — while the panel is out it shares
+   the panel's ground with no line between them, and collapsed it is the
+   document's own ground with a few marks in it. */
+
+.left-rail {
+  flex-shrink: 0;
+  width: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0;
+  background: transparent;
+  transition: background-color var(--transition-quiet) ease;
+}
+
+.left-rail.open {
+  background: var(--bg-secondary);
+}
+
+.left-rail-spacer {
+  margin-top: auto;
+}
+
+.left-rail-button {
+  position: relative;
+  width: var(--hit-size);
+  height: var(--hit-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-color);
+  cursor: pointer;
+  opacity: var(--opacity-rest);
+  transition:
+    opacity var(--transition-quiet) ease,
+    background-color var(--transition-quiet) ease;
+}
+
+/* Selected is a step up the same scale, plus a neutral bar at the rail's edge.
+   Density alone cannot rank glyphs whose own ink differs this much, so the
+   ranking is carried by position instead of by colour. */
+.left-rail-button.active {
+  opacity: var(--opacity-active);
+}
+
+.left-rail-button.active::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 6px;
+  width: 2px;
+  height: 18px;
+  border-radius: 1px;
+  background: currentcolor;
+  opacity: 0.55;
+}
+
+.left-rail:hover .left-rail-button {
+  opacity: var(--opacity-woken);
+}
+
+.left-rail:hover .left-rail-button.active {
+  opacity: 1;
+}
+
+.left-rail-button:hover {
+  opacity: 1;
+  background: var(--bg-secondary);
+}

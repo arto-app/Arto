@@ -38,10 +38,6 @@
       "action": "window.toggle_sidebar"
     },
     {
-      "key": "Cmd+Shift+b",
-      "action": "window.toggle_right_sidebar"
-    },
-    {
       "key": "Cmd+0",
       "action": "zoom.reset"
     },
@@ -288,14 +284,6 @@
       "action": "focus.left_sidebar"
     },
     {
-      "key": "Ctrl+w l",
-      "action": "focus.right_sidebar"
-    },
-    {
-      "key": "Ctrl+w Ctrl+l",
-      "action": "focus.right_sidebar"
-    },
-    {
       "key": "Backslash q",
       "action": "focus.quick_access"
     },
@@ -306,6 +294,18 @@
     {
       "key": "m m",
       "action": "file.toggle_bookmark"
+    },
+    {
+      "key": "Cmd+1",
+      "action": "sidebar.face_files"
+    },
+    {
+      "key": "Cmd+2",
+      "action": "sidebar.face_recent"
+    },
+    {
+      "key": "Cmd+3",
+      "action": "sidebar.face_starred"
     }
   ],
   "content": [
@@ -386,14 +386,6 @@
       "action": "sidebar.toggle_show_all_files"
     },
     {
-      "key": "Shift+h",
-      "action": "directory.back"
-    },
-    {
-      "key": "Shift+l",
-      "action": "directory.forward"
-    },
-    {
       "key": "Ctrl+w h",
       "action": "focus.left_sidebar"
     },
@@ -416,52 +408,6 @@
     {
       "key": "Ctrl+w Ctrl+j",
       "action": "focus.quick_access"
-    }
-  ],
-  "rightSidebar": [
-    {
-      "key": "j",
-      "action": "cursor.down"
-    },
-    {
-      "key": "k",
-      "action": "cursor.up"
-    },
-    {
-      "key": "Ctrl+n",
-      "action": "cursor.down"
-    },
-    {
-      "key": "Ctrl+p",
-      "action": "cursor.up"
-    },
-    {
-      "key": "l",
-      "action": "cursor.open"
-    },
-    {
-      "key": "Enter",
-      "action": "cursor.open"
-    },
-    {
-      "key": "h",
-      "action": "cursor.collapse"
-    },
-    {
-      "key": "Ctrl+w h",
-      "action": "focus.content"
-    },
-    {
-      "key": "Ctrl+w Ctrl+h",
-      "action": "focus.content"
-    },
-    {
-      "key": "Ctrl+w l",
-      "action": "focus.right_sidebar"
-    },
-    {
-      "key": "Ctrl+w Ctrl+l",
-      "action": "focus.right_sidebar"
     }
   ],
   "quickAccess": [

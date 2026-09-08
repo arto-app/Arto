@@ -10,6 +10,7 @@ impl AppState {
     pub fn open_file(&mut self, file: impl AsRef<Path>) {
         let file = file.as_ref();
         crate::visits::record_visit(file);
+        self.reveal_in_roots(file);
         // Check if the file is already open in another tab
         if let Some(tab_index) = self.find_tab_with_file(file) {
             // Switch to the existing tab instead of creating a new one
@@ -30,6 +31,7 @@ impl AppState {
     pub fn navigate_to_file(&mut self, file: impl Into<PathBuf>) {
         let file = file.into();
         crate::visits::record_visit(&file);
+        self.reveal_in_roots(&file);
         self.update_current_tab(|tab| {
             tab.navigate_to(file);
         });
@@ -47,21 +49,14 @@ impl AppState {
             (
                 sidebar.width,
                 sidebar.zoom_level,
-                sidebar.root_directory.clone(),
+                sidebar.primary_root().cloned(),
             )
         };
-        let (right_sidebar_width, right_sidebar_zoom_level) = {
-            let right = self.right_sidebar.read();
-            (right.width, right.zoom_level)
-        };
-
         crate::window::preferences::open_or_focus_preferences_window(
             crate::window::preferences::PreferencesSnapshot {
                 window_id: dioxus::desktop::window().id(),
                 sidebar_width,
                 sidebar_zoom_level,
-                right_sidebar_width,
-                right_sidebar_zoom_level,
                 directory,
             },
             *self.current_theme.read(),

@@ -1,7 +1,8 @@
-//! Quick Access section component for the sidebar.
+//! The Starred face of the sidebar panel.
 //!
-//! Displays bookmarked files and directories for quick navigation.
-//! Supports drag-and-drop reordering of bookmarks.
+//! Bookmarked files and folders, in the order they were arranged. A bookmarked
+//! folder is also one of the tree's places, so this face and the top of the
+//! Files face are two views of one list rather than two lists.
 
 use dioxus::prelude::*;
 
@@ -40,9 +41,9 @@ fn load_cached_bookmarks() -> Vec<CachedBookmark> {
         .collect()
 }
 
-/// Quick Access section in the sidebar
+/// The Starred face: everything bookmarked, files and folders alike.
 #[component]
-pub fn QuickAccess() -> Element {
+pub fn StarredFace() -> Element {
     let mut state = use_context::<AppState>();
 
     // Local signal to track bookmark items with cached exists status
@@ -64,25 +65,15 @@ pub fn QuickAccess() -> Element {
     let quick_access_cursor = *state.quick_access_cursor.read();
     let items = bookmarks.read();
 
-    // Don't render if no bookmarks
     if items.is_empty() {
-        return rsx! {};
+        return rsx! {
+            div { class: "left-sidebar-explorer-empty", "Nothing starred yet" }
+        };
     }
 
     rsx! {
         div {
-            class: "left-sidebar-quick-access",
-
-            // Header
-            div {
-                class: "left-sidebar-quick-access-header",
-                Icon {
-                    name: IconName::StarFilled,
-                    size: 14,
-                    class: "left-sidebar-quick-access-header-icon",
-                }
-                span { class: "left-sidebar-quick-access-title", "QUICK ACCESS" }
-            }
+            class: "left-sidebar-face left-sidebar-quick-access",
 
             // Bookmark items
             div {
@@ -103,7 +94,7 @@ pub fn QuickAccess() -> Element {
                         is_keyboard_focused: is_qa_focused && quick_access_cursor == Some(index),
                         on_click: move |(bookmark, is_directory): (Bookmark, bool)| {
                             if is_directory {
-                                state.set_root_directory(&bookmark.path);
+                                state.add_root(&bookmark.path);
                             } else {
                                 state.open_file(&bookmark.path);
                             }

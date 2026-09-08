@@ -119,7 +119,7 @@
 //!
 //! [`render_to_html_with_toc`] returns [`HeadingInfo`] for every heading
 //! and sets the same `id` on the rendered `h1`–`h6`, so the table of
-//! contents (`crates/arto/src/components/right_sidebar/contents_tab.rs`)
+//! contents gutter (`crates/arto/src/components/content/gutter.rs`)
 //! can scroll to it with `getElementById`. The id is the heading text
 //! lowercased with every run of non-alphanumerics replaced by `-`, keeping
 //! Unicode letters, so `## 日本語の見出し` is reachable; a text that leaves

@@ -19,8 +19,6 @@ use super::content::{
     close_context_menu, use_search_handler, Content, ContentContextMenu, CONTENT_CONTEXT_MENU,
 };
 use super::header::Header;
-use super::right_sidebar::RightSidebar;
-use super::right_sidebar::RightSidebarTab;
 use super::search_bar::SearchBar;
 use super::sidebar::file_explorer::SidebarContextMenuHost;
 use super::sidebar::Sidebar;
@@ -97,10 +95,6 @@ pub fn App(
     sidebar_width: f64,
     sidebar_show_all_files: bool,
     sidebar_zoom_level: f64,
-    right_sidebar_pinned: bool,
-    right_sidebar_width: f64,
-    right_sidebar_tab: RightSidebarTab,
-    right_sidebar_zoom_level: f64,
     zoom_level: f64,
 ) -> Element {
     // Initialize application state with the provided tab
@@ -120,27 +114,18 @@ pub fn App(
         // Apply initial sidebar settings from params (including directory)
         {
             let mut sidebar = app_state.sidebar.write();
-            sidebar.root_directory = directory.clone();
-            if let Some(directory) = directory {
-                sidebar.push_to_history(directory);
-            }
+            sidebar.roots = crate::roots::Roots::new(
+                crate::bookmarks::BOOKMARKS.read().places(),
+                directory.iter().cloned().collect(),
+            );
             sidebar.pinned = sidebar_pinned;
             sidebar.width = sidebar_width;
             sidebar.show_all_files = sidebar_show_all_files;
         }
 
-        // Apply initial right sidebar settings from params
-        {
-            let mut right_sidebar = app_state.right_sidebar.write();
-            right_sidebar.pinned = right_sidebar_pinned;
-            right_sidebar.width = right_sidebar_width;
-            right_sidebar.tab = right_sidebar_tab;
-        }
-
         // Apply initial zoom levels from params (already normalized in window::settings)
         {
             app_state.sidebar.write().zoom_level = sidebar_zoom_level;
-            app_state.right_sidebar.write().zoom_level = right_sidebar_zoom_level;
             app_state.zoom_level.set(zoom_level);
         }
 
@@ -372,23 +357,20 @@ pub fn App(
     // Hover state for overlay sidebars is stored in AppState
     // so that dispatcher.rs (keybinding focus actions) can access it.
     let mut left_hover_active = state.left_hover_active;
-    let mut right_hover_active = state.right_hover_active;
-    // Generation counters for auto-hide timer cancellation
+    // Generation counter for auto-hide timer cancellation
     let mut left_hide_gen = use_signal(|| 0u32);
-    let mut right_hide_gen = use_signal(|| 0u32);
     // Track whether mouse is physically inside the overlay wrapper.
     // Used by on_resize_change to decide whether to start a hide timer:
     // if mouse is inside, onmouseleave will handle hiding naturally.
     let mut left_mouse_inside = use_signal(|| false);
-    let mut right_mouse_inside = use_signal(|| false);
 
     let left_pinned = state.sidebar.read().pinned;
-    let right_pinned = state.right_sidebar.read().pinned;
 
-    // Delay in milliseconds before auto-hiding the overlay sidebar.
-    // 300ms is the standard "Hover Intent" delay (Nielsen Norman Group),
-    // balancing responsiveness with prevention of flickering at boundaries.
-    const OVERLAY_HIDE_DELAY_MS: u64 = 300;
+    /// Grace before a peeking panel retracts.
+    ///
+    /// Long enough that moving from the rail into the panel — which briefly
+    /// leaves both — does not close what was just opened.
+    const OVERLAY_HIDE_DELAY_MS: u64 = 240;
 
     let focused_panel = *state.focused_panel.read();
     let focused_context = focused_panel.key_context();
@@ -425,6 +407,18 @@ pub fn App(
                 });
             },
 
+            // The rail is always here. It is what switches the panel's faces
+            // and, because it is visible and exists for the purpose, it is
+            // also what the pointer can safely aim at to bring the panel back.
+            crate::components::sidebar::rail::Rail {
+                on_peek: move |_| {
+                    if !state.sidebar.read().pinned {
+                        left_hover_active.set(true);
+                        left_hide_gen.set(left_hide_gen() + 1);
+                    }
+                },
+            }
+
             // Left sidebar: pinned → flex layout, unpinned → overlay with animation
             if left_pinned {
                 Sidebar {
@@ -443,23 +437,6 @@ pub fn App(
                 Content {},
             }
 
-            // Right sidebar: pinned → flex layout, unpinned → overlay with animation
-            if right_pinned {
-                RightSidebar {
-                    headings: state.right_sidebar_headings.read().clone(),
-                    on_pin_toggle: move |_| {
-                        state.right_sidebar.write().pinned = false;
-                        right_hover_active.set(true);
-                    },
-                }
-            }
-
-            // No hover strip at the window edge. Opening a panel by brushing
-            // an invisible edge cannot be told apart from passing over it,
-            // which is where the accidental opens came from. Until the rail
-            // gives the pointer something visible to aim at, the panels open
-            // only from a keybinding or the menu.
-            //
             // Overlay wrappers (rendered when unpinned, animated via .visible class)
             if !left_pinned {
                 div {
@@ -501,57 +478,6 @@ pub fn App(
                                     tokio::time::sleep(tokio::time::Duration::from_millis(OVERLAY_HIDE_DELAY_MS)).await;
                                     if left_hide_gen() == gen {
                                         left_hover_active.set(false);
-                                    }
-                                });
-                            }
-                            // Resize ended with mouse inside: do nothing,
-                            // onmouseleave will handle hiding when mouse leaves.
-                        },
-                    }
-                }
-            }
-
-            if !right_pinned {
-                div {
-                    class: "sidebar-overlay-wrapper right",
-                    class: if right_hover_active() { "visible" },
-                    onmouseenter: move |_| {
-                        right_mouse_inside.set(true);
-                        right_hide_gen.set(right_hide_gen() + 1);
-                    },
-                    onmouseleave: move |evt| {
-                        right_mouse_inside.set(false);
-                        // Don't auto-hide while mouse button is held (e.g., resize drag)
-                        if evt.data().held_buttons().contains(dioxus::html::input_data::MouseButton::Primary) {
-                            return;
-                        }
-                        let gen = right_hide_gen() + 1;
-                        right_hide_gen.set(gen);
-                        spawn(async move {
-                            tokio::time::sleep(tokio::time::Duration::from_millis(OVERLAY_HIDE_DELAY_MS)).await;
-                            if right_hide_gen() == gen {
-                                right_hover_active.set(false);
-                            }
-                        });
-                    },
-                    RightSidebar {
-                        headings: state.right_sidebar_headings.read().clone(),
-                        on_pin_toggle: move |_| {
-                            state.right_sidebar.write().pinned = true;
-                            right_hover_active.set(false);
-                        },
-                        on_resize_change: move |resizing: bool| {
-                            if resizing {
-                                // Cancel any pending hide timer
-                                right_hide_gen.set(right_hide_gen() + 1);
-                            } else if !right_mouse_inside() {
-                                // Resize ended with mouse outside: start hide timer
-                                let gen = right_hide_gen() + 1;
-                                right_hide_gen.set(gen);
-                                spawn(async move {
-                                    tokio::time::sleep(tokio::time::Duration::from_millis(OVERLAY_HIDE_DELAY_MS)).await;
-                                    if right_hide_gen() == gen {
-                                        right_hover_active.set(false);
                                     }
                                 });
                             }

@@ -71,7 +71,6 @@ pub static OPEN_DIRECTORY_IN_WINDOW: std::sync::LazyLock<broadcast::Sender<(Wind
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SidebarSide {
     Left,
-    Right,
 }
 
 /// Apply a zoom level to one window's sidebar, from the preferences window.

@@ -10,7 +10,6 @@ pub mod math_window;
 pub mod mermaid_window;
 pub mod pinned_chips;
 pub mod preferences_window;
-pub mod right_sidebar;
 pub mod search_bar;
 pub mod sidebar;
 pub mod tab;

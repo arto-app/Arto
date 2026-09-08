@@ -36,7 +36,7 @@ fn open_dropped_path(path: PathBuf, state: &mut AppState) {
 
     if resolved_path.is_dir() {
         tracing::info!("Setting dropped directory as root: {:?}", resolved_path);
-        state.set_root_directory(resolved_path);
+        state.add_root(&resolved_path);
         // Pin so the tree the drop just opened is actually visible
         state.sidebar.write().pinned = true;
     } else {

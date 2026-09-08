@@ -1,37 +1,48 @@
 use super::AppState;
-use crate::history::HistoryManager;
+use crate::bookmarks::BOOKMARKS;
+use crate::roots::{canonical_key, Origin, Roots};
 use dioxus::prelude::*;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+
+/// Which face the panel is showing.
+///
+/// The rail switches between them; only one is drawn at a time, and the rail
+/// itself never goes away, so there is always something visible to switch
+/// back with.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Face {
+    #[default]
+    Files,
+    Recent,
+    Starred,
+}
 
 /// Represents the state of the sidebar file explorer
 #[derive(Debug, Clone, PartialEq)]
 pub struct Sidebar {
     pub pinned: bool,
-    pub root_directory: Option<PathBuf>,
+    /// The directories the tree is rooted at: the bookmarked places, shared by
+    /// every window, and this window's own temporaries.
+    pub roots: Roots,
+    /// Which of the three faces the panel is showing.
+    pub face: Face,
     pub expanded_dirs: HashSet<PathBuf>,
     pub width: f64,
     pub show_all_files: bool,
     pub zoom_level: f64,
-    /// History of root directory navigation.
-    ///
-    /// This history is intentionally kept in-memory only and is not persisted
-    /// across application restarts. Each new session starts with a clean
-    /// navigation history to avoid storing potentially stale directory paths
-    /// on disk and to provide a fresh navigation experience.
-    dir_history: HistoryManager,
 }
 
 impl Default for Sidebar {
     fn default() -> Self {
         Self {
             pinned: false,
-            root_directory: None,
+            roots: Roots::default(),
+            face: Face::default(),
             expanded_dirs: HashSet::new(),
             width: 280.0,
             show_all_files: false,
             zoom_level: 1.0,
-            dir_history: HistoryManager::new(),
         }
     }
 }
@@ -47,29 +58,30 @@ impl Sidebar {
         }
     }
 
-    /// Check if we can go back in directory history
-    pub fn can_go_back(&self) -> bool {
-        self.dir_history.can_go_back()
+    /// The root to answer a question that can only have one answer: what a new
+    /// window inherits, what the state file records, what "the directory" means
+    /// to something outside the tree.
+    ///
+    /// The most recent temporary, or failing that the first place — the one
+    /// most likely to be what is being worked in.
+    pub fn primary_root(&self) -> Option<&PathBuf> {
+        self.roots
+            .temps()
+            .last()
+            .or_else(|| self.roots.places().first())
     }
 
-    /// Check if we can go forward in directory history
-    pub fn can_go_forward(&self) -> bool {
-        self.dir_history.can_go_forward()
-    }
-
-    /// Push a directory to history
-    pub fn push_to_history(&mut self, path: impl Into<PathBuf>) {
-        self.dir_history.push(path);
-    }
-
-    /// Go back in directory history
-    pub fn go_back(&mut self) -> Option<PathBuf> {
-        self.dir_history.go_back().map(|e| e.path.clone())
-    }
-
-    /// Go forward in directory history
-    pub fn go_forward(&mut self) -> Option<PathBuf> {
-        self.dir_history.go_forward().map(|e| e.path.clone())
+    /// Expand every directory between a root and `path`, so revealing a
+    /// document opens the way down to it rather than only selecting it.
+    pub fn expand_towards(&mut self, root: &Path, path: &Path) {
+        let mut current = path.parent();
+        while let Some(dir) = current {
+            self.expanded_dirs.insert(dir.to_path_buf());
+            if dir == root {
+                break;
+            }
+            current = dir.parent();
+        }
     }
 }
 
@@ -77,10 +89,64 @@ impl AppState {
     /// Toggle sidebar between pinned (flex layout) and unpinned (overlay/hover).
     ///
     /// - Pinned: visible in flex layout, pushes content aside
-    /// - Unpinned: accessible via hover as an overlay
+    /// - Unpinned: accessible from the rail as an overlay
     pub fn toggle_sidebar(&mut self) {
         let mut sidebar = self.sidebar.write();
         sidebar.pinned = !sidebar.pinned;
+    }
+
+    /// Show one of the panel's three faces, pinning the panel if it is away.
+    ///
+    /// Asking for a face is asking to look at it, so it does not also require
+    /// opening the panel first.
+    pub fn show_face(&mut self, face: Face) {
+        let mut sidebar = self.sidebar.write();
+        sidebar.face = face;
+        sidebar.pinned = true;
+    }
+
+    /// Take in the current bookmarked directories as the tree's places.
+    ///
+    /// Bookmarking a folder and giving the tree somewhere to start are the same
+    /// act, so there is no second list to keep in step — only this, run
+    /// whenever the bookmarks change.
+    pub fn sync_places(&mut self) {
+        let places = BOOKMARKS.read().places();
+        self.sidebar.write().roots.set_places(places);
+    }
+
+    /// Add a directory someone pointed at.
+    ///
+    /// Explicit: it joins even when an existing root already covers it, since
+    /// pointing at it is the whole of the intent. Only an exact duplicate is
+    /// refused, and then it is revealed instead.
+    pub fn add_root(&mut self, path: impl AsRef<Path>) {
+        let key = canonical_key(path.as_ref());
+        let mut sidebar = self.sidebar.write();
+        let decision = sidebar.roots.decide(&key, Origin::Explicit);
+        sidebar.roots.apply(&decision);
+        sidebar.face = Face::Files;
+    }
+
+    /// Make room in the tree for a document that is about to be opened.
+    ///
+    /// Implicit: a root that already covers it is expanded down to it, and
+    /// only a document outside every root brings a new one in.
+    pub fn reveal_in_roots(&mut self, file: &Path) {
+        let key = canonical_key(file);
+        let mut sidebar = self.sidebar.write();
+        let decision = sidebar.roots.decide(&key, Origin::Implicit);
+        sidebar.roots.apply(&decision);
+        let root = match &decision {
+            crate::roots::Decision::Reveal { root } => root.clone(),
+            crate::roots::Decision::Push { root, .. } => root.clone(),
+        };
+        sidebar.expand_towards(&root, &key);
+    }
+
+    /// Drop one temporary root. Places leave by being unbookmarked instead.
+    pub fn close_root(&mut self, path: &Path) {
+        self.sidebar.write().roots.close_temp(path);
     }
 
     /// Toggle directory expansion state
@@ -187,74 +253,43 @@ mod tests {
     }
 
     #[test]
-    fn test_sidebar_history_initial_state() {
-        let sidebar = Sidebar::default();
+    fn primary_root_prefers_the_newest_temporary() {
+        let sidebar = Sidebar {
+            roots: Roots::new(
+                vec![PathBuf::from("/place")],
+                vec![PathBuf::from("/a"), PathBuf::from("/b")],
+            ),
+            ..Default::default()
+        };
 
-        // Initially, no history to navigate
-        assert!(!sidebar.can_go_back());
-        assert!(!sidebar.can_go_forward());
+        assert_eq!(sidebar.primary_root(), Some(&PathBuf::from("/b")));
     }
 
     #[test]
-    fn test_sidebar_history_push_and_back() {
-        let mut sidebar = Sidebar::default();
-        let path1 = PathBuf::from("/test/dir1");
-        let path2 = PathBuf::from("/test/dir2");
+    fn primary_root_falls_back_to_the_first_place() {
+        let sidebar = Sidebar {
+            roots: Roots::new(vec![PathBuf::from("/place")], Vec::new()),
+            ..Default::default()
+        };
 
-        sidebar.push_to_history(path1.clone());
-        sidebar.push_to_history(path2.clone());
-
-        // After pushing two paths, we can go back
-        assert!(sidebar.can_go_back());
-        assert!(!sidebar.can_go_forward());
-
-        // Go back returns the previous path
-        let back = sidebar.go_back();
-        assert_eq!(back, Some(path1.clone()));
-
-        // Now we can go forward but not back
-        assert!(!sidebar.can_go_back());
-        assert!(sidebar.can_go_forward());
+        assert_eq!(sidebar.primary_root(), Some(&PathBuf::from("/place")));
     }
 
     #[test]
-    fn test_sidebar_history_forward() {
-        let mut sidebar = Sidebar::default();
-        let path1 = PathBuf::from("/test/dir1");
-        let path2 = PathBuf::from("/test/dir2");
-
-        sidebar.push_to_history(path1.clone());
-        sidebar.push_to_history(path2.clone());
-
-        // Go back first
-        let _ = sidebar.go_back();
-
-        // Now go forward
-        let forward = sidebar.go_forward();
-        assert_eq!(forward, Some(path2));
-
-        // Can't go forward anymore
-        assert!(!sidebar.can_go_forward());
-        assert!(sidebar.can_go_back());
+    fn primary_root_of_an_empty_tree_is_nothing() {
+        assert_eq!(Sidebar::default().primary_root(), None);
     }
 
     #[test]
-    fn test_sidebar_history_push_clears_forward() {
+    fn expanding_towards_opens_every_directory_down_to_the_document() {
         let mut sidebar = Sidebar::default();
-        let path1 = PathBuf::from("/test/dir1");
-        let path2 = PathBuf::from("/test/dir2");
-        let path3 = PathBuf::from("/test/dir3");
+        sidebar.expand_towards(Path::new("/w/arto"), Path::new("/w/arto/docs/api/auth.md"));
 
-        sidebar.push_to_history(path1.clone());
-        sidebar.push_to_history(path2.clone());
-
-        // Go back
-        let _ = sidebar.go_back();
-        assert!(sidebar.can_go_forward());
-
-        // Push a new path - should clear forward history
-        sidebar.push_to_history(path3.clone());
-        assert!(!sidebar.can_go_forward());
-        assert!(sidebar.can_go_back());
+        assert!(sidebar.expanded_dirs.contains(Path::new("/w/arto")));
+        assert!(sidebar.expanded_dirs.contains(Path::new("/w/arto/docs")));
+        assert!(sidebar
+            .expanded_dirs
+            .contains(Path::new("/w/arto/docs/api")));
+        assert!(!sidebar.expanded_dirs.contains(Path::new("/w")));
     }
 }

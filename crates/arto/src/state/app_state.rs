@@ -11,14 +11,12 @@ use crate::scroll_anchor::ScrollAnchor;
 use crate::theme::Theme;
 
 mod focused_panel;
-mod right_sidebar;
 mod sidebar;
 pub(crate) mod sidebar_cursor;
 mod tabs;
 
 pub use focused_panel::*;
-pub use right_sidebar::RightSidebar;
-pub use sidebar::Sidebar;
+pub use sidebar::{Face, Sidebar};
 pub use tabs::{Tab, TabContent};
 
 /// Information about a single search match for display in the Search tab.
@@ -66,8 +64,9 @@ pub struct AppState {
     /// Whether the content area ignores the markdown body's max-width and fills the pane.
     pub content_full_width: Signal<bool>,
     pub sidebar: Signal<Sidebar>,
-    pub right_sidebar: Signal<RightSidebar>,
-    pub right_sidebar_headings: Signal<Vec<HeadingInfo>>,
+    /// Headings of the document being read, drawn as the contents gutter
+    /// beside it.
+    pub headings: Signal<Vec<HeadingInfo>>,
     pub position: Signal<LogicalPosition<i32>>,
     pub size: Signal<LogicalSize<u32>>,
     // Search state (not persisted, managed via JavaScript for IME compatibility)
@@ -103,16 +102,11 @@ pub struct AppState {
     pub focused_panel: Signal<FocusedPanel>,
     /// Keyboard cursor position in the left sidebar file tree.
     pub sidebar_cursor: Signal<Option<PathBuf>>,
-    /// Keyboard cursor position in the right sidebar TOC (index into headings list).
-    pub toc_cursor: Signal<Option<usize>>,
     /// Keyboard cursor position in the Quick Access list (index into bookmarks).
     pub quick_access_cursor: Signal<Option<usize>>,
     /// Whether the left sidebar overlay is currently shown (hover/focus triggered).
     /// Transient UI state — not persisted.
     pub left_hover_active: Signal<bool>,
-    /// Whether the right sidebar overlay is currently shown (hover/focus triggered).
-    /// Transient UI state — not persisted.
-    pub right_hover_active: Signal<bool>,
     /// Left-sidebar file-tree context menu state (position, target, window list).
     ///
     /// Held here — not in a tree node — so watcher-driven remounts of the file
@@ -137,8 +131,7 @@ impl AppState {
             zoom_level: Signal::new(DEFAULT_ZOOM_LEVEL),
             content_full_width: Signal::new(false),
             sidebar: Signal::new(Sidebar::default()),
-            right_sidebar: Signal::new(RightSidebar::default()),
-            right_sidebar_headings: Signal::new(Vec::new()),
+            headings: Signal::new(Vec::new()),
             position: Signal::new(Default::default()),
             size: Signal::new(Default::default()),
             // Search state
@@ -156,10 +149,8 @@ impl AppState {
             reload_trigger: Signal::new(0),
             focused_panel: Signal::new(FocusedPanel::Content),
             sidebar_cursor: Signal::new(None),
-            toc_cursor: Signal::new(None),
             quick_access_cursor: Signal::new(None),
             left_hover_active: Signal::new(false),
-            right_hover_active: Signal::new(false),
             sidebar_context_menu: Signal::new(None),
             sidebar_refresh_counter: Signal::new(0),
         }
@@ -173,53 +164,6 @@ impl Default for AppState {
 }
 
 impl AppState {
-    /// Set the root directory and add to history
-    /// Note: The directory is persisted to state file when window closes
-    pub fn set_root_directory(&mut self, path: impl Into<PathBuf>) {
-        let path = path.into();
-        let mut sidebar = self.sidebar.write();
-        sidebar.root_directory = Some(path.clone());
-        sidebar.expanded_dirs.clear();
-        sidebar.push_to_history(path);
-    }
-
-    /// Set the root directory without adding to history (used for history navigation)
-    fn set_root_directory_no_history(&mut self, path: PathBuf) {
-        let mut sidebar = self.sidebar.write();
-        sidebar.root_directory = Some(path);
-        sidebar.expanded_dirs.clear();
-    }
-
-    /// Go back in directory history
-    pub fn go_back_directory(&mut self) {
-        let path = self.sidebar.write().go_back();
-        if let Some(path) = path {
-            self.set_root_directory_no_history(path);
-        }
-    }
-
-    /// Go forward in directory history
-    pub fn go_forward_directory(&mut self) {
-        let path = self.sidebar.write().go_forward();
-        if let Some(path) = path {
-            self.set_root_directory_no_history(path);
-        }
-    }
-
-    /// Navigate to parent directory
-    pub fn go_to_parent_directory(&mut self) {
-        let parent = {
-            let sidebar = self.sidebar.read();
-            sidebar
-                .root_directory
-                .as_ref()
-                .and_then(|d| d.parent().map(|p| p.to_path_buf()))
-        };
-        if let Some(parent) = parent {
-            self.set_root_directory(parent);
-        }
-    }
-
     /// Toggle full-width content mode, which lets the markdown body ignore its
     /// max-width and fill the entire content pane.
     pub fn toggle_content_full_width(&mut self) {
