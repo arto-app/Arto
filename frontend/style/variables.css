@@ -38,6 +38,12 @@
   --hit-size: 30px;
   --transition-quiet: 0.18s;
 
+  /* Room at the head of the header for macOS's window buttons, which sit
+     inside it there because the header is the title bar. Three 12px buttons
+     20px apart, starting 20px in, plus a gap before the first glyph. The
+     inset itself is set in `window::titlebar`; keep the two in step. */
+  --traffic-light-clearance: 84px;
+
   /* Z-Index Scale */
   --z-base: 1;
   --z-resize-handle: 10;

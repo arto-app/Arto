@@ -1,12 +1,24 @@
 use crate::assets::icon_sprite;
 use crate::theme::{resolve_color_theme, Theme};
 
+/// The class the header's macOS clearance keys off, carried by the first frame
+/// so the window buttons never land on a glyph before Rust has had a chance to
+/// say so. `window::titlebar::sync_traffic_light_clearance` owns it afterwards
+/// and takes it away in full screen. Empty everywhere the OS still draws a
+/// title bar of its own.
+const TITLEBAR_CLASS: &str = if cfg!(target_os = "macos") {
+    " class=\"has-traffic-lights\""
+} else {
+    ""
+};
+
 pub fn build_custom_index(theme: Theme) -> String {
     let resolved = resolve_color_theme(theme).as_str();
     let sprite = icon_sprite();
+    let titlebar = TITLEBAR_CLASS;
     indoc::formatdoc! {r#"
     <!DOCTYPE html>
-    <html data-theme="{resolved}">
+    <html data-theme="{resolved}"{titlebar}>
         <head>
             <title>Arto</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">

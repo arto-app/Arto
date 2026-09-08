@@ -12,6 +12,15 @@
   z-index: var(--z-header);
 }
 
+/* On macOS the header *is* the title bar (the frame is still the OS's; only
+   the drawing is ours), so the window buttons land inside it and the head of
+   the strip has to stay clear of them. The class is set from Rust and taken
+   away in full screen, where AppKit hides the buttons and the gap would be a
+   hole with nothing in it. */
+:root.has-traffic-lights .header {
+  padding-left: var(--traffic-light-clearance);
+}
+
 .header-left {
   color: var(--text-color);
   flex: 1;

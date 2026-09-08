@@ -162,6 +162,10 @@ pub fn App(
                         None,
                         Some(size.to_logical::<u32>(window.scale_factor())),
                     );
+                    // Entering and leaving full screen both arrive here and
+                    // nowhere else, and they are what takes the traffic lights
+                    // out of the header and puts them back.
+                    crate::window::titlebar::sync_traffic_light_clearance(&window.window);
                 }
             }
             TaoEvent::WindowEvent {
@@ -181,6 +185,10 @@ pub fn App(
             _ => {}
         }
     });
+
+    // On macOS the header is the title bar, so it has to drag and zoom the
+    // window like one. A no-op everywhere else.
+    crate::hooks::titlebar::use_titlebar_gestures();
 
     // Listen for cross-window file/directory open events (from sidebar context menu)
     setup_cross_window_open_listeners(state);
