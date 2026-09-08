@@ -447,11 +447,11 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
     </div>
 
     <div class="col" style="margin-top:26px">
-      <h3>レールは2つに減ります</h3>
+      <h3>レールは3つに減ります</h3>
       <p>
-        <span class="mono">Files</span> と <span class="mono">Starred</span>、それに一番下の設定。
-        <strong>履歴はレールに入りません</strong> ―― 次の2節のとおり、置き場所が別にあるからです。
-        <kbd>⌘1</kbd> / <kbd>⌘2</kbd> で切り替えます。
+        <span class="mono">Files</span> / <span class="mono">Recent</span> / <span class="mono">Starred</span>、
+        それに一番下の設定。<kbd>⌘1</kbd>–<kbd>⌘3</kbd> で切り替えます。
+        <strong>Open は入りません</strong> ―― 次の節のとおり、その状態自体を持たないからです。
       </p>
       <p>
         地の扱いは<strong>パネルが出ているかどうかだけ</strong>で決まります ―― 出ていればパネルと同じ地をまとって1枚に見え、
@@ -504,8 +504,9 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
     <div class="col">
       <h2>履歴を、どこに出すか</h2>
       <p>
-        出し場所は4つあり得ます。全部に出す必要はありません ――
-        履歴が答える問いは<strong>3つに分かれていて</strong>、それぞれ向く場所が違うからです。
+        出し場所は4つあります。<strong>結論から言うと4つとも採ります</strong>が、
+        それは全部を並べたいからではなく、履歴が答える問いが<strong>3つに分かれていて</strong>、
+        1つの窓口では届かないからです。
       </p>
       <p>
         <strong>直前の1本に戻る</strong>（いちばん頻度が高い）／<strong>直近の数本から選ぶ</strong>／
@@ -588,6 +589,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <div class="mock-body" style="min-height:300px">
             <div class="rail open qzone">
               <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
               <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
@@ -652,6 +654,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <div class="mock-body" style="min-height:300px">
             <div class="rail open qzone">
               <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
               <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
@@ -707,6 +710,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <div class="mock-body" style="min-height:300px">
             <div class="rail qzone">
               <span class="q" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
               <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
@@ -760,30 +764,84 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">A — パネルの1面</th><td class="num">△ 切り替えが要る</td><td class="num">◎</td><td class="num">◎</td><td class="num">レールに1項目</td></tr>
           <tr><th scope="row">B — ファイル名から垂らす</th><td class="num">○ 2動作</td><td class="num">◎</td><td class="num">△ 途中まで</td><td class="num">なし（文字のみ）</td></tr>
           <tr><th scope="row">C — ⌘K の既定</th><td class="num">◎ ⌘K → ⏎</td><td class="num">◎</td><td class="num">△ 打って絞る</td><td class="num">なし</td></tr>
-          <tr><th scope="row">D — 余白の痕跡</th><td class="num">◎ 常に見えている</td><td class="num">○ 数本だけ</td><td class="num">×</td><td class="num">文字 4〜6行</td></tr>
-          <tr><th scope="row">ライブラリ（決定済み）</th><td class="num">—</td><td class="num">◎</td><td class="num">◎</td><td class="num">なし（起動時のみ）</td></tr>
+          <tr><th scope="row">D — 余白の痕跡</th><td class="num">◎ 見えている間は</td><td class="num">○ 数本だけ</td><td class="num">×</td><td class="num">文字 4〜8行（設定次第）</td></tr>
+          <tr><th scope="row">ライブラリ</th><td class="num">—</td><td class="num">◎</td><td class="num">◎</td><td class="num">なし（起動時のみ）</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="col" style="margin-top:30px">
-      <h3>推奨は C ＋ ライブラリ、必要なら B</h3>
+      <h3>4つとも採ります</h3>
       <p>
-        <strong>C は無条件で入れるべき</strong>です。<kbd>⌘K</kbd> は他の理由でも作るので追加費用がほぼ無く、
-        「直前に戻る」を最短の2打鍵にできます。日付で遡るのはライブラリが引き受けます ―― こちらも既に決まっています。
+        A を落とすと <strong>B の「すべての履歴…」に行き先が無くなります</strong>。ライブラリで代わりを務めるには
+        画面ごと入れ替わってしまい、いま読んでいる文書が消えます。文書を見たまま全部を辿れる場所は
+        <strong>A しかありません</strong>。前回の私の判断は、B と A が繋がっていることを見落としていました。
       </p>
       <p>
-        すると <strong>A は要らなくなります</strong>。パネルに履歴の面を足しても、C とライブラリが両方から挟んでいて、
-        レールの項目が1つ増えるだけになるからです。レールは <span class="mono">Files</span> と <span class="mono">Starred</span> の2つになります。
+        4つは競合ではなく、<strong>同じひとつの履歴に対する窓口</strong>です。答える問いが違うので、重なりません。
+      </p>
+    </div>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">窓口</th><th scope="col">答える問い</th><th scope="col">呼び方</th><th scope="col">常設で増えるインク</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">C — ⌘K の既定</th><td>直前に戻る／名前で探す</td><td class="num">⌘K → ⏎</td><td class="num">なし</td></tr>
+          <tr><th scope="row">B — ファイル名から垂らす</th><td>マウスで直近から選ぶ</td><td class="num">ヘッダーのファイル名</td><td class="num">なし（既にある文字）</td></tr>
+          <tr><th scope="row">A — パネルの1面</th><td>文書を見たまま全部を辿る</td><td class="num">⌘3 ／ B の最終行</td><td class="num"><strong>レールに 1 グリフ</strong></td></tr>
+          <tr><th scope="row">D — 余白の痕跡</th><td>戻る先が目に入り続ける</td><td class="num">設定で有効にしたとき</td><td class="num">文字 4〜8 行（設定次第）</td></tr>
+          <tr><th scope="row">ライブラリ</th><td>読み始める前に選ぶ</td><td class="num">起動時 ／ ⌘T</td><td class="num">なし</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col" style="margin-top:26px">
+      <p>
+        「窓口が4つ」は多く聞こえますが、<strong>画面に増えるのはレールの1グリフだけ</strong>です。
+        C はキー、B は既にある文字、D は既定では出ません。実装も1つ ―― 履歴という単一のリストに、
+        表示の形が4つあるだけです。
       </p>
       <p>
-        B は「マウスだけで完結させたい」を満たすための保険です。<kbd>⌘K</kbd> を覚えない使い方でも、
-        ヘッダーのファイル名を押せば同じリストに届きます。追加のインクがゼロなので、入れて損はありません。
+        B の最終行「すべての履歴…」は A を開きます。<strong>小さい窓口から大きい窓口へ、一方向に繋がる</strong>という関係で、
+        利用者はどこから入っても行き止まりになりません。
+      </p>
+    </div>
+
+    <div class="col" style="margin-top:34px">
+      <h3>D は設定で切り替えます</h3>
+      <p>
+        D だけは、読んでいる面の中に文字を置きます。好みがはっきり分かれるところなので、
+        既存の option-cards（<code>.claude/rules/ui-design.md</code>）で3択にします。
+      </p>
+    </div>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">設定</th><th scope="col">値</th><th scope="col">既定</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">最近読んだものを余白に表示</th>
+            <td>常に表示 ／ <strong>パネルを畳んでいるときだけ</strong> ／ 表示しない</td>
+            <td class="num">畳んでいるときだけ</td>
+          </tr>
+          <tr><th scope="row">表示する件数</th><td>4 – 8</td><td class="num">6</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col" style="margin-top:26px">
+      <p>
+        既定を「畳んでいるときだけ」にする理由は、<strong>そのときだけ左の余白が空くから</strong>です。
+        パネルを留めていれば A がそこにあり、痕跡は重複になります。畳めば余白が生まれ、
+        「戻る先が見えていてほしい」という需要がちょうど立ち上がります。
       </p>
       <p>
-        D は魅力的ですが、読んでいる面の中に常に文字を置くことになります ――
-        「読むのに集中したい」という出発点と逆を向くので、私は採りません。ただ<strong>畳んでいるときだけ出す</strong>なら、
-        パネルを持たない人にとっては良い落としどころかもしれません。
+        全幅表示（<span class="mono">viewport-wide</span>）のときは、本文が余白を使い切るので自動的に引っ込めます。
+        設定が「常に表示」でも、そこは本文が優先です。
       </p>
     </div>
   </section>
@@ -1044,6 +1102,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <div class="mock-body" style="min-height:320px">
             <div class="rail open force-hover">
               <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
               <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
@@ -1088,6 +1147,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <div class="mock-body" style="min-height:210px">
             <div class="rail">
               <span class="q" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
               <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
@@ -1140,10 +1200,12 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           </tr>
         </thead>
         <tbody>
-          <tr><th scope="row">パネルの切替（Files / Starred）</th><td>レールの2グリフ</td><td class="num">30% ／ 選択中は 65% ＋ 無彩色 2px</td><td><span class="k">⌘1 ⌘2</span></td></tr>
-          <tr><th scope="row">履歴（直前に戻る・数本から選ぶ）</th><td><kbd>⌘K</kbd> の既定表示</td><td class="num">なし</td><td><span class="k">⌘K → ⏎</span></td></tr>
-          <tr><th scope="row">履歴（マウスで）</th><td>ヘッダーのファイル名をクリック</td><td class="num">文字として常時</td><td>—</td></tr>
-          <tr><th scope="row">履歴（日付で遡る）</th><td>ライブラリ</td><td class="num">なし</td><td><span class="k">⌘T</span></td></tr>
+          <tr><th scope="row">パネルの切替（Files / Recent / Starred）</th><td>レールの3グリフ</td><td class="num">30% ／ 選択中は 65% ＋ 無彩色 2px</td><td><span class="k">⌘1–⌘3</span></td></tr>
+          <tr><th scope="row">履歴 — 直前に戻る</th><td><kbd>⌘K</kbd> の既定表示</td><td class="num">なし</td><td><span class="k">⌘K → ⏎</span></td></tr>
+          <tr><th scope="row">履歴 — マウスで直近から</th><td>ヘッダーのファイル名をクリック</td><td class="num">文字として常時</td><td>—</td></tr>
+          <tr><th scope="row">履歴 — 全部を辿る</th><td>パネルの Recent 面</td><td class="num">レールの1グリフ</td><td><span class="k">⌘3</span></td></tr>
+          <tr><th scope="row">履歴 — 余白の痕跡</th><td>本文の左余白</td><td class="num">設定次第（既定は畳んでいるとき）</td><td>—</td></tr>
+          <tr><th scope="row">履歴 — 読み始める前に</th><td>ライブラリ</td><td class="num">なし</td><td><span class="k">⌘T</span></td></tr>
           <tr><th scope="row">戻る / 進む</th><td>ヘッダー左（16px）</td><td class="num">30% ／ 不能なら非表示</td><td><span class="k">⌘[ ⌘]</span></td></tr>
           <tr><th scope="row">移動・コマンド（⌘K）</th><td>ヘッダーのパンくずをクリック</td><td class="num">文字として常時</td><td><span class="k">⌘K</span></td></tr>
           <tr><th scope="row">ページ内検索</th><td>ヘッダー右（16px）</td><td class="num">30%</td><td><span class="k">⌘F</span></td></tr>
@@ -1212,6 +1274,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">覗きの終了</th><td class="num">即時</td><td class="num">240ms の猶予</td><td><span class="mono">--peek-close-delay</span>。斜め移動を許容</td></tr>
           <tr><th scope="row">覗きの重なり</th><td class="num">押し出し</td><td class="num">オーバーレイ＋影</td><td>本文を再レイアウトしない</td></tr>
           <tr><th scope="row">履歴の保持</th><td class="num">—</td><td class="num">直近 100 件 / 30 日</td><td>どちらか早いほうで落とす。<code>config.json</code> に保存</td></tr>
+          <tr><th scope="row">余白の痕跡（D）</th><td class="num">—</td><td class="num">文字 10.5px / 不透明度 30%</td><td>領域ホバーで 72%。全幅表示のときは自動で引っ込む</td></tr>
         </tbody>
       </table>
     </div>
@@ -1258,7 +1321,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">戻る / 進む・ツリー開閉</th><td class="num">chevron-*</td><td class="num">ChevronLeft ほか</td><td><span class="badge has">あり</span></td></tr>
           <tr><th scope="row">お気に入り</th><td class="num">star / star-filled</td><td class="num">Star / StarFilled</td><td><span class="badge has">あり</span></td></tr>
           <tr><th scope="row">⌘K の入口ヒント</th><td class="num">command</td><td class="num">Command</td><td><span class="badge has">あり</span></td></tr>
-          <tr><th scope="row">履歴（⌘K の行・ライブラリ）</th><td class="num">history</td><td class="num">History</td><td><span class="badge new">新規</span></td></tr>
+          <tr><th scope="row">履歴（レール・⌘K の行・ライブラリ）</th><td class="num">history</td><td class="num">History</td><td><span class="badge new">新規</span></td></tr>
           <tr><th scope="row">ルートを追加</th><td class="num">folder-plus</td><td class="num">FolderPlus</td><td><span class="badge new">新規</span></td></tr>
         </tbody>
       </table>
@@ -1268,8 +1331,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <p>
         <code>Add</code>（plus）で代用できるので <code>folder-plus</code> は必須ではありません。
         ただ「Add folder」の行はツリーの末尾に置くため、ファイル行と見分けがつく形のほうが安全です。
-        レールに出るのは <code>Folder</code> / <code>Star</code> と <code>Gear</code> の3つだけです。
-        <code>History</code> はレールには出ず、<kbd>⌘K</kbd> の行頭とライブラリの見出しに使います。
+        レールに出るのは <code>Folder</code> / <code>History</code> / <code>Star</code> と <code>Gear</code> の4つだけです。
         <code>Sidebar</code> は画面には出さず、メニュー項目のアイコンとして残します。
       </p>
     </div>
@@ -1296,6 +1358,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <div class="mock-body" style="min-height:380px">
             <div class="rail open qzone">
               <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
               <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
@@ -1441,7 +1504,9 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <h3>⌘K とライブラリ</h3>
           <ul>
             <li>「開いている / 最近 / お気に入り / ルート配下 / コマンド」を1つの検索可能なリストにする</li>
-            <li><kbd>⌘K</kbd> のオーバーレイと、ライブラリ画面（同じリストの展開形）</li>
+            <li><kbd>⌘K</kbd> のオーバーレイ（C）と、ライブラリ画面（同じリストの展開形）</li>
+            <li>パネルの Recent 面（A）、ヘッダーのファイル名から垂らすリスト（B）。B の最終行は A を開きます</li>
+            <li>余白の痕跡（D）と、その設定（常に／畳んでいるときだけ／表示しない）</li>
             <li>起動時と <kbd>⌘T</kbd> の行き先をライブラリに</li>
             <li>アイコン追加 — <code>history</code>、<code>folder-plus</code></li>
           </ul>
@@ -1468,7 +1533,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <h2>触ってから決めたい3点</h2>
       <ul class="list" style="margin-top:18px">
         <li><span class="tag move">1</span><strong>30% は薄すぎませんか。</strong><span class="why">このページのデモは sRGB のブラウザ表示です。実機の輝度と GitHub テーマの背景では印象が変わるので、Phase 0 で 30 / 40 / 50 を並べて決めましょう。high contrast テーマでは自動的に 1段階上げる想定です。</span></li>
-        <li><span class="tag move">2</span><strong>履歴の出し方は C＋B で良いですか。</strong><span class="why">「出し方」の節にまとめました。C（⌘K の既定）は入れる前提として、B（ファイル名から垂らす）を足すか、D（余白の痕跡）を畳んでいるときだけ出すか。A（パネルの1面）を残す判断もあり得ます ―― その場合レールは3つに戻ります。</span></li>
+        <li><span class="tag move">2</span><strong>D の既定は「畳んでいるときだけ」で良いですか。</strong><span class="why">A・B・C は入れる前提です。D だけは読んでいる面に文字が乗るので、既定を「表示しない」にする判断もあり得ます。畳んで読む頻度が高いなら、いまの既定のほうが親切です。件数の既定 6 も、実際に置いてみて決めましょう。</span></li>
         <li><span class="tag move">4</span><strong>覗きの 120ms / 240ms は妥当ですか。</strong><span class="why">短いと通り抜けで開き、長いと反応が鈍く感じます。Phase 1 で 80 / 120 / 200ms を試して決めましょう。設定で切れるようにもします。</span></li>
         <li><span class="tag move">3</span><strong>ヘッダーの3つは、これで合っていますか。</strong><span class="why">検索・幅・テーマを選びました。ここは「読んでいる最中に触るもの」だけを置く場所なので、実際の使用頻度と合わなければ入れ替えます（候補: 印刷、Finder で表示、ズーム）。</span></li>
       </ul>
