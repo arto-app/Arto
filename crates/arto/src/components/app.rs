@@ -454,27 +454,12 @@ pub fn App(
                 }
             }
 
-            // Hover triggers and overlays (only when unpinned)
-            if !left_pinned {
-                div {
-                    class: "sidebar-hover-trigger left",
-                    onmouseenter: move |_| {
-                        left_hover_active.set(true);
-                        left_hide_gen.set(left_hide_gen() + 1);
-                    },
-                }
-            }
-
-            if !right_pinned {
-                div {
-                    class: "sidebar-hover-trigger right",
-                    onmouseenter: move |_| {
-                        right_hover_active.set(true);
-                        right_hide_gen.set(right_hide_gen() + 1);
-                    },
-                }
-            }
-
+            // No hover strip at the window edge. Opening a panel by brushing
+            // an invisible edge cannot be told apart from passing over it,
+            // which is where the accidental opens came from. Until the rail
+            // gives the pointer something visible to aim at, the panels open
+            // only from a keybinding or the menu.
+            //
             // Overlay wrappers (rendered when unpinned, animated via .visible class)
             if !left_pinned {
                 div {

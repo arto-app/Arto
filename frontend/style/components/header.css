@@ -22,58 +22,31 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  opacity: var(--opacity-muted);
-  transition: opacity 0.4s;
 }
 
-.header:hover .header-left {
-  opacity: 0.7;
-
-  &:hover {
-    opacity: 1;
-  }
-}
-
-.header-left .left-sidebar-toggle-button,
+/* Quiet control: the glyph is small and faint, the target is not. Nothing
+   is painted at rest -- no surface, no border -- so the band reads as a few
+   marks rather than a row of buttons. */
 .header-left .nav-button {
   flex-shrink: 0;
   background: transparent;
-  border: 1px solid transparent;
+  border: none;
   border-radius: var(--radius-sm);
   color: var(--text-color);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
-  transition: all var(--transition-normal);
-  width: 28px;
-  height: 28px;
-
-  &:hover:not(:disabled) {
-    border-color: var(--border-color);
-    background: var(--bg-secondary);
-  }
-
-  &:disabled {
-    opacity: var(--opacity-subtle);
-    cursor: not-allowed;
-  }
+  padding: 0;
+  width: var(--hit-size);
+  height: var(--hit-size);
+  opacity: var(--opacity-rest);
+  transition:
+    opacity var(--transition-quiet) ease,
+    background-color var(--transition-quiet) ease;
 
   .icon {
     color: var(--text-color);
-  }
-}
-
-.header-left .left-sidebar-toggle-button {
-  margin-right: 4px;
-
-  .icon {
-    opacity: var(--opacity-muted);
-  }
-
-  &.active .icon {
-    opacity: 1;
   }
 }
 
@@ -103,22 +76,6 @@
   opacity: 1;
 }
 
-.header .header-left .file-action-buttons .nav-button {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  padding: 3px;
-  opacity: var(--opacity-muted);
-  transition:
-    opacity var(--transition-normal),
-    color var(--transition-normal);
-}
-
-/* Show file action buttons on header hover */
-.header:hover .header-left .file-action-buttons .nav-button:hover:not(:disabled) {
-  opacity: 1;
-}
-
 /* Copy button success state - always visible when copied (higher specificity) */
 .header .header-left .file-action-buttons {
   .copy-button.copied {
@@ -145,66 +102,46 @@
 
 .header-right .nav-button {
   background: transparent;
-  border: 1px solid transparent;
+  border: none;
   border-radius: var(--radius-sm);
-  color: var(--text-secondary);
+  color: var(--text-color);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
-  transition: all var(--transition-normal);
-  width: 28px;
-  height: 28px;
-
-  &:hover:not(:disabled) {
-    border-color: var(--border-color);
-    background: var(--bg-secondary);
-    color: var(--text-color);
-  }
-
-  &.active {
-    color: var(--text-color);
-  }
-
-  &:disabled {
-    opacity: var(--opacity-subtle);
-    cursor: not-allowed;
-  }
+  padding: 0;
+  width: var(--hit-size);
+  height: var(--hit-size);
+  opacity: var(--opacity-rest);
+  transition:
+    opacity var(--transition-quiet) ease,
+    background-color var(--transition-quiet) ease;
 
   .icon {
     color: inherit;
   }
 }
 
-/* TOC toggle button - matches sidebar toggle style */
-.header-right .right-sidebar-toggle-button {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  transition: all var(--transition-normal);
-  width: 28px;
-  height: 28px;
+/* State is a step along the same scale, not a colour and not a filled chip. */
+.header .nav-button.active {
+  opacity: var(--opacity-active);
+}
 
-  &:hover {
-    border-color: var(--border-color);
-    background: var(--bg-secondary);
-    color: var(--text-color);
-  }
+/* The whole band wakes together: by the time the pointer arrives at a
+   control it is already legible, so nothing has to be hunted for. */
+.header:hover .nav-button,
+.header:hover .theme-selector-main {
+  opacity: var(--opacity-woken);
+}
 
-  .icon {
-    opacity: var(--opacity-muted);
-  }
+.header:hover .nav-button.active {
+  opacity: 1;
+}
 
-  &.active .icon {
-    opacity: 1;
-  }
+.header .nav-button:hover,
+.header .theme-selector-main:hover {
+  opacity: 1;
+  background: var(--bg-secondary);
 }
 
 /* ========================================
@@ -217,7 +154,7 @@
 }
 
 .header-left:hover .file-action-buttons .bookmark-button {
-  opacity: var(--opacity-muted);
+  opacity: var(--opacity-woken);
 }
 
 .file-action-buttons .bookmark-button:hover {
@@ -225,6 +162,5 @@
 }
 
 .file-action-buttons .bookmark-button.bookmarked {
-  opacity: var(--opacity-hover);
-  color: var(--accent-bg);
+  opacity: var(--opacity-active);
 }

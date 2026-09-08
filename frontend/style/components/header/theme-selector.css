@@ -7,37 +7,32 @@
   display: flex;
 }
 
-/* Main button (current theme) */
+/* Main button (current theme). Same quiet control as the rest of the band:
+   no surface or border at rest, and the header's hover rules wake it. */
 .theme-selector-main {
   appearance: none;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border: none;
+  border-radius: var(--radius-sm);
   color: var(--text-color);
   cursor: pointer;
   line-height: 1;
-  padding: 8px;
-  min-width: 36px;
-  min-height: 36px;
+  padding: 0;
+  width: var(--hit-size);
+  height: var(--hit-size);
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: var(--opacity-muted);
+  opacity: var(--opacity-rest);
   transition:
-    opacity var(--transition-normal) ease,
-    border-color var(--transition-normal) ease,
-    background-color var(--transition-normal) ease;
-}
-
-.theme-selector-main:hover {
-  opacity: 1;
-  border-color: var(--border-color);
-  background: var(--bg-secondary);
+    opacity var(--transition-quiet) ease,
+    background-color var(--transition-quiet) ease;
 }
 
 /* Expanded state - make button fully visible */
 .theme-selector-main[aria-expanded="true"] {
   opacity: 1;
+  background: var(--bg-secondary);
 }
 
 .theme-selector-main:focus-visible {
@@ -88,9 +83,9 @@
   color: var(--text-color);
   cursor: pointer;
   line-height: 1;
-  padding: 8px;
-  min-width: 36px;
-  min-height: 36px;
+  padding: 0;
+  width: var(--hit-size);
+  height: var(--hit-size);
   display: flex;
   align-items: center;
   justify-content: center;

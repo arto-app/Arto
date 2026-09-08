@@ -28,6 +28,16 @@
   --opacity-secondary: 0.6;
   --opacity-hover: 0.8;
 
+  /* Quiet controls: ink and hit area are separate, and state is a step
+     along this same scale rather than a colour. A control rests at
+     --opacity-rest, wakes to --opacity-woken when the pointer enters the
+     band it belongs to, and reaches 1 only under the pointer itself. */
+  --opacity-rest: 0.3;
+  --opacity-woken: 0.72;
+  --opacity-active: 0.65;
+  --hit-size: 30px;
+  --transition-quiet: 0.18s;
+
   /* Z-Index Scale */
   --z-base: 1;
   --z-resize-handle: 10;

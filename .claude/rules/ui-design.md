@@ -43,6 +43,13 @@ Arto uses a comprehensive design token system defined in `variables.css` for con
 --opacity-muted: 0.5;       /* Default icons, placeholders */
 --opacity-secondary: 0.6;   /* Secondary text */
 --opacity-hover: 0.8;       /* Hover state for icons */
+
+/* Quiet controls (see "Quiet controls" below) */
+--opacity-rest: 0.3;        /* A chrome control at rest */
+--opacity-woken: 0.72;      /* Its band has the pointer in it */
+--opacity-active: 0.65;     /* Selected or on, at rest */
+--hit-size: 30px;           /* Target size, independent of the glyph */
+--transition-quiet: 0.18s;
 ```
 
 **Z-Index Semantic Scale:**
@@ -94,7 +101,23 @@ wrong in every theme but the one it was taken from.
 - Use `transparent` backgrounds where possible
 - Use thin borders (`1px`) instead of thick (`2px`)
 - Prefer `font-weight: 400-500` over bold for navigation
-- Icon opacity: `var(--opacity-muted)` default, `var(--opacity-hover)` on hover/active
+
+### Quiet controls
+
+Chrome controls separate what is drawn from what can be hit, so a band of them
+reads as a few faint marks while staying as easy to click as a toolbar:
+
+- 16px glyph, `stroke-width: 1.5`, inside a `var(--hit-size)` (30px) target.
+- Nothing painted at rest: no border, no surface. A surface appears only under
+  the pointer, and only on the one control being pointed at.
+- `--opacity-rest` at rest, `--opacity-woken` when the pointer enters the band
+  (`.header:hover .nav-button`, not each button on its own), `1` under the
+  pointer. Waking the whole band means a control is already legible by the time
+  it is aimed at.
+- State is a step along that same scale — `--opacity-active` — not a colour and
+  not a filled chip.
+- A control that cannot act is not drawn. `disabled` styling leaves something
+  in the eye that offers nothing; render the button conditionally instead.
 
 ### Visual Consistency
 
@@ -102,18 +125,25 @@ wrong in every theme but the one it was taken from.
 - All similar buttons must have matching sizes (padding, font-size, border-radius)
 - Use `color-mix(in srgb, var(--accent-bg) 8%, transparent)` for subtle selection backgrounds
 
-## In-Page Settings (Browser-Style)
+## Preferences is its own window
 
-**Prefer in-page settings over modal dialogs for preferences.**
+**Preferences is a window, not a tab and not a modal.**
 
-Settings should integrate with the tab system rather than blocking the UI with modals.
-This follows browser conventions (Chrome's `chrome://settings`, Firefox's `about:preferences`).
+Changing a setting is a short errand; a tab is where a document lives for as
+long as it is being read. Giving the errand a document's lifetime is what left
+a settings tab sitting open for days, so it gets a window that closes instead.
 
 ### Architecture
 
-- Add a `TabContent::Preferences` variant to the content enum
-- Implement `open_preferences()` method with tab deduplication (reuse existing preferences tab)
-- Use state-based navigation instead of broadcast channels for window-specific features
+- `window::preferences::open_or_focus_preferences_window` opens it, reusing the
+  child-window machinery in `window/child.rs`: one window at a time, focused
+  rather than duplicated, closed with its parent.
+- The window holds no `AppState`. What the "Current Settings" section reports
+  comes over as a `PreferencesSnapshot` taken when it opens, and what it
+  changes goes back through `events::SET_SIDEBAR_ZOOM_IN_WINDOW`, targeted at
+  the window that opened it.
+- `AppState::open_preferences()` is still the single entry point, so the menu
+  item and the keybinding stay unchanged.
 
 ### Layout Structure
 
@@ -247,9 +277,9 @@ When content should fit without scrolling:
 }
 ```
 
-## Menu Integration with Tab Content
+## Menu Integration with the Preferences Window
 
-**Opening a specific tab when menu item is clicked:**
+**Opening a specific section when a menu item is clicked:**
 
 1. Create a static function to set the tab state before opening:
    ```rust

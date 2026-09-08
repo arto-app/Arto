@@ -15,10 +15,19 @@ mod markdown;
 #[cfg(not(target_os = "windows"))]
 mod menu;
 mod pinned_search;
+// The root and history rules are settled here first, with the specification's
+// own decision tables as their tests, before any component is rewritten around
+// them; see `docs/design/implementation-plan.html`. Nothing draws them yet, so
+// most of each module is unused until the panel is rebuilt. Both allows come
+// off then.
+#[allow(dead_code)]
+mod roots;
 mod scroll_anchor;
 mod state;
 mod theme;
 pub mod utils;
+#[allow(dead_code)]
+mod visits;
 mod watcher;
 mod window;
 

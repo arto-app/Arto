@@ -56,7 +56,6 @@ impl Tab {
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_else(|| "Unnamed".to_string()),
             TabContent::Inline(_) => "Welcome".to_string(),
-            TabContent::Preferences => "Preferences".to_string(),
             TabContent::None => "New Tab".to_string(),
         }
     }
@@ -120,10 +119,10 @@ mod tests {
         assert!(!tab.is_no_file());
 
         let tab = Tab {
-            content: TabContent::Preferences,
+            content: TabContent::FileError(PathBuf::from("/test"), "boom".to_string()),
             ..Default::default()
         };
-        assert!(!tab.is_no_file());
+        assert!(tab.is_no_file());
     }
 
     #[test]
@@ -151,9 +150,6 @@ mod tests {
         assert_eq!(tab.file(), None);
 
         tab.content = TabContent::Inline("test".to_string());
-        assert_eq!(tab.file(), None);
-
-        tab.content = TabContent::Preferences;
         assert_eq!(tab.file(), None);
     }
 
@@ -187,15 +183,6 @@ mod tests {
     fn test_display_name_inline() {
         let tab = Tab::with_inline_content("# Welcome to Arto");
         assert_eq!(tab.display_name(), "Welcome");
-    }
-
-    #[test]
-    fn test_display_name_preferences() {
-        let tab = Tab {
-            content: TabContent::Preferences,
-            ..Default::default()
-        };
-        assert_eq!(tab.display_name(), "Preferences");
     }
 
     // === Edge case tests ===

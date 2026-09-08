@@ -14,7 +14,6 @@
 //! - The Tab/TabContent module tests cover the underlying data structures
 //!   (see `tabs/tab.rs` and `tabs/content.rs` for unit tests)
 
-use super::content::TabContent;
 use super::tab::Tab;
 use crate::state::AppState;
 use dioxus::prelude::*;
@@ -57,18 +56,13 @@ impl AppState {
     /// Returns `false` if the index was out of bounds.
     ///
     /// Note: When the last tab is closed, this method also closes the window
-    /// (unless it was a Preferences tab). The caller cannot distinguish between
-    /// "tab closed" and "window closed" from the return value alone.
+    /// The caller cannot distinguish between "tab closed" and "window closed"
+    /// from the return value alone.
     pub fn close_tab(&mut self, index: usize) -> bool {
         let tab = self.take_tab(index);
-        if let Some(tab) = tab {
+        if tab.is_some() {
             if self.tabs.read().is_empty() {
-                if tab.content == TabContent::Preferences {
-                    // Replace with an empty tab instead of closing the window
-                    self.add_empty_tab(true);
-                } else {
-                    dioxus::desktop::window().close();
-                }
+                dioxus::desktop::window().close();
             }
             true
         } else {

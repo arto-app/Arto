@@ -53,6 +53,10 @@ pub(crate) fn build_image_window_index(theme: Theme) -> String {
     build_viewer_window_index("Image Viewer", "image-window-body", theme)
 }
 
+pub(crate) fn build_preferences_window_index(theme: Theme) -> String {
+    build_viewer_window_index("Preferences", "preferences-window-body", theme)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -68,6 +72,7 @@ mod tests {
             build_mermaid_window_index(Theme::Light),
             build_math_window_index(Theme::Light),
             build_image_window_index(Theme::Light),
+            build_preferences_window_index(Theme::Light),
         ] {
             assert!(
                 index.contains("id=\"tabler-"),

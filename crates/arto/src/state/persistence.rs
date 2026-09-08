@@ -48,7 +48,17 @@ impl From<LogicalSize<u32>> for Size {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct PersistedState {
+    /// The single root a window used to have.
+    ///
+    /// Kept so a state file written before roots became a list still restores
+    /// something; [`PersistedState::temporary_roots`] folds it into `temps`.
     pub directory: Option<PathBuf>,
+    /// The window's temporary roots, oldest first.
+    ///
+    /// Places are not here: they are the directory bookmarks, saved once and
+    /// shared by every window rather than restored per window.
+    #[serde(default)]
+    pub temps: Vec<PathBuf>,
     pub theme: Theme,
     pub content_full_width: bool,
     pub sidebar_pinned: bool,
@@ -75,6 +85,7 @@ impl Default for PersistedState {
     fn default() -> Self {
         Self {
             directory: None,
+            temps: Vec::new(),
             theme: Theme::default(),
             content_full_width: false,
             sidebar_pinned: false,
@@ -98,6 +109,7 @@ impl From<&AppState> for PersistedState {
         let right_sidebar = state.right_sidebar.read();
         Self {
             directory: sidebar.root_directory.clone(),
+            temps: sidebar.root_directory.iter().cloned().collect(),
             theme: *state.current_theme.read(),
             content_full_width: *state.content_full_width.read(),
             sidebar_pinned: sidebar.pinned,
@@ -116,6 +128,21 @@ impl From<&AppState> for PersistedState {
 }
 
 impl PersistedState {
+    /// The temporary roots to restore, older files included.
+    ///
+    /// A state file from before this field existed carries a single
+    /// `directory` instead; treating it as the one temporary root restores
+    /// exactly what that window was showing.
+    ///
+    /// Unused until the tree grows more than one root.
+    #[allow(dead_code)]
+    pub fn temporary_roots(&self) -> Vec<PathBuf> {
+        if !self.temps.is_empty() {
+            return self.temps.clone();
+        }
+        self.directory.iter().cloned().collect()
+    }
+
     /// Get the state file path (state.json in local data directory)
     pub fn path() -> PathBuf {
         const FILENAME: &str = "state.json";
@@ -194,6 +221,34 @@ impl PersistedState {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_state_file_from_before_roots_were_a_list_still_restores() {
+        // Only `directory` was written then, so it is the one root to bring back.
+        let json = r#"{"directory": "/w/arto"}"#;
+        let state: PersistedState = serde_json::from_str(json).unwrap();
+
+        assert_eq!(state.temporary_roots(), vec![PathBuf::from("/w/arto")]);
+    }
+
+    #[test]
+    fn temps_win_over_the_single_directory_once_they_exist() {
+        let state = PersistedState {
+            directory: Some(PathBuf::from("/old")),
+            temps: vec![PathBuf::from("/a"), PathBuf::from("/b")],
+            ..Default::default()
+        };
+
+        assert_eq!(
+            state.temporary_roots(),
+            vec![PathBuf::from("/a"), PathBuf::from("/b")]
+        );
+    }
+
+    #[test]
+    fn no_roots_at_all_restores_nothing() {
+        assert!(PersistedState::default().temporary_roots().is_empty());
+    }
+
     use super::*;
     use indoc::indoc;
 

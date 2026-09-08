@@ -62,3 +62,23 @@ pub static OPEN_FILE_IN_WINDOW: std::sync::LazyLock<broadcast::Sender<(WindowId,
 /// this event targets a specific window by its WindowId.
 pub static OPEN_DIRECTORY_IN_WINDOW: std::sync::LazyLock<broadcast::Sender<(WindowId, PathBuf)>> =
     std::sync::LazyLock::new(|| broadcast::channel(10).0);
+
+// ============================================================================
+// Preferences Window Events
+// ============================================================================
+
+/// Which sidebar a preferences slider is talking about.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SidebarSide {
+    Left,
+    Right,
+}
+
+/// Apply a zoom level to one window's sidebar, from the preferences window.
+///
+/// The "Current Settings" sliders act on the window that opened preferences.
+/// Preferences is its own window now and holds no `AppState`, so the value
+/// travels as an event to that window rather than being written directly.
+pub static SET_SIDEBAR_ZOOM_IN_WINDOW: std::sync::LazyLock<
+    broadcast::Sender<(WindowId, SidebarSide, f64)>,
+> = std::sync::LazyLock::new(|| broadcast::channel(10).0);

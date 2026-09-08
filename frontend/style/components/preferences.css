@@ -2,6 +2,21 @@
    Full-Page Preferences Layout
    ================================= */
 
+/* Preferences is its own window: the page owns the whole viewport, the way
+   the other standalone windows do. */
+.preferences-window-body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100vh;
+}
+
+.preferences-window {
+  height: 100vh;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
 .preferences-page {
   display: flex;
   flex-direction: column;

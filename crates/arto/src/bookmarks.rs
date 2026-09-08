@@ -62,24 +62,48 @@ pub struct Bookmarks {
     pub items: Vec<Bookmark>,
 }
 
+/// `<platform data dir>/arto/<name>`, or `~/.arto/<name>` when the platform
+/// has no data directory, or just `<name>` as a last resort.
+///
+/// This is for what the app writes about itself — bookmarks, the visit
+/// history — as opposed to `config.json`, which a reader edits by hand and
+/// which lives in the configuration directory instead.
+pub(crate) fn data_file(name: &str) -> PathBuf {
+    if let Some(mut path) = dirs::data_local_dir() {
+        path.push("arto");
+        path.push(name);
+        return path;
+    }
+
+    if let Some(mut path) = dirs::home_dir() {
+        path.push(".arto");
+        path.push(name);
+        return path;
+    }
+
+    PathBuf::from(name)
+}
+
 impl Bookmarks {
     /// Get the bookmarks file path
     fn path() -> PathBuf {
-        const FILENAME: &str = "bookmarks.json";
-        if let Some(mut path) = dirs::data_local_dir() {
-            path.push("arto");
-            path.push(FILENAME);
-            return path;
-        }
+        data_file("bookmarks.json")
+    }
 
-        // Fallback to home directory
-        if let Some(mut path) = dirs::home_dir() {
-            path.push(".arto");
-            path.push(FILENAME);
-            return path;
-        }
-
-        PathBuf::from(FILENAME)
+    /// The bookmarked directories, in the order they were arranged.
+    ///
+    /// These are the tree's permanent roots. Bookmarking a folder and giving
+    /// the tree a place to start are the same act, so they are the same list
+    /// rather than two that have to be kept in step.
+    ///
+    /// Unused until the tree grows more than one root.
+    #[allow(dead_code)]
+    pub fn places(&self) -> Vec<PathBuf> {
+        self.items
+            .iter()
+            .filter(|bookmark| bookmark.is_dir())
+            .map(|bookmark| bookmark.path.clone())
+            .collect()
     }
 
     /// Load bookmarks from file or return empty

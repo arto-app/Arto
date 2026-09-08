@@ -104,7 +104,7 @@ pub fn ThemeSelector(current_theme: Signal<Theme>) -> Element {
                     evt.stop_propagation();
                     is_expanded.set(!is_expanded());
                 },
-                Icon { name: current_icon, size: 18 }
+                Icon { name: current_icon }
             }
 
             // Dropdown menu (remaining 2 themes)
@@ -130,7 +130,7 @@ pub fn ThemeSelector(current_theme: Signal<Theme>) -> Element {
                             current_theme.set(theme);
                             is_expanded.set(false);
                         },
-                        Icon { name: icon, size: 18 }
+                        Icon { name: icon }
                     }
                 }
             }

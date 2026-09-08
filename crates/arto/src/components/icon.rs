@@ -106,7 +106,7 @@ impl fmt::Display for IconName {
 #[component]
 pub fn Icon(
     name: IconName,
-    #[props(default = 20)] size: u32,
+    #[props(default = 16)] size: u32,
     #[props(default = "")] class: &'static str,
 ) -> Element {
     let icon_id = format!("tabler-{}", name);

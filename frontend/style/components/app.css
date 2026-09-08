@@ -79,25 +79,8 @@
 }
 
 /* ========================================
-   Sidebar Hover Trigger & Overlay
+   Sidebar Overlay
    ======================================== */
-
-/* Transparent hover zones at window edges (unpinned sidebars) */
-.sidebar-hover-trigger {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 8px;
-  z-index: var(--z-dropdown);
-}
-
-.sidebar-hover-trigger.left {
-  left: 0;
-}
-
-.sidebar-hover-trigger.right {
-  right: 0;
-}
 
 /* Overlay wrapper for unpinned sidebars */
 .sidebar-overlay-wrapper {

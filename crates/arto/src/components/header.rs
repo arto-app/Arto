@@ -100,20 +100,25 @@ pub fn Header() -> Element {
                     }
 
 
-                // Back button
-                button {
-                    class: "nav-button",
-                    disabled: !can_go_back,
-                    onclick: on_back,
-                    Icon { name: IconName::ChevronLeft }
+                // Back and forward are drawn only when they can act: a
+                // disabled control still occupies the eye without offering
+                // anything, which is the noise this header is shedding.
+                if can_go_back {
+                    button {
+                        class: "nav-button",
+                        title: "Back",
+                        onclick: on_back,
+                        Icon { name: IconName::ChevronLeft }
+                    }
                 }
 
-                // Forward button
-                button {
-                    class: "nav-button",
-                    disabled: !can_go_forward,
-                    onclick: on_forward,
-                    Icon { name: IconName::ChevronRight }
+                if can_go_forward {
+                    button {
+                        class: "nav-button",
+                        title: "Forward",
+                        onclick: on_forward,
+                        Icon { name: IconName::ChevronRight }
+                    }
                 }
 
                 // File name
@@ -148,7 +153,6 @@ pub fn Header() -> Element {
                             },
                             Icon {
                                 name: if *is_copied.read() { IconName::Check } else { IconName::Copy },
-                                size: 14,
                             }
                         }
 
@@ -158,7 +162,7 @@ pub fn Header() -> Element {
                             class: if *is_reloading.read() { "reloading" },
                             onclick: on_reload,
                             title: "Reload file",
-                            Icon { name: IconName::Refresh, size: 14 }
+                            Icon { name: IconName::Refresh }
                         }
                     }
                 }
@@ -186,7 +190,7 @@ pub fn Header() -> Element {
                             });
                         }
                     },
-                    Icon { name: IconName::Search, size: 20 }
+                    Icon { name: IconName::Search }
                 }
 
                 // Full-width content toggle
@@ -197,7 +201,6 @@ pub fn Header() -> Element {
                     onclick: move |_| state.toggle_content_full_width(),
                     Icon {
                         name: if *state.content_full_width.read() { IconName::ViewportNarrow } else { IconName::ViewportWide },
-                        size: 20,
                     }
                 }
 

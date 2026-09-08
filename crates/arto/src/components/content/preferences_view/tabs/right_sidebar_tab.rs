@@ -4,19 +4,21 @@ use crate::config::{
     normalize_sidebar_zoom, Config, NewWindowBehavior, StartupBehavior, MAX_SIDEBAR_ZOOM,
     MIN_SIDEBAR_ZOOM, ZOOM_STEP,
 };
-use crate::state::AppState;
+use crate::events::{SidebarSide, SET_SIDEBAR_ZOOM_IN_WINDOW};
+use dioxus::desktop::tao::window::WindowId;
 use dioxus::prelude::*;
 
 #[component]
 pub fn RightSidebarTab(
     config: Signal<Config>,
     has_changes: Signal<bool>,
-    mut state: AppState,
+    /// The window these "Current Settings" act on.
+    window_id: WindowId,
+    current_width: f64,
+    current_zoom: f64,
 ) -> Element {
     // Extract values upfront to avoid holding read guard across closures
     let right_sidebar_cfg = config.read().right_sidebar.clone();
-    let current_width = state.right_sidebar.read().width;
-    let current_zoom = state.right_sidebar.read().zoom_level;
 
     rsx! {
         div {
@@ -40,7 +42,11 @@ pub fn RightSidebarTab(
                     decimals: 1,
                     on_change: move |new_zoom| {
                         // Normalize to 0.1 step and clamp to valid range
-                        state.right_sidebar.write().zoom_level = normalize_sidebar_zoom(new_zoom);
+                        let _ = SET_SIDEBAR_ZOOM_IN_WINDOW.send((
+                            window_id,
+                            SidebarSide::Right,
+                            normalize_sidebar_zoom(new_zoom),
+                        ));
                     },
                     default_value: Some(right_sidebar_cfg.default_zoom_level),
                 }

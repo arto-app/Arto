@@ -109,7 +109,7 @@ pub fn calculate_grab_offset(
 /// Check if a tab content type is transferable to another window.
 ///
 /// Only File tabs and FileError tabs can be transferred.
-/// None, Inline, and Preferences tabs are not transferable.
+/// None and Inline tabs are not transferable.
 pub fn is_tab_transferable(content: &TabContent) -> bool {
     matches!(content, TabContent::File(_) | TabContent::FileError(_, _))
 }
@@ -299,12 +299,6 @@ mod tests {
         #[test]
         fn inline_tab_is_not_transferable() {
             let content = TabContent::Inline("content".to_string());
-            assert!(!is_tab_transferable(&content));
-        }
-
-        #[test]
-        fn preferences_tab_is_not_transferable() {
-            let content = TabContent::Preferences;
             assert!(!is_tab_transferable(&content));
         }
     }

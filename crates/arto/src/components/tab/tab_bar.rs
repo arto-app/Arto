@@ -477,17 +477,14 @@ fn NewTabButton() -> Element {
 fn PreferencesButton() -> Element {
     let mut state = use_context::<AppState>();
     let current_tab = state.current_tab();
-    let is_preferences_active = current_tab
-        .as_ref()
-        .is_some_and(|tab| matches!(tab.content, crate::state::TabContent::Preferences));
+    let _ = current_tab;
 
     rsx! {
         button {
             class: "tab-preferences",
-            class: if is_preferences_active { "active" },
             title: "Preferences",
             onclick: move |_| {
-                state.toggle_preferences();
+                state.open_preferences();
             },
             Icon { name: IconName::Gear, size: 16 }
         }
