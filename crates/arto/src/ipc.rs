@@ -226,9 +226,9 @@ fn handle_event_on_main_thread(
             tracing::debug!(?request, "Processing open request event");
             open_request_with_behavior(desktop, request);
         }
-        OpenEvent::Reopen { behavior } => {
-            tracing::debug!(?behavior, "Processing reopen event");
-            reopen_with_behavior(desktop, behavior);
+        OpenEvent::Reopen { behavior, behind } => {
+            tracing::debug!(?behavior, behind, "Processing reopen event");
+            reopen_with_behavior(desktop, behavior, behind);
         }
     }
 }
@@ -244,13 +244,16 @@ fn open_request_with_behavior(
     if let Some(window_id) = select_target_window_with_behavior(behavior) {
         if let Some(mut state) = crate::window::main::get_window_state(window_id) {
             apply_open_request_to_state(&mut state, &request);
-            let _ = crate::window::main::focus_window(window_id);
+            if !request.behind {
+                let _ = crate::window::main::focus_window(window_id);
+            }
             return;
         }
     }
 
     let params = crate::window::CreateMainWindowConfigParams {
         directory: request.directory,
+        focused: !request.behind,
         ..Default::default()
     };
 
@@ -279,7 +282,16 @@ fn apply_open_request_to_state(state: &mut crate::state::AppState, request: &Ope
 fn reopen_with_behavior(
     desktop: &std::rc::Rc<dioxus::desktop::DesktopService>,
     behavior: Option<crate::config::FileOpenBehavior>,
+    behind: bool,
 ) {
+    // A reopen asks for the app to come forward, which is the one thing
+    // `--behind` refuses to do: every window, visible or hidden, is left
+    // exactly as it is. Events are only dispatched once a window exists, so
+    // there is never one to create here either.
+    if behind {
+        return;
+    }
+
     let target_window = match behavior {
         Some(behavior) => select_target_window_with_behavior(behavior),
         None => select_target_window(),
@@ -324,13 +336,18 @@ mod tests {
             files: vec![PathBuf::from("/first.md")],
             directory: None,
             behavior: None,
+            behind: false,
         }));
         push_event(OpenEvent::Open(OpenRequest {
             files: Vec::new(),
             directory: Some(PathBuf::from("/second")),
             behavior: None,
+            behind: false,
         }));
-        push_event(OpenEvent::Reopen { behavior: None });
+        push_event(OpenEvent::Reopen {
+            behavior: None,
+            behind: false,
+        });
 
         // try_pop_first_event returns FIFO order
         let first = try_pop_first_event();
@@ -350,7 +367,10 @@ mod tests {
         ));
         assert!(matches!(
             &remaining[1],
-            OpenEvent::Reopen { behavior: None }
+            OpenEvent::Reopen {
+                behavior: None,
+                behind: false
+            }
         ));
 
         // Queue is empty after drain

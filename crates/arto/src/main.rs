@@ -32,6 +32,7 @@ enum OpenModeArg {
         \x20 arto README.md           Open a specific file\n\
         \x20 arto --open=screen README.md\n\
         \x20 arto --open=new README.md\n\
+        \x20 arto --behind README.md  Open without taking the focus\n\
         \x20 arto --directory=. README.md\n\
         \x20 arto docs/               Open a directory in the file explorer\n\
         \x20 arto file1.md file2.md   Open multiple files in tabs\n\
@@ -47,6 +48,9 @@ struct Cli {
     /// Open target selection mode (default: use fileOpen setting from config.json)
     #[arg(long, value_enum)]
     open: Option<OpenModeArg>,
+    /// Open without activating Arto, leaving the focus where it is
+    #[arg(long)]
+    behind: bool,
     /// Root directory for the file explorer sidebar
     #[arg(long)]
     directory: Option<PathBuf>,
@@ -116,6 +120,7 @@ fn main() {
         paths: cli.paths,
         directory: cli.directory,
         open_mode,
+        behind: cli.behind,
     };
 
     if let arto::RunResult::SentToExistingInstance = arto::run(invocation) {

@@ -25,4 +25,6 @@ pub struct CliInvocation {
     pub paths: Vec<PathBuf>,
     pub directory: Option<PathBuf>,
     pub open_mode: CliOpenMode,
+    /// Open without activating Arto, leaving the keyboard focus where it is.
+    pub behind: bool,
 }

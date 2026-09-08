@@ -13,10 +13,14 @@ Arto runs as one process. A newly launched process:
 Protocol (JSON Lines):
 
 ```json
-{"type":"open","files":["/path/to/file.md"],"directory":null,"behavior":"last_focused"}
-{"type":"open","files":[],"directory":"/path/to/dir","behavior":"new_window"}
-{"type":"reopen","behavior":"last_focused"}
+{"type":"open","files":["/path/to/file.md"],"directory":null,"behavior":"last_focused","behind":false}
+{"type":"open","files":[],"directory":"/path/to/dir","behavior":"new_window","behind":true}
+{"type":"reopen","behavior":"last_focused","behind":false}
 ```
+
+`behind` (from `arto --behind`) tells the primary to apply the request
+without activating itself or moving the focus; it defaults to `false` when
+a message omits it.
 
 The older `file` and `directory` messages are still accepted from a
 not-yet-upgraded secondary instance.
