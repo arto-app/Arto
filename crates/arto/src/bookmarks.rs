@@ -336,6 +336,24 @@ mod tests {
     }
 
     #[test]
+    fn loading_folds_one_path_listed_twice_into_one_entry() {
+        let loaded = Bookmarks {
+            items: vec![
+                Bookmark::new("/notes"),
+                Bookmark::new("/elsewhere"),
+                Bookmark::new("/notes"),
+            ],
+        }
+        .folded();
+
+        assert_eq!(paths(&loaded), vec!["/notes", "/elsewhere"]);
+    }
+
+    /// Only macOS matches names without regard to case, so only there are two
+    /// spellings one folder; elsewhere `Notes` and `notes` are two folders and
+    /// `true_spelling` leaves both alone.
+    #[cfg(target_os = "macos")]
+    #[test]
     fn loading_folds_two_spellings_of_one_path_into_one_entry() {
         let dir = TempDir::new().unwrap();
         std::fs::create_dir(dir.path().join("Notes")).unwrap();

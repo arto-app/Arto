@@ -151,7 +151,11 @@ mod tests {
             return;
         };
         let path = home.join("notes").join("daily.md");
-        assert_eq!(parent_label(&path), "~/notes".to_string());
+        // The label replaces the home prefix and leaves the rest of the path
+        // as the platform spells it, separator included — `~/notes` on Unix
+        // and `~\notes` on Windows.
+        let expected = format!("~{}notes", std::path::MAIN_SEPARATOR);
+        assert_eq!(parent_label(&path), expected);
     }
 
     #[test]
