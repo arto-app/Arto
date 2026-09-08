@@ -50,7 +50,18 @@ dev:
   vite_pid=$!
   trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
   cd "$root/crates/arto"
-  dx serve
+  # macOS refuses to launch an app bundle that carries no seal of its own —
+  # the executable's linker signature is not a bundle signature, and the
+  # kernel answers the missing `_CodeSignature` with SIGKILL before `main`
+  # runs. `-` is the ad-hoc identity, which is what the release build signs
+  # with too; dx wants an entitlements file whenever it signs, and that one
+  # claims nothing.
+  if [ "$(uname -s)" = "Darwin" ]; then
+    dx serve --codesign true --apple-team-id=- \
+      --apple-entitlements "$root/platform/macos/bundle/dev.entitlements"
+  else
+    dx serve
+  fi
 
 build: frontend::assets arto::build
 
