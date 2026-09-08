@@ -5,43 +5,100 @@
    The documents read before this one, left at the edge of the page. It is
    the one window on the history that is never asked for, so it stays at
    rest-ink until the pointer is in its column, and it yields its space
-   before anything else does. */
+   before anything else does.
+
+   It sits level with the middle of the page and is set against the document
+   rather than against the window: right-aligned, so the names line up along
+   the page's own edge and the margin falls on the window's side. */
 
 .margin-trace {
   flex-shrink: 0;
-  /* The width the layout budget reserves for it. */
+  /* The layout budget reserves this much beside the document, so the box keeps
+     to it — but the names are not cut to fit. They are right-aligned, so what
+     does not fit grows leftwards into the window's own margin, which is empty
+     and has nothing to be pushed out of. */
   width: 138px;
-  padding: 28px 12px 0 16px;
+  overflow: visible;
+  /* Level with the middle of what is being read: the page when the page is
+     shorter than the window, the window when it is not. The measurement is
+     the page's own (`reading-position.ts` sets it), because nothing in CSS
+     can see how tall a sibling's contents are. */
+  align-self: flex-start;
+  height: var(--trace-extent, 100%);
+  /* Moved up against the document rather than left at the window's edge: a
+     note in the margin belongs beside the text it is a note on. The distance
+     is measured in `reading-position.ts`, because the column it has to reach
+     is centred in whatever is left of the window. */
+  transform: translateX(var(--trace-offset, 0px));
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  overflow: hidden;
+  justify-content: center;
+  align-items: flex-end;
+  text-align: right;
+  gap: 7px;
   box-sizing: border-box;
+  transition:
+    width var(--transition-normal) ease,
+    transform var(--transition-normal) ease,
+    opacity var(--transition-normal) ease;
+}
+
+/* Not drawn until it has been measured — see `reading-position.ts`. It fades
+   in where it belongs instead of appearing where it does not and walking. */
+.content-area:not([data-trace-ready]) .margin-trace {
+  opacity: 0;
+  transition: none;
+}
+
+/* Out of the way, and seen to go. It fades rather than closing: the width is
+   the document's margin either way, and a column that shut like a door drew
+   more attention leaving than it ever does sitting there. */
+.margin-trace.away {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Smaller and fainter than the names it heads, and lettered rather than set:
+   it is the one word here that is not a document. */
+.margin-trace-label {
+  margin-bottom: 2px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: var(--opacity-muted);
 }
 
 .margin-trace-row {
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  /* The document's own ink at rest ink: a name here is a document, and the
+     column is faint because of the density, not because of the colour. */
+  color: var(--text-color);
   font-family: inherit;
-  font-size: var(--font-size-sm);
-  text-align: left;
+  /* Smaller than anything in the document, because it is beside one. */
+  font-size: 10.5px;
+  text-align: right;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   cursor: pointer;
   opacity: var(--opacity-rest);
   transition: opacity var(--transition-quiet) ease;
 }
 
 /* The whole column wakes together, so a name is legible by the time it is
-   aimed at. */
+   aimed at — but only part of the way, or the one under the pointer would
+   have nowhere left to go. */
 .margin-trace:hover .margin-trace-row {
-  opacity: var(--opacity-woken);
+  opacity: 0.45;
 }
 
+/* The one being pointed at, said the way everything else here is said: in
+   density. A line under it would be a second device for a difference the ink
+   already carries. */
+.margin-trace:hover .margin-trace-row:hover,
 .margin-trace-row:hover {
   opacity: 1;
-  color: var(--text-color);
 }

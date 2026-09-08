@@ -1,9 +1,9 @@
 pub mod app;
-#[cfg(not(target_os = "macos"))]
 pub mod app_menu;
 pub mod bookmark_button;
 pub mod content;
 pub mod context_menu;
+pub mod document_name;
 pub mod header;
 pub mod icon;
 pub mod image_window;

@@ -2,14 +2,12 @@ mod breadcrumb_menu;
 
 use dioxus::prelude::*;
 
+use crate::components::app_menu::AppMenu;
 use crate::components::bookmark_button::BookmarkButton;
 use crate::components::header::breadcrumb_menu::Breadcrumb;
 use crate::components::icon::{Icon, IconName};
 use crate::components::theme_selector::ThemeSelector;
 use crate::state::AppState;
-
-#[cfg(not(target_os = "macos"))]
-use crate::components::app_menu::AppMenu;
 
 #[component]
 pub fn Header() -> Element {
@@ -20,17 +18,6 @@ pub fn Header() -> Element {
     let document = state.document();
     let file_path = document.file().map(|file| file.to_path_buf());
     let file = document.display_name();
-
-    let can_go_back = document.history.can_go_back();
-    let can_go_forward = document.history.can_go_forward();
-
-    let on_back = move |_| {
-        state.save_scroll_and_go_back();
-    };
-
-    let on_forward = move |_| {
-        state.save_scroll_and_go_forward();
-    };
 
     let is_reloading = use_signal(|| false);
     let mut is_reloading_write = is_reloading;
@@ -51,25 +38,6 @@ pub fn Header() -> Element {
     // Copy feedback state
     let mut is_copied = use_signal(|| false);
 
-    let menu_overlay = {
-        #[cfg(not(target_os = "macos"))]
-        {
-            if *is_menu_open.read() {
-                rsx! {
-                    AppMenu {
-                        on_close: move |_| is_menu_open.set(false),
-                    }
-                }
-            } else {
-                rsx! {}
-            }
-        }
-        #[cfg(target_os = "macos")]
-        {
-            rsx! {}
-        }
-    };
-
     rsx! {
         div {
             class: "header",
@@ -79,49 +47,25 @@ pub fn Header() -> Element {
             div {
                 class: "header-left",
 
-                    // Everything the app can do, where the OS is not already
-                    // offering it. macOS has a menu bar of its own above the
-                    // window; Windows and Linux would have to spend a strip of
-                    // the window on one, so they get this instead.
-                    if cfg!(not(target_os = "macos")) {
-                        button {
-                            class: "nav-button app-menu-button",
-                            class: if *is_menu_open.read() { "active" },
-                            // No `title`: the menu opens directly under this
-                            // glyph, and the tooltip would land on its first
-                            // item. Taking the attribute away once the menu is
-                            // open is too late — WebKit reads it when the
-                            // pointer arrives and shows it a moment later,
-                            // and by then the pointer has not moved, so the
-                            // text it already read is what appears. A control
-                            // that opens a panel under itself gets no tooltip
-                            // at all; the panel says what the tooltip would.
-                            "aria-label": "Menu",
-                            onclick: move |_| is_menu_open.toggle(),
-                            Icon { name: IconName::Menu2 }
-                        }
-                    }
-
-
-                // Back and forward are drawn only when they can act: a
-                // disabled control still occupies the eye without offering
-                // anything, which is the noise this header is shedding.
-                if can_go_back {
-                    button {
-                        class: "nav-button",
-                        title: "Back",
-                        onclick: on_back,
-                        Icon { name: IconName::ChevronLeft }
-                    }
-                }
-
-                if can_go_forward {
-                    button {
-                        class: "nav-button",
-                        title: "Forward",
-                        onclick: on_forward,
-                        Icon { name: IconName::ChevronRight }
-                    }
+                // Everything the app can do, in the window it applies to.
+                // macOS has a menu bar of its own, but it belongs to whichever
+                // window is frontmost and sits at the top of the screen rather
+                // than at the top of the window, so this one is drawn there
+                // too.
+                button {
+                    class: "nav-button app-menu-button",
+                    class: if *is_menu_open.read() { "active" },
+                    // No `title`: the menu opens directly under this glyph,
+                    // and the tooltip would land on its first item. Taking the
+                    // attribute away once the menu is open is too late —
+                    // WebKit reads it when the pointer arrives and shows it a
+                    // moment later, and by then the pointer has not moved, so
+                    // the text it already read is what appears. A control that
+                    // opens a panel under itself gets no tooltip at all; the
+                    // panel says what the tooltip would.
+                    "aria-label": "Menu",
+                    onclick: move |_| is_menu_open.toggle(),
+                    Icon { name: IconName::Menu2 }
                 }
 
                 // The name of what is being read is also the way back to
@@ -209,7 +153,11 @@ pub fn Header() -> Element {
                 ThemeSelector { current_theme: state.current_theme }
             }
 
-            {menu_overlay}
+            if *is_menu_open.read() {
+                AppMenu {
+                    on_close: move |_| is_menu_open.set(false),
+                }
+            }
 
         }
     }

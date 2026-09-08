@@ -16,6 +16,9 @@
   --radius-full: 50%;
 
   /* Font Sizes */
+  /* Below the smallest reading size: for the labels that name a group of
+     rows rather than say anything themselves. */
+  --font-size-2xs: 9px;
   --font-size-xs: 11px;
   --font-size-sm: 12px;
   --font-size-md: 13px;
@@ -38,11 +41,30 @@
   --hit-size: 30px;
   --transition-quiet: 0.18s;
 
-  /* Room at the head of the header for macOS's window buttons, which sit
-     inside it there because the header is the title bar. Three 12px buttons
-     20px apart, starting 20px in, plus a gap before the first glyph. The
-     inset itself is set in `window::titlebar`; keep the two in step. */
-  --traffic-light-clearance: 84px;
+  /* The band of air above the first row of quiet controls. The header and the
+     rail are separate columns that both start at the top of the window, so
+     they share this to put their first glyph on one line. */
+  --chrome-inset: 10px;
+
+  /* For the few places that label rather than say: a shortcut, a marginal
+     note's heading. */
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
+
+  /* The rail's width. The layout budget measures the same band in Rust
+     (`hooks::layout_budget::RAIL_WIDTH`); keep the two in step. */
+  --rail-width: 40px;
+
+  /* The peeking panel's shadow. The offset and the negative spread keep it
+     off the rail on the panel's left: it is cast to the right, over the
+     document it is floating above, and nowhere else. No ring — an outline
+     would be a second way of saying what the shadow already says. */
+  --shadow-peek: 8px 0 16px -4px rgb(1 4 9 / 40%);
+
+  /* What hangs from a band and covers the page below it: no ring, and the
+     shadow falls the way the thing does. */
+  --shadow-drop: 0 14px 34px -16px rgb(1 4 9 / 45%);
 
   /* Z-Index Scale */
   --z-base: 1;
@@ -55,6 +77,19 @@
   --z-context-menu-backdrop: 10001;
   --z-context-menu: 10002;
   --z-context-submenu: 10003;
+}
+
+/* A reader who has asked for less motion never sees a control fade in, so a
+   glyph resting at 30% would simply look absent and stay that way. The band
+   starts awake instead, and nothing transitions. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --opacity-rest: 0.72;
+    --transition-quiet: 0s;
+    --transition-fast: 0s;
+    --transition-normal: 0s;
+    --transition-slow: 0s;
+  }
 }
 
 /* ========================================
@@ -88,6 +123,11 @@
   --bg-tertiary: var(--bgColor-neutral-muted);
   --link-color: var(--fgColor-accent);
   --hover-bg: var(--control-bgColor-hover);
+
+  /* A row's state is a step of its own ground, not a colour: one step under
+     the pointer, two for the document being read. */
+  --bg-row-hover: var(--control-bgColor-hover);
+  --bg-row-active: var(--control-bgColor-active);
   --hover-border: var(--borderColor-emphasis);
   --accent-bg: var(--bgColor-accent-emphasis);
   --accent-fg: var(--fgColor-onEmphasis);

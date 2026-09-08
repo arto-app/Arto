@@ -102,7 +102,24 @@ pub fn ThemeSelector(current_theme: Signal<Theme>) -> Element {
                 onmousedown: move |evt| {
                     evt.stop_propagation();
                 },
+                // A click is the whole control: the glyph is the current
+                // theme, and pressing it steps to the next one. Three states
+                // are two presses apart at worst, which is fewer than opening
+                // a list and choosing from it.
                 onclick: move |evt| {
+                    evt.stop_propagation();
+                    let mut current_theme = current_theme;
+                    current_theme.set(match current_theme() {
+                        Theme::Light => Theme::Dark,
+                        Theme::Dark => Theme::Auto,
+                        Theme::Auto => Theme::Light,
+                    });
+                    is_expanded.set(false);
+                },
+                // Naming all three at once is the right-click: for going
+                // somewhere the cycle would take two presses to reach.
+                oncontextmenu: move |evt| {
+                    evt.prevent_default();
                     evt.stop_propagation();
                     is_expanded.set(!is_expanded());
                 },

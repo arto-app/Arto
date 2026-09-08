@@ -1,0 +1,26 @@
+/* =================================
+   Row hover note
+   =================================
+
+   The whole of a name a row could only show part of. Drawn at the top of the
+   document rather than inside the list, because the list scrolls and a
+   scrolling box clips what is positioned in it — see `src/row-hover.ts`. */
+
+.row-hover {
+  position: fixed;
+  z-index: var(--z-context-menu);
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-color);
+  box-shadow: var(--shadow-drop);
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  /* One line: it is the row's own name, said in full rather than said
+     differently. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}

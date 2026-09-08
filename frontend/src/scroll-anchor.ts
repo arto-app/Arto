@@ -14,7 +14,7 @@
  * changed since costs nothing.
  *
  * The Rust counterpart is `crates/arto/src/scroll_anchor.rs`, which carries
- * these through the history entries, the tab state and the navigation events.
+ * these through the history entries and the navigation events.
  */
 
 import { scrollContainer, scrollerTop, settleAt } from "./scroll-destination";

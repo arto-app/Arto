@@ -2,6 +2,7 @@ use std::path::Path;
 
 use dioxus::prelude::*;
 
+use crate::components::document_name::DocumentName;
 use crate::components::icon::{Icon, IconName};
 use crate::state::{AppState, Face};
 use crate::visits::{Visit, VISITS, VISITS_CHANGED};
@@ -31,9 +32,11 @@ pub fn Breadcrumb(label: String) -> Element {
         }
     });
 
-    // Read so a recorded visit redraws the list; the number says nothing.
+    // Read so a recorded visit redraws the list; the numbers say nothing.
     let _ = revision();
+    let _ = state.visits_revision.read();
 
+    let now = chrono::Local::now();
     let current = state.current_file();
     // The folders between the root the document was reached through and the
     // document itself. It truncates from the left, so what survives at any
@@ -92,20 +95,34 @@ pub fn Breadcrumb(label: String) -> Element {
                         div { class: "breadcrumb-empty", "Nothing else read yet" }
                     }
 
-                    for visit in rows {
-                        div {
-                            key: "{visit.path.display()}",
-                            class: "breadcrumb-row",
-                            title: "{visit.path.display()}",
-                            onclick: {
-                                let path = visit.path.clone();
-                                move |_| {
-                                    state.open_file(&path);
-                                    is_open.set(false);
+                    // Grouped by day, like every other window on this history:
+                    // "before this one" is a question about time, and the
+                    // heading is what makes the clock beside each row mean
+                    // something.
+                    for (bucket, entries) in crate::visits::group(&rows, now) {
+                        div { class: "breadcrumb-group", "{bucket.heading()}" }
+                        for visit in entries {
+                            div {
+                                key: "{visit.path.display()}",
+                                class: "breadcrumb-row",
+                                title: "{visit.path.display()}",
+                                onclick: {
+                                    let path = visit.path.clone();
+                                    move |_| {
+                                        state.open_file(&path);
+                                        is_open.set(false);
+                                    }
+                                },
+                                Icon { name: IconName::File, size: 14 }
+                                span {
+                                    class: "breadcrumb-row-name",
+                                    DocumentName { path: visit.path.clone() }
                                 }
-                            },
-                            Icon { name: IconName::File, size: 14 }
-                            span { class: "breadcrumb-row-name", "{visit.display_name()}" }
+                                span {
+                                    class: "breadcrumb-row-when",
+                                    "{crate::visits::short_when(visit.at, now)}"
+                                }
+                            }
                         }
                     }
 

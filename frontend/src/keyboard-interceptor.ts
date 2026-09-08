@@ -141,7 +141,11 @@ function buildModifiers(e: KeyboardEvent): number {
 
 function handleKeydown(e: KeyboardEvent): void {
   if (paused) return;
-  if (composing) return;
+  // `compositionstart` arrives *after* the keydown that began the composition,
+  // so the flag alone lets the first keystroke of every word through to the
+  // keybindings — which is where an input method's own keys (SKK's Ctrl+J, its
+  // mode letters) go missing. The event says so itself, one keystroke earlier.
+  if (composing || e.isComposing || e.keyCode === 229) return;
   if (!currentCallback) return;
   const searchFocused = isSearchInputFocused(e.target);
   if (isEditableElement(e.target) && !searchFocused) return;

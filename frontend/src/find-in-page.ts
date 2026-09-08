@@ -1,3 +1,4 @@
+import { refreshReadingPosition } from "./reading-position";
 import { toElement } from "./scroll-controller";
 
 /**
@@ -185,6 +186,8 @@ function highlightMatches(container: HTMLElement, query: string): number {
   clearSearchHighlights();
 
   state.highlightElements = applyHighlights(container, query, false, "search-highlight");
+  // The contents mark which headings the hits fell under.
+  refreshReadingPosition();
 
   return state.highlightElements.length;
 }
@@ -203,6 +206,8 @@ function clearSearchHighlights(): void {
   }
   state.highlightElements = [];
   state.currentIndex = 0;
+
+  refreshReadingPosition();
 }
 
 function clearPinnedHighlights(): void {
@@ -270,6 +275,8 @@ function applyPinnedHighlights(): void {
     );
     state.pinnedHighlights.set(pinned.id, elements);
   }
+
+  refreshReadingPosition();
 }
 
 export function find(query: string): void {

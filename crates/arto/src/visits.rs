@@ -4,7 +4,7 @@
 //! worth keeping — the only thing that turns out to matter is what was read
 //! and how recently. That is this list, and it is the one behind every way
 //! the interface offers to go back: the palette's resting state, the list
-//! dropped from the breadcrumb, the panel's history face, and the library.
+//! dropped from the breadcrumb, the panel's history face, and the welcome page.
 //!
 //! Grouping coarsens with age. The last few days are worth separating by day;
 //! a year ago, the month is as fine as anyone needs, and a year before that,
@@ -40,14 +40,6 @@ impl Visit {
             at,
         }
     }
-
-    /// The name to show. The path is what distinguishes two of them.
-    pub fn display_name(&self) -> &str {
-        self.path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("Unknown")
-    }
 }
 
 /// A heading in the history list.
@@ -72,7 +64,7 @@ impl Bucket {
     /// The heading this group is drawn under.
     ///
     /// Every window on the history writes the same words for the same group,
-    /// so the panel's face, the library and anything else naming a group
+    /// so the panel's face, the welcome page and anything else naming a group
     /// share one definition rather than three that can drift.
     pub fn heading(&self) -> String {
         match self {
@@ -135,7 +127,7 @@ pub fn group(visits: &[Visit], now: DateTime<Local>) -> Vec<(Bucket, Vec<&Visit>
 
 /// Whether a visit answers a filter query.
 ///
-/// The palette, the panel's history face and the library all narrow the same
+/// The palette, the panel's history face and the welcome page all narrow the same
 /// list, so they narrow it the same way: a query that finds a document in one
 /// of them finds it in all three.
 ///
@@ -145,10 +137,55 @@ pub fn group(visits: &[Visit], now: DateTime<Local>) -> Vec<(Bucket, Vec<&Visit>
 /// narrows to a directory. Matching ignores case, which is what a reader
 /// typing quickly expects.
 pub fn matches(visit: &Visit, query: &str) -> bool {
-    let haystack = visit.path.to_string_lossy().to_lowercase();
+    matches_path(&visit.path, query)
+}
+
+/// The same rule, for the lists that are not visits — the places kept and the
+/// documents starred. One query narrows a screen, so it has to mean the same
+/// thing in every list on it.
+pub fn matches_path(path: &Path, query: &str) -> bool {
+    let haystack = path.to_string_lossy().to_lowercase();
     query
         .split_whitespace()
         .all(|term| haystack.contains(&term.to_lowercase()))
+}
+
+/// When a document was last read, said in whatever unit still adds something.
+///
+/// The heading above a row already says the day, so repeating it there is a
+/// column of the same date over and over: within a day or two the hour is what
+/// distinguishes one row from the next, within the week the weekday does, and
+/// only past that is the date itself worth the space.
+pub fn short_when(at: DateTime<Local>, now: DateTime<Local>) -> String {
+    let days = (now.date_naive() - at.date_naive()).num_days();
+    match days {
+        0 | 1 => at.format("%H:%M").to_string(),
+        2..=6 => at.format("%a").to_string(),
+        _ => at.format("%-m/%-d").to_string(),
+    }
+}
+
+/// When `path` was last read, if it ever was.
+pub fn last_read(path: &Path) -> Option<DateTime<Local>> {
+    VISITS
+        .read()
+        .items
+        .iter()
+        .find(|visit| visit.path == path)
+        .map(|visit| visit.at)
+}
+
+/// When something under `dir` was last read, if anything ever was.
+///
+/// A folder is not read; the documents in it are. The newest of those is what
+/// says when the reader was last there.
+pub fn last_read_under(dir: &Path) -> Option<DateTime<Local>> {
+    VISITS
+        .read()
+        .items
+        .iter()
+        .find(|visit| visit.path.starts_with(dir))
+        .map(|visit| visit.at)
 }
 
 /// The visits answering a query, newest first.
@@ -197,11 +234,34 @@ impl Visits {
     pub fn load() -> Self {
         let path = Self::path();
         match fs::read_to_string(&path) {
-            Ok(content) => serde_json::from_str(&content).unwrap_or_else(|err| {
-                tracing::warn!(?path, %err, "Ignoring unreadable visit history");
-                Self::default()
-            }),
+            Ok(content) => serde_json::from_str::<Self>(&content)
+                .map(Self::folded)
+                .unwrap_or_else(|err| {
+                    tracing::warn!(?path, %err, "Ignoring unreadable visit history");
+                    Self::default()
+                }),
             Err(_) => Self::default(),
+        }
+    }
+
+    /// One row per document, however the file spells them.
+    ///
+    /// A history written before the spellings were folded together holds the
+    /// same document twice — once as it was typed, once as its own folders
+    /// name it. The list is newest first, so the first of a pair is the one
+    /// worth keeping.
+    fn folded(self) -> Self {
+        let mut seen = std::collections::HashSet::new();
+        Self {
+            items: self
+                .items
+                .into_iter()
+                .map(|visit| Visit {
+                    path: crate::utils::paths::true_spelling(&visit.path),
+                    ..visit
+                })
+                .filter(|visit| seen.insert(visit.path.clone()))
+                .collect(),
         }
     }
 
@@ -225,7 +285,12 @@ pub static VISITS_CHANGED: LazyLock<broadcast::Sender<()>> =
 /// Record a visit, persist it, and tell the other windows.
 pub fn record_visit(path: impl Into<PathBuf>) {
     let mut visits = VISITS.write();
-    visits.record(path, Local::now());
+    // Two spellings of one document would be two rows in every list that
+    // reads this, and the reader would have opened the same file twice.
+    visits.record(
+        crate::utils::paths::true_spelling(&path.into()),
+        Local::now(),
+    );
     if let Err(err) = visits.save() {
         tracing::warn!(%err, "Failed to save visit history");
     }
@@ -248,6 +313,25 @@ pub fn forget_visit(path: &Path) {
 mod tests {
     use super::*;
     use chrono::TimeZone;
+
+    #[test]
+    fn the_unit_is_whatever_the_heading_has_not_said() {
+        let now = Local.with_ymd_and_hms(2026, 9, 9, 12, 0, 0).unwrap();
+        let at = |month, day, hour, minute| {
+            Local
+                .with_ymd_and_hms(2026, month, day, hour, minute, 0)
+                .unwrap()
+        };
+
+        // Today and yesterday are named above the row, so the hour is what is
+        // left to say.
+        assert_eq!(short_when(at(9, 9, 9, 31), now), "09:31");
+        assert_eq!(short_when(at(9, 8, 19, 44), now), "19:44");
+        // Inside the week the day is the distinction.
+        assert_eq!(short_when(at(9, 5, 17, 31), now), "Sat");
+        // Past that, the date.
+        assert_eq!(short_when(at(8, 30, 19, 44), now), "8/30");
+    }
 
     fn at(y: i32, m: u32, d: u32) -> DateTime<Local> {
         Local.with_ymd_and_hms(y, m, d, 12, 0, 0).unwrap()
@@ -409,12 +493,6 @@ mod tests {
     }
 
     #[test]
-    fn display_name_is_the_file_name() {
-        let visit = Visit::new("/notes/today.md", at(2026, 4, 16));
-        assert_eq!(visit.display_name(), "today.md");
-    }
-
-    #[test]
     fn every_group_names_itself() {
         assert_eq!(Bucket::Today.heading(), "Today");
         assert_eq!(Bucket::Yesterday.heading(), "Yesterday");
@@ -424,7 +502,7 @@ mod tests {
         assert_eq!(Bucket::Year(2024).heading(), "2024");
     }
 
-    // === matches(): one rule for the palette, the face and the library ===
+    // === matches(): one rule for the palette, the face and the welcome page ===
 
     #[test]
     fn an_empty_query_matches_everything() {
@@ -459,8 +537,11 @@ mod tests {
         ];
         let found = filter(&visits, "notes");
         assert_eq!(
-            found.iter().map(|v| v.display_name()).collect::<Vec<_>>(),
-            vec!["b.md", "a.md"]
+            found
+                .iter()
+                .map(|v| crate::utils::paths::short_name(&v.path))
+                .collect::<Vec<_>>(),
+            vec!["notes/b.md", "notes/a.md"]
         );
     }
 }

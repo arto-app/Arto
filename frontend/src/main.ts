@@ -1,5 +1,8 @@
 import "../style/main.css";
 
+import { applyPictureTheme } from "./picture-theme";
+import { refreshReadingPosition, setupReadingPosition } from "./reading-position";
+import { setupRowHover } from "./row-hover";
 import { type Theme, currentTheme, isDarkTheme, themedElement } from "./theme";
 import * as mermaidRenderer from "./mermaid-renderer";
 import { renderCoordinator } from "./render-coordinator";
@@ -147,9 +150,12 @@ declare global {
  */
 export function setCurrentTheme(theme: Theme): Promise<void> {
   themedElement().setAttribute("data-theme", theme);
-  // The stylesheet repaints on the attribute alone; only Mermaid has to be
-  // told, because its colours are baked into the SVG it already drew.
+  // The stylesheet repaints on the attribute alone. Mermaid has to be told,
+  // because its colours are baked into the SVG it already drew, and so do
+  // theme-aware pictures, whose media query answers for the system rather
+  // than for the theme the reader chose here.
   mermaidRenderer.setTheme(theme);
+  applyPictureTheme();
   return renderCoordinator.forceRenderMermaid();
 }
 
@@ -205,6 +211,19 @@ function restorePrint(): void {
 export function init(): void {
   mermaidRenderer.init();
   renderCoordinator.init();
+
+  // The header's line and the gutter's current tick both answer to where the
+  // reader is, and a new document moves them without a scroll happening. The
+  // callback fires once, so it re-arms itself for the render after this one.
+  setupReadingPosition();
+  // The full name of a row the panel had to cut, floating clear of the box
+  // that scrolls it.
+  setupRowHover();
+  const trackAfterRender = (): void => {
+    refreshReadingPosition();
+    renderCoordinator.onRenderComplete(trackAfterRender);
+  };
+  renderCoordinator.onRenderComplete(trackAfterRender);
 
   // A page with no `.content` is one `arto page` wrote: a whole document,
   // which its reader can print with the browser's own command. Nothing can

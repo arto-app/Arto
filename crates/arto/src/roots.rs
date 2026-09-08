@@ -15,13 +15,16 @@
 //! comparing are the same gesture. What changes is only *whether* a root is
 //! added, which is the whole of [`Roots::decide`].
 
+use crate::utils::paths::true_spelling;
 use std::path::{Path, PathBuf};
 
-/// How many temporary roots one window keeps.
+/// How many roots of its own one window keeps.
 ///
-/// Each collapsed root is a single row, so the ceiling is about keeping the
-/// list readable rather than saving memory.
-pub const MAX_TEMPS: usize = 8;
+/// One. A window is somewhere: the folder it is working in, beside the places
+/// that are always there. Keeping several turned "where am I" into a list to
+/// read, and the answer to it changed shape every time a document was opened
+/// outside the last one. Reaching for another folder moves the window to it.
+pub const MAX_TEMPS: usize = 1;
 
 /// Directories that mark the top of a body of work.
 ///
@@ -39,8 +42,9 @@ pub enum Origin {
     /// it is the answer.
     Implicit,
     /// A folder someone pointed at — dropped, typed, or chosen from a menu.
-    /// Pointing at it is the intent, so it is added even when covered; only
-    /// an exact duplicate is refused.
+    /// Pointing at it is the intent, so it is added even when a place or a
+    /// wider root already covers it; only the folder the window is already in
+    /// is refused.
     Explicit,
 }
 
@@ -60,10 +64,13 @@ pub enum Decision {
 
 /// The roots one window is showing.
 ///
-/// `temps` is ordered least- to most-recently-touched, which is also the
-/// order they are drawn in and the order they are dropped in once the list is
-/// full. Opening a document touches its root, so the root holding whatever is
-/// being read is always at the end and can never be the one evicted.
+/// `temps` is in the order they joined, which is the order they are drawn in
+/// and the order they are dropped in once the list is full. Reading a document
+/// does not move its root: a list that reordered itself every time something
+/// was opened would make the tree a different shape after every click, and a
+/// reader looking for the folder they were in a moment ago would have to find
+/// it again. What being read protects is the root itself — it is never the one
+/// evicted — not its place in the list.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Roots {
     places: Vec<PathBuf>,
@@ -72,7 +79,12 @@ pub struct Roots {
 
 impl Roots {
     pub fn new(places: Vec<PathBuf>, temps: Vec<PathBuf>) -> Self {
-        Self { places, temps }
+        // The places arrive from a list that repairs its own spellings; the
+        // temporaries arrive from a state file written before that was true.
+        Self {
+            places,
+            temps: temps.iter().map(|temp| true_spelling(temp)).collect(),
+        }
     }
 
     pub fn places(&self) -> &[PathBuf] {
@@ -88,15 +100,21 @@ impl Roots {
         self.places.iter().chain(self.temps.iter())
     }
 
-    /// Replace the places, absorbing any temporary they now cover.
+    /// Replace the places.
     ///
-    /// A place outranks a temporary pointing into the same tree, so keeping
-    /// both would only show the same directory twice.
-    pub fn set_places(&mut self, places: Vec<PathBuf>) {
+    /// The window's own folder is left alone, even when a place now covers it.
+    /// The two lists answer different questions — "folders I keep" and "where
+    /// this window is" — and starring the folder you are working in answers
+    /// the first without changing the answer to the second. Taking it out of
+    /// the window's list on the grounds that it appears elsewhere left the
+    /// window claiming to be nowhere.
+    pub fn set_places(&mut self, mut places: Vec<PathBuf>) {
+        // Never the same folder twice: the tree draws one row per root and
+        // tells them apart by their path, so a repeat is two rows that cannot
+        // be told apart.
+        let mut seen = std::collections::HashSet::new();
+        places.retain(|place| seen.insert(place.clone()));
         self.places = places;
-        let places = self.places.clone();
-        self.temps
-            .retain(|temp| !places.iter().any(|place| is_under(temp, place)));
     }
 
     /// The deepest root covering `target`, if any.
@@ -113,9 +131,10 @@ impl Roots {
     /// The whole rule for whether a directory joins the tree.
     ///
     /// `target` is the document being opened for [`Origin::Implicit`], and the
-    /// directory being pointed at for [`Origin::Explicit`]. Both must already
-    /// be normalised by [`canonical_key`], or the same place stacks twice
-    /// under two spellings.
+    /// directory being pointed at for [`Origin::Explicit`]. It is passed as
+    /// the reader spells it: matching folds the spellings away
+    /// ([`canonical_key`]), and what is stored keeps the name the folder
+    /// actually has, since that name is what the tree draws.
     pub fn decide(&self, target: &Path, origin: Origin) -> Decision {
         match origin {
             Origin::Implicit => match self.covering(target) {
@@ -124,8 +143,13 @@ impl Roots {
                 },
                 None => self.push_of(start_root_for(target)),
             },
+            // Against this window's own folder, not against the places. The
+            // places are shortcuts every window carries; being asked to work
+            // in one of them is still being asked to move, and answering "it
+            // is already on the list" leaves the button that said "change this
+            // window's folder" doing nothing.
             Origin::Explicit => {
-                if let Some(root) = self.all().find(|root| root.as_path() == target) {
+                if let Some(root) = self.temps.iter().find(|temp| same(temp, target)) {
                     Decision::Reveal {
                         root: root.to_path_buf(),
                     }
@@ -137,13 +161,16 @@ impl Roots {
     }
 
     fn push_of(&self, root: PathBuf) -> Decision {
+        // Spelled by the folder rather than by the caller: this is the name
+        // the tree draws, and the one its children have to agree with.
+        let root = true_spelling(&root);
         // Widening swallows what it now contains; narrowing keeps both, since
         // that is someone asking to concentrate on a part of what is already
         // there.
         let absorbed = self
             .temps
             .iter()
-            .filter(|temp| temp.as_path() != root && is_under(temp, &root))
+            .filter(|temp| !same(temp, &root) && is_under(temp, &root))
             .cloned()
             .collect();
         Decision::Push { root, absorbed }
@@ -151,41 +178,36 @@ impl Roots {
 
     /// Carry out a decision, and report the roots that fell off the end.
     ///
-    /// Revealing an existing temporary counts as touching it, so it moves to
-    /// the end and outlives the ones nobody has looked at.
+    /// Revealing an existing root leaves the list exactly as it was: it is
+    /// already there, and where it sits is not something opening a document
+    /// has an opinion about.
     pub fn apply(&mut self, decision: &Decision) -> Vec<PathBuf> {
         match decision {
-            Decision::Reveal { root } => {
-                self.touch(root);
-                Vec::new()
-            }
+            Decision::Reveal { .. } => Vec::new(),
             Decision::Push { root, absorbed } => {
                 self.temps.retain(|temp| !absorbed.contains(temp));
-                self.temps.retain(|temp| temp != root);
+                self.temps.retain(|temp| !same(temp, root));
                 self.temps.push(root.clone());
-                self.evict_overflow()
+                self.evict_overflow(root)
             }
         }
     }
 
     /// Drop a temporary root. Places are removed by unbookmarking them.
     pub fn close_temp(&mut self, root: &Path) {
-        self.temps.retain(|temp| temp.as_path() != root);
+        self.temps.retain(|temp| !same(temp, root));
     }
 
-    fn touch(&mut self, root: &Path) {
-        if let Some(index) = self.temps.iter().position(|temp| temp.as_path() == root) {
-            let root = self.temps.remove(index);
-            self.temps.push(root);
+    /// Drop the oldest roots until the list fits, never the one just reached.
+    fn evict_overflow(&mut self, keep: &Path) -> Vec<PathBuf> {
+        let mut evicted = Vec::new();
+        while self.temps.len() > MAX_TEMPS {
+            let Some(index) = self.temps.iter().position(|temp| !same(temp, keep)) else {
+                break;
+            };
+            evicted.push(self.temps.remove(index));
         }
-    }
-
-    fn evict_overflow(&mut self) -> Vec<PathBuf> {
-        if self.temps.len() <= MAX_TEMPS {
-            return Vec::new();
-        }
-        let excess = self.temps.len() - MAX_TEMPS;
-        self.temps.drain(..excess).collect()
+        evicted
     }
 }
 
@@ -216,6 +238,10 @@ pub fn start_root_for(file: &Path) -> PathBuf {
 }
 
 /// One spelling per directory, so containment and equality can be trusted.
+///
+/// For comparison only — never for storage. The lowercasing below would put
+/// `Arto` on screen as `arto`, so a root keeps the path it arrived with and
+/// this is applied to both sides of a comparison instead.
 ///
 /// Symlinks are resolved and `..` folded away where the path exists; where it
 /// does not, the lexical form is the best available. On macOS the default
@@ -255,9 +281,16 @@ fn lexically_normal(path: &Path) -> PathBuf {
     out
 }
 
+/// Whether two paths name the same directory, however each is spelled.
+fn same(a: &Path, b: &Path) -> bool {
+    canonical_key(a) == canonical_key(b)
+}
+
 /// Whether `path` is `root` or sits below it.
 fn is_under(path: &Path, root: &Path) -> bool {
-    path == root || path.starts_with(root)
+    let path = canonical_key(path);
+    let root = canonical_key(root);
+    path == root || path.starts_with(&root)
 }
 
 #[cfg(test)]
@@ -325,11 +358,25 @@ mod tests {
     }
 
     #[test]
-    fn explicit_on_an_exact_duplicate_only_reveals() {
+    fn explicit_on_the_folder_the_window_is_in_only_reveals() {
         let roots = roots(&[], &["/w/arto"]);
         assert_eq!(
             roots.decide(&p("/w/arto"), Origin::Explicit),
             Decision::Reveal { root: p("/w/arto") }
+        );
+    }
+
+    #[test]
+    fn explicit_on_a_place_still_moves_the_window_into_it() {
+        // Being on the list of places is not being where the window is, so
+        // asking to work in one has to move it there.
+        let roots = roots(&["/w/arto"], &[]);
+        assert_eq!(
+            roots.decide(&p("/w/arto"), Origin::Explicit),
+            Decision::Push {
+                root: p("/w/arto"),
+                absorbed: Vec::new(),
+            }
         );
     }
 
@@ -360,56 +407,57 @@ mod tests {
     }
 
     #[test]
-    fn a_new_place_absorbs_the_temps_under_it() {
-        let mut roots = roots(&[], &["/w/arto/docs", "/other"]);
+    fn one_row_per_folder_however_often_it_is_listed() {
+        let mut roots = roots(&[], &[]);
+        roots.set_places(vec![p("/w/arto"), p("/w/notes"), p("/w/arto")]);
+
+        assert_eq!(roots.places(), [p("/w/arto"), p("/w/notes")]);
+    }
+
+    #[test]
+    fn a_new_place_leaves_the_window_where_it_is() {
+        let mut roots = roots(&[], &["/w/arto/docs"]);
         roots.set_places(vec![p("/w/arto")]);
+
+        // Starring a folder answers "folders I keep"; it does not move the
+        // window out of the one it is working in, even that one's parent.
         assert_eq!(roots.places(), [p("/w/arto")]);
-        assert_eq!(roots.temps(), [p("/other")]);
+        assert_eq!(roots.temps(), [p("/w/arto/docs")]);
     }
 
     // === apply(): ordering and the ceiling ===
 
     #[test]
-    fn apply_moves_a_revealed_temp_to_the_end() {
+    fn revealing_a_temp_leaves_the_order_alone() {
         let mut roots = roots(&[], &["/a", "/b", "/c"]);
         let decision = roots.decide(&p("/a/file.md"), Origin::Implicit);
         roots.apply(&decision);
-        assert_eq!(roots.temps(), [p("/b"), p("/c"), p("/a")]);
+        assert_eq!(roots.temps(), [p("/a"), p("/b"), p("/c")]);
     }
 
     #[test]
-    fn the_ceiling_drops_the_least_recently_touched() {
+    fn a_window_is_in_one_folder_at_a_time() {
         let mut roots = Roots::default();
-        for i in 0..MAX_TEMPS {
-            let decision = roots.decide(&p(&format!("/r{i}")), Origin::Explicit);
-            roots.apply(&decision);
-        }
-        assert_eq!(roots.temps().len(), MAX_TEMPS);
+        let first = roots.decide(&p("/first"), Origin::Explicit);
+        roots.apply(&first);
 
-        let decision = roots.decide(&p("/newest"), Origin::Explicit);
-        let dropped = roots.apply(&decision);
+        let second = roots.decide(&p("/second"), Origin::Explicit);
+        let dropped = roots.apply(&second);
 
-        assert_eq!(dropped, vec![p("/r0")]);
-        assert_eq!(roots.temps().len(), MAX_TEMPS);
-        assert_eq!(roots.temps().last(), Some(&p("/newest")));
+        assert_eq!(dropped, vec![p("/first")]);
+        assert_eq!(roots.temps(), [p("/second")]);
     }
 
     #[test]
-    fn the_root_being_read_is_never_the_one_dropped() {
+    fn the_folder_just_reached_for_is_the_one_kept() {
         let mut roots = Roots::default();
-        for i in 0..MAX_TEMPS {
-            let decision = roots.decide(&p(&format!("/r{i}")), Origin::Explicit);
-            roots.apply(&decision);
-        }
+        roots.apply(&roots.decide(&p("/before"), Origin::Explicit).clone());
 
-        // Reading in the oldest root touches it, so the next push cannot take it.
-        let read = roots.decide(&p("/r0/file.md"), Origin::Implicit);
-        roots.apply(&read);
-        let push = roots.decide(&p("/newest"), Origin::Explicit);
-        let dropped = roots.apply(&push);
+        // Opening a document no root covers moves the window to its folder.
+        let opened = roots.decide(&p("/elsewhere/notes/today.md"), Origin::Implicit);
+        roots.apply(&opened);
 
-        assert_eq!(dropped, vec![p("/r1")]);
-        assert!(roots.temps().contains(&p("/r0")));
+        assert_eq!(roots.temps(), [p("/elsewhere/notes")]);
     }
 
     #[test]
@@ -491,7 +539,7 @@ mod tests {
     // === the specification's worked example, step by step ===
 
     #[test]
-    fn the_six_step_walkthrough_from_the_specification() {
+    fn the_walkthrough_from_the_specification() {
         let mut roots = Roots::new(vec![p("/src/arto"), p("/notes")], Vec::new());
 
         // 1. A document inside a place: nothing is added.
@@ -500,35 +548,30 @@ mod tests {
         roots.apply(&step);
         assert!(roots.temps().is_empty());
 
-        // 2. A document outside every root: its folder joins.
+        // 2. A document outside every root: its folder becomes where the
+        //    window is.
         let step = roots.decide(&p("/work/handbook/README.md"), Origin::Implicit);
         roots.apply(&step);
         assert_eq!(roots.temps(), [p("/work/handbook")]);
 
-        // 3. Another, elsewhere.
+        // 3. Another, elsewhere: the window moves rather than collecting.
         let step = roots.decide(&p("/downloads/spec.md"), Origin::Implicit);
         roots.apply(&step);
-        assert_eq!(roots.temps(), [p("/work/handbook"), p("/downloads")]);
+        assert_eq!(roots.temps(), [p("/downloads")]);
 
-        // 4. A folder pointed at, inside one that is already there.
+        // 4. A folder pointed at is where the window goes.
         let step = roots.decide(&p("/work/handbook/docs"), Origin::Explicit);
         roots.apply(&step);
-        assert_eq!(
-            roots.temps(),
-            [
-                p("/work/handbook"),
-                p("/downloads"),
-                p("/work/handbook/docs")
-            ]
-        );
+        assert_eq!(roots.temps(), [p("/work/handbook/docs")]);
 
-        // 5. Their ancestor, which swallows both.
+        // 5. Its ancestor, which swallows it.
         let step = roots.decide(&p("/work"), Origin::Explicit);
         roots.apply(&step);
-        assert_eq!(roots.temps(), [p("/downloads"), p("/work")]);
+        assert_eq!(roots.temps(), [p("/work")]);
 
-        // 6. A temporary promoted to a place leaves the temporaries.
-        roots.set_places(vec![p("/src/arto"), p("/notes"), p("/downloads")]);
+        // 6. Starring the folder the window is in adds it to the places and
+        //    leaves the window where it is.
+        roots.set_places(vec![p("/src/arto"), p("/notes"), p("/work")]);
         assert_eq!(roots.temps(), [p("/work")]);
     }
 }

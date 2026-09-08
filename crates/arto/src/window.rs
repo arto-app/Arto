@@ -5,7 +5,6 @@ pub mod main;
 pub mod metrics;
 pub mod preferences;
 pub mod settings;
-pub mod titlebar;
 mod types;
 
 use std::sync::OnceLock;

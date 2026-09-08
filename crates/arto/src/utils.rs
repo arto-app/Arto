@@ -2,6 +2,7 @@ pub mod clipboard;
 pub mod file;
 pub mod file_operations;
 pub mod image;
+pub mod paths;
 pub mod print;
 pub mod screen;
 pub mod source_lines;

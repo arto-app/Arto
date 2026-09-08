@@ -6,19 +6,18 @@
   background: var(--bg-color);
   display: flex;
   justify-content: space-between;
-  padding: 10px 20px;
+  padding: var(--chrome-inset) 20px;
   /* Stay above search bar */
   position: relative;
   z-index: var(--z-header);
+  transition: box-shadow var(--transition-quiet) ease;
 }
 
-/* On macOS the header *is* the title bar (the frame is still the OS's; only
-   the drawing is ours), so the window buttons land inside it and the head of
-   the strip has to stay clear of them. The class is set from Rust and taken
-   away in full screen, where AppKit hides the buttons and the gap would be a
-   hole with nothing in it. */
-:root.has-traffic-lights .header {
-  padding-left: var(--traffic-light-clearance);
+/* A line only while something is passing under it. At the top of the
+   document the band is separated by the margin alone, which is one device
+   fewer for the same boundary. */
+:root[data-scrolled] .header {
+  box-shadow: 0 1px 0 var(--border-color);
 }
 
 /* No `overflow: hidden` here. The breadcrumb's menu hangs below this row,
@@ -26,11 +25,13 @@
    nothing. What this used to guard against is handled where it belongs:
    `min-width: 0` lets the flex items shrink, and the trail and the file name
    each truncate themselves. */
+/* The band's text sits a size below the document's, so the name of what is
+   being read never competes with the reading. */
 .header-left {
   color: var(--text-color);
   flex: 1;
   min-width: 0;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -201,7 +202,7 @@
   background: transparent;
   color: inherit;
   font-family: inherit;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   font-weight: 500;
   cursor: pointer;
   transition: background-color var(--transition-quiet) ease;
@@ -233,19 +234,53 @@
   z-index: var(--z-dropdown);
 }
 
+/* It hangs from the name rather than floating near it: the top corners are
+   square because the header is what it is attached to, and the shadow falls
+   down the page it is over. No ring — something already floating needs no
+   outline. */
 .breadcrumb-menu {
   position: absolute;
-  top: calc(100% + 4px);
+  top: 100%;
   left: 0;
   z-index: calc(var(--z-dropdown) + 1);
-  min-width: 240px;
+  min-width: 244px;
   max-width: 420px;
   max-height: 60vh;
   overflow-y: auto;
-  padding: 4px;
+  padding: 0 4px 6px;
   background: var(--bg-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-drop);
+}
+
+/* The same word-on-a-hairline the panel's history uses. */
+.breadcrumb-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 10px 3px;
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+.breadcrumb-group::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+
+.breadcrumb-row-when {
+  flex: none;
+  margin-left: auto;
+  padding-left: 12px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .breadcrumb-row {

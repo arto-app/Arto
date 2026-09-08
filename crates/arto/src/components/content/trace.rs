@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 
+use crate::components::document_name::DocumentName;
 use crate::state::AppState;
 use crate::visits::{Visit, VISITS, VISITS_CHANGED};
 
@@ -15,7 +16,7 @@ use crate::visits::{Visit, VISITS, VISITS_CHANGED};
 /// yields to are Phase 5's; until then it appears when the panel is not out,
 /// which is the default that setting names.
 #[component]
-pub fn MarginTrace(count: usize) -> Element {
+pub fn MarginTrace(count: usize, visible: bool) -> Element {
     let mut state = use_context::<AppState>();
     let mut revision = use_signal(|| 0u32);
 
@@ -26,8 +27,11 @@ pub fn MarginTrace(count: usize) -> Element {
         }
     });
 
-    // Read so a recorded visit redraws the trace; the number says nothing.
+    // Read so a recorded visit redraws the trace; the numbers say nothing.
+    // Two of them: the broadcast carries what other windows did, and the
+    // window's own signal carries what this one did, in the same frame.
     let _ = revision();
+    let _ = state.visits_revision.read();
 
     let current = state.current_file();
     let rows: Vec<Visit> = {
@@ -49,7 +53,11 @@ pub fn MarginTrace(count: usize) -> Element {
     rsx! {
         div {
             class: "margin-trace",
+            class: if !visible { "away" },
             "aria-label": "Recently read",
+            "aria-hidden": if visible { "false" } else { "true" },
+
+            div { class: "margin-trace-label", "Recent" }
 
             for visit in rows {
                 button {
@@ -60,7 +68,7 @@ pub fn MarginTrace(count: usize) -> Element {
                         let path = visit.path.clone();
                         move |_| state.open_file(&path)
                     },
-                    "{visit.display_name()}"
+                    DocumentName { path: visit.path.clone() }
                 }
             }
         }

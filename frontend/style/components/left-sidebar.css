@@ -1,4 +1,9 @@
-/* Left Sidebar container */
+/* Left Sidebar container.
+
+   No border on either side. The panel's ground already differs from the
+   document's, so a line there would say a second time what the surface
+   says; the rail shares this same ground while the panel is out, so a line
+   there would draw a seam across one surface. */
 .left-sidebar {
   display: flex;
   flex-direction: column;
@@ -7,9 +12,10 @@
   min-width: 0;
   max-width: 70vw;
   background-color: var(--bg-secondary);
-  border-right: 1px solid var(--border-color);
   overflow: hidden;
-  transition: width var(--transition-slow) ease;
+  transition:
+    width var(--transition-slow) ease,
+    box-shadow var(--transition-quiet) ease;
   position: relative;
 }
 
@@ -21,19 +27,21 @@
   transition: none; /* Disable transition during resize */
 }
 
-/* Panel focus indicator — only visible during keyboard navigation */
+/* Which panel the keyboard is in — shown only while navigating by key. The
+   ring is the panel's own ink, not a colour: nothing in the chrome carries
+   accent, so a coloured frame here would be the only one in the window. */
 .keyboard-navigating .left-sidebar.panel-focused {
-  box-shadow:
-    inset 0 0 0 2px var(--bg-secondary),
-    inset 0 0 0 3px var(--accent-bg);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--text-color) 30%, transparent);
 }
 
-/* Inner wrapper with zoom applied */
+/* Inner wrapper with zoom applied. It is also what the rows measure
+   themselves against — see `.left-sidebar-row-when`. */
 .left-sidebar-inner {
   display: flex;
   flex-direction: column;
   width: 100%;
   height: 100%;
+  container: left-panel / inline-size;
 }
 
 /* Resize handle */
@@ -68,12 +76,23 @@
   border-radius: 1px;
 }
 
+/* Nothing inside a face gives up height to fit. A column of rows that runs
+   past the panel scrolls; letting the rows compress instead would flatten
+   the ones at the top exactly when there are most of them. */
+.left-sidebar-explorer > *,
+.left-sidebar-face > *,
+.left-sidebar-face-list > *,
+.left-sidebar-tree > *,
+.left-sidebar-quick-access-list > * {
+  flex: none;
+}
+
 /* File explorer container */
 .left-sidebar-explorer {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 8px;
+  padding: 4px 0 8px;
   user-select: none;
   display: flex;
   flex-direction: column;
@@ -89,8 +108,11 @@
   align-items: center;
   justify-content: center;
   height: 100%;
+  padding: 0 16px;
+  text-align: center;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--font-size-md);
+  opacity: var(--opacity-secondary);
 }
 
 /* ========================================
@@ -183,7 +205,7 @@
 .left-sidebar-header-label {
   flex: 0 1 auto;
   min-width: 0;
-  font-size: 0.9rem;
+  font-size: var(--font-size-base);
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-color);
@@ -290,12 +312,13 @@
    Left Sidebar Tree Section
    ======================================== */
 
+/* One root's contents. It is exactly as tall as its rows: the panel is the
+   one thing that scrolls, and a subtree that claimed the leftover height
+   would open a hole between itself and whatever is listed below it. */
 .left-sidebar-tree {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0; /* Allow shrinking in flex container */
-  overflow: hidden auto;
+  flex: none;
 }
 
 /* Webkit (Chrome, Safari, Edge) */
@@ -310,10 +333,11 @@
 }
 
 .left-sidebar-tree-node-content {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 4px 12px;
   height: 26px;
   box-sizing: border-box;
   cursor: pointer;
@@ -323,16 +347,32 @@
   opacity: var(--opacity-muted);
   transition:
     background-color var(--transition-fast) ease,
+    box-shadow var(--transition-quiet) ease,
     opacity var(--transition-normal) ease;
 }
 
+/* One step of nesting is one step of indent, and the first step is the one
+   that puts a root's contents inside the root. A row carries its depth
+   (`--tree-depth`) rather than a finished padding, so the step is one number
+   in one place — and the faces whose rows are a flat list (Recent, Starred)
+   borrow this row without borrowing the indent. */
+.left-sidebar-tree .left-sidebar-tree-node-content {
+  padding-left: calc(24px + var(--tree-depth, 0) * 12px);
+}
+
 .left-sidebar-tree-node-content:hover {
-  background-color: var(--hover-bg);
+  background-color: var(--bg-row-hover);
   opacity: 1;
 }
 
-.left-sidebar-tree-node.active > .left-sidebar-tree-node-content {
-  opacity: var(--opacity-hover);
+/* The document being read, in whichever face is listing it. With no colour
+   and no border left in the panel, the row that is current says so with two
+   steps of its own ground and a heavier name — one step is the pointer's. */
+.left-sidebar-tree-node.active > .left-sidebar-tree-node-content,
+.left-sidebar-tree-node-content.active {
+  background-color: var(--bg-row-active);
+  opacity: 1;
+  font-weight: 500;
 }
 
 /* Tree icons */
@@ -378,10 +418,26 @@
   flex-shrink: 0;
 }
 
-/* Tree label */
+/* When a listed document was last read. It qualifies the row rather than being
+   it, so it is the first thing to go when the panel is narrowed (see the
+   container query at the end of this file). */
+.left-sidebar-row-when {
+  flex: none;
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tree label. A row in the panel is a pointer to the document, not the
+   document, so it sits a step below the reading text — one step, not three:
+   a column of names nobody can read is not quiet, it is just small. */
 .left-sidebar-tree-label {
   flex: 1;
-  font-size: 0.9rem;
+  font-size: var(--font-size-base);
   line-height: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -393,73 +449,18 @@
   opacity: var(--opacity-secondary);
 }
 
-/* Tree action buttons - only visible on hover */
-.left-sidebar-tree-copy-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 2px 4px;
-  margin-left: auto;
-  opacity: 0;
-  transition:
-    opacity var(--transition-fast) ease,
-    background-color var(--transition-fast) ease;
-  flex-shrink: 0;
-}
-
-.left-sidebar-tree-node-content:hover .left-sidebar-tree-copy-button {
-  opacity: var(--opacity-secondary);
-}
-
-.left-sidebar-tree-copy-button:hover {
-  opacity: 1 !important;
-  background-color: var(--hover-bg);
-}
-
-.left-sidebar-tree-copy-button.copied {
-  opacity: 1 !important;
-  color: var(--copy-button-success-fg);
-}
-
 /* ========================================
    Left Sidebar Keyboard Cursor Highlight
    ======================================== */
 
-.left-sidebar-tree-node.keyboard-focused > .left-sidebar-tree-node-content {
-  background-color: color-mix(in srgb, var(--accent-bg) 12%, transparent);
+/* Where the keyboard is, as opposed to what is being read: a neutral bar at
+   the row's edge, the same mark the rail uses for the face it is on. Colour
+   would be the easy answer, and the panel has none left. */
+.left-sidebar-tree-node.keyboard-focused > .left-sidebar-tree-node-content,
+.left-sidebar-tree-node-content.keyboard-focused {
+  background-color: var(--bg-row-hover);
   opacity: 1;
-}
-
-/* ========================================
-   Left Sidebar Bookmark Button Context Styles
-   ======================================== */
-
-/* Sidebar tree bookmark button - smaller, matches copy button */
-.left-sidebar-tree-node-content .bookmark-button {
-  padding: 2px 4px;
-  width: auto;
-  height: auto;
-  margin-left: auto;
-  opacity: 0;
-}
-
-.left-sidebar-tree-node-content:hover .bookmark-button {
-  opacity: var(--opacity-secondary);
-}
-
-.left-sidebar-tree-node-content .bookmark-button:hover {
-  opacity: 1 !important;
-}
-
-.left-sidebar-tree-node-content .bookmark-button.bookmarked {
-  opacity: var(--opacity-hover);
-  color: var(--accent-bg);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, currentcolor 55%, transparent);
 }
 
 /* Sidebar header bookmark button - independent of actions container */
@@ -480,12 +481,67 @@
 
 .left-sidebar-header-content > .bookmark-button.bookmarked {
   opacity: var(--opacity-hover);
-  color: var(--accent-bg);
 }
 
-/* Overlay mode: full height + drop shadow for depth */
+/* Overlay mode: full height, and a shadow that says the panel is floating
+   above the document. It falls to the right only — to the left is the rail,
+   which shares the panel's ground, and a shadow there would read as the
+   boundary the ground exists to avoid. The popover token cannot be used
+   here: it carries a 1px ring, and something already floating needs no
+   outline. */
 .sidebar-overlay-wrapper .left-sidebar {
   height: 100%;
-  box-shadow: var(--shadow-lg);
   min-width: 0; /* Override base min-width so configured inline width works in overlay */
+  transition:
+    transform var(--transition-normal) ease,
+    box-shadow var(--transition-normal) ease;
+}
+
+/* Only while it is out. A panel waiting off-screen has its right edge exactly
+   where the rail's is, so a shadow it kept would sit on the rail for as long
+   as the panel was away — a permanent seam cast by something not there. */
+.sidebar-overlay-wrapper.visible .left-sidebar {
+  box-shadow: var(--shadow-peek);
+}
+
+/* The panel is resized by hand, so what a row can afford is a question about
+   the panel and not about the window. Below this width the row is the name
+   alone: a clock in a column too narrow for the name it qualifies is two
+   things illegible instead of one thing readable. */
+@container left-panel (width < 210px) {
+  .left-sidebar-row-when {
+    display: none;
+  }
+}
+
+/* Where a dragged row would land: a line drawn in the panel's own ink, for the
+   moment of the drag only. It is a rule of its own rather than an inset shadow,
+   which would take the row's rounded corners with it and curve at both ends —
+   a line that says "between these two rows" has to be straight.
+   Above or below according to which way the row is travelling, so the last
+   position is reachable and the line does not jump as a row is crossed. */
+.left-sidebar-drop-before::before,
+.left-sidebar-drop-after::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  border-radius: 1px;
+  background: color-mix(in srgb, currentcolor 55%, transparent);
+}
+
+.left-sidebar-drop-before::before {
+  top: -1px;
+}
+
+.left-sidebar-drop-after::after {
+  bottom: -1px;
+}
+
+/* The row that is in the air. */
+.left-sidebar-quick-access-item.dragging,
+.left-sidebar-root.dragging {
+  opacity: 0.4;
+  background-color: var(--bg-row-hover);
 }

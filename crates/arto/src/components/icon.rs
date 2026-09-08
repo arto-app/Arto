@@ -28,6 +28,7 @@ pub enum IconName {
     Folder,
     FolderOpen,
     FolderPlus,
+    FolderUp,
     Gear,
     History,
     InfoCircle,
@@ -76,6 +77,7 @@ impl fmt::Display for IconName {
             IconName::Folder => "folder",
             IconName::FolderOpen => "folder-open",
             IconName::FolderPlus => "folder-plus",
+            IconName::FolderUp => "folder-up",
             IconName::Gear => "settings",
             IconName::History => "history",
             IconName::InfoCircle => "info-circle",
@@ -99,10 +101,15 @@ impl fmt::Display for IconName {
     }
 }
 
+/// One glyph from the sprite.
+///
+/// The default is the chrome's size: small enough to read past, in a target
+/// that is not (`--hit-size`). What is drawn and what can be hit are separate
+/// numbers, so the ink can shrink without the control getting harder to press.
 #[component]
 pub fn Icon(
     name: IconName,
-    #[props(default = 16)] size: u32,
+    #[props(default = 14)] size: u32,
     #[props(default = "")] class: &'static str,
 ) -> Element {
     let icon_id = format!("tabler-{}", name);

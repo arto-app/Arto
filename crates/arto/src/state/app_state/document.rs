@@ -25,13 +25,11 @@ use std::path::{Path, PathBuf};
 /// What the window is showing.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum DocumentContent {
-    /// Nothing yet, so the library is shown instead.
+    /// Nothing yet, so the welcome page is shown instead.
     #[default]
     None,
     /// A file from the filesystem.
     File(PathBuf),
-    /// Markdown handed over directly, as the welcome page is.
-    Inline(String),
     /// A file that cannot be shown, and why.
     FileError(PathBuf, String),
 }
@@ -55,13 +53,6 @@ impl Document {
         }
     }
 
-    pub fn with_inline_content(content: impl Into<String>) -> Self {
-        Self {
-            content: DocumentContent::Inline(content.into()),
-            history: HistoryManager::new(),
-        }
-    }
-
     /// The file being read, if what is shown came from one.
     pub fn file(&self) -> Option<&Path> {
         match &self.content {
@@ -70,11 +61,11 @@ impl Document {
         }
     }
 
-    /// Whether there is no document to show — the library's condition.
+    /// Whether there is no document to show — the welcome page's condition.
     pub fn is_empty(&self) -> bool {
         matches!(
             self.content,
-            DocumentContent::None | DocumentContent::Inline(_) | DocumentContent::FileError(_, _)
+            DocumentContent::None | DocumentContent::FileError(_, _)
         )
     }
 
@@ -85,8 +76,7 @@ impl Document {
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_else(|| "Unnamed".to_string()),
-            DocumentContent::Inline(_) => "Welcome".to_string(),
-            DocumentContent::None => "Library".to_string(),
+            DocumentContent::None => "Welcome".to_string(),
         }
     }
 
@@ -108,7 +98,7 @@ mod tests {
         assert_eq!(document.content, DocumentContent::None);
         assert!(document.is_empty());
         assert_eq!(document.file(), None);
-        assert_eq!(document.display_name(), "Library");
+        assert_eq!(document.display_name(), "Welcome");
     }
 
     #[test]
@@ -120,18 +110,6 @@ mod tests {
         assert_eq!(document.file(), Some(path.as_path()));
         assert!(!document.is_empty());
         assert_eq!(document.history.current_path(), Some(path.as_path()));
-    }
-
-    #[test]
-    fn inline_markdown_is_the_welcome_page() {
-        let document = Document::with_inline_content("# Welcome");
-        assert_eq!(
-            document.content,
-            DocumentContent::Inline("# Welcome".to_string())
-        );
-        assert!(document.is_empty());
-        assert_eq!(document.file(), None);
-        assert_eq!(document.display_name(), "Welcome");
     }
 
     #[test]

@@ -414,7 +414,7 @@ pub fn handle_menu_event_global(event: &MenuEvent) -> bool {
 /// # Handled events
 /// - `About`: Opens preferences page on About tab
 /// - `Preferences`: Opens preferences page
-/// - `NewDocument`: Puts the document down, showing the library
+/// - `NewDocument`: Puts the document down, showing the welcome page
 /// - `Open`: Opens file picker for markdown files
 /// - `OpenDirectory`: Opens directory picker
 /// - `CloseWindow`: Window management

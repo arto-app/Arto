@@ -1,5 +1,3 @@
-#![cfg(not(target_os = "macos"))]
-
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSeparator, ContextMenuSubmenu};
 use crate::components::icon::IconName;
 use crate::state::AppState;
@@ -16,6 +14,10 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
     // Get information on the currently open file (for invalidation determination)
     let current_file = state.current_file();
     let has_file = current_file.is_some();
+
+    let history = state.document().history;
+    let can_go_back = history.can_go_back();
+    let can_go_forward = history.can_go_forward();
 
     let close = move || on_close.call(());
 
@@ -131,15 +133,25 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
             }
 
             // === History ===
-            ContextMenuSubmenu { label: "History",
-                ContextMenuItem { label: "Go Back", shortcut: shortcut("history.back"), icon: Some(IconName::ChevronLeft), on_click: move |_| {
-                    state.save_scroll_and_go_back();
-                    close();
-                } }
-                ContextMenuItem { label: "Go Forward", shortcut: shortcut("history.forward"), icon: Some(IconName::ChevronRight), on_click: move |_| {
-                    state.save_scroll_and_go_forward();
-                    close();
-                } }
+            // Only where there is a history to move through: the header no
+            // longer carries back and forward, so this is where they are, and
+            // an item that cannot act reads as the feature being broken
+            // rather than as the reader being at the start.
+            if can_go_back || can_go_forward {
+                ContextMenuSubmenu { label: "History",
+                    if can_go_back {
+                        ContextMenuItem { label: "Go Back", shortcut: shortcut("history.back"), icon: Some(IconName::ChevronLeft), on_click: move |_| {
+                            state.save_scroll_and_go_back();
+                            close();
+                        } }
+                    }
+                    if can_go_forward {
+                        ContextMenuItem { label: "Go Forward", shortcut: shortcut("history.forward"), icon: Some(IconName::ChevronRight), on_click: move |_| {
+                            state.save_scroll_and_go_forward();
+                            close();
+                        } }
+                    }
+                }
             }
 
             // === Window ===

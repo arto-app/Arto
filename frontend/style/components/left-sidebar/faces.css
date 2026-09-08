@@ -9,8 +9,16 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
+}
+
+/* The rows are what scrolls. The field at the foot stays where it is, so it
+   is in the same place whether the list is three rows or three hundred. */
+.left-sidebar-face-list {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding-bottom: 8px;
+  padding: 4px 0 8px;
 }
 
 /* --- Root groups (Files) --------------------------------------------- */
@@ -21,8 +29,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 8px 12px 4px;
-  font-size: var(--font-size-xs);
+  margin: 12px 12px 4px;
+  font-size: var(--font-size-sm);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -34,59 +42,53 @@
   flex: 1;
   height: 1px;
   background: var(--border-color);
+  order: 1;
 }
 
-.left-sidebar-root {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px 3px 4px;
-  margin: 0 4px;
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-md);
-  color: var(--text-color);
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.left-sidebar-root:hover {
-  background: var(--bg-secondary);
-}
-
-.left-sidebar-root-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.left-sidebar-root-close {
-  margin-left: auto;
-  width: 20px;
-  height: 20px;
+/* Moving the window to another folder. It sits on the label rather than on
+   the row, because it acts on the group — "where this window is" — and not on
+   the folder currently answering to that. */
+.left-sidebar-root-group-action {
+  order: 2;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 18px;
+  height: 18px;
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-color);
+  color: inherit;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--transition-quiet) ease;
+  opacity: var(--opacity-rest);
+  transition:
+    opacity var(--transition-quiet) ease,
+    background-color var(--transition-quiet) ease;
 }
 
-.left-sidebar-root:hover .left-sidebar-root-close {
+.left-sidebar-root-group-label:hover .left-sidebar-root-group-action {
+  opacity: var(--opacity-woken);
+}
+
+.left-sidebar-root-group-action:hover {
+  opacity: 1;
+  background: var(--bg-row-active);
+}
+
+/* A group with nothing in it still says so, because the control that fills it
+   lives on the label above. */
+.left-sidebar-root-empty {
+  padding: 4px 12px 4px 24px;
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
   opacity: var(--opacity-rest);
 }
 
-.left-sidebar-root-close:hover {
-  opacity: 1;
-  background: var(--bg-secondary);
+/* A root is drawn by the tree's own row rules; all that is its own is where
+   it starts, a step out from the rows it heads. */
+.left-sidebar-root {
+  padding-left: 8px;
 }
 
 /* A folder chosen through a dialog is a place, so this row bookmarks it. */
@@ -94,10 +96,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 12px;
-  margin: 2px 4px 6px;
+  padding: 4px 12px;
+  height: 26px;
+  box-sizing: border-box;
   border-radius: var(--radius-sm);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
   color: var(--text-secondary);
   opacity: var(--opacity-rest);
   cursor: pointer;
@@ -111,12 +114,19 @@
 
 /* --- Recent ----------------------------------------------------------- */
 
+/* The field and the rail's gear sit at the same foot, so they are given the
+   same height as the rail's targets and the same 8px above the bottom: two
+   things on one line read as one row, and two things a few pixels apart read
+   as a mistake. */
 .left-sidebar-filter {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 8px 8px 4px;
-  padding: 4px 8px;
+  height: var(--hit-size);
+  box-sizing: border-box;
+  margin: 4px 8px 8px;
+  padding: 0 8px;
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);
   color: var(--text-secondary);
@@ -128,7 +138,7 @@
   border: none;
   background: transparent;
   color: var(--text-color);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
   outline: none;
 }
 
@@ -136,8 +146,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 8px 12px 4px;
-  font-size: var(--font-size-xs);
+  margin: 12px 12px 4px;
+  font-size: var(--font-size-sm);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -168,24 +178,95 @@
   position: relative;
 }
 
-/* Forgetting a row costs nothing — reading the document again brings it
-   back — so the control is the quietest there is: drawn only under the
-   pointer, on the row it acts on. */
-.left-sidebar-recent-forget {
+/* What a row can do is drawn only under the pointer, on the row it acts on,
+   and it stands where the clock was: the row is the same width either way, so
+   nothing shifts under the hand. */
+/* The controls keep a star's worth of room whether or not there is a star in
+   it, so the clock beside them ends at the same place on every row: a column
+   of times that steps left and right depending on what each row happens to
+   carry is not a column. Under the pointer it opens out — and the clock, which
+   is what the room was being kept level for, has gone by then. */
+.left-sidebar-row-actions {
+  display: flex;
+  flex: none;
   margin-left: auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  padding-left: 6px;
+  width: 18px;
+}
+
+.left-sidebar-tree-node-content:hover .left-sidebar-row-actions,
+.left-sidebar-quick-access-item:hover .left-sidebar-row-actions {
+  width: auto;
+}
+
+/* Nothing at rest — except a star that is *on*. The others are things the row
+   can be made to do; a lit star is something the row already is, and a state
+   that only appears when pointed at is a state nobody can see. */
+.left-sidebar-row-action,
+.left-sidebar-row-actions .bookmark-button {
+  /* Not drawn at rest. Every rule that follows describes how one of these
+     looks, never whether it is there — that answer lives here and in the one
+     rule below it. */
+  display: none;
+}
+
+.left-sidebar-tree-node-content:hover .left-sidebar-row-action,
+.left-sidebar-quick-access-item:hover .left-sidebar-row-action,
+.left-sidebar-tree-node-content:hover .left-sidebar-row-actions .bookmark-button,
+.left-sidebar-quick-access-item:hover .left-sidebar-row-actions .bookmark-button,
+.left-sidebar-row-actions .bookmark-button.bookmarked,
+.left-sidebar-row-action-shown {
+  display: flex;
+}
+
+.left-sidebar-tree-node-content:hover .left-sidebar-row-when,
+.left-sidebar-quick-access-item:hover .left-sidebar-row-when {
+  display: none;
+}
+
+.left-sidebar-row-action {
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
   padding: 0;
   border: none;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-color);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--transition-quiet) ease;
+  opacity: var(--opacity-muted);
+  transition:
+    opacity var(--transition-quiet) ease,
+    background-color var(--transition-quiet) ease;
 }
 
-.left-sidebar-recent-row:hover .left-sidebar-recent-forget {
-  opacity: var(--opacity-rest);
-}
-
-.left-sidebar-recent-forget:hover {
+.left-sidebar-row-action:hover {
   opacity: 1;
+  background: var(--bg-row-active);
+}
+
+.left-sidebar-row-action.copied {
+  opacity: 1;
+  color: var(--copy-button-success-fg);
+}
+
+/* The star sits in the same row of controls and answers to the same scale. */
+.left-sidebar-row-actions .bookmark-button {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  opacity: var(--opacity-muted);
+}
+
+.left-sidebar-row-actions .bookmark-button:hover {
+  opacity: 1;
+  background: var(--bg-row-active);
+}
+
+.left-sidebar-row-actions .bookmark-button.bookmarked {
+  opacity: var(--opacity-hover);
 }

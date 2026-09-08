@@ -53,7 +53,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::ZoomReset => state.zoom_reset(),
 
         // --- Window ---
-        // A new window is a fresh start: the places, the library, and nothing
+        // A new window is a fresh start: the places, the welcome page, and nothing
         // this window happened to have wandered into.
         Action::WindowNew => {
             crate::window::create_main_window_sync(
@@ -64,7 +64,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         }
         Action::WindowDuplicate => duplicate_window(&mut state),
         // Putting the document down is what "new" means for a window that
-        // reads one: the library takes its place, offering the next.
+        // reads one: the welcome page takes its place, offering the next.
         Action::WindowNewDocument => {
             state.update_document(|document| *document = crate::state::Document::default());
         }
@@ -138,11 +138,10 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
             // would be the alternative.
             state.show_face(crate::state::Face::Starred);
             state.focused_panel.set(FocusedPanel::QuickAccess);
-            // Initialize cursor to first bookmark if not set
-            if state.quick_access_cursor.read().is_none()
-                && !crate::bookmarks::BOOKMARKS.read().items.is_empty()
-            {
-                state.quick_access_cursor.set(Some(0));
+            if state.quick_access_cursor.read().is_none() {
+                if let Some(first) = starred_positions().first() {
+                    state.quick_access_cursor.set(Some(*first));
+                }
             }
         }
         Action::FocusContent => {
@@ -282,14 +281,19 @@ fn dispatch_cursor_move(state: &mut AppState, direction: CursorDirection) {
             }
         }
         FocusedPanel::QuickAccess => {
-            let bookmarks_len = crate::bookmarks::BOOKMARKS.read().items.len();
-            if bookmarks_len > 0 {
-                let current = *state.quick_access_cursor.read();
-                state.quick_access_cursor.set(move_index_cursor(
-                    current,
-                    bookmarks_len,
-                    &direction,
-                ));
+            // The cursor walks the face's rows, which are the bookmarked
+            // files; a bookmarked folder is a place and is listed in the
+            // Files face instead, so it is not a row the cursor can land on.
+            let positions = starred_positions();
+            if !positions.is_empty() {
+                let current = state
+                    .quick_access_cursor
+                    .read()
+                    .and_then(|index| positions.iter().position(|at| *at == index));
+                let next = move_index_cursor(current, positions.len(), &direction);
+                state
+                    .quick_access_cursor
+                    .set(next.map(|row| positions[row]));
                 scroll_cursor_into_view();
             }
         }
@@ -378,6 +382,18 @@ fn open_sidebar(state: &mut AppState) {
         state.sidebar_cursor.set(Some(next));
         scroll_cursor_into_view();
     }
+}
+
+/// Where the Starred face's rows sit in the bookmark list.
+fn starred_positions() -> Vec<usize> {
+    crate::bookmarks::BOOKMARKS
+        .read()
+        .items
+        .iter()
+        .enumerate()
+        .filter(|(_, bookmark)| !bookmark.is_dir())
+        .map(|(index, _)| index)
+        .collect()
 }
 
 fn open_quick_access(state: &mut AppState) {

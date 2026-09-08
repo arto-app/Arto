@@ -123,7 +123,7 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
                 has_changes,
             }
             BindingSection {
-                title: "Quick Access",
+                title: "Starred",
                 scope: BindingScope::Engine(Some(KeyContext::QuickAccess)),
                 bindings: keybindings.quick_access.clone(),
                 filter_query: filter_text(),

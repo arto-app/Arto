@@ -9,12 +9,12 @@
 
 .left-rail {
   flex-shrink: 0;
-  width: 40px;
+  width: var(--rail-width);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 8px 0;
+  padding: var(--chrome-inset) 0;
   background: transparent;
   transition: background-color var(--transition-quiet) ease;
 }
@@ -46,14 +46,18 @@
     background-color var(--transition-quiet) ease;
 }
 
-/* Selected is a step up the same scale, plus a neutral bar at the rail's edge.
+/* The face on screen is a step up the same scale everything else moves along.
    Density alone cannot rank glyphs whose own ink differs this much, so the
-   ranking is carried by position instead of by colour. */
+   second thing — whether it is staying — is carried by position instead. */
 .left-rail-button.active {
   opacity: var(--opacity-active);
 }
 
-.left-rail-button.active::before {
+/* Held, as opposed to merely peeked: the bar is what says the panel will still
+   be there when the pointer leaves. It is always drawn and fades in, because a
+   mark that blinks into existence reads as a glitch rather than as an answer
+   to what was just clicked. */
+.left-rail-button::before {
   content: "";
   position: absolute;
   left: -5px;
@@ -62,6 +66,11 @@
   height: 18px;
   border-radius: 1px;
   background: currentcolor;
+  opacity: 0;
+  transition: opacity var(--transition-quiet) ease;
+}
+
+.left-rail-button.held::before {
   opacity: 0.55;
 }
 
@@ -73,7 +82,10 @@
   opacity: 1;
 }
 
+/* The rail takes the panel's ground while the panel is out, so a surface in
+   that same colour would be no surface at all — the glyph under the pointer
+   has to step above whatever it is standing on. */
 .left-rail-button:hover {
   opacity: 1;
-  background: var(--bg-secondary);
+  background: var(--bg-row-active);
 }

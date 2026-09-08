@@ -39,5 +39,5 @@ state, configuration, IPC, menus, the Markdown pipeline, Dioxus async
 patterns, testing, UI design. `.claude/TIPS.md` collects longer-form
 lessons; read it when a rule points there.
 
-Welcome page text lives in `crates/arto/assets/welcome.md` and the project
-description in `README.md`; quote those instead of inventing descriptions.
+The project description lives in `README.md`; quote it instead of inventing
+descriptions.

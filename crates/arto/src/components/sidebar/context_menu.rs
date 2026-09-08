@@ -1,13 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use dioxus::desktop::tao::window::WindowId;
 use dioxus::prelude::*;
 
 use crate::bookmarks::BOOKMARKS;
-use crate::components::context_menu::{
-    clamp_menu_position, clamp_submenu_top, submenu_opens_left, ContextMenuItem,
-    ContextMenuSeparator,
-};
+use crate::components::context_menu::{clamp_menu_position, ContextMenuItem, ContextMenuSeparator};
 use crate::components::icon::{Icon, IconName};
 use crate::keybindings::{shortcut_hint_for_context_action, KeyContext};
 
@@ -28,14 +24,8 @@ impl SidebarItemKind {
 const MENU_WIDTH: i32 = 220;
 /// Estimated height of the tallest menu variant (a directory with every section).
 const MENU_HEIGHT: i32 = 360;
-/// Width of the "Open in Window" flyout (CSS `min-width: 200px` + padding/border).
-const SUBMENU_WIDTH: i32 = 208;
 /// Gap kept between the menu and the viewport edge.
 const VIEWPORT_MARGIN: i32 = 8;
-/// Estimated height of a single context-menu row (padding + line height).
-const MENU_ROW_HEIGHT: i32 = 33;
-/// Estimated vertical padding around a submenu's item list (top + bottom).
-const SUBMENU_VPADDING: i32 = 8;
 
 /// Complete state for the hoisted sidebar file-tree context menu.
 ///
@@ -50,53 +40,28 @@ pub struct SidebarContextMenuData {
     pub position: (i32, i32),
     pub path: PathBuf,
     pub kind: SidebarItemKind,
-    /// Whether the "Open in Window" flyout opens to the left of the menu,
-    /// used near the viewport's right edge so the flyout stays on-screen.
-    pub submenu_left: bool,
-    /// Vertical offset (in unscaled CSS pixels) applied to the "Open in Window"
-    /// flyout so its full height stays within the viewport. Zero when the flyout
-    /// fits at its natural anchor; negative when it must shift up near the
-    /// viewport's bottom edge.
-    pub submenu_offset_y: i32,
-    /// Titles of the other visible windows, for the "Open in Window" submenu.
-    pub other_windows: Vec<(WindowId, String)>,
+    /// Whether the row is one of this window's own roots, which is the only
+    /// kind of row that can be closed: a place leaves by being unstarred, and
+    /// a folder inside a tree is not a root at all.
+    pub temp_root: bool,
 }
 
 impl SidebarContextMenuData {
-    /// Build menu state from a raw cursor position, clamping it to the viewport
-    /// and choosing a submenu direction that keeps the flyout on-screen.
+    /// Build menu state from a raw cursor position, clamped to the viewport.
     pub fn new(
         cursor: (i32, i32),
         viewport: (i32, i32),
         path: PathBuf,
         kind: SidebarItemKind,
-        other_windows: Vec<(WindowId, String)>,
+        temp_root: bool,
     ) -> Self {
         let position =
             clamp_menu_position(cursor, (MENU_WIDTH, MENU_HEIGHT), viewport, VIEWPORT_MARGIN);
-        let submenu_left = submenu_opens_left(
-            position.0,
-            MENU_WIDTH,
-            SUBMENU_WIDTH,
-            viewport.0,
-            VIEWPORT_MARGIN,
-        );
-        // Anchor the flyout at the "Open in Window" row and clamp its bottom into
-        // the viewport. The row count above the flyout differs by item kind (a
-        // directory adds a "Change Root Directory" row).
-        let rows_above_flyout = if kind.is_dir() { 3 } else { 2 };
-        let anchor_y = position.1 + rows_above_flyout * MENU_ROW_HEIGHT;
-        let visible_rows = other_windows.len().max(1) as i32;
-        let submenu_height = visible_rows * MENU_ROW_HEIGHT + SUBMENU_VPADDING;
-        let submenu_top = clamp_submenu_top(anchor_y, submenu_height, viewport.1, VIEWPORT_MARGIN);
-        let submenu_offset_y = submenu_top - anchor_y;
         Self {
             position,
             path,
+            temp_root,
             kind,
-            submenu_left,
-            submenu_offset_y,
-            other_windows,
         }
     }
 }
@@ -116,20 +81,19 @@ pub fn SidebarContextMenu(
     position: (i32, i32),
     path: PathBuf,
     kind: SidebarItemKind,
-    submenu_left: bool,
-    submenu_offset_y: i32,
     on_close: EventHandler<()>,
     on_open: EventHandler<()>,
     on_open_in_new_window: EventHandler<()>,
-    on_move_to_window: EventHandler<WindowId>,
     on_change_root_directory: EventHandler<()>,
     on_toggle_bookmark: EventHandler<()>,
     on_copy_path: EventHandler<()>,
     on_reveal_in_finder: EventHandler<()>,
     on_reload: EventHandler<()>,
-    other_windows: Vec<(WindowId, String)>,
+    /// Offered on a root this window wandered into, and on nothing else: a
+    /// place leaves the tree by being unstarred, and a folder inside the tree
+    /// is not a root to close.
+    on_close_root: Option<EventHandler<()>>,
 ) -> Element {
-    let mut show_submenu = use_signal(|| false);
     let shortcut = |action| shortcut_hint_for_context_action(KeyContext::Sidebar, action);
 
     let is_file = kind == SidebarItemKind::File;
@@ -181,46 +145,7 @@ pub fn SidebarContextMenu(
                 on_click: move |_| on_open_in_new_window.call(()),
             }
 
-            // Open in Window (with submenu)
-            div {
-                class: "context-menu-item has-submenu",
-                onmouseenter: move |_| show_submenu.set(true),
-                onmouseleave: move |_| show_submenu.set(false),
-
-                span { class: "context-menu-label", "Open in Window" }
-                span { class: "submenu-arrow", "›" }
-
-                if *show_submenu.read() {
-                    div {
-                        class: if submenu_left { "context-submenu flip-left" } else { "context-submenu" },
-                        style: "top: {submenu_offset_y}px;",
-
-                        if other_windows.is_empty() {
-                            div {
-                                class: "context-menu-item disabled",
-                                "No other windows"
-                            }
-                        } else {
-                            for (window_id, title) in other_windows.iter() {
-                                {
-                                    let window_id = *window_id;
-                                    let title = title.clone();
-                                    rsx! {
-                                        div {
-                                            key: "{window_id:?}",
-                                            class: "context-menu-item",
-                                            onclick: move |_| on_move_to_window.call(window_id),
-                                            "{title}"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // === Section 2: Quick Access ===
+            // === Section 2: Starred ===
             ContextMenuSeparator {}
 
             div {
@@ -235,11 +160,10 @@ pub fn SidebarContextMenu(
 
                 span {
                     class: "context-menu-label",
-                    if is_bookmarked { "Remove from Quick Access" } else { "Add to Quick Access" }
+                    if is_bookmarked { "Remove from Starred" } else { "Add to Starred" }
                 }
             }
 
-            // === Section 3: File operations ===
             ContextMenuSeparator {}
 
             ContextMenuItem {
@@ -258,6 +182,14 @@ pub fn SidebarContextMenu(
 
             // === Section 4: Reload ===
             ContextMenuSeparator {}
+
+            if let Some(on_close_root) = on_close_root {
+                ContextMenuItem {
+                    label: "Close this root",
+                    icon: Some(IconName::Close),
+                    on_click: move |_| on_close_root.call(()),
+                }
+            }
 
             ContextMenuItem {
                 label: "Reload",
@@ -294,7 +226,7 @@ mod tests {
             (1000, 800),
             PathBuf::from("/tmp/example.md"),
             SidebarItemKind::File,
-            Vec::new(),
+            false,
         );
         assert_eq!(
             data.position,
@@ -303,6 +235,5 @@ mod tests {
                 800 - VIEWPORT_MARGIN - MENU_HEIGHT
             )
         );
-        assert!(data.submenu_left);
     }
 }

@@ -1,6 +1,7 @@
 use dioxus::document;
 use dioxus::prelude::*;
 
+use crate::components::document_name::DocumentName;
 use crate::components::icon::{Icon, IconName};
 use crate::keybindings::{Action, COMMAND_ACTIONS};
 use crate::state::AppState;
@@ -107,7 +108,7 @@ pub fn step_cursor(cursor: usize, len: usize, forward: bool) -> usize {
 /// It opens on the history rather than on an empty prompt: with nothing
 /// typed the rows are the visits, newest first, so the common gesture is two
 /// keys. Typing narrows the same list with [`crate::visits::matches`], which
-/// is what the Recent face and the library use, so a query that finds a
+/// is what the Recent face and the welcome page use, so a query that finds a
 /// document in one of them finds it here — and puts above it any command
 /// whose name the query also answers.
 ///
@@ -118,6 +119,7 @@ pub fn Palette() -> Element {
     let mut state = use_context::<AppState>();
     let mut query = use_signal(String::new);
     let mut cursor = use_signal(|| usize::MAX);
+    let mut composing = use_signal(|| false);
     let mut revision = use_signal(|| 0u32);
 
     use_future(move || async move {
@@ -137,6 +139,7 @@ pub fn Palette() -> Element {
 
     // Read so a recorded visit redraws the list; the number says nothing.
     let _ = revision();
+    let _ = state.visits_revision.read();
     let needle = query();
     let rows = {
         let visits = VISITS.read();
@@ -190,11 +193,29 @@ pub fn Palette() -> Element {
                         r#type: "text",
                         placeholder: "Go somewhere you have read, or name a command",
                         value: "{query}",
+                        // Left alone while an input method is composing.
+                        // This is a controlled field: every keystroke writes
+                        // the value back, and writing it back mid-composition
+                        // is what tears the composition up — the reader gets
+                        // one letter of every word they type.
+                        oncompositionstart: move |_| composing.set(true),
+                        oncompositionend: move |_| composing.set(false),
                         oninput: move |evt| {
+                            if composing() {
+                                return;
+                            }
                             query.set(evt.value());
                             cursor.set(0);
                         },
                         onkeydown: move |evt| {
+                            // While an input method is composing, Enter,
+                            // Escape and the arrows are the IME's own keys —
+                            // they confirm, cancel and choose a candidate.
+                            // Taking them here would leave the reader unable
+                            // to finish a word.
+                            if evt.is_composing() {
+                                return;
+                            }
                             match evt.key() {
                                 Key::Escape => {
                                     evt.prevent_default();
@@ -225,41 +246,10 @@ pub fn Palette() -> Element {
                     }
                 }
 
-                div {
-                    class: "palette-rows",
-                    for (index, row) in rows.iter().enumerate() {
-                        match row {
-                            Row::Command(action) => rsx! {
-                                div {
-                                    key: "command:{action}",
-                                    class: "palette-row",
-                                    class: if index == current { "current" },
-                                    onclick: move |_| activate(index),
-                                    Icon { name: IconName::Command, size: 14 }
-                                    span {
-                                        class: "palette-row-name",
-                                        "{action.command_label().unwrap_or_default()}"
-                                    }
-                                    span {
-                                        class: "palette-row-hint",
-                                        {shortcut_hint(*action).unwrap_or_default()}
-                                    }
-                                }
-                            },
-                            Row::Document(visit) => rsx! {
-                                div {
-                                    key: "document:{visit.path.display()}",
-                                    class: "palette-row",
-                                    class: if index == current { "current" },
-                                    title: "{visit.path.display()}",
-                                    onclick: move |_| activate(index),
-                                    Icon { name: IconName::File, size: 14 }
-                                    span { class: "palette-row-name", "{visit.display_name()}" }
-                                    span { class: "palette-row-path", "{parent_label(visit)}" }
-                                }
-                            },
-                        }
-                    }
+                PaletteRows {
+                    rows: rows.clone(),
+                    current,
+                    on_pick: activate,
                 }
 
                 div {
@@ -284,23 +274,9 @@ fn shortcut_hint(action: Action) -> Option<String> {
     crate::keybindings::shortcut_hint_for_global_action(&action.to_string())
 }
 
-/// The directory a visit sits in, shortened to the home-relative form a
-/// reader recognises.
+/// The directory a visit sits in, shortened the way the reader says it.
 fn parent_label(visit: &Visit) -> String {
-    let Some(parent) = visit.path.parent() else {
-        return String::new();
-    };
-    let parent = parent.to_string_lossy().to_string();
-    match dirs::home_dir() {
-        Some(home) => {
-            let home = home.to_string_lossy().to_string();
-            match parent.strip_prefix(&home) {
-                Some(rest) => format!("~{rest}"),
-                None => parent,
-            }
-        }
-        None => parent,
-    }
+    crate::utils::paths::parent_label(&visit.path)
 }
 
 #[cfg(test)]
@@ -367,5 +343,70 @@ mod tests {
             .filter(|action| found.contains(action))
             .collect();
         assert_eq!(found, listed);
+    }
+}
+
+/// The palette's rows: the commands a query names, then the documents it
+/// finds.
+///
+/// Drawn here rather than in each screen that offers them, so that the list
+/// the welcome page expands in place and the list `Cmd+K` floats over are the same
+/// list — the same order, the same rows, the same cursor.
+#[component]
+pub fn PaletteRows(rows: Vec<Row>, current: usize, on_pick: EventHandler<usize>) -> Element {
+    // The rows arrive commands first, documents after. Saying so with a word
+    // above each is what makes a long list read as two short ones — the eye
+    // stops looking for a command among the documents.
+    let commands = rows
+        .iter()
+        .take_while(|row| matches!(row, Row::Command(_)))
+        .count();
+
+    rsx! {
+        div {
+            class: "palette-rows",
+            for (index, row) in rows.iter().enumerate() {
+                if index == 0 && commands > 0 {
+                    div { class: "palette-group", "Commands" }
+                }
+                if index == commands && index < rows.len() {
+                    div { class: "palette-group", "History" }
+                }
+                match row {
+                    Row::Command(action) => rsx! {
+                        div {
+                            key: "command:{action}",
+                            class: "palette-row",
+                            class: if index == current { "current" },
+                            onclick: move |_| on_pick.call(index),
+                            Icon { name: IconName::Command, size: 14 }
+                            span {
+                                class: "palette-row-name",
+                                "{action.command_label().unwrap_or_default()}"
+                            }
+                            span {
+                                class: "palette-row-hint",
+                                {shortcut_hint(*action).unwrap_or_default()}
+                            }
+                        }
+                    },
+                    Row::Document(visit) => rsx! {
+                        div {
+                            key: "document:{visit.path.display()}",
+                            class: "palette-row",
+                            class: if index == current { "current" },
+                            title: "{visit.path.display()}",
+                            onclick: move |_| on_pick.call(index),
+                            Icon { name: IconName::File, size: 14 }
+                            span {
+                                class: "palette-row-name",
+                                DocumentName { path: visit.path.clone() }
+                            }
+                            span { class: "palette-row-path", "{parent_label(visit)}" }
+                        }
+                    },
+                }
+            }
+        }
     }
 }

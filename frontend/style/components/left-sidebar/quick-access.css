@@ -2,39 +2,16 @@
    Left Sidebar Quick Access Section
    ======================================== */
 
+/* Starred is a face of the panel now, not a shelf under the tree: it has the
+   whole height to itself, and nothing above it to be separated from. */
 .left-sidebar-quick-access {
-  flex-shrink: 0;
-  border-top: 1px solid var(--border-color);
-  max-height: 300px; /* ~10 items (26px each) + header */
-  overflow-y: auto;
-  padding: 8px 0;
+  padding: 0;
 }
 
 /* Webkit scrollbar for quick-access */
 .left-sidebar-quick-access::-webkit-scrollbar {
   width: 2px;
   height: 2px;
-}
-
-/* Header */
-.left-sidebar-quick-access-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px 8px 8px;
-  opacity: var(--opacity-muted);
-}
-
-.left-sidebar-quick-access-header-icon {
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-
-.left-sidebar-quick-access-title {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
 }
 
 /* List container */
@@ -45,19 +22,21 @@
 
 /* Individual item */
 .left-sidebar-quick-access-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: 4px 12px;
   height: 26px;
   box-sizing: border-box;
   cursor: pointer;
   border-radius: var(--radius-sm);
   white-space: nowrap;
   overflow: hidden;
-  opacity: var(--opacity-secondary);
+  opacity: var(--opacity-muted);
   transition:
     background-color var(--transition-fast) ease,
+    box-shadow var(--transition-quiet) ease,
     opacity var(--transition-normal) ease;
   /* Enable drag in webkit-based webviews */
   -webkit-user-drag: element;
@@ -70,7 +49,7 @@
 }
 
 .left-sidebar-quick-access-item:hover {
-  background-color: var(--hover-bg);
+  background-color: var(--bg-row-hover);
   opacity: 1;
 }
 
@@ -87,41 +66,16 @@
 
 /* Keyboard cursor highlight */
 .left-sidebar-quick-access-item.keyboard-focused {
-  background-color: color-mix(in srgb, var(--accent-bg) 12%, transparent);
+  background-color: var(--bg-row-hover);
   opacity: 1;
+  box-shadow: inset 2px 0 0 color-mix(in srgb, currentcolor 55%, transparent);
 }
 
-/* Dragging state */
-.left-sidebar-quick-access-item.dragging {
-  opacity: 0.4;
-  background-color: var(--hover-bg);
-}
-
-/* Drop target indicator */
-.left-sidebar-quick-access-item.drop-target {
-  background-color: color-mix(in srgb, var(--accent-bg) 15%, transparent);
-  border-top: 2px solid var(--accent-bg);
-  margin-top: -2px;
-}
-
-/* Drag handle - only visible on hover */
-.left-sidebar-quick-access-item-drag-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  opacity: 0;
-  color: var(--text-secondary);
-  cursor: grab;
-  transition: opacity var(--transition-fast) ease;
-}
-
-.left-sidebar-quick-access-item:hover .left-sidebar-quick-access-item-drag-handle {
-  opacity: 0.4;
-}
-
-.left-sidebar-quick-access-item-drag-handle:hover {
-  opacity: 0.8 !important;
+/* The document being read. */
+.left-sidebar-quick-access-item.active {
+  background-color: var(--bg-row-active);
+  opacity: 1;
+  font-weight: 500;
 }
 
 /* Item icon */
@@ -130,10 +84,12 @@
   color: var(--text-secondary);
 }
 
-/* Item name */
+/* Item name. It takes the room and gives it up last: the name is what is
+   being looked for. */
 .left-sidebar-quick-access-item-name {
-  flex: 1;
-  font-size: 0.85rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--font-size-base);
   line-height: 1;
   overflow: hidden;
   text-overflow: ellipsis;

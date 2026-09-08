@@ -162,10 +162,6 @@ pub fn App(
                         None,
                         Some(size.to_logical::<u32>(window.scale_factor())),
                     );
-                    // Entering and leaving full screen both arrive here and
-                    // nowhere else, and they are what takes the traffic lights
-                    // out of the header and puts them back.
-                    crate::window::titlebar::sync_traffic_light_clearance(&window.window);
                 }
             }
             TaoEvent::WindowEvent {
@@ -185,10 +181,6 @@ pub fn App(
             _ => {}
         }
     });
-
-    // On macOS the header is the title bar, so it has to drag and zoom the
-    // window like one. A no-op everywhere else.
-    crate::hooks::titlebar::use_titlebar_gestures();
 
     // Listen for cross-window file/directory open events (from sidebar context menu)
     setup_cross_window_open_listeners(state);
@@ -228,6 +220,45 @@ pub fn App(
     // if mouse is inside, onmouseleave will handle hiding naturally.
     let mut left_mouse_inside = use_signal(|| false);
 
+    /// Grace before a peeking panel retracts.
+    ///
+    /// Long enough for two things, not one. The specification's 240ms covers
+    /// the gap between the rail and the panel, which the pointer crosses in a
+    /// moment; leaving the panel is not that — the pointer goes to the
+    /// document, or off the window, or back again a second later, and a panel
+    /// that closed the instant it was left would have to be asked for again
+    /// every time. It shuts when the reader has plainly moved on.
+    const OVERLAY_HIDE_DELAY_MS: u64 = 700;
+
+    /// Put the peeking panel away once the grace has passed, unless something
+    /// asks for it again first.
+    ///
+    /// Every read here peeks. This is called from an effect, and a signal read
+    /// inside one subscribes the effect to it — reading the generation and then
+    /// writing it would wake the effect with its own write, forever, spawning a
+    /// timer each time round.
+    fn retract_after_grace(mut hide_gen: Signal<u32>, mut hover_active: Signal<bool>) {
+        let generation = *hide_gen.peek() + 1;
+        hide_gen.set(generation);
+        spawn(async move {
+            tokio::time::sleep(tokio::time::Duration::from_millis(OVERLAY_HIDE_DELAY_MS)).await;
+            if *hide_gen.peek() == generation {
+                hover_active.set(false);
+            }
+        });
+    }
+
+    // A menu the panel opened holds the peek open while it is up, because the
+    // pointer has to leave the panel to use it. When it closes somewhere else
+    // entirely, no further mouse event is coming to send the panel back, so
+    // its closing is what does.
+    let menu_open = use_memo(move || state.sidebar_context_menu.read().is_some());
+    use_effect(move || {
+        if !menu_open() && !*left_mouse_inside.peek() {
+            retract_after_grace(left_hide_gen, left_hover_active);
+        }
+    });
+
     // The width has the last word on what is drawn beside the document. The
     // panel's own choice is untouched by it, so widening the window brings a
     // panel back exactly as it was left; a panel folded with Cmd+B stays
@@ -235,12 +266,6 @@ pub fn App(
     let chrome = use_memo(move || state.visible_chrome());
     let rail_visible = use_memo(move || chrome().rail);
     let left_pinned = state.sidebar.read().pinned && chrome().panel;
-
-    /// Grace before a peeking panel retracts.
-    ///
-    /// Long enough that moving from the rail into the panel — which briefly
-    /// leaves both — does not close what was just opened.
-    const OVERLAY_HIDE_DELAY_MS: u64 = 240;
 
     let focused_panel = *state.focused_panel.read();
     let focused_context = focused_panel.key_context();
@@ -283,12 +308,14 @@ pub fn App(
             // safely aim at to bring the panel back.
             if rail_visible() {
                 crate::components::sidebar::rail::Rail {
-                    on_peek: move |_| {
-                        // Nothing to peek at while the panel is already
-                        // standing beside the document; at a width that
-                        // folded it away, resting on the rail brings it
-                        // over the document instead.
+                    on_peek: move |face| {
+                        // Resting on a glyph brings that face over the
+                        // document. A panel that is being held stays as it
+                        // was: what is held was chosen, and a pointer passing
+                        // over the rail is not a choice — it would rewrite the
+                        // reader's own with nothing but a hover.
                         if !left_pinned {
+                            state.sidebar.write().face = face;
                             left_hover_active.set(true);
                             left_hide_gen.set(left_hide_gen() + 1);
                         }
@@ -314,6 +341,10 @@ pub fn App(
             if !left_pinned {
                 div {
                     class: "sidebar-overlay-wrapper left",
+                    // Stand beside the rail rather than over it: the marks
+                    // that peeked the panel out are the ones that switch its
+                    // faces and send it back, so they have to stay visible.
+                    class: if rail_visible() { "beside-rail" },
                     class: if left_hover_active() { "visible" },
                     onmouseenter: move |_| {
                         left_mouse_inside.set(true);
@@ -325,14 +356,15 @@ pub fn App(
                         if evt.data().held_buttons().contains(dioxus::html::input_data::MouseButton::Primary) {
                             return;
                         }
-                        let gen = left_hide_gen() + 1;
-                        left_hide_gen.set(gen);
-                        spawn(async move {
-                            tokio::time::sleep(tokio::time::Duration::from_millis(OVERLAY_HIDE_DELAY_MS)).await;
-                            if left_hide_gen() == gen {
-                                left_hover_active.set(false);
-                            }
-                        });
+                        // A menu opened from a row is drawn at the window's
+                        // root rather than inside the panel, so the pointer
+                        // moving onto it leaves the panel. It is still the
+                        // panel being used: retracting it here would take the
+                        // menu's subject away mid-click.
+                        if state.sidebar_context_menu.read().is_some() {
+                            return;
+                        }
+                        retract_after_grace(left_hide_gen, left_hover_active);
                     },
                     Sidebar {
                         on_resize_change: move |resizing: bool| {
@@ -341,14 +373,7 @@ pub fn App(
                                 left_hide_gen.set(left_hide_gen() + 1);
                             } else if !left_mouse_inside() {
                                 // Resize ended with mouse outside: start hide timer
-                                let gen = left_hide_gen() + 1;
-                                left_hide_gen.set(gen);
-                                spawn(async move {
-                                    tokio::time::sleep(tokio::time::Duration::from_millis(OVERLAY_HIDE_DELAY_MS)).await;
-                                    if left_hide_gen() == gen {
-                                        left_hover_active.set(false);
-                                    }
-                                });
+                                retract_after_grace(left_hide_gen, left_hover_active);
                             }
                             // Resize ended with mouse inside: do nothing,
                             // onmouseleave will handle hiding when mouse leaves.

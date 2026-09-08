@@ -4,11 +4,10 @@ mod context_menu_state;
 mod file_error_view;
 mod file_viewer;
 mod gutter;
-mod inline_viewer;
-mod library_view;
 mod preferences_view;
 mod search_handler;
 mod trace;
+mod welcome_view;
 
 use dioxus::prelude::*;
 
@@ -18,8 +17,7 @@ use contents_overlay::ContentsOverlay;
 use file_error_view::FileErrorView;
 use file_viewer::FileViewer;
 use gutter::ContentsGutter;
-use inline_viewer::InlineViewer;
-use library_view::LibraryView;
+use welcome_view::WelcomeView;
 
 // Re-export for menu system
 pub use preferences_view::{set_preferences_tab_to_about, PreferencesView};
@@ -60,17 +58,20 @@ pub fn Content() -> Element {
     let gutter_visible = use_memo(move || state.visible_chrome().gutter);
     let trace_count = use_memo(move || state.trace_count());
 
-    // With nothing to read, the whole area is the library — the trace and the
+    // With nothing to read, the whole area is the welcome page — the trace and the
     // gutter have nothing to say beside it.
-    let showing_library = use_memo(move || state.document.read().is_empty());
+    let showing_welcome = use_memo(move || state.document.read().is_empty());
 
     rsx! {
         div {
             class: "content-area",
 
-        // The documents read before this one, at the edge of the page.
-        if trace_visible() && !showing_library() {
-            trace::MarginTrace { count: trace_count() }
+        // The documents read before this one, at the edge of the page. Always
+        // mounted, so that it can be *seen* to arrive and leave: a column that
+        // is only rendered while it applies has no way to fade.
+        trace::MarginTrace {
+            count: trace_count(),
+            visible: trace_visible() && !showing_welcome(),
         }
 
         div {
@@ -84,9 +85,6 @@ pub fn Content() -> Element {
                     DocumentContent::File(file) => {
                         rsx! { FileViewer { file } }
                     },
-                    DocumentContent::Inline(markdown) => {
-                        rsx! { InlineViewer { markdown } }
-                    },
                     DocumentContent::FileError(file, error) => {
                         let filename = file
                             .file_name()
@@ -97,7 +95,7 @@ pub fn Content() -> Element {
                     },
                     // A window with nothing open shows what there is to
                     // read rather than explaining that nothing is open.
-                    _ => rsx! { LibraryView {} },
+                    _ => rsx! { WelcomeView {} },
                 }
             }
         }
@@ -105,7 +103,7 @@ pub fn Content() -> Element {
         // The contents live beside the document rather than in a panel of
         // their own: always there, 24px wide, and impossible to open by
         // accident because there is nothing to open.
-        if gutter_visible() && !showing_library() {
+        if gutter_visible() && !showing_welcome() {
             ContentsGutter { headings: headings() }
         }
 

@@ -20,7 +20,9 @@
 .palette {
   display: flex;
   flex-direction: column;
-  width: min(560px, calc(100vw - 48px));
+  /* The welcome page's column, which is the same list on a page: one list, one
+     width, whichever way it was opened. */
+  width: min(720px, calc(100vw - 48px));
   max-height: 60vh;
   overflow: hidden;
   background: var(--bg-color);
@@ -88,15 +90,43 @@
   flex-shrink: 0;
 }
 
+/* The folder the document sits in. Written left to right like the path it is:
+   turning the direction round to truncate from the head puts the separators
+   and the `~` at the wrong end of it. What is cut is the tail, which is the
+   part nearest the name that is already spelled out on the left. */
 .palette-row-path {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   opacity: var(--opacity-secondary);
   text-align: right;
-  direction: rtl;
+}
+
+/* The word over each kind of row, the same device the panel's lists use. */
+.palette-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 10px 3px;
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+.palette-group:first-child {
+  margin-top: 2px;
+}
+
+.palette-group::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
 }
 
 /* What the row would have cost on the keyboard. It sits where a document

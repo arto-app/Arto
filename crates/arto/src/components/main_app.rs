@@ -1,5 +1,5 @@
 use crate::ipc::OpenEvent;
-use crate::state::Document;
+use crate::state::{Document, PersistedState};
 use crate::window::settings;
 #[cfg(target_os = "macos")]
 use dioxus::desktop::use_muda_event_handler;
@@ -67,7 +67,7 @@ pub fn MainApp() -> Element {
     if first_event.is_some() {
         tracing::debug!(?first_event, "Received initial open event from IPC queue");
     } else {
-        tracing::debug!("No initial event, will show welcome screen");
+        tracing::debug!("No initial event, the window opens on the welcome page");
     }
 
     // Resolve the document and directory from the event. A window reads one
@@ -79,10 +79,11 @@ pub fn MainApp() -> Element {
             let document = request.files.first().map(Document::new).unwrap_or_default();
             (document, request.directory.clone())
         }
-        _ => {
-            let welcome_content = crate::assets::get_default_markdown_content();
-            (Document::with_inline_content(welcome_content), None)
-        }
+        // Launched with nothing to read: the window opens on the welcome page,
+        // the same as a window made with Cmd+N or a document put down with
+        // Cmd+T. A window with nothing in it says what there is to read
+        // rather than explaining that nothing is open.
+        _ => (Document::default(), None),
     };
 
     // Get initial configuration values
@@ -92,16 +93,24 @@ pub fn MainApp() -> Element {
     let content_full_width = settings::get_content_full_width_preference();
     let zoom_pref = settings::get_zoom_preference(is_first_window);
 
-    // Roots: a directory named on the command line wins; otherwise the
-    // session being restored, if the configuration asks for one; otherwise
-    // the parent of the file being opened. All three can come to nothing, and
-    // then the tree shows the places alone rather than scanning home.
+    // Roots: a directory named on the command line wins; otherwise the session
+    // being restored, if the configuration asks for one; otherwise the parent
+    // of the file being opened; and failing all of those, the folder the last
+    // window was in.
+    //
+    // That last fallback is what gives a window opening on the welcome page a
+    // current directory to show. A configuration that names no default is a
+    // question nobody answered, not an answer of "nowhere" — and the folder
+    // the reader was last in is the only non-arbitrary place to start. It is
+    // still never the home directory: unasked-for, that would only be a scan
+    // wide enough to make macOS ask about every folder in it.
     let temps: Vec<_> = match directory_override {
         Some(directory) => vec![directory],
         None => {
             let restored = settings::get_startup_roots();
             if restored.is_empty() {
                 crate::window::main::resolve_directory(directory_pref.directory, &document)
+                    .or_else(|| PersistedState::load().directory)
                     .into_iter()
                     .collect()
             } else {

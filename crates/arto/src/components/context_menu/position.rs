@@ -1,4 +1,4 @@
-//! Viewport clamping for context menus and their submenu flyouts.
+//! Viewport clamping for context menus.
 
 /// Clamp a menu's top-left origin so the whole menu stays within the viewport.
 ///
@@ -18,33 +18,6 @@ pub fn clamp_menu_position(
         clamp_axis(cursor.0, menu.0, viewport.0),
         clamp_axis(cursor.1, menu.1, viewport.1),
     )
-}
-
-/// Decide whether the submenu flyout should open to the left of the menu
-/// instead of the right, to avoid spilling past the viewport's right edge.
-pub fn submenu_opens_left(
-    menu_x: i32,
-    menu_width: i32,
-    submenu_width: i32,
-    viewport_width: i32,
-    margin: i32,
-) -> bool {
-    menu_x + menu_width + submenu_width + margin > viewport_width
-}
-
-/// Clamp the submenu flyout's top so its full height stays within the viewport.
-///
-/// Returns the top the flyout should render at: `anchor_y` when it fits, a
-/// smaller value when it would spill past the bottom edge, and `margin` when the
-/// flyout is taller than the available space (its top stays visible).
-pub fn clamp_submenu_top(
-    anchor_y: i32,
-    submenu_height: i32,
-    viewport_height: i32,
-    margin: i32,
-) -> i32 {
-    let max_top = (viewport_height - margin - submenu_height).max(margin);
-    anchor_y.clamp(margin, max_top)
 }
 
 #[cfg(test)]
@@ -100,39 +73,5 @@ mod tests {
         // A cursor above/left of the margin is pushed back to the margin.
         let pos = clamp_menu_position((0, 0), MENU, VIEWPORT, MARGIN);
         assert_eq!(pos, (MARGIN, MARGIN));
-    }
-
-    #[test]
-    fn submenu_opens_right_with_room() {
-        // Plenty of horizontal room: the flyout opens to the right.
-        assert!(!submenu_opens_left(100, 220, 208, 1000, MARGIN));
-    }
-
-    #[test]
-    fn submenu_flips_left_near_right_edge() {
-        // Menu hugging the right edge: right-side flyout would spill, so flip.
-        assert!(submenu_opens_left(700, 220, 208, 1000, MARGIN));
-    }
-
-    #[test]
-    fn submenu_top_unchanged_when_flyout_fits() {
-        // Plenty of room below the anchor: the flyout stays at its anchor.
-        let top = clamp_submenu_top(100, 200, 800, MARGIN);
-        assert_eq!(top, 100);
-    }
-
-    #[test]
-    fn submenu_top_shifts_up_near_bottom_edge() {
-        // Anchor near the bottom: the top is pulled up so the flyout's bottom
-        // sits at viewport_height - margin.
-        let top = clamp_submenu_top(700, 200, 800, MARGIN);
-        assert_eq!(top, 800 - MARGIN - 200); // 592
-    }
-
-    #[test]
-    fn submenu_top_pins_to_margin_when_taller_than_viewport() {
-        // A flyout taller than the available space keeps its top visible.
-        let top = clamp_submenu_top(700, 1000, 800, MARGIN);
-        assert_eq!(top, MARGIN);
     }
 }

@@ -3,6 +3,8 @@ pub mod file_explorer;
 pub mod quick_access;
 pub mod rail;
 pub mod recent;
+pub mod reorder;
+pub mod row_actions;
 
 use dioxus::document;
 use dioxus::prelude::*;

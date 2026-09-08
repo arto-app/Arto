@@ -137,6 +137,14 @@ pub struct AppState {
     /// signal) so the hoisted context menu's "Reload" action can trigger a
     /// refresh from outside the tree subtree. Transient UI state — not persisted.
     pub sidebar_refresh_counter: Signal<u32>,
+    /// Bumped when this window records a visit.
+    ///
+    /// The history itself lives outside Dioxus (`crate::visits::VISITS`) and
+    /// announces itself over a broadcast, which every window hears — including
+    /// this one, one poll of the runtime later. The lists in *this* window
+    /// read this signal instead, so what the window did shows in the same
+    /// frame as the document it did it to.
+    pub visits_revision: Signal<u32>,
 }
 
 impl AppState {
@@ -174,6 +182,7 @@ impl AppState {
             left_hover_active: Signal::new(false),
             sidebar_context_menu: Signal::new(None),
             sidebar_refresh_counter: Signal::new(0),
+            visits_revision: Signal::new(0),
         }
     }
 }

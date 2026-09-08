@@ -1,3 +1,4 @@
+import { applyPictureTheme } from "./picture-theme";
 import * as mathRenderer from "./math-renderer";
 import * as mermaidRenderer from "./mermaid-renderer";
 import * as syntaxHighlighter from "./syntax-highlighter";
@@ -327,6 +328,7 @@ class RenderCoordinator {
     try {
       await Promise.all(
         Array.from(markdownBodies).map(async (markdownBody) => {
+          applyPictureTheme(markdownBody);
           mathRenderer.renderMath(markdownBody);
           syntaxHighlighter.highlightCodeBlocks(markdownBody);
           await mermaidRenderer.renderDiagrams(markdownBody);

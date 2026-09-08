@@ -25,22 +25,19 @@ pub struct Bookmark {
 }
 
 impl Bookmark {
-    /// Create a new bookmark with the given path
+    /// Create a new bookmark with the given path.
+    ///
+    /// Spelled by its own folders. Everything that answers a question about
+    /// this list — is it bookmarked, remove it, move it beside that one —
+    /// compares paths, and a caller that spelled one differently from the
+    /// stored entry gets "no" to every one of those questions. Only what goes
+    /// in is repaired: what comes back out is then already right, so nothing
+    /// on a render path has to touch the filesystem.
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self {
-            path: path.into(),
+            path: crate::utils::paths::true_spelling(&path.into()),
             name: None,
         }
-    }
-
-    /// Get display name (custom name or filename)
-    pub fn display_name(&self) -> &str {
-        self.name.as_deref().unwrap_or_else(|| {
-            self.path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("Unknown")
-        })
     }
 
     /// Check if this bookmark points to a directory
@@ -115,8 +112,32 @@ impl Bookmarks {
         }
 
         match fs::read_to_string(&path) {
-            Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+            Ok(content) => serde_json::from_str::<Self>(&content)
+                .map(Self::folded)
+                .unwrap_or_default(),
             Err(_) => Self::default(),
+        }
+    }
+
+    /// One entry per path, however the file spells them.
+    ///
+    /// A file written before the spellings were repaired holds paths as they
+    /// were typed. Left alone they would name the same folders as the tree
+    /// does without being equal to them, so nothing done to a row would find
+    /// the entry behind it — and a folder listed twice under two spellings
+    /// would be drawn twice.
+    fn folded(self) -> Self {
+        let mut seen = std::collections::HashSet::new();
+        Self {
+            items: self
+                .items
+                .into_iter()
+                .map(|item| Bookmark {
+                    path: crate::utils::paths::true_spelling(&item.path),
+                    ..item
+                })
+                .filter(|item| seen.insert(item.path.clone()))
+                .collect(),
         }
     }
 
@@ -154,7 +175,7 @@ impl Bookmarks {
     ///
     /// Returns `true` if the path is now bookmarked, `false` if removed.
     pub fn toggle(&mut self, path: impl Into<PathBuf>) -> bool {
-        let path = path.into();
+        let path = crate::utils::paths::true_spelling(&path.into());
         if self.contains(&path) {
             self.remove(&path);
             false
@@ -164,30 +185,59 @@ impl Bookmarks {
         }
     }
 
+    /// Put `new` where `old` was.
+    ///
+    /// The position is the point: the places are in an order somebody
+    /// arranged, and a bookmark that moved up a folder is still the same
+    /// entry on that list. A `new` already on the list absorbs `old` rather
+    /// than appearing twice.
+    ///
+    /// Returns `true` if `old` was there to replace.
+    pub fn replace(&mut self, old: &Path, new: impl Into<PathBuf>) -> bool {
+        let new = new.into();
+        let Some(index) = self.items.iter().position(|item| item.path == old) else {
+            return false;
+        };
+        if self.contains(&new) {
+            self.items.remove(index);
+        } else {
+            self.items[index] = Bookmark::new(new);
+        }
+        true
+    }
+
     /// Check if a path is already bookmarked
     pub fn contains(&self, path: &Path) -> bool {
         self.items.iter().any(|b| b.path == path)
     }
 
-    /// Move a bookmark from one index to another
+    /// Move one bookmark to just before or just after another.
     ///
-    /// Returns `true` if the move was successful.
-    pub fn reorder(&mut self, from_index: usize, to_index: usize) -> bool {
-        if from_index >= self.items.len() || to_index >= self.items.len() {
+    /// Named by path rather than by position, because the list is drawn in
+    /// more than one place and never all of it: the tree's places are the
+    /// directories out of this list, so a row's position on screen is not its
+    /// position here.
+    ///
+    /// Which side is the caller's to decide, and it is what makes every
+    /// position reachable — landing only ever *before* a row leaves no way to
+    /// say "last".
+    ///
+    /// Returns `true` if the list changed.
+    pub fn move_to(&mut self, moved: &Path, target: &Path, after: bool) -> bool {
+        if moved == target {
             return false;
         }
-        if from_index == to_index {
-            return true;
-        }
-
-        let item = self.items.remove(from_index);
-        // After removing, indices shift: if from < to, we need to insert at to - 1
-        let insert_at = if from_index < to_index {
-            to_index - 1
-        } else {
-            to_index
+        let Some(from) = self.items.iter().position(|item| item.path == moved) else {
+            return false;
         };
-        self.items.insert(insert_at, item);
+        let item = self.items.remove(from);
+        match self.items.iter().position(|item| item.path == target) {
+            Some(at) => self.items.insert(at + usize::from(after), item),
+            None => {
+                self.items.insert(from, item);
+                return false;
+            }
+        }
         true
     }
 
@@ -236,14 +286,29 @@ pub fn toggle_bookmark(path: impl AsRef<Path>) -> bool {
     result
 }
 
-/// Reorder bookmarks and broadcast the change
-///
-/// Moves a bookmark from `from_index` to `to_index`.
-/// Returns `true` if the reorder was successful.
-pub fn reorder_bookmark(from_index: usize, to_index: usize) -> bool {
+/// Replace a bookmark with another path and broadcast the change.
+pub fn replace_bookmark(old: &Path, new: impl AsRef<Path>) -> bool {
     let result = {
         let mut bookmarks = BOOKMARKS.write();
-        let result = bookmarks.reorder(from_index, to_index);
+        let result = bookmarks.replace(old, new.as_ref().to_path_buf());
+        if result {
+            bookmarks.save();
+        }
+        result
+    };
+    if result {
+        BOOKMARKS_CHANGED.send(()).ok();
+    }
+    result
+}
+
+/// Move a bookmark beside another and broadcast the change.
+///
+/// Returns `true` if the list changed.
+pub fn move_bookmark(moved: &Path, target: &Path, after: bool) -> bool {
+    let result = {
+        let mut bookmarks = BOOKMARKS.write();
+        let result = bookmarks.move_to(moved, target, after);
         if result {
             bookmarks.save();
         }
@@ -260,16 +325,127 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    #[test]
-    fn test_bookmark_display_name() {
-        let bookmark = Bookmark::new("/path/to/file.md");
-        assert_eq!(bookmark.display_name(), "file.md");
+    /// The list as written down. `places()` reads the filesystem to tell a
+    /// folder from a file, which these paths are neither of.
+    fn paths(bookmarks: &Bookmarks) -> Vec<String> {
+        bookmarks
+            .items
+            .iter()
+            .map(|item| item.path.to_string_lossy().to_string())
+            .collect()
+    }
 
-        let bookmark_with_name = Bookmark {
-            path: PathBuf::from("/path/to/file.md"),
-            name: Some("My Notes".to_string()),
-        };
-        assert_eq!(bookmark_with_name.display_name(), "My Notes");
+    #[test]
+    fn loading_folds_two_spellings_of_one_path_into_one_entry() {
+        let dir = TempDir::new().unwrap();
+        std::fs::create_dir(dir.path().join("Notes")).unwrap();
+
+        let loaded = Bookmarks {
+            items: vec![
+                Bookmark::new(dir.path().join("Notes")),
+                Bookmark::new("/elsewhere"),
+                Bookmark::new(dir.path().join("notes")),
+            ],
+        }
+        .folded();
+
+        assert_eq!(
+            paths(&loaded),
+            vec![
+                dir.path().join("Notes").to_string_lossy().to_string(),
+                "/elsewhere".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn moving_a_bookmark_after_another_puts_it_there() {
+        let mut bookmarks = Bookmarks::default();
+        bookmarks.add("/a");
+        bookmarks.add("/b");
+        bookmarks.add("/c");
+
+        assert!(bookmarks.move_to(Path::new("/a"), Path::new("/c"), true));
+
+        assert_eq!(paths(&bookmarks), vec!["/b", "/c", "/a"]);
+    }
+
+    #[test]
+    fn moving_a_bookmark_before_another_puts_it_there() {
+        let mut bookmarks = Bookmarks::default();
+        bookmarks.add("/a");
+        bookmarks.add("/b");
+        bookmarks.add("/c");
+
+        assert!(bookmarks.move_to(Path::new("/c"), Path::new("/a"), false));
+
+        assert_eq!(paths(&bookmarks), vec!["/c", "/a", "/b"]);
+    }
+
+    #[test]
+    fn moving_a_bookmark_past_entries_the_list_is_drawn_without() {
+        // The tree's places are the directories out of this list, so the row
+        // above one of them on screen need not be the entry above it here.
+        let mut bookmarks = Bookmarks::default();
+        bookmarks.add("/dir-a");
+        bookmarks.add("/note.md");
+        bookmarks.add("/dir-b");
+
+        assert!(bookmarks.move_to(Path::new("/dir-b"), Path::new("/dir-a"), false));
+
+        assert_eq!(paths(&bookmarks), vec!["/dir-b", "/dir-a", "/note.md"]);
+    }
+
+    #[test]
+    fn moving_a_bookmark_onto_itself_changes_nothing() {
+        let mut bookmarks = Bookmarks::default();
+        bookmarks.add("/a");
+        bookmarks.add("/b");
+
+        assert!(!bookmarks.move_to(Path::new("/a"), Path::new("/a"), true));
+        assert_eq!(paths(&bookmarks), vec!["/a", "/b"]);
+    }
+
+    #[test]
+    fn moving_a_bookmark_that_is_not_there_leaves_the_list_alone() {
+        let mut bookmarks = Bookmarks::default();
+        bookmarks.add("/a");
+        bookmarks.add("/b");
+
+        assert!(!bookmarks.move_to(Path::new("/a"), Path::new("/gone"), true));
+        assert_eq!(paths(&bookmarks), vec!["/a", "/b"]);
+    }
+
+    #[test]
+    fn replacing_a_place_keeps_its_position() {
+        let mut bookmarks = Bookmarks::default();
+        bookmarks.add("/a");
+        bookmarks.add("/w/arto/docs");
+        bookmarks.add("/b");
+
+        assert!(bookmarks.replace(Path::new("/w/arto/docs"), "/w/arto"));
+
+        assert_eq!(paths(&bookmarks), vec!["/a", "/w/arto", "/b"]);
+    }
+
+    #[test]
+    fn replacing_a_place_with_one_already_listed_only_removes_it() {
+        let mut bookmarks = Bookmarks::default();
+        bookmarks.add("/w/arto");
+        bookmarks.add("/w/arto/docs");
+
+        assert!(bookmarks.replace(Path::new("/w/arto/docs"), "/w/arto"));
+
+        assert_eq!(paths(&bookmarks), vec!["/w/arto"]);
+    }
+
+    #[test]
+    fn replacing_a_place_that_is_not_there_changes_nothing() {
+        let mut bookmarks = Bookmarks::default();
+        bookmarks.add("/a");
+
+        assert!(!bookmarks.replace(Path::new("/b"), "/c"));
+        assert_eq!(paths(&bookmarks), vec!["/a"]);
     }
 
     #[test]
@@ -318,72 +494,6 @@ mod tests {
         let result = bookmarks.toggle("/path/to/file.md");
         assert!(!result);
         assert!(!bookmarks.contains(Path::new("/path/to/file.md")));
-    }
-
-    #[test]
-    fn test_bookmarks_reorder_forward() {
-        // Drag from earlier to later position
-        let mut bookmarks = Bookmarks::default();
-        bookmarks.add("/a");
-        bookmarks.add("/b");
-        bookmarks.add("/c");
-        bookmarks.add("/d");
-        // [A, B, C, D] -> drag A(0) to C(2)'s drop zone -> [B, A, C, D]
-        assert!(bookmarks.reorder(0, 2));
-        assert_eq!(
-            bookmarks
-                .items
-                .iter()
-                .map(|b| b.path.to_str().unwrap())
-                .collect::<Vec<_>>(),
-            vec!["/b", "/a", "/c", "/d"]
-        );
-    }
-
-    #[test]
-    fn test_bookmarks_reorder_backward() {
-        // Drag from later to earlier position
-        let mut bookmarks = Bookmarks::default();
-        bookmarks.add("/a");
-        bookmarks.add("/b");
-        bookmarks.add("/c");
-        bookmarks.add("/d");
-        // [A, B, C, D] -> drag D(3) to B(1)'s drop zone -> [A, D, B, C]
-        assert!(bookmarks.reorder(3, 1));
-        assert_eq!(
-            bookmarks
-                .items
-                .iter()
-                .map(|b| b.path.to_str().unwrap())
-                .collect::<Vec<_>>(),
-            vec!["/a", "/d", "/b", "/c"]
-        );
-    }
-
-    #[test]
-    fn test_bookmarks_reorder_same_index() {
-        let mut bookmarks = Bookmarks::default();
-        bookmarks.add("/a");
-        bookmarks.add("/b");
-        // Same index should return true but not change order
-        assert!(bookmarks.reorder(1, 1));
-        assert_eq!(
-            bookmarks
-                .items
-                .iter()
-                .map(|b| b.path.to_str().unwrap())
-                .collect::<Vec<_>>(),
-            vec!["/a", "/b"]
-        );
-    }
-
-    #[test]
-    fn test_bookmarks_reorder_invalid_index() {
-        let mut bookmarks = Bookmarks::default();
-        bookmarks.add("/a");
-        // Invalid indices should return false
-        assert!(!bookmarks.reorder(0, 5));
-        assert!(!bookmarks.reorder(5, 0));
     }
 
     #[test]

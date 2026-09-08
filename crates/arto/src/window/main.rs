@@ -23,7 +23,6 @@ use super::icon;
 use super::index::build_custom_index;
 use super::metrics::capture_window_metrics;
 use super::settings;
-use super::titlebar;
 
 const MAX_POSITION_SHIFT_ATTEMPTS: usize = 20;
 
@@ -33,7 +32,7 @@ pub fn create_main_window_config(params: &CreateMainWindowConfigParams) -> Confi
     let initial_size = params.size;
 
     with_asset_protocol(Config::new())
-        .with_window(titlebar::apply_titlebar(icon::apply_app_icon(
+        .with_window(icon::apply_app_icon(
             WindowBuilder::new()
                 .with_title("Arto")
                 .with_position(params.position)
@@ -46,7 +45,7 @@ pub fn create_main_window_config(params: &CreateMainWindowConfigParams) -> Confi
                 // ready, and on macOS that show makes the window key. Keeping
                 // the app itself inactive is what holds the keyboard focus.
                 .with_focused(params.focused),
-        )))
+        ))
         // Dioxus/tao can lose the requested inner height on macOS during window
         // construction, so apply the same size once the native window exists.
         .with_on_window(move |window, _| {

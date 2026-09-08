@@ -1,13 +1,15 @@
 use chrono::Local;
 use dioxus::prelude::*;
 
+use crate::components::document_name::DocumentName;
 use crate::components::icon::{Icon, IconName};
+use crate::components::sidebar::row_actions::RowActions;
 use crate::state::AppState;
 use crate::visits::{Bucket, Visit, VISITS, VISITS_CHANGED};
 
 /// The whole reading history, newest first.
 ///
-/// The palette answers "back to the last one" and the library answers "what
+/// The palette answers "back to the last one" and the welcome page answers "what
 /// shall I read"; this is the one that answers "everything, while I keep
 /// looking at what I am reading" — which is why it is a face of the panel and
 /// not another screen.
@@ -41,27 +43,21 @@ pub fn RecentFace() -> Element {
         }
     });
 
-    // Read so a recorded visit redraws the list; the number says nothing.
+    // Read so a recorded visit redraws the list; the numbers say nothing.
     let _ = revision();
+    let _ = state.visits_revision.read();
     let needle = filter();
+    let current = state.current_file();
+    let now = Local::now();
     let visits = VISITS.read();
-    let groups = visits.grouped(Local::now());
+    let groups = visits.grouped(now);
 
     rsx! {
         div {
             class: "left-sidebar-face",
 
             div {
-                class: "left-sidebar-filter",
-                Icon { name: IconName::Search, size: 12 }
-                input {
-                    class: "left-sidebar-filter-input",
-                    r#type: "text",
-                    placeholder: "Filter",
-                    value: "{filter}",
-                    oninput: move |evt| filter.set(evt.value()),
-                }
-            }
+                class: "left-sidebar-face-list",
 
             if groups.is_empty() {
                 div { class: "left-sidebar-explorer-empty", "Nothing read yet" }
@@ -102,36 +98,56 @@ pub fn RecentFace() -> Element {
                                 for visit in matching {
                                     div {
                                         class: "left-sidebar-tree-node-content left-sidebar-recent-row",
-                                        title: "{visit.path.display()}",
+                                        // The document on screen is in this
+                                        // list like any other, and saying so
+                                        // is what makes the rest of the list
+                                        // read as "before this one".
+                                        class: if current.as_deref() == Some(visit.path.as_path()) { "active" },
                                         onclick: {
                                             let path = visit.path.clone();
                                             move |_| state.open_file(&path)
                                         },
-                                        Icon { name: IconName::File, size: 12 }
-                                        span { class: "left-sidebar-tree-label", "{visit.display_name()}" }
-                                        // Nothing is lost by forgetting a row —
-                                        // reading the document again brings it
-                                        // back — so the control is the quietest
-                                        // one there is: drawn only under the
-                                        // pointer, on the row it acts on.
-                                        button {
-                                            class: "left-sidebar-recent-forget",
-                                            title: "Forget",
-                                            "aria-label": "Forget {visit.display_name()}",
-                                            onclick: {
-                                                let path = visit.path.clone();
-                                                move |evt: Event<MouseData>| {
-                                                    evt.stop_propagation();
-                                                    crate::visits::forget_visit(&path);
-                                                }
-                                            },
-                                            Icon { name: IconName::Trash, size: 12 }
+                                        Icon {
+                                            name: IconName::File,
+                                            size: 16,
+                                            class: "left-sidebar-tree-icon",
+                                        }
+                                        span {
+                                            class: "left-sidebar-tree-label",
+                                            DocumentName { path: visit.path.clone() }
+                                        }
+                                        span {
+                                            class: "left-sidebar-row-when",
+                                            "{crate::visits::short_when(visit.at, now)}"
+                                        }
+                                        // What a row can do, drawn only while
+                                        // the pointer is on it and standing
+                                        // where the clock was: the row keeps
+                                        // its width, and at rest it is a name.
+                                        RowActions {
+                                            path: visit.path.clone(),
+                                            forgettable: true,
                                         }
                                     }
                                 }
                             }
                         }
                     }
+                }
+            }
+            }
+
+            // At the foot: the list is what the face is for, and a field
+            // above it would be the first thing between the reader and it.
+            div {
+                class: "left-sidebar-filter",
+                Icon { name: IconName::Search, size: 12 }
+                input {
+                    class: "left-sidebar-filter-input",
+                    r#type: "text",
+                    placeholder: "Filter",
+                    value: "{filter}",
+                    oninput: move |evt| filter.set(evt.value()),
                 }
             }
         }

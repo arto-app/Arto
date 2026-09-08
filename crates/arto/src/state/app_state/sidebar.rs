@@ -1,6 +1,6 @@
 use super::{AppState, FocusedPanel};
 use crate::bookmarks::BOOKMARKS;
-use crate::roots::{canonical_key, Origin, Roots};
+use crate::roots::{Origin, Roots};
 use dioxus::prelude::*;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -161,19 +161,6 @@ impl AppState {
         self.show_panel();
     }
 
-    /// The rail's own gesture: show this face, or put the panel away when it
-    /// is already the one showing.
-    ///
-    /// The same glyph that brought the panel out puts it back, so nothing
-    /// else has to be found.
-    pub fn toggle_face(&mut self, face: Face) {
-        if self.panel_is_showing() && self.sidebar.read().face == face {
-            self.hide_panel();
-        } else {
-            self.show_face(face);
-        }
-    }
-
     /// Take in the current bookmarked directories as the tree's places.
     ///
     /// Bookmarking a folder and giving the tree somewhere to start are the same
@@ -194,10 +181,10 @@ impl AppState {
     /// front — through [`Self::show_face`], which is what keeps the keyboard
     /// cursor and the face in step.
     pub fn add_root(&mut self, path: impl AsRef<Path>) {
-        let key = canonical_key(path.as_ref());
+        let path = path.as_ref();
         {
             let mut sidebar = self.sidebar.write();
-            let decision = sidebar.roots.decide(&key, Origin::Explicit);
+            let decision = sidebar.roots.decide(path, Origin::Explicit);
             sidebar.roots.apply(&decision);
         }
         self.show_face(Face::Files);
@@ -208,15 +195,16 @@ impl AppState {
     /// Implicit: a root that already covers it is expanded down to it, and
     /// only a document outside every root brings a new one in.
     pub fn reveal_in_roots(&mut self, file: &Path) {
-        let key = canonical_key(file);
         let mut sidebar = self.sidebar.write();
-        let decision = sidebar.roots.decide(&key, Origin::Implicit);
+        let decision = sidebar.roots.decide(file, Origin::Implicit);
         sidebar.roots.apply(&decision);
         let root = match &decision {
             crate::roots::Decision::Reveal { root } => root.clone(),
             crate::roots::Decision::Push { root, .. } => root.clone(),
         };
-        sidebar.expand_towards(&root, &key);
+        // Both sides spelled the way the tree spells them: expanding walks the
+        // document's own path up to the root, and a key would not match it.
+        sidebar.expand_towards(&root, file);
     }
 
     /// Drop one temporary root. Places leave by being unbookmarked instead.
