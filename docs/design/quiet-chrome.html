@@ -189,11 +189,6 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .panel { width: 226px; flex: none; background: var(--m-chrome); display: flex; flex-direction: column; }
 .panel.peek { position: absolute; left: 0; top: 0; bottom: 0; z-index: 5; }
 .panel.peek::after { content: ""; position: absolute; left: 100%; top: 0; bottom: 0; width: 26px; background: linear-gradient(to right, rgba(1, 4, 9, .15), rgba(1, 4, 9, 0)); pointer-events: none; }
-.pane-top { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
-.pane-bottom { flex: none; height: 158px; display: flex; flex-direction: column; }
-.pane-div { height: 5px; flex: none; border-top: 1px solid var(--m-line); position: relative; }
-.pane-div::after { content: ""; position: absolute; left: 50%; top: 1px; transform: translateX(-50%); width: 22px; height: 2px; border-radius: 1px; background: var(--m-line); opacity: 0; transition: opacity .18s; }
-.qzone:hover .pane-div::after { opacity: 1; }
 
 /* State schematics --------------------------------------------------- */
 .states { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 30px; }
@@ -234,6 +229,14 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .row.ind2 { padding-left: 36px; }
 .row.quiet { color: var(--m-faint); }
 .row:hover { background: var(--m-sel); }
+/* Pattern B — history dropped from the breadcrumb */
+.dropdown { position: absolute; left: 40px; top: 0; width: 244px; background: var(--m-bg); border-radius: 0 0 9px 9px; box-shadow: 0 14px 34px -16px rgba(1, 4, 9, .45); padding-bottom: 4px; z-index: 5; }
+/* Pattern D — a trace of recent documents in the document's own margin */
+.trace { width: 138px; flex: none; padding: 30px 12px 0 0; display: flex; flex-direction: column; gap: 7px; align-items: flex-end; text-align: right; }
+.trace-label { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-faint); opacity: .5; margin-bottom: 2px; }
+.trace-item { font-size: 10.5px; color: var(--m-text); opacity: .3; transition: opacity .18s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.qzone:hover .trace-item, .force-hover .trace-item { opacity: .72; }
+.trace-item:hover { opacity: 1; }
 .row-div { display: flex; align-items: center; gap: 8px; margin: 5px 12px 4px; font-family: var(--mono); font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-faint); }
 .row-div::after { content: ""; flex: 1; height: 1px; background: var(--m-line); }
 .row .pinmark { color: var(--m-faint); flex: none; }
@@ -352,11 +355,11 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
     <p class="lede">
       A を土台に B の <kbd>⌘K</kbd> を載せ、C のライブラリを起動画面と新規タブに据える ―― その前提で、
       レールは<strong>残します</strong>。見えている取っ手だからホバーで開いても誤爆しない、という指摘のとおりです。
-      強さだけを落とし、パネルは上下2段にして<strong>ファイラーと開いているファイルを同時に</strong>出します。
+      そして「開いている」という状態そのものを持たず、<strong>履歴に集約</strong>します ―― その出し方を4パターン並べました。
     </p>
     <div class="meta">
       <span>構成 — A + B + C（起動画面）</span>
-      <span>改訂 — レールを残す / パネル2段 / 開閉の規定</span>
+      <span>改訂 — Open を廃し履歴へ / 出し方 4 パターン</span>
       <span>追加が必要なアイコン — 2 個</span>
     </div>
   </header>
@@ -371,7 +374,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <div class="decision">
         <span class="src">案 A より</span>
         <b>常設は左1枚</b>
-        <p>複数ルートのツリー、開いている文書、履歴、お気に入りを1本のスクロールに積みます。タブバーと右サイドバーは廃止。</p>
+        <p>複数ルートのツリーとお気に入り。レールで切り替える1面だけです。タブバーと右サイドバーは廃止。</p>
       </div>
       <div class="decision">
         <span class="src">案 B より</span>
@@ -444,14 +447,11 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
     </div>
 
     <div class="col" style="margin-top:26px">
-      <h3>レールは3つに減ります</h3>
+      <h3>レールは2つに減ります</h3>
       <p>
-        <span class="mono">Files</span> / <span class="mono">Recent</span> / <span class="mono">Starred</span> の3つ。
-        <strong>Open（開いているファイル）はレールに入りません</strong> ―― 常に見えている必要があるので、
-        切り替えの対象ではなく、パネルの下段に据えます。次のとおりです。
-      </p>
-      <p>
-        レールの一番下には設定の歯車。<kbd>⌘1</kbd>–<kbd>⌘3</kbd> で上段を切り替え、<kbd>⌘0</kbd> で下段の Open に飛びます。
+        <span class="mono">Files</span> と <span class="mono">Starred</span>、それに一番下の設定。
+        <strong>履歴はレールに入りません</strong> ―― 次の2節のとおり、置き場所が別にあるからです。
+        <kbd>⌘1</kbd> / <kbd>⌘2</kbd> で切り替えます。
       </p>
       <p>
         地の扱いは<strong>パネルが出ているかどうかだけ</strong>で決まります ―― 出ていればパネルと同じ地をまとって1枚に見え、
@@ -462,214 +462,254 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
 
   <!-- ============================================================= -->
   <section class="sec">
-    <p class="sec-label">パネルの中身</p>
+    <p class="sec-label">決定</p>
     <div class="col">
-      <h2>ファイラーと、開いているファイルは同時に見える</h2>
-      <p>
-        パネルは上下2段です。<strong>上段</strong>はレールで切り替わる面（ツリー・履歴・お気に入り）、
-        <strong>下段</strong>は開いている文書の一覧で、これは切り替わりません ―― かつてのタブバーが、縦になってここに来ます。
-      </p>
-      <p>
-        境界はドラッグで動かせます。上段を潰せば下段だけの「タブ一覧」に、下段を潰せば全部ツリー。
-        高さは <code>config.json</code> に保存され、幅と同じ扱いになります。
-      </p>
-    </div>
-
-    <div class="mock-band">
-      <div class="mock-scroll">
-        <div class="mock" style="min-width:760px">
-          <div class="mock-tb">
-            <div class="lights"><i></i><i></i><i></i></div>
-            <div class="tb-title">README.md — arto</div>
-          </div>
-          <div class="mock-body" style="min-height:360px">
-            <div class="rail open qzone">
-              <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
-              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
-              <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
-              <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
-            </div>
-            <div class="panel qzone">
-              <div class="pane-top">
-                <div class="sect open">Workspace <span class="count">3</span></div>
-                <div class="rows">
-                  <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
-                  <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>crates</span></div>
-                  <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>docs</span></div>
-                  <div class="row ind sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
-                  <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>CONTRIBUTING.md</span></div>
-                  <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
-                  <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>daily.md</span></div>
-                  <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>~/Documents/spec</span></div>
-                  <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
-                </div>
-              </div>
-              <div class="pane-div"></div>
-              <div class="pane-bottom">
-                <div class="sect open">Open <span class="count">12</span></div>
-                <div class="rows">
-                  <div class="row sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span><span class="sub">arto</span></div>
-                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>installation.md</span><span class="sub">docs</span></div>
-                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>cli.md</span><span class="sub">docs</span></div>
-                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>keybindings.md</span><span class="sub">docs</span></div>
-                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>ui-design.md</span><span class="sub">rules</span></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="stage" style="flex-direction:column">
-              <div class="hdr qzone">
-                <span class="q"><svg class="i md"><use href="#ic-left"/></svg></span>
-                <span class="crumb">arto <span style="color:var(--m-line)">/</span> <b>README.md</b> <span class="hint">⌘K</span></span>
-                <span class="spacer"></span>
-                <span class="q"><svg class="i md"><use href="#ic-search"/></svg></span>
-                <span class="q"><svg class="i md"><use href="#ic-narrow"/></svg></span>
-                <span class="q"><svg class="i md"><use href="#ic-sunmoon"/></svg></span>
-              </div>
-              <div style="display:flex;flex:1">
-                <div class="doc">
-                  <div class="doc-narrow">
-                    <h1>Arto</h1>
-                    <p>Arto — the Art of Reading Markdown. A desktop app that renders Markdown the way GitHub does, locally and offline.</p>
-                    <h2>Why</h2>
-                    <p>Most Markdown tools are built for writing. Arto is built for reading: the name is short for “Art of Reading”.</p>
-                    <div class="code">$ arto page README.md</div>
-                  </div>
-                </div>
-                <div class="gutter">
-                  <span class="tick h1 cur"></span>
-                  <span class="tick h2"></span>
-                  <span class="tick h3"></span>
-                  <span class="tick h2 hit"></span>
-                  <span class="tick h3"></span>
-                  <span class="tick h2"></span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <p class="caption">
-        <b>上段にツリー、下段に開いている12本。</b>レールにポインタを乗せると3つのグリフが起き、
-        段の境界にはドラッグ用の摘みが現れます。下段の行はドラッグでウィンドウ間に移せます ―― タブでやっていた操作の行き先です。
-        読んでいる間に見えているグリフは、レールの4つとヘッダー右の3つ、合計7つ。選ばれている1つだけ 65%、残りは 30% で、
-        面も枠も色も持ちません ―― レールにあるのは、グリフの左に添えた無彩色 2px だけです。
-      </p>
-    </div>
-  </section>
-
-  <!-- ============================================================= -->
-  <section class="sec">
-    <p class="sec-label">再考</p>
-    <div class="col">
-      <h2>「開いている」は、そもそも必要な状態でしょうか</h2>
-      <p>
-        タブを止めることには賛成をいただきました。ただ、下段に <span class="mono">Open</span> を据えるのは
-        <strong>タブの器を縦に置き換えただけ</strong>で、概念はそのまま残っています。ここを疑ってみます。
-      </p>
+      <h2>「開いている」という状態を、持ちません</h2>
       <p>
         Arto は読むためのアプリで、<strong>未保存の状態がありません</strong>。エディタで「開いている」が意味を持つのは、
         閉じると失うものがあるからです。失うものが無い場所では、「開いている」と「最近見た」の差は
-        ―― 意図して残したかどうか、それだけになります。
+        ―― 意図して残したかどうか、それだけになります。そしてその「意図して残す」は、既にお気に入りが担っています。
+      </p>
+      <p>
+        つまり <span class="mono">Open</span> は、タブという器があったから必要に見えていた状態でした。
+        器を外せば、残るのは<strong>履歴（Recent）とお気に入り（Starred）の2つ</strong>だけです。
       </p>
     </div>
 
     <div class="tbl-scroll">
       <table>
         <thead>
-          <tr>
-            <th scope="col">案</th>
-            <th scope="col">持つ状態</th>
-            <th scope="col">「閉じる」は</th>
-            <th scope="col">12本問題</th>
-            <th scope="col">同時に見える</th>
-          </tr>
+          <tr><th scope="col">検討した案</th><th scope="col">持つ状態</th><th scope="col">「閉じる」は</th><th scope="col">判断</th></tr>
         </thead>
         <tbody>
-          <tr>
-            <th scope="row">α — 下段に Open（現案）</th>
-            <td>開いている集合 ＋ 履歴</td><td class="num">明示的に閉じる</td>
-            <td>縦なので破綻はしない。ただし溜まる</td><td class="num">○</td>
-          </tr>
-          <tr>
-            <th scope="row">β — Open を廃し Recent だけ</th>
-            <td>履歴のみ</td><td class="num">存在しない</td>
-            <td class="num">原理的に起きない</td><td class="num">○</td>
-          </tr>
-          <tr>
-            <th scope="row">γ — 1本のリスト。上が留めたもの、下が履歴</th>
-            <td>履歴 ＋ その中の留め</td><td class="num">留めを外す</td>
-            <td class="num">原理的に起きない</td><td class="num">○</td>
-          </tr>
-          <tr>
-            <th scope="row">δ — 軌跡だけ（ヘッダーのパンくず）</th>
-            <td>いま辿ってきた道</td><td class="num">存在しない</td>
-            <td class="num">起きない</td><td class="num">×（一覧にならない）</td>
-          </tr>
-          <tr>
-            <th scope="row">ε — ⌘K の中だけ</th>
-            <td>履歴のみ</td><td class="num">存在しない</td>
-            <td class="num">起きない</td><td class="num">×（常設しない）</td>
-          </tr>
+          <tr><th scope="row">パネルに Open の一覧を常設</th><td>開いている集合 ＋ 履歴</td><td class="num">明示的に閉じる</td><td class="num">見送り ―― タブの器を縦にしただけ</td></tr>
+          <tr><th scope="row">履歴の中に「留め」を持つ</th><td>履歴 ＋ その中の留め</td><td class="num">留めを外す</td><td class="num">見送り ―― お気に入りと役割が重なる</td></tr>
+          <tr><th scope="row"><strong>履歴だけを持つ</strong></th><td><strong>履歴のみ</strong></td><td class="num"><strong>存在しない</strong></td><td class="num"><strong>採用</strong></td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="col" style="margin-top:26px">
       <p>
-        δ と ε は「ファイラーと開いているファイルを同時に見たい」に反するので、今回は落ちます。
-        残る α・β・γ の差は、<strong>作業セットを自分で決められるか</strong>の一点です。
-        β は決められません ―― 5本を行き来していても、6本目を開けば順番が変わります。
-        α は決められますが、そのために「開く／閉じる」という管理を利用者に課します。
+        「閉じる」という操作が消えます。12本溜まるという状態も、原理的に起きません ――
+        履歴は勝手に流れるもので、管理する対象ではないからです。
+        ウィンドウを閉じたときに何を復元するかは、<strong>履歴の先頭から N 件</strong>という規則で決まります。
       </p>
-      <h3>γ を推します</h3>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <section class="sec">
+    <p class="sec-label">出し方</p>
+    <div class="col">
+      <h2>履歴を、どこに出すか</h2>
       <p>
-        リストは<strong>1本だけ</strong>。上に留めたもの、下に通ってきた履歴。留めるのは能動的な操作ですが、
-        しなくても履歴として全部そこにあります ―― <strong>何もしなければ勝手に流れ、必要なら留める</strong>。
-        タブの「開いたら閉じるまで責任を持つ」という関係が消えます。
+        出し場所は4つあり得ます。全部に出す必要はありません ――
+        履歴が答える問いは<strong>3つに分かれていて</strong>、それぞれ向く場所が違うからです。
+      </p>
+      <p>
+        <strong>直前の1本に戻る</strong>（いちばん頻度が高い）／<strong>直近の数本から選ぶ</strong>／
+        <strong>昨日や先週のものを遡る</strong>。以下の4パターンを、この3つに対して並べます。
       </p>
     </div>
 
+    <!-- パターン A -->
     <div class="mock-band">
+      <h3 style="margin-top:34px">パターン A — パネルの1面にする</h3>
+      <p class="caption" style="margin:0 0 14px">
+        レールの <span class="mono">Recent</span> を押すと、パネルがまるごと履歴になります。日付でまとまり、下へ辿れば先週まで。
+        ツリーと同時には見えませんが、切り替えは1クリックです。
+      </p>
       <div class="mock-scroll">
         <div class="mock" style="min-width:700px">
           <div class="mock-tb">
             <div class="lights"><i></i><i></i><i></i></div>
             <div class="tb-title">README.md — arto</div>
           </div>
-          <div class="mock-body" style="min-height:390px">
+          <div class="mock-body" style="min-height:300px">
+            <div class="rail open qzone">
+              <span class="q" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q on" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
+              <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
+              <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
+            </div>
+            <div class="panel qzone" style="width:230px">
+              <div class="sect open">Recent</div>
+              <div class="rows">
+                <div class="row-div">今日</div>
+                <div class="row sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span><span class="sub">15:31</span></div>
+                <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>keybindings.md</span><span class="sub">15:20</span></div>
+                <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>ui-design.md</span><span class="sub">14:52</span></div>
+                <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>cli.md</span><span class="sub">11:07</span></div>
+                <div class="row-div">昨日</div>
+                <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>installation.md</span><span class="sub">19:44</span></div>
+                <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>CONTRIBUTING.md</span><span class="sub">18:02</span></div>
+                <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>ipc.md</span><span class="sub">17:31</span></div>
+                <div class="row-div">先週</div>
+                <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>windows.md</span><span class="sub">金</span></div>
+              </div>
+            </div>
+            <div class="stage" style="flex-direction:column">
+              <div class="hdr qzone">
+                <span class="q"><svg class="i md"><use href="#ic-left"/></svg></span>
+                <span class="crumb">arto <span style="color:var(--m-line)">/</span> <b>README.md</b> <span class="hint">⌘K</span></span>
+                <span class="spacer"></span>
+                <span class="q"><svg class="i md"><use href="#ic-search"/></svg></span>
+                <span class="q"><svg class="i md"><use href="#ic-narrow"/></svg></span>
+                <span class="q"><svg class="i md"><use href="#ic-sunmoon"/></svg></span>
+              </div>
+              <div class="doc">
+                <div class="doc-narrow">
+                  <h1>Arto</h1>
+                  <p>Arto — the Art of Reading Markdown. A desktop app that renders Markdown the way GitHub does, locally and offline.</p>
+                  <h2>Why</h2>
+                  <p>Most Markdown tools are built for writing. Arto is built for reading.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- パターン B -->
+    <div class="mock-band" style="margin-top:44px">
+      <h3>パターン B — 現在のファイル名から垂らす</h3>
+      <p class="caption" style="margin:0 0 14px">
+        ヘッダーのファイル名をクリックすると、その真下に履歴が垂れます。「いま読んでいるもの」の隣に
+        「さっき読んでいたもの」が出るので、意味の並びが素直です。常設のインクは文字だけで、レールに項目は増えません。
+      </p>
+      <div class="mock-scroll">
+        <div class="mock" style="min-width:700px">
+          <div class="mock-tb">
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="tb-title">README.md — arto</div>
+          </div>
+          <div class="mock-body" style="min-height:300px">
             <div class="rail open qzone">
               <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
               <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
-            <div class="panel qzone" style="width:236px">
-              <div class="pane-top">
-                <div class="sect open">Workspace <span class="count">3</span></div>
-                <div class="rows">
-                  <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
-                  <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>crates</span></div>
-                  <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>docs</span></div>
-                  <div class="row ind sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
-                  <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
-                  <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
-                </div>
+            <div class="panel qzone" style="width:190px">
+              <div class="sect open">Workspace <span class="count">3</span></div>
+              <div class="rows">
+                <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
+                <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>docs</span></div>
+                <div class="row ind sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
+                <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
+                <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
               </div>
-              <div class="pane-div"></div>
-              <div class="pane-bottom" style="height:176px">
-                <div class="sect open">Documents <span class="count">2 pinned</span></div>
-                <div class="rows">
-                  <div class="row sel"><svg class="i sm pinmark"><use href="#ic-pin"/></svg><span>README.md</span><span class="sub">arto</span></div>
-                  <div class="row"><svg class="i sm pinmark"><use href="#ic-pin"/></svg><span>keybindings.md</span><span class="sub">docs</span></div>
-                  <div class="row-div">recent</div>
-                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>cli.md</span><span class="sub">14:52</span></div>
-                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>ui-design.md</span><span class="sub">14:20</span></div>
-                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>installation.md</span><span class="sub">昨日</span></div>
-                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>ipc.md</span><span class="sub">昨日</span></div>
+            </div>
+            <div class="stage" style="flex-direction:column">
+              <div class="hdr force-hover" style="position:relative;z-index:6">
+                <span class="q"><svg class="i md"><use href="#ic-left"/></svg></span>
+                <span class="crumb" style="background:var(--m-sel)">arto <span style="color:var(--m-line)">/</span> <b>README.md</b> <svg class="i xs" style="opacity:.5"><use href="#ic-down"/></svg></span>
+                <span class="spacer"></span>
+                <span class="q"><svg class="i md"><use href="#ic-search"/></svg></span>
+                <span class="q"><svg class="i md"><use href="#ic-narrow"/></svg></span>
+                <span class="q"><svg class="i md"><use href="#ic-sunmoon"/></svg></span>
+              </div>
+              <div class="stage">
+                <div class="doc">
+                  <div class="doc-narrow">
+                    <h1>Arto</h1>
+                    <p>Arto — the Art of Reading Markdown. A desktop app that renders Markdown the way GitHub does, locally and offline.</p>
+                    <h2>Why</h2>
+                    <p>Most Markdown tools are built for writing. Arto is built for reading.</p>
+                  </div>
+                </div>
+                <div class="dropdown">
+                  <div class="row-div" style="margin-top:8px">今日</div>
+                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>keybindings.md</span><span class="sub">15:20</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>ui-design.md</span><span class="sub">14:52</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>cli.md</span><span class="sub">11:07</span></div>
+                  <div class="row-div">昨日</div>
+                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>installation.md</span><span class="sub">19:44</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>ipc.md</span><span class="sub">17:31</span></div>
+                  <div class="row quiet" style="margin-bottom:6px"><svg class="i sm"><use href="#ic-clock"/></svg><span>すべての履歴…</span></div>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
+    <!-- パターン C -->
+    <div class="mock-band" style="margin-top:44px">
+      <h3>パターン C — ⌘K の既定表示にする</h3>
+      <p class="caption" style="margin:0 0 14px">
+        常設しません。<kbd>⌘K</kbd> を押した瞬間、何も打っていない状態で履歴が新しい順に並び、
+        カーソルは<strong>最初から2番目（＝直前に読んでいたもの）</strong>に乗っています。開いて <kbd>⏎</kbd> だけで戻れます。
+      </p>
+      <div class="mock-scroll">
+        <div class="mock" style="min-width:700px">
+          <div class="mock-tb">
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="tb-title">README.md — arto</div>
+          </div>
+          <div class="mock-body" style="min-height:300px">
+            <div class="rail open qzone">
+              <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
+              <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
+            </div>
+            <div class="panel qzone" style="width:190px">
+              <div class="sect open">Workspace <span class="count">3</span></div>
+              <div class="rows">
+                <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
+                <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>docs</span></div>
+                <div class="row ind sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
+                <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
+              </div>
+            </div>
+            <div class="stage">
+              <div class="doc">
+                <div class="doc-narrow">
+                  <h1>Arto</h1>
+                  <p>Arto — the Art of Reading Markdown. A desktop app that renders Markdown the way GitHub does, locally and offline.</p>
+                </div>
+              </div>
+              <div class="dim"></div>
+              <div class="palette" style="width:420px">
+                <div class="qy">
+                  <svg class="i md" style="color:var(--m-faint)"><use href="#ic-search"/></svg>
+                  <span style="color:var(--m-faint)">ファイル名、またはコマンド</span><span class="cursor"></span>
+                </div>
+                <div class="pgroup">最近</div>
+                <div class="prow"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span><span class="path">いま読んでいる</span></div>
+                <div class="prow sel"><svg class="i sm"><use href="#ic-file"/></svg><span>keybindings.md</span><span class="path">15:20</span></div>
+                <div class="prow"><svg class="i sm"><use href="#ic-file"/></svg><span>ui-design.md</span><span class="path">14:52</span></div>
+                <div class="prow"><svg class="i sm"><use href="#ic-file"/></svg><span>cli.md</span><span class="path">11:07</span></div>
+                <div class="prow"><svg class="i sm"><use href="#ic-file"/></svg><span>installation.md</span><span class="path">昨日</span></div>
+                <div class="foot"><span>⏎ 直前に戻る</span><span>↑↓ 選択</span><span>打てば全体を検索</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- パターン D -->
+    <div class="mock-band" style="margin-top:44px">
+      <h3>パターン D — 本文の余白に痕跡として残す</h3>
+      <p class="caption" style="margin:0 0 14px">
+        パネルを持たず、直近の数本を本文左の余白に 30% で縦に置きます。読んでいる間は文字の影のようにそこにあり、
+        近づくと濃くなる。パネルを畳んでいるときの「戻る先」が、目に入り続ける形です。
+      </p>
+      <div class="mock-scroll">
+        <div class="mock" style="min-width:700px">
+          <div class="mock-tb">
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="tb-title">README.md — arto</div>
+          </div>
+          <div class="mock-body" style="min-height:300px">
+            <div class="rail qzone">
+              <span class="q" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
+              <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
+            </div>
             <div class="stage" style="flex-direction:column">
               <div class="hdr qzone">
                 <span class="q"><svg class="i md"><use href="#ic-left"/></svg></span>
@@ -680,7 +720,14 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
                 <span class="q"><svg class="i md"><use href="#ic-sunmoon"/></svg></span>
               </div>
               <div style="display:flex;flex:1">
-                <div class="doc">
+                <div class="trace qzone">
+                  <span class="trace-label">最近</span>
+                  <span class="trace-item">keybindings.md</span>
+                  <span class="trace-item">ui-design.md</span>
+                  <span class="trace-item">cli.md</span>
+                  <span class="trace-item">installation.md</span>
+                </div>
+                <div class="doc" style="padding-left:8px">
                   <div class="doc-narrow">
                     <h1>Arto</h1>
                     <p>Arto — the Art of Reading Markdown. A desktop app that renders Markdown the way GitHub does, locally and offline.</p>
@@ -688,33 +735,56 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
                     <p>Most Markdown tools are built for writing. Arto is built for reading: the name is short for “Art of Reading”.</p>
                   </div>
                 </div>
-                <div class="gutter">
-                  <span class="tick h1 cur"></span>
-                  <span class="tick h2"></span>
-                  <span class="tick h3"></span>
-                  <span class="tick h2 hit"></span>
-                  <span class="tick h2"></span>
-                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <p class="caption">
-        <b>γ の下段。</b>留めた2本が上、その下は通ってきた順の履歴です。区切りの細線は<strong>同じ面が接する場所</strong>なので、
-        原則 07 のとおり線が正しい手段になります。留める／外すは行のホバーで出る印から。
-        <span class="mono">Recent</span> がここに入るので、レールは <span class="mono">Files</span> と <span class="mono">Starred</span> の2つに減ります。
-      </p>
+    </div>
+
+    <div class="col" style="margin-top:44px">
+      <h3>何に効くか</h3>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">パターン</th>
+            <th scope="col">直前に戻る</th>
+            <th scope="col">数本から選ぶ</th>
+            <th scope="col">日付で遡る</th>
+            <th scope="col">常設のインク</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">A — パネルの1面</th><td class="num">△ 切り替えが要る</td><td class="num">◎</td><td class="num">◎</td><td class="num">レールに1項目</td></tr>
+          <tr><th scope="row">B — ファイル名から垂らす</th><td class="num">○ 2動作</td><td class="num">◎</td><td class="num">△ 途中まで</td><td class="num">なし（文字のみ）</td></tr>
+          <tr><th scope="row">C — ⌘K の既定</th><td class="num">◎ ⌘K → ⏎</td><td class="num">◎</td><td class="num">△ 打って絞る</td><td class="num">なし</td></tr>
+          <tr><th scope="row">D — 余白の痕跡</th><td class="num">◎ 常に見えている</td><td class="num">○ 数本だけ</td><td class="num">×</td><td class="num">文字 4〜6行</td></tr>
+          <tr><th scope="row">ライブラリ（決定済み）</th><td class="num">—</td><td class="num">◎</td><td class="num">◎</td><td class="num">なし（起動時のみ）</td></tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="col" style="margin-top:30px">
-      <h3>この案が抱えるもの</h3>
-      <ul class="list">
-        <li><span class="tag move">1</span><strong>「留める」と「お気に入り」が似ています。</strong><span class="why">留める＝いまの作業セット（そのワークスペース限り）、お気に入り＝恒久的な置き場（ライブラリに出る）。役割は違いますが、利用者から見て2つ覚える価値があるかは要検討です。統合するなら、お気に入りを消して「留めたものは残り続ける」に寄せる手もあります。</span></li>
-        <li><span class="tag move">2</span><strong>履歴の寿命を決める必要があります。</strong><span class="why">直近 50 件か、7日間か。溜まり続けると下段のスクロールが長くなります。留めたものは対象外です。</span></li>
-        <li><span class="tag keep">3</span><strong>ウィンドウ間のドラッグは残ります。</strong><span class="why">行をドラッグして別ウィンドウへ、はどの案でも同じです。移した先では履歴の先頭に入ります。</span></li>
-        <li><span class="tag move">4</span><strong>β のほうが正しい可能性もあります。</strong><span class="why">留める操作を実際にはほとんど使わないなら、γ は使われない機能を1つ抱えることになります。まず β（履歴だけ）で出して、留めたくなるかを見る、という順序もあり得ます。</span></li>
-      </ul>
+      <h3>推奨は C ＋ ライブラリ、必要なら B</h3>
+      <p>
+        <strong>C は無条件で入れるべき</strong>です。<kbd>⌘K</kbd> は他の理由でも作るので追加費用がほぼ無く、
+        「直前に戻る」を最短の2打鍵にできます。日付で遡るのはライブラリが引き受けます ―― こちらも既に決まっています。
+      </p>
+      <p>
+        すると <strong>A は要らなくなります</strong>。パネルに履歴の面を足しても、C とライブラリが両方から挟んでいて、
+        レールの項目が1つ増えるだけになるからです。レールは <span class="mono">Files</span> と <span class="mono">Starred</span> の2つになります。
+      </p>
+      <p>
+        B は「マウスだけで完結させたい」を満たすための保険です。<kbd>⌘K</kbd> を覚えない使い方でも、
+        ヘッダーのファイル名を押せば同じリストに届きます。追加のインクがゼロなので、入れて損はありません。
+      </p>
+      <p>
+        D は魅力的ですが、読んでいる面の中に常に文字を置くことになります ――
+        「読むのに集中したい」という出発点と逆を向くので、私は採りません。ただ<strong>畳んでいるときだけ出す</strong>なら、
+        パネルを持たない人にとっては良い落としどころかもしれません。
+      </p>
     </div>
   </section>
 
@@ -837,18 +907,19 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <p>面が違えば線は要りません。余白が足りていれば、面すら要りません。<strong>1つの境界に1つの手段</strong>で、線が残るのは他のどれも使えないところだけです。</p>
         </div>
         <div class="demo">
-          <div class="demo-box" style="padding:0;display:flex;overflow:hidden;height:96px;background:var(--m-chrome)">
+          <div class="demo-box" style="padding:0;display:flex;overflow:hidden;background:var(--m-chrome)">
             <div class="rail open" style="padding:6px 0">
-              <span class="q on"><svg class="i md"><use href="#ic-folder"/></svg></span>
-              <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
+              <span class="q on"><svg class="i md"><use href="#ic-clock"/></svg></span>
+              <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
             </div>
-            <div style="flex:1;background:var(--m-chrome);display:flex;flex-direction:column">
-              <div style="flex:1;padding:8px 0"><div class="row"><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div></div>
-              <div class="pane-div"></div>
-              <div style="height:34px;padding:8px 0"><div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div></div>
+            <div style="flex:1;padding:8px 0 10px;min-width:0">
+              <div class="row-div" style="margin-top:0">今日</div>
+              <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
+              <div class="row-div">昨日</div>
+              <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>cli.md</span></div>
             </div>
           </div>
-          <p class="demo-cap">線は上下段の間だけ ―― 同じ面が接する唯一の場所</p>
+          <p class="demo-cap">残るのは日付の区切りだけ ―― 同じ面が接する唯一の場所</p>
         </div>
       </div>
     </div>
@@ -857,6 +928,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <h3>どの境界を、何で示すか</h3>
       <p>
         線・面・余白・影のうち<strong>どれか1つ</strong>を割り当てます。重ねると、境界そのものが主張しはじめます。
+        結果として、<strong>常に引かれている線はクロームに1本もありません</strong> ――
+        残るのは履歴の日付の区切りと、本文がスクロールしている間のヘッダーの下だけです。
       </p>
     </div>
 
@@ -870,7 +943,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">レール ↔ パネル</th><td class="num">線</td><td class="num">なし</td><td>パネルが出ている間は同じ面 ―― 継ぎ目は見えなくて正しい。覗きの影も右側にしか落としません</td></tr>
           <tr><th scope="row">畳んだレール ↔ 本文</th><td class="num">線</td><td class="num">なし</td><td>本文の余白の中に印が並ぶだけ。ぶつかるものがない</td></tr>
           <tr><th scope="row">ヘッダー ↔ 本文</th><td class="num">線（常時）</td><td class="num">余白 ／ スクロール中だけ線</td><td>下を何かが通るときにだけ、線に仕事がある</td></tr>
-          <tr><th scope="row">上段 ↔ 下段</th><td class="num">線</td><td class="num"><strong>線</strong>（残す）</td><td>同じ面が接する唯一の場所。ここだけは線でしか区別できない</td></tr>
+          <tr><th scope="row">履歴の日付グループ</th><td class="num">—</td><td class="num"><strong>線</strong>（残す）</td><td>同じ面が接する唯一の場所。ここだけは線でしか区別できない</td></tr>
           <tr><th scope="row">覗いているパネル ↔ 本文</th><td class="num">—</td><td class="num">影</td><td>本当に上に浮いている。影はその事実の表示</td></tr>
           <tr><th scope="row">ライブラリのカード</th><td class="num">枠</td><td class="num">面</td><td>16枚の枠は 16 個の矩形。面なら塊として読める</td></tr>
           <tr><th scope="row">⌘K のパレット</th><td class="num">枠 ＋ 影</td><td class="num">影のみ</td><td>浮いているものに枠は要らない</td></tr>
@@ -971,7 +1044,6 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <div class="mock-body" style="min-height:320px">
             <div class="rail open force-hover">
               <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
-              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
               <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
@@ -982,25 +1054,17 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
                 <p style="max-width:none">The document does not reflow while the panel is peeking — it is drawn on top, and the line you were reading stays where it was.</p>
               </div>
               <div class="panel peek">
-                <div class="pane-top">
-                  <div class="sect open">Workspace <span class="count">3</span></div>
-                  <div class="rows">
-                    <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
-                    <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>crates</span></div>
-                    <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>docs</span></div>
-                    <div class="row ind sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
-                    <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
-                    <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
-                  </div>
-                </div>
-                <div class="pane-div"></div>
-                <div class="pane-bottom" style="height:120px">
-                  <div class="sect open">Open <span class="count">12</span></div>
-                  <div class="rows">
-                    <div class="row sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span><span class="sub">arto</span></div>
-                    <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>installation.md</span><span class="sub">docs</span></div>
-                    <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>cli.md</span><span class="sub">docs</span></div>
-                  </div>
+                <div class="sect open">Workspace <span class="count">3</span></div>
+                <div class="rows">
+                  <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
+                  <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>crates</span></div>
+                  <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>docs</span></div>
+                  <div class="row ind sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
+                  <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>CONTRIBUTING.md</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
+                  <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>daily.md</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>~/Documents/spec</span></div>
+                  <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
                 </div>
               </div>
             </div>
@@ -1024,7 +1088,6 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <div class="mock-body" style="min-height:210px">
             <div class="rail">
               <span class="q" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
-              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
               <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
@@ -1077,9 +1140,10 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           </tr>
         </thead>
         <tbody>
-          <tr><th scope="row">上段の切替（Files / Recent / Starred）</th><td>レールの3グリフ</td><td class="num">30% ／ 選択中は 65% ＋ 無彩色 2px</td><td><span class="k">⌘1–⌘3</span></td></tr>
-          <tr><th scope="row">開いている文書の一覧</th><td>パネル下段（切り替わらない常設）</td><td class="num">常時</td><td><span class="k">⌘0</span></td></tr>
-          <tr><th scope="row">上下段の高さ</th><td>段の境界をドラッグ</td><td class="num">1px の線のみ ／ 摘みはホバー時</td><td>—</td></tr>
+          <tr><th scope="row">パネルの切替（Files / Starred）</th><td>レールの2グリフ</td><td class="num">30% ／ 選択中は 65% ＋ 無彩色 2px</td><td><span class="k">⌘1 ⌘2</span></td></tr>
+          <tr><th scope="row">履歴（直前に戻る・数本から選ぶ）</th><td><kbd>⌘K</kbd> の既定表示</td><td class="num">なし</td><td><span class="k">⌘K → ⏎</span></td></tr>
+          <tr><th scope="row">履歴（マウスで）</th><td>ヘッダーのファイル名をクリック</td><td class="num">文字として常時</td><td>—</td></tr>
+          <tr><th scope="row">履歴（日付で遡る）</th><td>ライブラリ</td><td class="num">なし</td><td><span class="k">⌘T</span></td></tr>
           <tr><th scope="row">戻る / 進む</th><td>ヘッダー左（16px）</td><td class="num">30% ／ 不能なら非表示</td><td><span class="k">⌘[ ⌘]</span></td></tr>
           <tr><th scope="row">移動・コマンド（⌘K）</th><td>ヘッダーのパンくずをクリック</td><td class="num">文字として常時</td><td><span class="k">⌘K</span></td></tr>
           <tr><th scope="row">ページ内検索</th><td>ヘッダー右（16px）</td><td class="num">30%</td><td><span class="k">⌘F</span></td></tr>
@@ -1147,7 +1211,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">覗きの開始</th><td class="num">即時（端 1px）</td><td class="num">120ms の滞留（レール上）</td><td><span class="mono">--peek-open-delay</span></td></tr>
           <tr><th scope="row">覗きの終了</th><td class="num">即時</td><td class="num">240ms の猶予</td><td><span class="mono">--peek-close-delay</span>。斜め移動を許容</td></tr>
           <tr><th scope="row">覗きの重なり</th><td class="num">押し出し</td><td class="num">オーバーレイ＋影</td><td>本文を再レイアウトしない</td></tr>
-          <tr><th scope="row">下段の高さ</th><td class="num">—</td><td class="num">既定 160px / 最小 60px</td><td><code>config.json</code> に保存</td></tr>
+          <tr><th scope="row">履歴の保持</th><td class="num">—</td><td class="num">直近 100 件 / 30 日</td><td>どちらか早いほうで落とす。<code>config.json</code> に保存</td></tr>
         </tbody>
       </table>
     </div>
@@ -1194,7 +1258,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">戻る / 進む・ツリー開閉</th><td class="num">chevron-*</td><td class="num">ChevronLeft ほか</td><td><span class="badge has">あり</span></td></tr>
           <tr><th scope="row">お気に入り</th><td class="num">star / star-filled</td><td class="num">Star / StarFilled</td><td><span class="badge has">あり</span></td></tr>
           <tr><th scope="row">⌘K の入口ヒント</th><td class="num">command</td><td class="num">Command</td><td><span class="badge has">あり</span></td></tr>
-          <tr><th scope="row">履歴（Recent セクション）</th><td class="num">history</td><td class="num">History</td><td><span class="badge new">新規</span></td></tr>
+          <tr><th scope="row">履歴（⌘K の行・ライブラリ）</th><td class="num">history</td><td class="num">History</td><td><span class="badge new">新規</span></td></tr>
           <tr><th scope="row">ルートを追加</th><td class="num">folder-plus</td><td class="num">FolderPlus</td><td><span class="badge new">新規</span></td></tr>
         </tbody>
       </table>
@@ -1204,8 +1268,9 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <p>
         <code>Add</code>（plus）で代用できるので <code>folder-plus</code> は必須ではありません。
         ただ「Add folder」の行はツリーの末尾に置くため、ファイル行と見分けがつく形のほうが安全です。
-        レールに出るのは <code>Folder</code> / <code>History</code> / <code>Star</code> と <code>Gear</code> の4つだけで、
-        <code>Sidebar</code> は画面には出さずメニュー項目のアイコンとして残します。
+        レールに出るのは <code>Folder</code> / <code>Star</code> と <code>Gear</code> の3つだけです。
+        <code>History</code> はレールには出ず、<kbd>⌘K</kbd> の行頭とライブラリの見出しに使います。
+        <code>Sidebar</code> は画面には出さず、メニュー項目のアイコンとして残します。
       </p>
     </div>
   </section>
@@ -1231,26 +1296,16 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <div class="mock-body" style="min-height:380px">
             <div class="rail open qzone">
               <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
-              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
               <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
             <div class="panel qzone" style="width:206px">
-              <div class="pane-top">
-                <div class="sect open">Workspace <span class="count">3</span></div>
-                <div class="rows">
-                  <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
-                  <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
-                  <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>~/Documents/spec</span></div>
-                  <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
-                </div>
-              </div>
-              <div class="pane-div"></div>
-              <div class="pane-bottom" style="height:110px">
-                <div class="sect open">Open <span class="count">0</span></div>
-                <div class="rows">
-                  <div class="row quiet" style="padding-top:8px">開いている文書はありません</div>
-                </div>
+              <div class="sect open">Workspace <span class="count">3</span></div>
+              <div class="rows">
+                <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
+                <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
+                <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>~/Documents/spec</span></div>
+                <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
               </div>
             </div>
 
@@ -1373,8 +1428,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <li><code>root_directory</code> をルートのリストへ。ツリーを複数ルート対応に</li>
             <li>アプリ横断の閲覧履歴を持つ（Recent の実体）</li>
             <li>レール（Files / Recent / Starred ＋ 歯車）と、上下2段のパネル。境界はドラッグで可変</li>
-            <li>下段に文書の一覧を置き、タブバーを外す。行のドラッグでウィンドウ間移動</li>
-            <li>下段の中身は α・β・γ のいずれか（「再考」の節）。内部の持ち方は履歴＋フラグなので、後から入れ替えられます</li>
+            <li>タブバーと <code>Tab</code> の状態を外し、履歴に置き換える。「閉じる」という操作が消える</li>
+            <li>ウィンドウを閉じたときの復元は「履歴の先頭から N 件」に</li>
             <li>畳む / 覗く / 留める の3状態と、<span class="mono">120ms</span> / <span class="mono">240ms</span> の滞留・猶予</li>
             <li>右サイドバーを廃止し、目次を本文右のガターへ</li>
           </ul>
@@ -1413,7 +1468,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <h2>触ってから決めたい3点</h2>
       <ul class="list" style="margin-top:18px">
         <li><span class="tag move">1</span><strong>30% は薄すぎませんか。</strong><span class="why">このページのデモは sRGB のブラウザ表示です。実機の輝度と GitHub テーマの背景では印象が変わるので、Phase 0 で 30 / 40 / 50 を並べて決めましょう。high contrast テーマでは自動的に 1段階上げる想定です。</span></li>
-        <li><span class="tag move">2</span><strong>下段は α・β・γ のどれにしますか。</strong><span class="why">「再考」の節にまとめました。α＝開いている集合を持つ（現案）、β＝履歴だけ、γ＝履歴の中に留めを持つ。私は γ を推しますが、留める操作を使わないと見るなら β のほうが素直です。ここが決まると、レールが3つか2つかも決まります。</span></li>
+        <li><span class="tag move">2</span><strong>履歴の出し方は C＋B で良いですか。</strong><span class="why">「出し方」の節にまとめました。C（⌘K の既定）は入れる前提として、B（ファイル名から垂らす）を足すか、D（余白の痕跡）を畳んでいるときだけ出すか。A（パネルの1面）を残す判断もあり得ます ―― その場合レールは3つに戻ります。</span></li>
         <li><span class="tag move">4</span><strong>覗きの 120ms / 240ms は妥当ですか。</strong><span class="why">短いと通り抜けで開き、長いと反応が鈍く感じます。Phase 1 で 80 / 120 / 200ms を試して決めましょう。設定で切れるようにもします。</span></li>
         <li><span class="tag move">3</span><strong>ヘッダーの3つは、これで合っていますか。</strong><span class="why">検索・幅・テーマを選びました。ここは「読んでいる最中に触るもの」だけを置く場所なので、実際の使用頻度と合わなければ入れ替えます（候補: 印刷、Finder で表示、ズーム）。</span></li>
       </ul>
