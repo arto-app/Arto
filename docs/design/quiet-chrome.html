@@ -177,10 +177,11 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 /* Rail — the panel's spine and its hover handle. It carries no surface
    of its own: pinned, it is simply the panel's left 40px; collapsed, it
    is the document's own ground with a hairline and a few marks on it. */
-.rail { width: 40px; flex: none; background: var(--m-chrome); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; }
-/* Collapsed: no surface of its own — the document's ground, a hairline,
-   and a few marks. Pinned: the same surface as the panel, no line between. */
-.rail.alone { background: transparent; }
+/* The rail owns no surface. While the panel is out — pinned or peeking —
+   it shares the panel's ground and there is no line between the two.
+   Collapsed, it is the document's own ground with a few marks in it. */
+.rail { width: 40px; flex: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; transition: background-color .18s ease; }
+.rail.open { background: var(--m-chrome); }
 .rail .q { position: relative; }
 .rail .q.on::before { content: ""; position: absolute; left: -5px; top: 6px; width: 2px; height: 18px; border-radius: 1px; background: currentColor; opacity: .55; }
 .rail .rail-foot { margin-top: auto; }
@@ -198,8 +199,10 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 @media (max-width: 780px) { .states { grid-template-columns: 1fr; } }
 .state figure { margin: 0; }
 .state .sk { position: relative; height: 104px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-bg); overflow: hidden; display: flex; }
-.sk .sk-rail { width: 14px; background: var(--m-chrome); border-right: 1px solid var(--m-line); flex: none; }
-.sk .sk-panel { width: 62px; background: var(--m-chrome); border-right: 1px solid var(--m-line); flex: none; }
+.sk .sk-rail { width: 14px; background: var(--m-chrome); flex: none; }
+.sk .sk-rail.bare { background: transparent; display: flex; flex-direction: column; align-items: center; gap: 5px; padding-top: 11px; }
+.sk .sk-rail.bare i { display: block; width: 4px; height: 4px; border-radius: 1px; background: var(--m-line); }
+.sk .sk-panel { width: 62px; background: var(--m-chrome); flex: none; }
 .sk .sk-panel.float { position: absolute; left: 14px; top: 0; bottom: 0; box-shadow: 6px 0 18px -8px rgba(1, 4, 9, .5); }
 .sk .sk-doc { flex: 1; padding: 12px 10px; display: flex; flex-direction: column; gap: 5px; }
 .sk .sk-doc i { display: block; height: 3px; border-radius: 2px; background: var(--m-line); }
@@ -276,7 +279,7 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .rail-old .b { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--m-dim); }
 .rail-old .b.on { color: var(--m-accent); background: var(--m-accent-bg); }
 .vs-shell { display: flex; border-radius: 8px; overflow: hidden; }
-.vs-fill { flex: 1; border: 1px solid var(--m-line); border-left: none; border-radius: 0 8px 8px 0; background: var(--m-bg); padding: 10px 0; }
+.vs-fill { flex: 1; border: 1px solid var(--m-line); border-left: none; border-radius: 0 8px 8px 0; background: var(--m-chrome); padding: 10px 0; }
 
 /* Spec tables -------------------------------------------------------- */
 .tbl-scroll { overflow-x: auto; margin-top: 24px; }
@@ -419,7 +422,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <div class="vs-item">
         <h4>これからの描き方 — 同じ構造、静かに</h4>
         <div class="vs-shell qzone">
-          <div class="rail" style="border-radius:8px 0 0 8px;border:1px solid var(--m-line);border-right:none;padding:8px 0 8px">
+          <div class="rail open" style="border-radius:8px 0 0 8px;border:1px solid var(--m-line);border-right:none;padding:8px 0 8px">
             <span class="q on"><svg class="i md"><use href="#ic-folder"/></svg></span>
             <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
             <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
@@ -444,6 +447,10 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       </p>
       <p>
         レールの一番下には設定の歯車。<kbd>⌘1</kbd>–<kbd>⌘3</kbd> で上段を切り替え、<kbd>⌘0</kbd> で下段の Open に飛びます。
+      </p>
+      <p>
+        地の扱いは<strong>パネルが出ているかどうかだけ</strong>で決まります ―― 出ていればパネルと同じ地をまとって1枚に見え、
+        畳めば地を手放して本文の余白に戻る。レール自身の色というものは持ちません。
       </p>
     </div>
   </section>
@@ -471,7 +478,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <div class="tb-title">README.md — arto</div>
           </div>
           <div class="mock-body" style="min-height:360px">
-            <div class="rail qzone">
+            <div class="rail open qzone">
               <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
               <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
@@ -614,8 +621,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <p>選択中・有効中には色を付けません。同じ不透明度の尺の上で<strong>一段だけ濃い</strong>（30% → 65%）。位置が要るところにだけ、無彩色の 2px を添えます。</p>
         </div>
         <div class="demo">
-          <div class="demo-box" style="padding:0;display:flex;overflow:hidden">
-            <div class="rail" style="padding:6px 0;background:transparent">
+          <div class="demo-box" style="padding:0;display:flex;overflow:hidden;background:var(--m-chrome)">
+            <div class="rail open" style="padding:6px 0">
               <span class="q on"><svg class="i md"><use href="#ic-folder"/></svg></span>
               <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
@@ -665,8 +672,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <p>面が違えば線は要りません。余白が足りていれば、面すら要りません。<strong>1つの境界に1つの手段</strong>で、線が残るのは他のどれも使えないところだけです。</p>
         </div>
         <div class="demo">
-          <div class="demo-box" style="padding:0;display:flex;overflow:hidden;height:96px">
-            <div class="rail alone" style="padding:6px 0">
+          <div class="demo-box" style="padding:0;display:flex;overflow:hidden;height:96px;background:var(--m-chrome)">
+            <div class="rail open" style="padding:6px 0">
               <span class="q on"><svg class="i md"><use href="#ic-folder"/></svg></span>
               <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
             </div>
@@ -743,12 +750,12 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <div class="state">
         <figure>
           <div class="sk">
-            <div class="sk-rail"></div>
+            <div class="sk-rail bare"><i></i><i></i><i></i></div>
             <div class="sk-doc"><i></i><i></i><i></i><i></i></div>
           </div>
         </figure>
         <h3>畳んでいる</h3>
-        <p>レール 40px だけ。本文が窓のほぼ全部を使います。既定はこの状態にしません ―― 集中したいときの状態です。</p>
+        <p>レールは地を手放し、本文の余白に印が並ぶだけ。窓のほぼ全部が本文です。既定はこの状態にしません ―― 集中したいときの状態です。</p>
         <span class="keys">⌘B で切替</span>
       </div>
       <div class="state">
@@ -797,7 +804,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <div class="tb-title">README.md — arto</div>
           </div>
           <div class="mock-body" style="min-height:320px">
-            <div class="rail alone force-hover">
+            <div class="rail open force-hover">
               <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
               <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
@@ -838,6 +845,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <p class="caption">
         <b>覗いている状態。</b>パネルが本文の上にせり出し、影を落としています。本文は 1px も動きません。
         レールのグリフはポインタがそこにあるので 72% に起きています。
+        パネルが出ているので、レールもパネルの地をまとっています ―― 引っ込めば本文と同じ地に戻ります。
       </p>
     </div>
 
@@ -849,7 +857,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <div class="tb-title">README.md — arto</div>
           </div>
           <div class="mock-body" style="min-height:210px">
-            <div class="rail alone">
+            <div class="rail">
               <span class="q" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
               <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
@@ -969,7 +977,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">選択行</th><td class="num">accent 枠 + accent 8% の地</td><td class="num">地を2段 <span class="k">--bg-row-active</span> ＋ 文字 500</td><td>左の accent 線は廃止</td></tr>
           <tr><th scope="row">パネルの境界線</th><td class="num">1px</td><td class="num">なし</td><td>地の違いで示す</td></tr>
           <tr><th scope="row">ヘッダーの境界線</th><td class="num">1px（常時）</td><td class="num">スクロール位置 &gt; 0 のときだけ</td><td>0 に戻れば消える</td></tr>
-          <tr><th scope="row">レールの地</th><td class="num">—</td><td class="num">持たない</td><td>留めている間はパネルと同一面（境界線なし）、畳めば本文と同じ地</td></tr>
+          <tr><th scope="row">レールの地</th><td class="num">—</td><td class="num">持たない</td><td>パネルが出ている間（留め・覗きとも）だけパネルと同一面。畳めば本文と同じ地に戻る（0.18s）</td></tr>
           <tr><th scope="row">レール幅</th><td class="num">—</td><td class="num">40px</td><td>グリフ 16px を 30×30 の判定で中央に</td></tr>
           <tr><th scope="row">覗きの開始</th><td class="num">即時（端 1px）</td><td class="num">120ms の滞留（レール上）</td><td><span class="mono">--peek-open-delay</span></td></tr>
           <tr><th scope="row">覗きの終了</th><td class="num">即時</td><td class="num">240ms の猶予</td><td><span class="mono">--peek-close-delay</span>。斜め移動を許容</td></tr>
@@ -1056,7 +1064,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <div class="tb-title">Library</div>
           </div>
           <div class="mock-body" style="min-height:380px">
-            <div class="rail qzone">
+            <div class="rail open qzone">
               <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
               <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
               <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
