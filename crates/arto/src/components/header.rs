@@ -8,8 +8,8 @@ use crate::components::icon::{Icon, IconName};
 use crate::components::theme_selector::ThemeSelector;
 use crate::state::AppState;
 
-#[cfg(target_os = "windows")]
-use crate::components::win_hamburger::WindowsMenu;
+#[cfg(not(target_os = "macos"))]
+use crate::components::app_menu::AppMenu;
 
 #[component]
 pub fn Header() -> Element {
@@ -52,11 +52,11 @@ pub fn Header() -> Element {
     let mut is_copied = use_signal(|| false);
 
     let menu_overlay = {
-        #[cfg(target_os = "windows")]
+        #[cfg(not(target_os = "macos"))]
         {
             if *is_menu_open.read() {
                 rsx! {
-                    WindowsMenu {
+                    AppMenu {
                         on_close: move |_| is_menu_open.set(false),
                     }
                 }
@@ -64,7 +64,7 @@ pub fn Header() -> Element {
                 rsx! {}
             }
         }
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(target_os = "macos")]
         {
             rsx! {}
         }
@@ -79,12 +79,16 @@ pub fn Header() -> Element {
             div {
                 class: "header-left",
 
-                    // Hamburger Menu Button
-                    if cfg!(target_os = "windows") {
+                    // Everything the app can do, where the OS is not already
+                    // offering it. macOS has a menu bar of its own above the
+                    // window; Windows and Linux would have to spend a strip of
+                    // the window on one, so they get this instead.
+                    if cfg!(not(target_os = "macos")) {
                         button {
-                            class: "nav-button hamburger-button",
+                            class: "nav-button app-menu-button",
                             class: if *is_menu_open.read() { "active" },
                             title: "Menu",
+                            "aria-label": "Menu",
                             onclick: move |_| is_menu_open.toggle(),
                             Icon { name: IconName::Menu2 }
                         }

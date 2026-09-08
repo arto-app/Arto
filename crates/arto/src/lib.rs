@@ -11,7 +11,7 @@ mod hooks;
 pub mod ipc;
 mod keybindings;
 mod markdown;
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
 mod menu;
 mod pinned_search;
 mod roots;
@@ -129,9 +129,13 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
             }
         },
     );
-    #[cfg(not(target_os = "windows"))]
+    // Only macOS gets a native menu, because only there does it live outside
+    // the window. On Windows and Linux the same items hang off one glyph in
+    // the header instead, so nothing takes a strip of the window to say what
+    // the app is called.
+    #[cfg(target_os = "macos")]
     let config = config.with_menu(crate::menu::build_menu());
-    #[cfg(target_os = "windows")]
+    #[cfg(not(target_os = "macos"))]
     let config = config.with_menu(None);
 
     // Tao activates the app as soon as it finishes launching. `--behind` has

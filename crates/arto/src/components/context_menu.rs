@@ -3,7 +3,7 @@
 //! Each menu owns its own contents, but they all render the same
 //! item/separator/submenu markup and clamp themselves into the viewport the
 //! same way. Consumers include the sidebar file tree, the markdown
-//! content area, and the Windows hamburger menu — the last of which is
+//! content area, and the app menu in the header — the last of which is
 //! `cfg`-gated, so a grep or build on another platform will not surface it.
 //! Check it too before assuming a menu change is complete.
 

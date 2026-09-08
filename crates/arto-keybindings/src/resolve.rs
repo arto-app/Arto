@@ -47,11 +47,13 @@ impl BindingSet {
     /// Resolve every entry, returning the usable bindings and the entries
     /// that had to be skipped, in one pass.
     ///
-    /// Platforms with a native menu (macOS/Linux) let the OS dispatch menu
-    /// shortcuts, so they are excluded. Windows has no native menu, so the
-    /// engine must own them or they would have no dispatch path at all.
+    /// macOS has a native menu bar, which sits above the window rather than
+    /// inside it, and lets the OS dispatch menu shortcuts — so they are
+    /// excluded there. Everywhere else the menu is drawn in the header and
+    /// there is no accelerator table behind it, so the engine must own the
+    /// menu shortcuts or they would have no dispatch path at all.
     pub fn resolve(self) -> (Vec<ResolvedBinding>, Vec<BindingError>) {
-        self.resolve_with(cfg!(target_os = "windows"))
+        self.resolve_with(cfg!(not(target_os = "macos")))
     }
 
     /// Flatten into resolved bindings for engine consumption, dropping the

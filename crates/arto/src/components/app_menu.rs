@@ -1,4 +1,4 @@
-#![cfg(target_os = "windows")]
+#![cfg(not(target_os = "macos"))]
 
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSeparator, ContextMenuSubmenu};
 use crate::components::icon::IconName;
@@ -7,7 +7,7 @@ use crate::utils::task::spawn_detached;
 use dioxus::prelude::*;
 
 #[component]
-pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
+pub fn AppMenu(on_close: EventHandler<()>) -> Element {
     let mut state = use_context::<AppState>();
 
     // Helper to get keyboard shortcut hints

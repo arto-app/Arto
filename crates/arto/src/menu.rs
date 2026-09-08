@@ -1,3 +1,8 @@
+//! The native menu bar, which only macOS has.
+//!
+//! Windows and Linux draw the same items in the header instead
+//! (`components::app_menu`), so nothing here is compiled for them.
+
 use dioxus_desktop::muda::accelerator::Accelerator;
 use dioxus_desktop::muda::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use dioxus_desktop::window;
