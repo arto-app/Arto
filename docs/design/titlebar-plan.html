@@ -1,0 +1,1038 @@
+<title>帯をゼロにする</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;450;500;600&display=swap">
+
+<style>
+
+/* ------------------------------------------------------------------ *
+ * Tokens — light is the base. The two guarded blocks below redefine
+ * only values, never component rules.
+ * ------------------------------------------------------------------ */
+:root {
+  --paper:      #f3f5f8;
+  --surface:    #ffffff;
+  --surface-2:  #eceff3;
+  --ink:        #12161c;
+  --ink-2:      #39434f;
+  --muted:      #5d6874;
+  --line:       #d7dde4;
+  --line-soft:  #e5e9ee;
+  --accent:     #1f4e9c;
+  --keep:       #1a7f37;
+  --care:       #9a6700;
+  --drop:       #cf222e;
+
+  /* Mock palette — GitHub Primer's own tokens, so the mocks read as
+     the real application rather than as illustrations. */
+  --m-bg:       #ffffff;
+  --m-chrome:   #f6f8fa;
+  --m-line:     #d1d9e0;
+  --m-text:     #1f2328;
+  --m-dim:      #59636e;
+  --m-faint:    #8c959f;
+  --m-accent:   #0969da;
+  --m-accent-bg:#ddf4ff;
+  --m-sel:      #eef2f6;
+  --m-sel2:     #e1e7ee;
+  --m-shadow:   0 1px 2px rgba(31, 35, 40, .08), 0 12px 40px -18px rgba(31, 35, 40, .5);
+
+  --serif: "Newsreader", "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif;
+  --sans: "IBM Plex Sans", -apple-system, "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0b0e13; --surface: #12161d; --surface-2: #171c24;
+    --ink: #e6edf3; --ink-2: #c3ccd6; --muted: #8d96a0;
+    --line: #272e38; --line-soft: #1e242c; --accent: #6ca8ff;
+    --keep: #3fb950; --care: #d29922; --drop: #f85149;
+    --m-bg: #0d1117; --m-chrome: #151b23; --m-line: #3d444d;
+    --m-text: #e6edf3; --m-dim: #9198a1; --m-faint: #656c76;
+    --m-accent: #4493f8; --m-accent-bg: #121d2f; --m-sel: #171d25; --m-sel2: #202832;
+    --m-shadow: 0 1px 2px rgba(1, 4, 9, .5), 0 12px 40px -18px rgba(1, 4, 9, .9);
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0b0e13; --surface: #12161d; --surface-2: #171c24;
+  --ink: #e6edf3; --ink-2: #c3ccd6; --muted: #8d96a0;
+  --line: #272e38; --line-soft: #1e242c; --accent: #6ca8ff;
+  --keep: #3fb950; --care: #d29922; --drop: #f85149;
+  --m-bg: #0d1117; --m-chrome: #151b23; --m-line: #3d444d;
+  --m-text: #e6edf3; --m-dim: #9198a1; --m-faint: #656c76;
+  --m-accent: #4493f8; --m-accent-bg: #121d2f; --m-sel: #171d25; --m-sel2: #202832;
+  --m-shadow: 0 1px 2px rgba(1, 4, 9, .5), 0 12px 40px -18px rgba(1, 4, 9, .9);
+}
+
+/* ------------------------------------------------------------------ *
+ * Page frame
+ * ------------------------------------------------------------------ */
+body { background: var(--paper); color: var(--ink); font-family: var(--serif); font-size: 17px; line-height: 1.75; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
+.col { max-width: 40rem; }
+p { margin: 0 0 1em; color: var(--ink-2); }
+p:last-child { margin-bottom: 0; }
+strong { font-weight: 600; color: var(--ink); }
+code, .mono { font-family: var(--mono); font-size: .82em; }
+code { color: var(--ink); background: var(--surface-2); padding: .08em .34em; border-radius: 3px; }
+kbd { display: inline-block; padding: .1em .42em; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: var(--surface); color: var(--ink); font-family: var(--mono); font-size: .74em; line-height: 1.5; white-space: nowrap; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+.masthead { padding: 72px 0 40px; }
+.eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0 0 18px; }
+.masthead h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(38px, 6vw, 62px); line-height: 1.08; letter-spacing: -.02em; margin: 0 0 20px; text-wrap: balance; word-break: auto-phrase; }
+.masthead h1 em { font-style: italic; color: var(--accent); }
+.lede { font-size: 19px; color: var(--ink-2); max-width: 38rem; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 11.5px; color: var(--muted); letter-spacing: .04em; }
+
+.sec { padding: 44px 0; border-top: 1px solid var(--line); }
+.sec-label { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+h2 { font-family: var(--serif); font-weight: 400; font-size: 32px; line-height: 1.2; letter-spacing: -.015em; margin: 0 0 22px; text-wrap: balance; word-break: auto-phrase; }
+h3 { font-family: var(--sans); font-weight: 600; font-size: 15px; margin: 34px 0 12px; color: var(--ink); }
+h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+
+/* Decision summary --------------------------------------------------- */
+.decisions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft); margin-top: 28px; }
+.decision { background: var(--surface); padding: 18px 20px; }
+.decision .src { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.decision b { display: block; font-family: var(--serif); font-weight: 500; font-size: 20px; line-height: 1.3; margin: 6px 0 8px; }
+.decision p { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: var(--muted); margin: 0; }
+@media (max-width: 760px) { .decisions { grid-template-columns: 1fr; } }
+
+/* Principle blocks --------------------------------------------------- */
+.rules { margin-top: 30px; }
+.rule { display: grid; grid-template-columns: 30px 1fr 300px; gap: 0 26px; padding: 20px 0; border-top: 1px solid var(--line-soft); align-items: start; }
+.rule:first-child { border-top: none; }
+.rule .n { font-family: var(--mono); font-size: 12px; color: var(--accent); padding-top: 4px; }
+.rule > div > b { display: block; font-family: var(--serif); font-weight: 500; font-size: 21px; line-height: 1.35; margin-bottom: 6px; }
+.rule p { font-family: var(--sans); font-size: 13.5px; line-height: 1.65; margin: 0; }
+.rule .demo { align-self: center; }
+@media (max-width: 900px) { .rule { grid-template-columns: 30px 1fr; } .rule .demo { grid-column: 2; margin-top: 14px; } }
+
+/* Small inline demo panels ------------------------------------------- */
+.demo-box { border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-bg); padding: 10px 12px; font-family: var(--sans); font-size: 12px; color: var(--m-text); }
+.demo-cap { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 7px; }
+
+/* ------------------------------------------------------------------ *
+ * Mock chrome
+ * ------------------------------------------------------------------ */
+.mock-band { margin: 32px 0 8px; }
+.mock-scroll { overflow-x: auto; padding-bottom: 6px; }
+.caption { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: 12px 0 0; max-width: 48rem; }
+.caption b { color: var(--ink); font-weight: 500; }
+
+.mock { min-width: 880px; border: 1px solid var(--m-line); border-radius: 10px; overflow: hidden; background: var(--m-bg); color: var(--m-text); font-family: var(--sans); font-size: 12px; line-height: 1.5; box-shadow: var(--m-shadow); }
+.mock.sm { min-width: 420px; }
+.mock.narrow { min-width: 0; }
+.narrows { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: start; margin-top: 28px; }
+@media (max-width: 780px) { .narrows { grid-template-columns: 1fr; } }
+/* A mock pinned to the app's dark theme, whatever the page theme is —
+   so the theme toggle can be shown doing something. */
+.mock.dark {
+  --m-bg: #0d1117; --m-chrome: #151b23; --m-line: #3d444d; --m-text: #e6edf3;
+  --m-dim: #9198a1; --m-faint: #656c76; --m-accent: #4493f8;
+  --m-accent-bg: #121d2f; --m-sel: #171d25; --m-sel2: #202832;
+  --m-shadow: 0 1px 2px rgba(1, 4, 9, .5), 0 12px 40px -18px rgba(1, 4, 9, .9);
+}
+.mock-tb { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 12px; background: var(--m-chrome); border-bottom: 1px solid var(--m-line); }
+.lights { display: flex; gap: 6px; }
+.lights i { width: 10px; height: 10px; border-radius: 50%; background: var(--m-line); display: block; }
+.mock-tb .tb-title { font-size: 11.5px; color: var(--m-dim); margin: 0 auto; font-family: var(--mono); }
+.mock-body { display: flex; align-items: stretch; min-height: 400px; }
+
+.i { width: 14px; height: 14px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.i.xs { width: 10px; height: 10px; }
+.i.sm { width: 12px; height: 12px; }
+.i.md { width: 16px; height: 16px; }
+
+/* --- the quiet control: ink and hit area are separate --------------- */
+.q {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 5px; color: var(--m-text);
+  opacity: var(--qo, .30); transition: opacity .18s ease, background-color .18s ease;
+}
+/* State is ink density, not hue: the active control simply sits one
+   step further up the same scale everything else moves along. */
+.q.on { --qo: .65; }
+.qzone:hover .q, .force-hover .q { --qo: .72; }
+.qzone:hover .q.on, .force-hover .q.on { --qo: 1; }
+.q:hover { --qo: 1; background: var(--m-sel); }
+
+.doc { flex: 1; padding: 26px 34px; min-width: 0; }
+.doc-narrow { max-width: 460px; margin: 0 auto; }
+.doc h1 { font-family: var(--sans); font-size: 20px; font-weight: 600; margin: 0 0 6px; padding-bottom: 8px; border-bottom: 1px solid var(--m-line); color: var(--m-text); }
+.doc h2 { font-family: var(--sans); font-size: 14px; font-weight: 600; margin: 18px 0 6px; color: var(--m-text); }
+.doc p { font-size: 11.5px; line-height: 1.75; color: var(--m-dim); margin: 0 0 9px; }
+.doc .code { font-family: var(--mono); font-size: 10.5px; background: var(--m-chrome); border: 1px solid var(--m-line); border-radius: 6px; padding: 8px 10px; color: var(--m-dim); margin: 10px 0; white-space: pre; }
+
+/* Document header band ---------------------------------------------- */
+.hdr { display: flex; align-items: center; gap: 2px; padding: 4px 8px 4px 6px; background: var(--m-bg); }
+.hdr.scrolled { box-shadow: 0 1px 0 var(--m-line); }
+.crumb { display: flex; align-items: baseline; gap: 6px; padding: 3px 8px; border-radius: 5px; font-size: 12px; color: var(--m-faint); margin-left: 4px; }
+.crumb b { font-weight: 500; color: var(--m-text); }
+.crumb:hover { background: var(--m-sel); }
+.crumb .hint { font-family: var(--mono); font-size: 9.5px; opacity: 0; transition: opacity .18s; }
+.qzone:hover .crumb .hint, .force-hover .crumb .hint { opacity: .6; }
+.spacer { flex: 1; }
+
+/* Panel -------------------------------------------------------------- */
+/* Rail — the panel's spine and its hover handle. It carries no surface
+   of its own: pinned, it is simply the panel's left 40px; collapsed, it
+   is the document's own ground with a hairline and a few marks on it. */
+/* The rail owns no surface. While the panel is out — pinned or peeking —
+   it shares the panel's ground and there is no line between the two.
+   Collapsed, it is the document's own ground with a few marks in it. */
+.rail { width: 40px; flex: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; transition: background-color .18s ease; }
+.rail.open { background: var(--m-chrome); }
+.rail .q { position: relative; }
+.rail .q.on::before { content: ""; position: absolute; left: -5px; top: 6px; width: 2px; height: 18px; border-radius: 1px; background: currentColor; opacity: .55; }
+.rail .rail-foot { margin-top: auto; }
+
+.panel { width: 226px; flex: none; background: var(--m-chrome); display: flex; flex-direction: column; }
+.panel.peek { position: absolute; left: 0; top: 0; bottom: 0; z-index: 5; }
+.panel.peek::after { content: ""; position: absolute; left: 100%; top: 0; bottom: 0; width: 26px; background: linear-gradient(to right, rgba(1, 4, 9, .15), rgba(1, 4, 9, 0)); pointer-events: none; }
+
+/* State schematics --------------------------------------------------- */
+.states { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 30px; }
+@media (max-width: 780px) { .states { grid-template-columns: 1fr; } }
+.state figure { margin: 0; }
+.state .sk { position: relative; height: 104px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-bg); overflow: hidden; display: flex; }
+.sk .sk-rail { width: 14px; background: var(--m-chrome); flex: none; }
+.sk .sk-rail.bare { background: transparent; display: flex; flex-direction: column; align-items: center; gap: 5px; padding-top: 11px; }
+.sk .sk-rail.bare i { display: block; width: 4px; height: 4px; border-radius: 1px; background: var(--m-line); }
+.sk .sk-panel { width: 62px; background: var(--m-chrome); flex: none; }
+.sk .sk-panel.float { position: absolute; left: 14px; top: 0; bottom: 0; box-shadow: 6px 0 18px -8px rgba(1, 4, 9, .5); }
+.sk .sk-doc { flex: 1; padding: 12px 10px; display: flex; flex-direction: column; gap: 5px; }
+.sk .sk-doc i { display: block; height: 3px; border-radius: 2px; background: var(--m-line); }
+.sk .sk-doc i:nth-child(1) { width: 55%; height: 5px; }
+.sk .sk-doc i:nth-child(2) { width: 92%; }
+.sk .sk-doc i:nth-child(3) { width: 84%; }
+.sk .sk-doc i:nth-child(4) { width: 88%; }
+.state h3 { margin: 12px 0 4px; font-size: 14px; }
+.state p { font-family: var(--sans); font-size: 12.5px; line-height: 1.6; margin: 0; color: var(--muted); }
+.state .keys { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; color: var(--accent); margin-top: 7px; display: block; }
+.sect {
+  display: flex; align-items: center; gap: 8px; padding: 7px 12px 6px;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--m-faint); border-radius: 4px; margin: 0 4px;
+}
+.sect.open { color: var(--m-dim); }
+.sect:hover { background: var(--m-sel); }
+.sect .count { margin-left: auto; letter-spacing: .04em; }
+.sect .chev { opacity: 0; transition: opacity .18s; }
+.sect:hover .chev { opacity: .5; }
+.sect + .rows { margin-bottom: 4px; }
+
+.row { display: flex; align-items: center; gap: 7px; padding: 4px 12px; font-size: 11px; color: var(--m-dim); white-space: nowrap; overflow: hidden; border-radius: 4px; margin: 0 4px; }
+.row span { overflow: hidden; text-overflow: ellipsis; }
+.row .sub { color: var(--m-faint); font-size: 10px; margin-left: auto; font-family: var(--mono); flex: none; }
+.row.sel { background: var(--m-sel2); color: var(--m-text); font-weight: 500; }
+.row.ind { padding-left: 24px; }
+.row.ind2 { padding-left: 36px; }
+.row.quiet { color: var(--m-faint); }
+.row:hover { background: var(--m-sel); }
+/* Pattern B — history dropped from the breadcrumb */
+.dropdown { position: absolute; left: 40px; top: 0; width: 244px; background: var(--m-bg); border-radius: 0 0 9px 9px; box-shadow: 0 14px 34px -16px rgba(1, 4, 9, .45); padding-bottom: 4px; z-index: 5; }
+/* Pattern D — a trace of recent documents in the document's own margin */
+.trace { width: 138px; flex: none; padding: 30px 12px 0 0; display: flex; flex-direction: column; gap: 7px; align-items: flex-end; text-align: right; }
+.trace-label { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-faint); opacity: .5; margin-bottom: 2px; }
+.trace-item { font-size: 10.5px; color: var(--m-text); opacity: .3; transition: opacity .18s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.qzone:hover .trace-item, .force-hover .trace-item { opacity: .72; }
+.trace-item:hover { opacity: 1; }
+.row-div { display: flex; align-items: center; gap: 8px; margin: 5px 12px 4px; font-family: var(--mono); font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-faint); }
+.row-div::after { content: ""; flex: 1; height: 1px; background: var(--m-line); }
+.row .pinmark { color: var(--m-faint); flex: none; }
+.row-fold { display: flex; align-items: center; gap: 7px; margin: 2px 8px; padding: 4px 4px; border-radius: 4px; font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; color: var(--m-faint); }
+.row-fold:hover { background: var(--m-sel); }
+.row-fold .cnt { margin-left: auto; letter-spacing: .04em; }
+.filter-hint { display: flex; align-items: center; gap: 7px; margin: 0 8px 4px; padding: 4px 6px; font-size: 10.5px; color: var(--m-faint); opacity: .55; }
+.panel-foot { margin-top: auto; display: flex; align-items: center; padding: 4px 6px; border-top: 1px solid var(--m-line); }
+
+/* TOC gutter --------------------------------------------------------- */
+.gutter { width: 24px; flex: none; padding: 28px 0 0; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.tick { height: 2px; border-radius: 1px; background: var(--m-line); }
+.tick.h1 { width: 14px; } .tick.h2 { width: 9px; } .tick.h3 { width: 5px; }
+.tick.cur { background: var(--m-text); height: 3px; opacity: .75; }
+.tick.hit { background: var(--care); }
+
+/* Palette ------------------------------------------------------------ */
+.stage { position: relative; flex: 1; display: flex; }
+.dim { position: absolute; inset: 0; background: var(--m-bg); opacity: .72; }
+.palette { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); width: 450px; background: var(--m-bg); border-radius: 10px; box-shadow: var(--m-shadow); overflow: hidden; }
+.palette .qy { display: flex; align-items: center; gap: 9px; padding: 12px 13px; font-size: 13px; color: var(--m-text); }
+.palette .qy .cursor { width: 1px; height: 15px; background: var(--m-text); opacity: .7; }
+.pgroup { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-faint); padding: 9px 13px 4px; }
+.prow { display: flex; align-items: center; gap: 9px; padding: 5px 13px; font-size: 11.5px; color: var(--m-dim); }
+.prow.sel { background: var(--m-sel); color: var(--m-text); }
+.prow .path { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--m-faint); }
+.prow mark { background: transparent; color: var(--m-text); font-weight: 600; }
+.palette .foot { display: flex; gap: 14px; padding: 9px 13px 10px; font-family: var(--mono); font-size: 9.5px; color: var(--m-faint); }
+
+/* Library ------------------------------------------------------------ */
+.lib { flex: 1; padding: 22px 28px; }
+.lib-h { font-family: var(--sans); font-size: 15px; font-weight: 600; margin: 0 0 2px; }
+.lib-sub { font-size: 11px; color: var(--m-faint); margin: 0 0 16px; }
+.lib-find { display: flex; align-items: center; gap: 8px; background: var(--m-sel); border-radius: 7px; padding: 8px 11px; font-size: 12px; color: var(--m-faint); margin-bottom: 20px; }
+.lib-find .k { margin-left: auto; font-family: var(--mono); font-size: 9.5px; }
+.lib-sect { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-faint); margin: 16px 0 9px; display: flex; align-items: center; gap: 8px; }
+.lib-sect:after { content: ""; flex: 1; height: 1px; background: var(--m-line); }
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+.card { border-radius: 7px; padding: 10px 11px; display: flex; flex-direction: column; gap: 5px; background: var(--m-sel); min-height: 58px; }
+.card .t { font-size: 11.5px; font-weight: 500; color: var(--m-text); }
+.card .p { font-size: 9.5px; color: var(--m-faint); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card .ic { color: var(--m-faint); }
+.card.folder { background: var(--m-sel); }
+.recents { display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; }
+
+/* Comparison strip: rail vs words ------------------------------------ */
+.vs { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 28px; }
+@media (max-width: 860px) { .vs { grid-template-columns: 1fr; } }
+.vs-item h4 { margin-bottom: 12px; }
+.rail-old { width: 44px; border: 1px solid var(--m-line); border-right: none; border-radius: 8px 0 0 8px; background: var(--m-chrome); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; }
+.rail-old .b { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--m-dim); }
+.rail-old .b.on { color: var(--m-accent); background: var(--m-accent-bg); }
+.vs-shell { display: flex; border-radius: 8px; overflow: hidden; }
+.vs-fill { flex: 1; border: 1px solid var(--m-line); border-left: none; border-radius: 0 8px 8px 0; background: var(--m-chrome); padding: 10px 0; }
+
+/* Spec tables -------------------------------------------------------- */
+.tbl-scroll { overflow-x: auto; margin-top: 24px; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-family: var(--sans); font-size: 13px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+thead th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 400; border-bottom: 1px solid var(--line); }
+tbody th { font-weight: 450; color: var(--ink); }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-2); white-space: nowrap; }
+td.ctr { text-align: center; font-family: var(--mono); font-size: 13px; }
+td.ctr .yes { color: var(--ink); }
+td.ctr .no { color: var(--muted); opacity: .45; }
+td .k { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.badge { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+.badge.has { color: var(--keep); }
+.badge.new { color: var(--care); }
+
+/* Lists -------------------------------------------------------------- */
+.list { list-style: none; padding: 0; margin: 0; }
+.list li { display: block; position: relative; padding: 9px 0 9px 26px; line-height: 1.7; border-bottom: 1px solid var(--line-soft); font-family: var(--sans); font-size: 13.5px; color: var(--ink); }
+.list li:last-child { border-bottom: none; }
+.list .why { display: block; font-size: 12px; color: var(--muted); line-height: 1.55; margin-top: 3px; }
+.tag { position: absolute; left: 0; top: 9px; width: 16px; font-family: var(--mono); font-size: 13px; line-height: 1.7; }
+.list.wide li { padding-left: 56px; }
+.list.wide .tag { width: 46px; font-size: 11px; letter-spacing: .04em; }
+.tag.drop { color: var(--drop); } .tag.keep { color: var(--keep); } .tag.move { color: var(--care); }
+
+/* Phases ------------------------------------------------------------- */
+.phases { margin-top: 26px; border-left: 1px solid var(--line); }
+.phase { display: grid; grid-template-columns: 118px 1fr; gap: 24px; padding: 18px 0 18px 26px; position: relative; }
+.phase:before { content: ""; position: absolute; left: -4px; top: 26px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.phase + .phase { border-top: 1px solid var(--line-soft); }
+.phase .when { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+.phase h3 { margin: 0 0 6px; }
+.phase ul { margin: 0; padding-left: 18px; font-family: var(--sans); font-size: 13.5px; color: var(--ink-2); }
+.phase li { margin-bottom: 4px; }
+@media (max-width: 700px) { .phase { grid-template-columns: 1fr; gap: 8px; } }
+
+footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60px; font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .04em; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ------------------------------------------------------------------ *
+ * This document only — the comparison of menu placements.
+ * ------------------------------------------------------------------ */
+
+/* Evidence from the running app, not a mock. Framed so it is obviously
+   a photograph of the thing rather than another drawing of it. */
+.shot {
+  margin: 22px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.shot figcaption {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+/* The OS menu band, drawn as it looks: a system surface that does not
+   know about our tokens. */
+.menubar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 12px;
+  height: 26px;
+  background: #f1f0ee;
+  border-bottom: 1px solid #d6d3ce;
+  color: #2b2b2b;
+  font-size: 11.5px;
+}
+:root:not([data-theme="light"]) .menubar { background: #ebeae8; border-bottom-color: #cfcbc6; }
+:root[data-theme="dark"] .menubar { background: #ebeae8; border-bottom-color: #cfcbc6; }
+
+/* A menu dropped from a header glyph. Same surface as the breadcrumb's
+   dropdown, so the two read as one family. */
+.appmenu {
+  position: absolute;
+  top: 42px;
+  left: 8px;
+  width: 232px;
+  padding: 5px;
+  background: var(--m-bg);
+  border-radius: 8px;
+  box-shadow: var(--m-shadow);
+  z-index: 3;
+}
+.appmenu.foot { top: auto; bottom: 10px; left: 46px; }
+.appmenu .row { justify-content: space-between; }
+.appmenu .row .sub { font-size: 10.5px; }
+.appmenu .row-div { margin: 5px 0 3px; }
+
+/* Client-side decorations: the title bar becomes the header. */
+.mock-tb.csd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 0 6px;
+  height: 34px;
+  justify-content: flex-start;
+}
+.mock-tb.csd .sm-q {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  color: var(--m-dim);
+  opacity: .55;
+}
+.win-ctl { display: flex; gap: 9px; padding-left: 6px; }
+.win-ctl i {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--m-faint);
+  border-radius: 1px;
+}
+.win-ctl i:first-child { border: 0; border-bottom: 1px solid var(--m-faint); height: 5px; border-radius: 0; }
+.win-ctl i:last-child { border: 0; background: none; position: relative; }
+.win-ctl i:last-child::before,
+.win-ctl i:last-child::after {
+  content: "";
+  position: absolute;
+  inset: 4px -1px auto;
+  border-top: 1px solid var(--m-faint);
+}
+.win-ctl i:last-child::before { transform: rotate(45deg); }
+.win-ctl i:last-child::after { transform: rotate(-45deg); }
+
+/* One option: a mock, then what it buys and what it costs, then a verdict.
+   Only the recommendation is lifted; the rest share one quiet edge. */
+.opts { display: flex; flex-direction: column; gap: 26px; margin-top: 20px; }
+
+.opt {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+.opt.pick {
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 20px 22px 22px;
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+}
+.opt h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-family: var(--serif);
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: .01em;
+}
+.opt .mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+}
+.opt.pick .mark { background: var(--accent); color: #fff; }
+.opt .mock-scroll { margin: 14px 0 0; }
+
+.ledger {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 26px;
+  margin-top: 16px;
+}
+.ledger > div { padding-top: 12px; border-top: 1px solid var(--line-soft); }
+.ledger b {
+  display: block;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.ledger .gain b { color: var(--keep); }
+.ledger .cost b { color: var(--drop); }
+.ledger p { margin: 0; font-size: 14px; line-height: 1.75; color: var(--ink-2); }
+
+.verdict {
+  margin: 14px 0 0;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--ink-2);
+}
+.verdict .tag { margin-right: 8px; }
+
+@media (max-width: 620px) {
+  .ledger { grid-template-columns: 1fr; gap: 0; }
+}
+
+/* The comparison. Ticks and crosses carry the judgement, so they are the
+   only coloured thing in it. */
+.matrix {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 620px;
+  font-family: var(--sans);
+  font-size: 13.5px;
+}
+.matrix th,
+.matrix td { padding: 10px 12px; border-bottom: 1px solid var(--line-soft); text-align: center; }
+.matrix thead th {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.matrix tbody th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.matrix .yes { color: var(--keep); font-weight: 600; }
+.matrix .no { color: var(--drop); font-weight: 600; }
+.matrix .part { color: var(--care); font-size: 12px; }
+.matrix tr.pick th,
+.matrix tr.pick td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.matrix tr.pick th { border-left: 2px solid var(--accent); padding-left: 10px; }
+
+/* Prose chips. The house `.tag` is a list marker (absolutely positioned
+   inside `.list li`); these sit in running text, so they are their own
+   thing rather than a borrowed one. */
+.chip {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .03em;
+  line-height: 1.6;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+.chip.ok { color: var(--keep); }
+.chip.no { color: var(--drop); }
+.chip.care { color: var(--care); }
+.rule .chip { margin-left: 4px; }
+
+/* An aside inside a paragraph. (The house `.dim` is the scrim over a mock.) */
+.note { color: var(--muted); }
+
+/* ------------------------------------------------------------------ *
+ * This document only — window controls, and code sketches.
+ * ------------------------------------------------------------------ */
+
+/* macOS keeps its own buttons, so the mock draws the real colours: the
+   point of that row is that we did not draw it. */
+.lights.mac i { background: #ff5f57; }
+.lights.mac i:nth-child(2) { background: #febc2e; }
+.lights.mac i:nth-child(3) { background: #28c840; }
+
+.mock-tb.csd.mac { padding-left: 14px; }
+.mock-tb.csd.win,
+.mock-tb.csd.gnome { padding-right: 0; }
+
+/* Windows 11 caption buttons: 46 x 32, close tinted only on hover. */
+.caps { display: flex; align-self: stretch; margin-left: 6px; }
+.caps b {
+  width: 46px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.caps b::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--m-dim);
+}
+.caps b.min::before { height: 0; width: 10px; border: 0; border-top: 1px solid var(--m-dim); }
+.caps b.max::before { border-radius: 1px; }
+.caps b.cls { background: #c42b1c; }
+.caps b.cls::before,
+.caps b.cls::after {
+  content: "";
+  position: absolute;
+  width: 11px;
+  height: 1px;
+  border: 0;
+  background: #fff;
+}
+.caps b.cls::before { transform: rotate(45deg); }
+.caps b.cls::after { transform: rotate(-45deg); }
+
+/* GNOME: round buttons, right by default but the side is the user's. */
+.gcaps { display: flex; gap: 8px; padding: 0 12px 0 8px; }
+.gcaps b {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--m-sel2);
+  position: relative;
+}
+.gcaps b::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 7px;
+  height: 1px;
+  background: var(--m-dim);
+}
+.gcaps b:nth-child(2)::before { width: 7px; height: 7px; border: 1px solid var(--m-dim); background: none; }
+.gcaps b:nth-child(3)::before { transform: rotate(45deg); }
+.gcaps b:nth-child(3)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 7px;
+  height: 1px;
+  background: var(--m-dim);
+  transform: rotate(-45deg);
+}
+
+/* Code sketches. Not the finished thing — enough to show the shape and
+   the two or three calls that carry it. */
+.code-block {
+  margin: 12px 0 0;
+  overflow-x: auto;
+  background: var(--surface-2);
+  border-radius: 8px;
+  border: 1px solid var(--line-soft);
+}
+.code-block pre { margin: 0; padding: 14px 16px; }
+.code-block code {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.72;
+  color: var(--ink-2);
+  white-space: pre;
+}
+.code-block .cm { color: var(--muted); }
+
+.dimtext { color: var(--muted); font-size: 12px; }
+.matrix td .mono { font-size: 12px; }
+
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="ic-file" viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></symbol>
+    <symbol id="ic-folder" viewBox="0 0 24 24"><path d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2"/></symbol>
+    <symbol id="ic-star" viewBox="0 0 24 24"><path d="M12 17.75 5.83 21l1.18-6.87-5-4.87 6.9-1L12 2l3.09 6.26 6.9 1-5 4.87L18.17 21z"/></symbol>
+    <symbol id="ic-clock" viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18"/><path d="M12 7v5l3 3"/></symbol>
+    <symbol id="ic-search" viewBox="0 0 24 24"><path d="M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14"/><path d="m21 21-6-6"/></symbol>
+    <symbol id="ic-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="ic-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+    <symbol id="ic-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="ic-gear" viewBox="0 0 24 24"><path d="M10.3 4.3a2 2 0 0 1 3.4 0l.4.7a2 2 0 0 0 2.2 1l.8-.2a2 2 0 0 1 2.4 2.4l-.2.8a2 2 0 0 0 1 2.2l.7.4a2 2 0 0 1 0 3.4l-.7.4a2 2 0 0 0-1 2.2l.2.8a2 2 0 0 1-2.4 2.4l-.8-.2a2 2 0 0 0-2.2 1l-.4.7a2 2 0 0 1-3.4 0l-.4-.7a2 2 0 0 0-2.2-1l-.8.2a2 2 0 0 1-2.4-2.4l.2-.8a2 2 0 0 0-1-2.2l-.7-.4a2 2 0 0 1 0-3.4l.7-.4a2 2 0 0 0 1-2.2l-.2-.8a2 2 0 0 1 2.4-2.4l.8.2a2 2 0 0 0 2.2-1z"/><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/></symbol>
+    <symbol id="ic-wide" viewBox="0 0 24 24"><path d="M3 5v14M21 5v14M8 12h8M8 12l2-2M8 12l2 2M16 12l-2-2M16 12l-2 2"/></symbol>
+    <symbol id="ic-narrow" viewBox="0 0 24 24"><path d="M3 5v14M21 5v14M6 12h4M6 12l2-2M6 12l2 2M18 12h-4M18 12l-2-2M18 12l-2 2"/></symbol>
+    <symbol id="ic-sunmoon" viewBox="0 0 24 24"><path d="M9.6 4.5a9 9 0 1 0 9.9 9.9A7 7 0 0 1 9.6 4.5"/><path d="M17 4.5v3M15.5 6h3"/></symbol>
+    <symbol id="ic-moon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9"/></symbol>
+    <symbol id="ic-sun" viewBox="0 0 24 24"><path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/><path d="M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5 19 19M3 12h2M19 12h2M5 19l1.5-1.5M17.5 6.5 19 5"/></symbol>
+    <symbol id="ic-cmd" viewBox="0 0 24 24"><path d="M7 9a2 2 0 1 1 2-2v10a2 2 0 1 1-2-2h10a2 2 0 1 1-2 2V7a2 2 0 1 1 2 2z"/></symbol>
+    <symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="ic-pin" viewBox="0 0 24 24"><path d="M9 4v6l-2 4v2h10v-2l-2-4V4M12 16v5M8 4h8"/></symbol>
+    <symbol id="ic-sidebar" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M9 4v16"/></symbol>
+    <symbol id="ic-doc-open" viewBox="0 0 24 24"><path d="M3 19V6a2 2 0 0 1 2-2h5v15H5a2 2 0 0 0-2 2z"/><path d="M21 19V6a2 2 0 0 0-2-2h-5v15h5a2 2 0 0 1 2 2z"/></symbol>
+      <symbol id="ic-menu" viewBox="0 0 24 24"><path d="M4 8h16"/><path d="M4 16h16"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Arto ／ 実装計画</p>
+    <h1>帯を<em>ゼロ</em>にする</h1>
+    <p class="lede">
+      決まったのは <strong>E</strong>（タイトルバーに畳む。B のグリフはその中に住みます）と <strong>D</strong>（<span class="mono">⌘K</span> をコマンドパレットに）。
+      3つのプラットフォームすべてで行い、<strong>macOS はネイティブメニューを残します</strong>。窓ボタンも各 OS の作法どおりに揃えます。
+      着手の前に、沈む可能性のあった6点を先に調べました ―― 5つは通り、1つは通りませんでした。
+    </p>
+  </header>
+
+  <div class="sec">
+    <p class="sec-label">先に潰した6点</p>
+    <p>
+      すべて <span class="mono">tao 0.34.8</span> / <span class="mono">wry 0.53.5</span> / <span class="mono">dioxus-desktop 0.7.10</span> ―― いまロックされている版のソースで確認しています。
+    </p>
+
+    <div class="rules">
+      <div class="rule">
+        <span class="n">①</span>
+        <div>
+          <b>HTML から窓をドラッグできるか</b>
+          <p>
+            タイトルバーが HTML になるので、押して動かしたら窓が付いてこなければなりません。
+            <span class="mono">-webkit-app-region: drag</span> は Chromium だけのもので、<strong>WKWebView にはありません</strong>。
+            ―― ですが不要でした。tao の macOS 実装は <span class="mono">performWindowDragWithEvent:</span> を呼んでおり、
+            dioxus は <span class="mono">desktop.drag()</span> として公開しています。3つとも同じ1行で済みます。
+            <span class="chip ok">通る</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="rule">
+        <span class="n">②</span>
+        <div>
+          <b>装飾を外した窓をリサイズできるか</b>
+          <p>
+            macOS は<strong>そもそも装飾を外しません</strong>（③ の表）。枠は native のままなので OS 任せ。
+            Windows は tao 側が <span class="mono">WM_NCCALCSIZE</span> / <span class="mono">WM_NCHITTEST</span> を処理していて、
+            コメントにも「装飾なし窓のリサイズを許可する」と書かれています。Linux は <span class="mono">drag_resize_window(direction)</span> が実装済み。
+            <span class="chip ok">通る</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="rule">
+        <span class="n">③</span>
+        <div>
+          <b>窓ボタンに必要な API があるか</b>
+          <p>
+            <span class="mono">set_minimized</span> / <span class="mono">set_maximized</span> / <span class="mono">is_maximized</span> /
+            <span class="mono">set_fullscreen</span> / <span class="mono">fullscreen</span> / <span class="mono">is_decorated</span>、すべて <span class="mono">tao::window::Window</span> にあります。
+            <span class="mono">dioxus::desktop</span> は <span class="mono">pub use tao</span> しているので、プラットフォーム拡張トレイトもそのまま使えます。
+            <span class="chip ok">通る</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="rule">
+        <span class="n">④</span>
+        <div>
+          <b>Windows 11 のスナップレイアウト</b>
+          <p>
+            最大化ボタンにホバーすると出るあの吹き出しは、<span class="mono">WM_NCHITTEST</span> に <span class="mono">HTMAXBUTTON</span> を返して初めて出ます。
+            tao が返すのは <span class="mono">HTCAPTION</span> と <span class="mono">HTCLIENT</span> だけ。
+            逃げ道の <span class="mono">with_msg_hook</span> は<strong>イベントループのキューの手前</strong>に入るもので、
+            <span class="mono">WM_NCHITTEST</span> は <span class="mono">SendMessage</span> で窓プロシージャへ直接届くためキューを通りません ―― 見ることも答えることもできません。
+            <span class="chip no">通らない</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="rule">
+        <span class="n">⑤</span>
+        <div>
+          <b>GNOME の窓ボタン配置を読めるか</b>
+          <p>
+            <span class="mono">org.gnome.desktop.wm.preferences</span> の <span class="mono">button-layout</span> は左右も順序も利用者の設定です。
+            <span class="mono">gio</span> 0.18 は依存の木に既にあり、読めます。ただし <span class="mono">Settings::new</span> はスキーマが無い環境で
+            <strong>abort します</strong>（GNOME でない Linux は珍しくありません）。
+            <span class="mono">SettingsSchemaSource::default()?.lookup(id, true)?</span> で存在を確かめてから作る必要があります。
+            <span class="chip ok">通る（作法つき）</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="rule">
+        <span class="n">⑥</span>
+        <div>
+          <b>位置とサイズの保存が壊れないか</b>
+          <p>
+            <span class="mono">capture_window_metrics</span> は outer から <span class="mono">chrome_inset</span>（タイトルバーの高さ）を引いて inner を出しています。
+            装飾を外すと inset は 0 になり、式はそのまま成立します。
+            ただし<strong>装飾ありで保存された <span class="mono">state.json</span> からは、タイトルバー1本分だけ大きく復元されます</strong> ―― 移行時に一度だけ効く歪みです。
+            <span class="chip care">通るが、移行に一手</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <p class="sec-label">実装イメージ</p>
+    <p>
+      3つとも「ヘッダーがそのままタイトルバーになる」形です。帯は1本も無く、本文は窓の縁まで届きます。
+      違うのは<strong>窓ボタンを誰が描くか</strong>だけです。
+    </p>
+
+    <h3 style="margin-top:30px">macOS ―― 信号機は AppKit のまま</h3>
+    <p class="caption">
+      装飾は外しません。タイトルバーを透過にして本文をその下まで伸ばすだけなので、
+      <b>ドラッグ・リサイズ・信号機・緑ボタンのフルスクリーンは全部 native の挙動</b>です。
+      画面上端のメニューバーにも一切触れません。左に信号機の分だけ場所を空けます。
+    </p>
+    <div class="mock-scroll">
+      <div class="mock" style="min-width:640px">
+        <div class="mock-tb csd mac">
+          <div class="lights mac"><i></i><i></i><i></i></div>
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-menu"/></svg></span>
+          <span class="crumb" style="font-size:12px">demo <span style="color:var(--m-line)">/</span> <b>README.md</b></span>
+          <span class="spacer"></span>
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-search"/></svg></span>
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-narrow"/></svg></span>
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-sunmoon"/></svg></span>
+        </div>
+        <div class="mock-body" style="min-height:150px">
+          <div class="rail qzone">
+            <span class="q"><svg class="i md"><use href="#ic-folder"/></svg></span>
+            <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
+            <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
+          </div>
+          <div style="flex:1;min-width:0"><div class="doc" style="padding-top:16px"><div class="doc-narrow"><h1>Arto</h1><p>Arto — the Art of Reading Markdown.</p></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:34px">Windows ―― 46×32 の3つを自前で</h3>
+    <p class="caption">
+      装飾なし。右端に 最小化 / 最大化・元に戻す / 閉じる を Windows 11 の寸法で描きます。
+      <b>閉じるのホバーだけが赤</b>（<span class="mono">#c42b1c</span>）で、他はグレーの薄い面 ―― 下の図はその閉じるにポインタが乗っている状態です。
+    </p>
+    <div class="mock-scroll">
+      <div class="mock" style="min-width:640px">
+        <div class="mock-tb csd win">
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-menu"/></svg></span>
+          <span class="crumb" style="font-size:12px">demo <span style="color:var(--m-line)">/</span> <b>README.md</b></span>
+          <span class="spacer"></span>
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-search"/></svg></span>
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-narrow"/></svg></span>
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-sunmoon"/></svg></span>
+          <span class="caps"><b class="min"></b><b class="max"></b><b class="cls"></b></span>
+        </div>
+        <div class="mock-body" style="min-height:150px">
+          <div class="rail qzone">
+            <span class="q"><svg class="i md"><use href="#ic-folder"/></svg></span>
+            <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
+            <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
+          </div>
+          <div style="flex:1;min-width:0"><div class="doc" style="padding-top:16px"><div class="doc-narrow"><h1>Arto</h1><p>Arto — the Art of Reading Markdown.</p></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:34px">Linux ―― 丸ボタン、位置は利用者の設定に従う</h3>
+    <p class="caption">
+      装飾なし。GNOME の作法どおり右端に丸い3つ。ただし <span class="mono">button-layout</span> が左を指していれば左に置き、
+      並びもその設定に従います（⑤）。スキーマが読めない環境では右固定に倒します。
+    </p>
+    <div class="mock-scroll">
+      <div class="mock" style="min-width:640px">
+        <div class="mock-tb csd gnome">
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-menu"/></svg></span>
+          <span class="crumb" style="font-size:12px">demo <span style="color:var(--m-line)">/</span> <b>README.md</b></span>
+          <span class="spacer"></span>
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-search"/></svg></span>
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-narrow"/></svg></span>
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-sunmoon"/></svg></span>
+          <span class="gcaps"><b></b><b></b><b></b></span>
+        </div>
+        <div class="mock-body" style="min-height:150px">
+          <div class="rail qzone">
+            <span class="q"><svg class="i md"><use href="#ic-folder"/></svg></span>
+            <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
+            <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
+          </div>
+          <div style="flex:1;min-width:0"><div class="doc" style="padding-top:16px"><div class="doc-narrow"><h1>Arto</h1><p>Arto — the Art of Reading Markdown.</p></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <p class="sec-label">窓ボタン</p>
+    <div class="tbl-scroll">
+      <table class="matrix">
+        <thead>
+          <tr><th></th><th>誰が描くか</th><th>並び</th><th>中央のボタン</th><th>ドラッグ</th><th>リサイズ</th></tr>
+        </thead>
+        <tbody>
+          <tr><th>macOS</th><td class="yes">AppKit</td><td>左・信号機</td><td>フルスクリーン<span class="dimtext">（native）</span></td><td>native</td><td>native</td></tr>
+          <tr><th>Windows</th><td class="part">自前</td><td>右・46×32</td><td>最大化 / 元に戻す</td><td><span class="mono">drag()</span></td><td>tao の枠</td></tr>
+          <tr><th>Linux</th><td class="part">自前</td><td><span class="mono">button-layout</span> に従う</td><td>最大化 / 元に戻す</td><td><span class="mono">drag()</span></td><td><span class="mono">drag_resize_window</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">
+      中央を macOS だけフルスクリーンにするのは、緑ボタンが native でそう振る舞うからです ――
+      Windows / Linux で真のフルスクリーンにすると、その OS の作法から外れます。
+      <b>「全画面」は macOS では緑ボタン、他では最大化</b>と読み替えています。違えば直します。
+    </p>
+  </div>
+
+  <div class="sec">
+    <p class="sec-label">段取り</p>
+    <div class="phases">
+
+      <div class="phase">
+        <span class="when">D</span>
+        <div>
+          <h3>1　コマンドパレット</h3>
+        <ul>
+          <li>
+            <span class="mono">Action</span> に palette 用の名前を足します。動作（<span class="mono">cursor.down</span> など）は
+            <em>キーであってコマンドではない</em>ので、名前を持たせません ―― <span class="mono">Option</span> がその判断を型で表します。
+          </li>
+          <li>空クエリのときは<strong>履歴だけ</strong>。<span class="mono">⌘K → ⏎</span> が「直前に戻る」であることは変えません。</li>
+          <li>打ち始めたらコマンドを上、文書を下。絞り込みは既存の <span class="mono">visits::matches</span> と同じ規則で。</li>
+        </ul>
+        <div class="code-block"><pre><code>impl Action {
+    /// パレットでの名前。動作には無い ―― <span class="cm">cursor.down</span> はキーであって
+    /// コマンドではないので、一覧に出す意味がありません。
+    pub fn command_label(&self) -&gt; Option&lt;&amp;'static str&gt; {
+        Some(match self {
+            Self::FileOpen =&gt; "Open File…",
+            Self::WindowDuplicate =&gt; "Duplicate Window",
+            Self::ContentsToggle =&gt; "Contents",
+            Self::CursorDown | Self::ScrollDown | Self::ContentNext =&gt; return None,
+            …
+        })
+    }
+}</code></pre></div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <span class="when">E-1</span>
+        <div>
+          <h3>2　macOS のタイトルバー</h3>
+        <ul>
+          <li>いちばんリスクが低く、いちばん早く形が見えるのでここから。</li>
+          <li>ネイティブメニューは <span class="mono">menu.rs</span> のまま。触りません。</li>
+          <li>信号機の位置をヘッダーの 30px の当たりに合わせ、CSS 側で左に空きを作ります。</li>
+          <li>フルスクリーン中は AppKit が信号機を隠すので、<strong>空きも畳みます</strong>（<span class="mono">Resized</span> で見直し）。</li>
+        </ul>
+        <div class="code-block"><pre><code>#[cfg(target_os = "macos")]
+{
+    use dioxus::desktop::tao::platform::macos::WindowBuilderExtMacOS;
+    // 枠は残す。タイトルバーの<span class="cm">描画</span>だけを譲ってもらう形なので、
+    // ドラッグもリサイズも信号機も AppKit のまま動きます。
+    builder = builder
+        .with_titlebar_transparent(true)
+        .with_fullsize_content_view(true)
+        .with_title_hidden(true)
+        .with_traffic_light_inset(LogicalPosition::new(18.0, 16.0));
+}</code></pre></div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <span class="when">E-2</span>
+        <div>
+          <h3>3　Windows と Linux</h3>
+        <ul>
+          <li>装飾を外し、窓ボタンを自前で描きます。二度手間を避けるため、2つは同じコンポーネントで、並びだけ差し替えます。</li>
+          <li>タイトルバーの空き地を押したら <span class="mono">drag()</span>、ダブルクリックで最大化・元に戻す。</li>
+          <li>Linux は8方向のリサイズ帯を自分で持ちます（Windows は tao の枠が担当）。</li>
+          <li>Linux の並びは <span class="mono">button-layout</span>。読めなければ右固定。</li>
+        </ul>
+        <div class="code-block"><pre><code>#[cfg(target_os = "windows")]
+{
+    use dioxus::desktop::tao::platform::windows::WindowBuilderExtWindows;
+    // 影を残すと、tao がまだ持っている枠でリサイズの当たりも生きます。
+    builder = builder.with_decorations(false).with_undecorated_shadow(true);
+}
+
+#[cfg(target_os = "linux")]
+{
+    builder = builder.with_decorations(false);
+}</code></pre></div>
+        <div class="code-block"><pre><code>// GNOME のスキーマが無い機械で <span class="cm">Settings::new</span> は abort します。
+// 先に在ることを確かめてから作ります。
+#[cfg(target_os = "linux")]
+fn button_layout() -&gt; Option&lt;String&gt; {
+    let source = gio::SettingsSchemaSource::default()?;
+    source.lookup("org.gnome.desktop.wm.preferences", true)?;
+    let settings = gio::Settings::new("org.gnome.desktop.wm.preferences");
+    Some(settings.string("button-layout").to_string())
+}</code></pre></div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <span class="when">E-3</span>
+        <div>
+          <h3>4　掃除</h3>
+        <ul>
+          <li><span class="mono">menu.rs</span>（muda）を <strong>macOS 専用</strong>に。Linux で窓の中にバーを描かせません。</li>
+          <li><span class="mono">win_hamburger.rs</span> を <span class="mono">app_menu.rs</span> に改名し、3つとも同じものを使います。</li>
+          <li>ヘッダーはタイトルバーの中身になるので、<span class="mono">header.rs</span> と <span class="mono">titlebar.rs</span> の境目を決めます。</li>
+          <li><span class="mono">chrome_inset</span> の意味が変わるので、⑥ の移行を1度だけ通します。</li>
+        </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="sec">
+    <p class="sec-label">残る危なさ</p>
+    <ul class="list wide">
+      <li><span class="tag">④</span><b>Windows のスナップレイアウトは出ません。</b><span class="why">調べた結果、tao の口からは届きません。<span class="mono">Win</span>＋矢印と、端へのドラッグは普通に効きます（窓は普通のトップレベルのままなので）。どうしても要るなら HWND を自前でサブクラス化する話になり、<span class="mono">windows</span> クレートへの直接依存と unsafe が増えます ―― 別の判断として切り出します。</span></li>
+      <li><span class="tag">高</span><b>WebView がマウスを飲む。</b><span class="why">ドラッグは押した瞬間に <span class="mono">drag()</span> を呼ぶ必要があり、テキスト選択やボタンの上では呼んではいけません。当たり判定の線引きを間違えると「窓が動かない」か「文字が選べない」のどちらかになります。</span></li>
+      <li><span class="tag">中</span><b>ダブルクリックで最大化。</b><span class="why">OS がやってくれていた作法で、自前になります。3つとも同じ判定にします。</span></li>
+      <li><span class="tag">中</span><b>HiDPI と分数スケール。</b><span class="why">窓ボタンは物理ピクセルに寄る部品なので、150% や 175% で滲みやすいところです。Linux の実機で見ます。</span></li>
+      <li><span class="tag">低</span><b>復元位置のずれ。</b><span class="why">⑥。装飾ありで保存された値から一度だけ、タイトルバー1本分。</span></li>
+    </ul>
+  </div>
+
+  <div class="sec">
+    <p class="sec-label">完了条件</p>
+    <ul class="list">
+      <li><span class="tag">✓</span>3つとも帯が0本。本文が窓の縁まで届く。</li>
+      <li><span class="tag">✓</span>閉じる・しまう・最大化（macOS は緑のフルスクリーン）が各 OS の作法どおりに動く。</li>
+      <li><span class="tag">✓</span>タイトルバーの空き地でドラッグでき、文字は普通に選べる。</li>
+      <li><span class="tag">✓</span>macOS の画面上端のメニューバーは、いまと同じまま。</li>
+      <li><span class="tag">✓</span><span class="mono">⌘K</span> で <span class="mono">print</span> と打つと Print が出て、⏎ で印刷が始まる。空クエリでは履歴だけ。</li>
+      <li><span class="tag">✓</span><span class="mono">just fmt check test</span> と <span class="mono">just docs</span> が通る。</li>
+    </ul>
+  </div>
+
+  <footer class="meta">
+    Arto — タイトルバーとコマンドパレットの実装計画。
+    案の比較は <span class="mono">docs/design/platform-menus.html</span>、仕様は
+    <span class="mono">docs/design/quiet-chrome.html</span> にあります。
+    調査は <span class="mono">tao 0.34.8</span> / <span class="mono">wry 0.53.5</span> / <span class="mono">dioxus-desktop 0.7.10</span> のソースに当たったものです。
+  </footer>
+
+</div>
