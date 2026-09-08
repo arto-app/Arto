@@ -384,7 +384,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <div class="decision">
         <span class="src">案 A より</span>
         <b>常設は左1枚</b>
-        <p>複数ルートのツリーとお気に入り。レールで切り替える1面だけです。タブバーと右サイドバーは廃止。</p>
+        <p>ツリー・履歴・お気に入りを、レールで切り替える1面だけ。ツリーの根は「場所」と「このウィンドウ」に分かれます。タブバーと右サイドバーは廃止。</p>
       </div>
       <div class="decision">
         <span class="src">案 B より</span>
@@ -446,7 +446,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
           </div>
           <div class="vs-fill">
-            <div class="sect open">Workspace <span class="count">3</span></div>
+            <div class="sect open">Files</div>
             <div class="row"><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
             <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
             <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>CONTRIBUTING.md</span></div>
@@ -644,7 +644,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
               <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
             <div class="panel qzone" style="width:190px">
-              <div class="sect open">Workspace <span class="count">3</span></div>
+              <div class="sect open">Files</div>
               <div class="rows">
                 <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
                 <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>docs</span></div>
@@ -709,7 +709,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
               <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
             <div class="panel qzone" style="width:190px">
-              <div class="sect open">Workspace <span class="count">3</span></div>
+              <div class="sect open">Files</div>
               <div class="rows">
                 <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
                 <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>docs</span></div>
@@ -985,6 +985,186 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
 
   <!-- ============================================================= -->
   <section class="sec">
+    <p class="sec-label">場所</p>
+    <div class="col">
+      <h2>「ワークスペース」は、3つの別物が同じ名前で呼ばれていました</h2>
+      <p>
+        ご指摘のとおりです。いまの <code>root_directory</code> は1つしかなく、しかもそこに
+        <strong>意味の違う3つ</strong>が押し込まれています ―― <strong>いま開いている文書の周辺</strong>、
+        <strong>自分で決めて残した場所</strong>、<strong>ちょっと覗きに行った場所</strong>。
+        寿命も、誰が決めたかも違うのに、同じ1つの変数を奪い合っています。
+      </p>
+      <p>
+        だから場所を移すと前の場所が消えます。並べて見られないのも、新しいウィンドウで何を引き継ぐか決められないのも、
+        すべてここから来ています。要件から並べ直します。
+      </p>
+    </div>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">要件</th><th scope="col">いまの挙動</th><th scope="col">何が困るか</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">開いた文書の周辺が見たい</th><td>親ディレクトリを根に<strong>置き換える</strong></td><td>それまで見ていた場所が消える</td></tr>
+          <tr><th scope="row">決めた場所は残したい</th><td>ディレクトリのお気に入り → クリックで根を置き換え</td><td>登録はできるが、同時に1つしか見られない</td></tr>
+          <tr><th scope="row">自由に俯瞰したい</th><td>根そのものを上下に移動</td><td>移動が喪失を伴う。戻るには履歴を辿る</td></tr>
+          <tr><th scope="row">並べて見たい</th><td>できない</td><td>―</td></tr>
+          <tr><th scope="row">新しいウィンドウに引き継ぎたい／たくない</th><td>設定の既定ディレクトリのみ</td><td>そのときどきで選べない</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col" style="margin-top:34px">
+      <h3>2つに分けます</h3>
+      <p>
+        <strong>場所（Places）</strong> ―― 自分で決めて残したもの。設定に保存され、<strong>全ウィンドウで共通</strong>。
+        ツリーの根として常に並びます。実体は<strong>お気に入りに入れたフォルダ</strong>です ――
+        新しい概念ではなく、既にあるお気に入りのフォルダ側に「根として並ぶ」という意味を与えるだけです。
+      </p>
+      <p>
+        <strong>このウィンドウ</strong> ―― 一時的な根。文書を開いた場所、ドロップした場所、覗きに行った場所が
+        ここに<strong>積まれます（置き換えません）</strong>。ウィンドウを閉じれば消えます。
+        残したくなったら、その行から場所に昇格できます。
+      </p>
+      <p>
+        <strong>置き換えではなく追加</strong>という一点で、「俯瞰したい」と「並べて見たい」が同時に解けます。
+      </p>
+    </div>
+
+    <div class="mock-band">
+      <div class="mock-scroll">
+        <div class="mock" style="min-width:700px">
+          <div class="mock-tb">
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="tb-title">README.md — arto</div>
+          </div>
+          <div class="mock-body" style="min-height:340px">
+            <div class="rail open qzone">
+              <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
+              <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
+              <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
+            </div>
+            <div class="panel qzone" style="width:246px">
+              <div class="sect open">Files</div>
+              <div class="rows">
+                <div class="row-div" style="margin-top:0">場所</div>
+                <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
+                <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>crates</span></div>
+                <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>docs</span></div>
+                <div class="row ind sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
+                <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
+                <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder…</span></div>
+                <div class="row-div">このウィンドウ</div>
+                <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>~/Downloads</span></div>
+                <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>spec-draft.md</span></div>
+                <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>~/work/handbook</span></div>
+              </div>
+            </div>
+
+            <div class="stage" style="flex-direction:column">
+              <div class="hdr qzone">
+                <span class="q"><svg class="i md"><use href="#ic-left"/></svg></span>
+                <span class="crumb">arto <span style="color:var(--m-line)">/</span> <b>README.md</b> <span class="hint">⌘K</span></span>
+                <span class="spacer"></span>
+                <span class="q"><svg class="i md"><use href="#ic-search"/></svg></span>
+                <span class="q"><svg class="i md"><use href="#ic-narrow"/></svg></span>
+                <span class="q"><svg class="i md"><use href="#ic-sunmoon"/></svg></span>
+              </div>
+              <div class="doc">
+                <div class="doc-narrow">
+                  <h1>Arto</h1>
+                  <p>Arto — the Art of Reading Markdown. A desktop app that renders Markdown the way GitHub does, locally and offline.</p>
+                  <h2>Why</h2>
+                  <p>Most Markdown tools are built for writing. Arto is built for reading.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="caption">
+        <b>上が場所、下がこのウィンドウ。</b>区切りの細線は、履歴の日付と同じ理由でここにあります ―― 同じ面が接する場所です。
+        <span class="mono">~/Downloads</span> は文書をドロップして入ったもの、<span class="mono">~/work/handbook</span> はそこの文書を開いて入ったもの。
+        どちらも閉じれば消え、残したければ行から場所へ昇格できます。
+      </p>
+    </div>
+
+    <div class="col" style="margin-top:34px">
+      <h3>どの操作が、どちらに入るか</h3>
+      <p>
+        規則はひとつです ―― <strong>ダイアログを開いて自分で選んだものは場所、それ以外は一時</strong>。
+        「わざわざ選んだ」という手間が、そのまま永続の意思表示になります。
+      </p>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">操作</th><th scope="col">入る先</th><th scope="col">備考</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Add folder…（ダイアログ）</th><td class="num">場所</td><td>明示的に選んだので残す</td></tr>
+          <tr><th scope="row">フォルダをお気に入りに入れる</th><td class="num">場所</td><td>同じもの。お気に入り側から見ても、ツリー側から見ても同じ1つ</td></tr>
+          <tr><th scope="row">外から文書を開く（Finder・CLI・ドロップ）</th><td class="num">このウィンドウ</td><td>既存の根の下にあるなら、根は増やさず展開して示す</td></tr>
+          <tr><th scope="row">フォルダをドロップ</th><td class="num">このウィンドウ</td><td>置き換えず、末尾に積む</td></tr>
+          <tr><th scope="row">ツリーの行を右クリック →「ここを根にする」</th><td class="num">このウィンドウ</td><td>元の根は残る。深い階層で作業するとき用</td></tr>
+          <tr><th scope="row">⌘K にパスを打つ</th><td class="num">このウィンドウ</td><td>俯瞰の入口。<code>/</code> でも <code>~</code> でも</td></tr>
+          <tr><th scope="row">行のホバー →「場所にする」</th><td class="num">場所へ昇格</td><td>逆は「場所から外す」</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col" style="margin-top:26px">
+      <p>
+        一時の根は<strong>畳んだ状態で積まれ</strong>、1行しか取りません。上限は8つで、
+        古い（最後に触ってから長い）ものから静かに落ちます ―― どこへ行ったかは履歴が覚えているので、失われません。
+        「閉じる」は一時の根にだけあり、場所は「場所から外す」で消します。
+      </p>
+    </div>
+
+    <div class="col" style="margin-top:34px">
+      <h3>引き継ぐかどうかは、設定ではなく操作で選びます</h3>
+      <p>
+        「復元してほしい時もほしくない時もある」は、設定で決めると必ずどちらかで外れます。
+        <strong>そのとき選べる</strong>ようにするのが答えです ―― 2つのコマンドに分けます。
+      </p>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">操作</th><th scope="col">引き継ぐもの</th><th scope="col">引き継がないもの</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">新しいウィンドウ <span class="k">⌘N</span></th><td>場所（全ウィンドウ共通なので当然）</td><td>一時の根・開いていた文書。ライブラリで開きます</td></tr>
+          <tr><th scope="row">ウィンドウを複製 <span class="k">⌘⇧N</span></th><td>一時の根・いま読んでいる文書・スクロール位置</td><td>―</td></tr>
+          <tr><th scope="row">アプリの起動</th><td colspan="2">設定「前回の状態を復元する（既定）／ ライブラリから始める」</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col" style="margin-top:26px">
+      <p>
+        ウィンドウ単位の話とアプリ起動の話を分けたのがここの要点です。
+        前者は<strong>そのとき決めたい</strong>ので操作に、後者は<strong>毎回同じでいい</strong>ので設定に置きました。
+      </p>
+      <p>
+        場所が全ウィンドウ共通なのは、それが「このマシンで自分がよく読む場所」だからです。
+        ウィンドウごとに違う場所リストを持つと、どれで登録したか覚えていないといけません。
+      </p>
+    </div>
+
+    <div class="col" style="margin-top:30px">
+      <h3>残る論点</h3>
+      <ul class="list">
+        <li><span class="tag move">1</span><strong>場所は本当にお気に入りと同じもので良いですか。</strong><span class="why">同じにすると概念が1つ減りますが、「ライブラリのカードに出したいフォルダ」と「ツリーの根に並べたいフォルダ」が完全に一致するとは限りません。分けるなら、フォルダのお気に入りに「根として並べる」というチェックが1つ増えます。</span></li>
+        <li><span class="tag move">2</span><strong>一時の根の上限 8 は妥当ですか。</strong><span class="why">静かに落ちるのが不安なら、落とさずに畳んだまま溜める手もあります。1行ずつなので、20 あってもリストは 20 行です。</span></li>
+        <li><span class="tag move">3</span><strong>場所の並び順は手で決めますか。</strong><span class="why">お気に入りは今もドラッグで並べ替えられるので、そのまま引き継ぐのが素直です。一時の根は触った順（新しいものが下）にします。</span></li>
+      </ul>
+    </div>
+  </section>
+  <!-- ============================================================= -->
+  <section class="sec">
     <p class="sec-label">原則</p>
     <div class="col">
       <h2>押しやすさと存在感は、分けて設計できます</h2>
@@ -1250,7 +1430,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
                 <p style="max-width:none">The document does not reflow while the panel is peeking — it is drawn on top, and the line you were reading stays where it was.</p>
               </div>
               <div class="panel peek">
-                <div class="sect open">Workspace <span class="count">3</span></div>
+                <div class="sect open">Files</div>
                 <div class="rows">
                   <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
                   <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>crates</span></div>
@@ -1259,8 +1439,9 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
                   <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>CONTRIBUTING.md</span></div>
                   <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
                   <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>daily.md</span></div>
+                  <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder…</span></div>
+                  <div class="row-div">このウィンドウ</div>
                   <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>~/Documents/spec</span></div>
-                  <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
                 </div>
               </div>
             </div>
@@ -1350,7 +1531,9 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">テーマ（Light / Dark / Auto）</th><td>ヘッダー右（16px）</td><td class="num">30% ／ 現在の状態を表示</td><td><span class="k">⌘⇧T</span></td></tr>
           <tr><th scope="row">目次</th><td>本文右のガター（目盛り）</td><td class="num">2px の線のみ</td><td><span class="k">⌘J</span></td></tr>
           <tr><th scope="row">設定</th><td>レール下端の歯車</td><td class="num">30%</td><td><span class="k">⌘,</span></td></tr>
-          <tr><th scope="row">ルートを追加</th><td>ツリー末尾の「Add folder」行</td><td class="num">文字（faint）</td><td><span class="k">⌘⇧O</span></td></tr>
+          <tr><th scope="row">場所を追加</th><td>ツリーの「Add folder…」行（ダイアログ）</td><td class="num">文字（faint）</td><td><span class="k">⌘⇧O</span></td></tr>
+          <tr><th scope="row">一時の根を追加</th><td>ドロップ ／ 右クリック「ここを根にする」 ／ <kbd>⌘K</kbd> にパス</td><td class="num">なし</td><td>—</td></tr>
+          <tr><th scope="row">新しいウィンドウ / 複製</th><td>メニュー</td><td class="num">なし</td><td><span class="k">⌘N ⌘⇧N</span></td></tr>
           <tr><th scope="row">パネルを覗く</th><td>レールに 120ms 留まる</td><td class="num">レールが常時見えている</td><td>—</td></tr>
           <tr><th scope="row">パネルを留める / 畳む</th><td>レールのグリフをクリック</td><td class="num">同上</td><td><span class="k">⌘B</span></td></tr>
           <tr><th scope="row">お気に入り追加 / 解除</th><td>行のホバー時のみ</td><td class="num">非表示</td><td><span class="k">⌘D</span></td></tr>
@@ -1646,12 +1829,12 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
               <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
             <div class="panel qzone" style="width:206px">
-              <div class="sect open">Workspace <span class="count">3</span></div>
+              <div class="sect open">Files</div>
               <div class="rows">
+                <div class="row-div" style="margin-top:0">場所</div>
                 <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
                 <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
-                <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>~/Documents/spec</span></div>
-                <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
+                <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder…</span></div>
               </div>
             </div>
 
