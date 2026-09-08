@@ -190,6 +190,10 @@
     {
       "key": "Cmd+3",
       "action": "sidebar.face_starred"
+    },
+    {
+      "key": "Cmd+k",
+      "action": "palette.open"
     }
   ],
   "content": [

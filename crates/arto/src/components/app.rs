@@ -534,6 +534,13 @@ pub fn App(
             // root, outside the watcher-keyed file tree, so refresh-driven
             // remounts of the tree can no longer unmount an open menu).
             SidebarContextMenuHost {}
+
+            // The palette sits above everything, including the panel: it is
+            // opened over whatever is being read and closes back onto it.
+            // Mounted only while open, so it always opens on a clear query.
+            if *state.palette_open.read() {
+                crate::components::palette::Palette {}
+            }
         }
     }
 }

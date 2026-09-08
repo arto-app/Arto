@@ -4,9 +4,10 @@ mod file_error_view;
 mod file_viewer;
 mod gutter;
 mod inline_viewer;
-mod no_file_view;
+mod library_view;
 mod preferences_view;
 mod search_handler;
+mod trace;
 
 use dioxus::prelude::*;
 
@@ -16,7 +17,7 @@ use file_error_view::FileErrorView;
 use file_viewer::FileViewer;
 use gutter::ContentsGutter;
 use inline_viewer::InlineViewer;
-use no_file_view::NoFileView;
+use library_view::LibraryView;
 
 // Re-export for menu system
 pub use preferences_view::{set_preferences_tab_to_about, PreferencesView};
@@ -27,6 +28,12 @@ pub use context_menu_state::{close_context_menu, CONTENT_CONTEXT_MENU};
 
 // Re-export search handler for App-level setup
 pub use search_handler::use_search_handler;
+
+/// How many documents the margin trace names.
+///
+/// A ribbon, not a list: enough to recognise the last few, few enough that
+/// the margin still reads as margin. Configurable in Phase 5.
+const TRACE_COUNT: usize = 6;
 
 #[component]
 pub fn Content() -> Element {
@@ -50,9 +57,20 @@ pub fn Content() -> Element {
 
     let headings = state.headings;
 
+    // The trace keeps out of the panel's way: with the panel out there are
+    // already two lists of documents on screen, and the margin one is the
+    // one nobody asked for. The other three choices, and the widths that
+    // fold it away, arrive with the layout budget.
+    let trace_visible = use_memo(move || !state.sidebar.read().pinned);
+
     rsx! {
         div {
             class: "content-area",
+
+        // The documents read before this one, at the edge of the page.
+        if trace_visible() {
+            trace::MarginTrace { count: TRACE_COUNT }
+        }
 
         div {
             class: "content",
@@ -76,7 +94,9 @@ pub fn Content() -> Element {
                             .to_string();
                         rsx! { FileErrorView { filename, error_message: error } }
                     },
-                    _ => rsx! { NoFileView {} },
+                    // A window with nothing open shows what there is to
+                    // read rather than explaining that nothing is open.
+                    _ => rsx! { LibraryView {} },
                 }
             }
         }

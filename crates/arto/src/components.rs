@@ -8,6 +8,7 @@ pub mod image_window;
 pub mod main_app;
 pub mod math_window;
 pub mod mermaid_window;
+pub mod palette;
 pub mod pinned_chips;
 pub mod preferences_window;
 pub mod search_bar;

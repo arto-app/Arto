@@ -1,6 +1,9 @@
+mod breadcrumb_menu;
+
 use dioxus::prelude::*;
 
 use crate::components::bookmark_button::BookmarkButton;
+use crate::components::header::breadcrumb_menu::Breadcrumb;
 use crate::components::icon::{Icon, IconName};
 use crate::components::theme_selector::ThemeSelector;
 use crate::state::AppState;
@@ -121,11 +124,9 @@ pub fn Header() -> Element {
                     }
                 }
 
-                // File name
-                span {
-                    class: "file-name",
-                    "{file}"
-                }
+                // The name of what is being read is also the way back to
+                // what was read before it.
+                Breadcrumb { label: file }
 
                 div {
                     class: "file-action-buttons",

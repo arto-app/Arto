@@ -23,6 +23,7 @@
 @import url("./components/tab-bar.css");
 @import url("./components/search-bar.css");
 @import url("./components/pinned-chips.css");
+@import url("./components/palette.css");
 @import url("./components/action-feedback.css");
 
 /* Left sidebar */
@@ -30,8 +31,6 @@
 @import url("./components/left-sidebar.css");
 @import url("./components/left-sidebar/faces.css");
 @import url("./components/left-sidebar/quick-access.css");
-
-/* Right sidebar */
 
 /* Content area */
 @import url("./components/content.css");

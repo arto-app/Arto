@@ -1,0 +1,46 @@
+/* =================================
+   Margin trace
+   =================================
+
+   The documents read before this one, left at the edge of the page. It is
+   the one window on the history that is never asked for, so it stays at
+   rest-ink until the pointer is in its column, and it yields its space
+   before anything else does. */
+
+.margin-trace {
+  flex-shrink: 0;
+  width: 9rem;
+  padding: 28px 12px 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.margin-trace-row {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  opacity: var(--opacity-rest);
+  transition: opacity var(--transition-quiet) ease;
+}
+
+/* The whole column wakes together, so a name is legible by the time it is
+   aimed at. */
+.margin-trace:hover .margin-trace-row {
+  opacity: var(--opacity-woken);
+}
+
+.margin-trace-row:hover {
+  opacity: 1;
+  color: var(--text-color);
+}

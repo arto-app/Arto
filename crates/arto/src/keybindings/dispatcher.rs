@@ -206,6 +206,9 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
             }
         }
 
+        // --- Palette ---
+        Action::PaletteOpen => state.toggle_palette(),
+
         // --- File ---
         Action::SidebarFaceFiles => state.show_face(crate::state::Face::Files),
         Action::SidebarFaceRecent => state.show_face(crate::state::Face::Recent),

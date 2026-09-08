@@ -164,3 +164,113 @@
 .file-action-buttons .bookmark-button.bookmarked {
   opacity: var(--opacity-active);
 }
+
+/* --- Breadcrumb ------------------------------------------------------ */
+
+/* The document's name is also the control that drops the recent ones.
+   Nothing is painted at rest — it reads as the title it already was — and
+   the chevron only appears once the band is awake. */
+.breadcrumb {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.breadcrumb-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-quiet) ease;
+
+  .icon {
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity var(--transition-quiet) ease;
+  }
+}
+
+.header:hover .breadcrumb-label .icon,
+.breadcrumb-label.open .icon {
+  opacity: var(--opacity-rest);
+}
+
+.breadcrumb-label:hover,
+.breadcrumb-label.open {
+  background: var(--bg-secondary);
+
+  .icon {
+    opacity: var(--opacity-woken);
+  }
+}
+
+.breadcrumb-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dropdown);
+}
+
+.breadcrumb-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: calc(var(--z-dropdown) + 1);
+  min-width: 240px;
+  max-width: 420px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--bg-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.breadcrumb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  font-weight: 400;
+  color: var(--text-color);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+
+  .icon {
+    flex-shrink: 0;
+    opacity: var(--opacity-muted);
+  }
+}
+
+.breadcrumb-row:hover {
+  background: var(--bg-secondary);
+}
+
+.breadcrumb-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The way out of the short list and into the whole history. */
+.breadcrumb-row-all {
+  color: var(--text-secondary);
+}
+
+.breadcrumb-empty {
+  padding: 12px 10px;
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}

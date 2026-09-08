@@ -94,6 +94,9 @@ pub enum Action {
     AppGoToHomepage,
     HelpShowKeyboardShortcuts,
 
+    // Palette (1) — the history, two keystrokes away
+    PaletteOpen,
+
     // Sidebar (4)
     SidebarToggleShowAllFiles,
     SidebarFaceFiles,
@@ -233,6 +236,7 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::HelpShowKeyboardShortcuts,
         ],
     ),
+    ("Palette", &[Action::PaletteOpen]),
     (
         "Sidebar",
         &[
@@ -417,6 +421,7 @@ action_strings! {
     AppQuit => "app.quit",
     AppGoToHomepage => "app.go_to_homepage",
     HelpShowKeyboardShortcuts => "help.show_keyboard_shortcuts",
+    PaletteOpen => "palette.open",
     SidebarToggleShowAllFiles => "sidebar.toggle_show_all_files",
     SidebarFaceFiles => "sidebar.face_files",
     SidebarFaceRecent => "sidebar.face_recent",
@@ -452,7 +457,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 82);
+        assert_eq!(all_actions().len(), 83);
     }
 
     #[test]

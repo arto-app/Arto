@@ -43,7 +43,7 @@ pub fn RecentFace() -> Element {
 
     // Read so a recorded visit redraws the list; the number says nothing.
     let _ = revision();
-    let needle = filter().to_lowercase();
+    let needle = filter();
     let visits = VISITS.read();
     let groups = visits.grouped(Local::now());
 
@@ -69,13 +69,10 @@ pub fn RecentFace() -> Element {
 
             for (bucket, entries) in groups {
                 {
-                    let heading = heading_for(bucket);
+                    let heading = bucket.heading();
                     let matching: Vec<&Visit> = entries
                         .into_iter()
-                        .filter(|visit| {
-                            needle.is_empty()
-                                || visit.display_name().to_lowercase().contains(&needle)
-                        })
+                        .filter(|visit| crate::visits::matches(visit, &needle))
                         .collect();
                     // Filtering opens what it matched: a hit hidden inside a
                     // collapsed year would look like no hit at all.
@@ -129,22 +126,11 @@ fn folds_by_default(bucket: Bucket) -> bool {
     !matches!(bucket, Bucket::Today | Bucket::Yesterday | Bucket::ThisWeek)
 }
 
-fn heading_for(bucket: Bucket) -> String {
-    match bucket {
-        Bucket::Today => "Today".to_string(),
-        Bucket::Yesterday => "Yesterday".to_string(),
-        Bucket::ThisWeek => "This week".to_string(),
-        Bucket::LastWeek => "Last week".to_string(),
-        Bucket::Month(year, month) => format!("{year}-{month:02}"),
-        Bucket::Year(year) => year.to_string(),
-    }
-}
-
 /// The headings that start folded, for a freshly opened face.
 pub fn default_folds<'a>(buckets: impl Iterator<Item = &'a Bucket>) -> Vec<String> {
     buckets
         .filter(|bucket| folds_by_default(**bucket))
-        .map(|bucket| heading_for(*bucket))
+        .map(|bucket| bucket.heading())
         .collect()
 }
 
@@ -160,13 +146,6 @@ mod tests {
         assert!(folds_by_default(Bucket::LastWeek));
         assert!(folds_by_default(Bucket::Month(2026, 3)));
         assert!(folds_by_default(Bucket::Year(2024)));
-    }
-
-    #[test]
-    fn headings_name_their_group() {
-        assert_eq!(heading_for(Bucket::Today), "Today");
-        assert_eq!(heading_for(Bucket::Month(2026, 3)), "2026-03");
-        assert_eq!(heading_for(Bucket::Year(2024)), "2024");
     }
 
     #[test]

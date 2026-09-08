@@ -68,6 +68,24 @@ pub enum Bucket {
     Year(i32),
 }
 
+impl Bucket {
+    /// The heading this group is drawn under.
+    ///
+    /// Every window on the history writes the same words for the same group,
+    /// so the panel's face, the library and anything else naming a group
+    /// share one definition rather than three that can drift.
+    pub fn heading(&self) -> String {
+        match self {
+            Self::Today => "Today".to_string(),
+            Self::Yesterday => "Yesterday".to_string(),
+            Self::ThisWeek => "This week".to_string(),
+            Self::LastWeek => "Last week".to_string(),
+            Self::Month(year, month) => format!("{year}-{month:02}"),
+            Self::Year(year) => year.to_string(),
+        }
+    }
+}
+
 /// Which heading a day belongs under, relative to `today`.
 pub fn bucket_for(day: NaiveDate, today: NaiveDate) -> Bucket {
     // A clock that has gone backwards should not invent a bucket of its own.
@@ -113,6 +131,29 @@ pub fn group(visits: &[Visit], now: DateTime<Local>) -> Vec<(Bucket, Vec<&Visit>
     }
 
     groups
+}
+
+/// Whether a visit answers a filter query.
+///
+/// The palette, the panel's history face and the library all narrow the same
+/// list, so they narrow it the same way: a query that finds a document in one
+/// of them finds it in all three.
+///
+/// Terms are separated by whitespace and all of them must match, each against
+/// the whole path rather than the name alone — so `guide arto` finds
+/// `~/arto/docs/guide.md` however the two words are ordered, and `docs/`
+/// narrows to a directory. Matching ignores case, which is what a reader
+/// typing quickly expects.
+pub fn matches(visit: &Visit, query: &str) -> bool {
+    let haystack = visit.path.to_string_lossy().to_lowercase();
+    query
+        .split_whitespace()
+        .all(|term| haystack.contains(&term.to_lowercase()))
+}
+
+/// The visits answering a query, newest first.
+pub fn filter<'a>(visits: &'a [Visit], query: &str) -> Vec<&'a Visit> {
+    visits.iter().filter(|v| matches(v, query)).collect()
 }
 
 /// The visit list, newest first.
@@ -360,5 +401,55 @@ mod tests {
     fn display_name_is_the_file_name() {
         let visit = Visit::new("/notes/today.md", at(2026, 4, 16));
         assert_eq!(visit.display_name(), "today.md");
+    }
+
+    #[test]
+    fn every_group_names_itself() {
+        assert_eq!(Bucket::Today.heading(), "Today");
+        assert_eq!(Bucket::Yesterday.heading(), "Yesterday");
+        assert_eq!(Bucket::ThisWeek.heading(), "This week");
+        assert_eq!(Bucket::LastWeek.heading(), "Last week");
+        assert_eq!(Bucket::Month(2026, 3).heading(), "2026-03");
+        assert_eq!(Bucket::Year(2024).heading(), "2024");
+    }
+
+    // === matches(): one rule for the palette, the face and the library ===
+
+    #[test]
+    fn an_empty_query_matches_everything() {
+        let visit = Visit::new("/home/reader/notes/guide.md", at(2026, 4, 16));
+        assert!(matches(&visit, ""));
+        assert!(matches(&visit, "   "));
+    }
+
+    #[test]
+    fn matching_ignores_case_and_spans_the_whole_path() {
+        let visit = Visit::new("/home/reader/Arto/docs/Guide.md", at(2026, 4, 16));
+        assert!(matches(&visit, "guide"));
+        assert!(matches(&visit, "docs/"));
+        assert!(matches(&visit, "ARTO"));
+        assert!(!matches(&visit, "readme"));
+    }
+
+    #[test]
+    fn every_term_must_match_in_any_order() {
+        let visit = Visit::new("/home/reader/arto/docs/guide.md", at(2026, 4, 16));
+        assert!(matches(&visit, "guide arto"));
+        assert!(matches(&visit, "arto guide"));
+        assert!(!matches(&visit, "guide missing"));
+    }
+
+    #[test]
+    fn filter_keeps_the_order_it_was_given() {
+        let visits = vec![
+            Visit::new("/notes/b.md", at(2026, 4, 16)),
+            Visit::new("/notes/a.md", at(2026, 4, 15)),
+            Visit::new("/other/c.md", at(2026, 4, 14)),
+        ];
+        let found = filter(&visits, "notes");
+        assert_eq!(
+            found.iter().map(|v| v.display_name()).collect::<Vec<_>>(),
+            vec!["b.md", "a.md"]
+        );
     }
 }

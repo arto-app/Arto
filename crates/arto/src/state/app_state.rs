@@ -69,6 +69,11 @@ pub struct AppState {
     pub headings: Signal<Vec<HeadingInfo>>,
     pub position: Signal<LogicalPosition<i32>>,
     pub size: Signal<LogicalSize<u32>>,
+    /// Whether the palette is showing.
+    ///
+    /// It is the quickest window on the history — open, return, back to the
+    /// last document — so it is per-window state and never persisted.
+    pub palette_open: Signal<bool>,
     // Search state (not persisted, managed via JavaScript for IME compatibility)
     pub search_open: Signal<bool>,
     pub search_match_count: Signal<usize>,
@@ -135,6 +140,7 @@ impl AppState {
             position: Signal::new(Default::default()),
             size: Signal::new(Default::default()),
             // Search state
+            palette_open: Signal::new(false),
             search_open: Signal::new(false),
             search_match_count: Signal::new(0),
             search_current_index: Signal::new(0),
@@ -191,6 +197,12 @@ impl AppState {
     fn step_zoom(&mut self, delta: f64) {
         let current = normalize_content_zoom(*self.zoom_level.read());
         self.zoom_level.set(normalize_content_zoom(current + delta));
+    }
+
+    /// Toggle the palette.
+    pub fn toggle_palette(&mut self) {
+        let open = !*self.palette_open.read();
+        self.palette_open.set(open);
     }
 
     /// Toggle search bar visibility
