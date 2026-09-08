@@ -124,6 +124,9 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 
 .mock { min-width: 880px; border: 1px solid var(--m-line); border-radius: 10px; overflow: hidden; background: var(--m-bg); color: var(--m-text); font-family: var(--sans); font-size: 12px; line-height: 1.5; box-shadow: var(--m-shadow); }
 .mock.sm { min-width: 420px; }
+.mock.narrow { min-width: 0; }
+.narrows { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: start; margin-top: 28px; }
+@media (max-width: 780px) { .narrows { grid-template-columns: 1fr; } }
 /* A mock pinned to the app's dark theme, whatever the page theme is —
    so the theme toggle can be shown doing something. */
 .mock.dark {
@@ -892,6 +895,10 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         代わりに、選んだ結果は見たとおりです。パネルを留めたうえで全幅にして「常に表示」なら、
         レール・パネル・痕跡・本文が並びます ―― それを選べる、というだけの話です。
       </p>
+      <p>
+        引っ込むのは<strong>窓そのものが狭いとき</strong>だけで、これは全幅表示かどうかとは別の話です。
+        次の節のとおり、その規則は D に限らず全部に効きます。
+      </p>
     </div>
 
     <div class="mock-band">
@@ -1334,6 +1341,129 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
 
   <!-- ============================================================= -->
   <section class="sec">
+    <p class="sec-label">狭いとき</p>
+    <div class="col">
+      <h2>幅が足りなければ、本文が勝ちます</h2>
+      <p>
+        ここまでの要素は、広い窓なら全部同時に置けます。置けなくなったときに何を残すかを決めておかないと、
+        設定どおりに描いた結果として<strong>本文が読めない幅まで痩せます</strong>。規則はひとつです ――
+        <strong>本文が読み幅を下回りそうになったら、外側から順に1つずつ引っ込める</strong>。
+      </p>
+    </div>
+
+    <div class="col" style="margin-top:26px">
+      <h3>譲る順番</h3>
+      <ul class="list">
+        <li><span class="tag drop">1</span><strong>余白の痕跡（D）</strong><span class="why">いちばん周辺的で、履歴には他に3つ窓口があります。まずここが引っ込みます。</span></li>
+        <li><span class="tag drop">2</span><strong>パネル</strong><span class="why">自動で畳みます。レールは残るので、覗きも留め直しもそのままできます ―― 見えなくなるだけで、届かなくはなりません。</span></li>
+        <li><span class="tag drop">3</span><strong>目次のガター</strong><span class="why">24px ですが、この幅では本文の1〜2文字分が惜しくなります。<kbd>⌘J</kbd> のオーバーレイは使えます。</span></li>
+        <li><span class="tag drop">4</span><strong>ヘッダー右のグリフ</strong><span class="why">3つまとめて <span class="mono">…</span> 1つに畳みます。どれも <kbd>⌘K</kbd> とメニューに二重化されています。</span></li>
+        <li><span class="tag drop">5</span><strong>レール</strong><span class="why">最後に隠れます。ここまで来ると取っ手が無くなるので、パネルは <kbd>⌘B</kbd> でオーバーレイとして開きます。</span></li>
+        <li><span class="tag keep">6</span><strong>本文</strong><span class="why">外れません。パンくずも左から省略して（<span class="mono">arto / … / README.md</span>）、最後はファイル名だけ残します。</span></li>
+      </ul>
+    </div>
+
+    <div class="col" style="margin-top:30px">
+      <h3>目安の幅</h3>
+      <p>
+        判定は<strong>ズームを適用したあとの実効幅</strong>で行います ―― 拡大すれば、窓を狭めたのと同じことが起きます。
+        下の数字は既定のズームと既定の幅での結果で、規則そのものは「本文に読み幅を残す」の一行です。
+      </p>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">実効幅</th><th scope="col">引っ込むもの</th><th scope="col">本文に残る幅</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">1100px 以上</th><td>なし ―― 設定どおり全部</td><td class="num">670px 〜</td></tr>
+          <tr><th scope="row">1100px 未満</th><td>余白の痕跡</td><td class="num">610px 〜</td></tr>
+          <tr><th scope="row">900px 未満</th><td>＋ パネル（畳む）</td><td class="num">640px 〜</td></tr>
+          <tr><th scope="row">700px 未満</th><td>＋ 目次のガター</td><td class="num">610px 〜</td></tr>
+          <tr><th scope="row">560px 未満</th><td>＋ ヘッダー右のグリフ</td><td class="num">470px 〜</td></tr>
+          <tr><th scope="row">440px 未満</th><td>＋ レール</td><td class="num">390px 〜</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="narrows">
+      <div>
+        <div class="mock narrow" style="width:100%;max-width:400px">
+          <div class="mock-tb">
+            <div class="lights"><i></i><i></i><i></i></div>
+          </div>
+          <div class="mock-body" style="min-height:230px">
+            <div class="rail qzone">
+              <span class="q" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
+              <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
+              <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
+            </div>
+            <div class="stage" style="flex-direction:column">
+              <div class="hdr qzone">
+                <span class="q"><svg class="i md"><use href="#ic-left"/></svg></span>
+                <span class="crumb">arto <span style="color:var(--m-line)">/</span> <b>README.md</b></span>
+                <span class="spacer"></span>
+                <span class="q"><svg class="i md"><use href="#ic-search"/></svg></span>
+                <span class="q"><svg class="i md"><use href="#ic-narrow"/></svg></span>
+                <span class="q"><svg class="i md"><use href="#ic-sunmoon"/></svg></span>
+              </div>
+              <div class="doc" style="padding:16px 18px">
+                <h1 style="max-width:none;font-size:16px">Arto</h1>
+                <p style="max-width:none">Arto — the Art of Reading Markdown. A desktop app that renders Markdown the way GitHub does, locally and offline.</p>
+                <p style="max-width:none">Most Markdown tools are built for writing. Arto is built for reading.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="caption">
+          <b>700px を切ったところ。</b>痕跡・パネル・ガターが引っ込み、レールとヘッダーは残っています。
+          パネルはレールに乗せれば覗けるので、届かなくなったものはありません。
+        </p>
+      </div>
+
+      <div>
+        <div class="mock narrow" style="width:100%;max-width:300px">
+          <div class="mock-tb">
+            <div class="lights"><i></i><i></i><i></i></div>
+          </div>
+          <div class="mock-body" style="min-height:230px">
+            <div class="stage" style="flex-direction:column">
+              <div class="hdr qzone">
+                <span class="q"><svg class="i md"><use href="#ic-left"/></svg></span>
+                <span class="crumb"><span style="color:var(--m-faint)">…</span> <span style="color:var(--m-line)">/</span> <b>README.md</b></span>
+                <span class="spacer"></span>
+                <span class="q"><svg class="i md"><use href="#ic-list"/></svg></span>
+              </div>
+              <div class="doc" style="padding:16px 16px">
+                <h1 style="max-width:none;font-size:16px">Arto</h1>
+                <p style="max-width:none">Arto — the Art of Reading Markdown. A desktop app that renders Markdown the way GitHub does, locally and offline.</p>
+                <p style="max-width:none">Most Markdown tools are built for writing. Arto is built for reading.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="caption">
+          <b>440px を切ったところ。</b>レールも隠れ、ヘッダーの右は <span class="mono">…</span> 1つに。
+          パンくずは左から省略されてファイル名だけが残ります。<kbd>⌘B</kbd> と <kbd>⌘K</kbd> は効いたままです。
+        </p>
+      </div>
+    </div>
+
+    <div class="col" style="margin-top:30px">
+      <p>
+        引っ込むのは<strong>状態であって、設定ではありません</strong>。窓を広げれば、選んだとおりに戻ります ――
+        狭い窓で一度畳んだせいで設定が書き換わる、ということは起こりません。
+      </p>
+      <p>
+        逆方向も同じ規則で動きます。パネルを留めたまま窓を狭めれば自動で畳み、広げれば自動で戻る。
+        利用者が <kbd>⌘B</kbd> で明示的に畳んだ場合だけは、広げても<strong>畳んだまま</strong>にします ――
+        こちらは意図の表明なので、幅の都合で上書きしません。
+      </p>
+    </div>
+  </section>
+  <!-- ============================================================= -->
+  <section class="sec">
     <p class="sec-label">実装仕様</p>
     <div class="col">
       <h2>数値で決めておきます</h2>
@@ -1372,7 +1502,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">覗きの終了</th><td class="num">即時</td><td class="num">240ms の猶予</td><td><span class="mono">--peek-close-delay</span>。斜め移動を許容</td></tr>
           <tr><th scope="row">覗きの重なり</th><td class="num">押し出し</td><td class="num">オーバーレイ＋影</td><td>本文を再レイアウトしない</td></tr>
           <tr><th scope="row">履歴の保持</th><td class="num">—</td><td class="num">5,000 件（期限なし）</td><td>古いものから落とす。<code>config.json</code> とは別ファイルに保存</td></tr>
-          <tr><th scope="row">余白の痕跡（D）</th><td class="num">—</td><td class="num">文字 10.5px / 不透明度 30%</td><td>領域ホバーで 72%。全幅表示のときは自動で引っ込む</td></tr>
+          <tr><th scope="row">余白の痕跡（D）</th><td class="num">—</td><td class="num">文字 10.5px / 不透明度 30%</td><td>領域ホバーで 72%。列幅 138px を確保する</td></tr>
+          <tr><th scope="row">幅が足りないとき</th><td class="num">—</td><td class="num">外側から順に引っ込める</td><td>痕跡 → パネル → ガター → ヘッダー右 → レール。状態であって設定は書き換えない</td></tr>
         </tbody>
       </table>
     </div>
@@ -1631,6 +1762,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <h2>触ってから決めたい3点</h2>
       <ul class="list" style="margin-top:18px">
         <li><span class="tag move">1</span><strong>30% は薄すぎませんか。</strong><span class="why">このページのデモは sRGB のブラウザ表示です。実機の輝度と GitHub テーマの背景では印象が変わるので、Phase 0 で 30 / 40 / 50 を並べて決めましょう。high contrast テーマでは自動的に 1段階上げる想定です。</span></li>
+        <li><span class="tag move">3</span><strong>狭いときの閾値は、この刻みで良いですか。</strong><span class="why">1100 / 900 / 700 / 560 / 440px は「本文に読み幅を残す」から逆算した目安です。実機で窓を縮めながら、どこで畳まれると自然かを見て決めましょう。特にパネルが畳まれる 900px は、半画面で並べて使うときに触れる幅です。</span></li>
         <li><span class="tag move">2</span><strong>D の既定は「畳んでいるときだけ」で良いですか。</strong><span class="why">A・B・C は入れる前提です。D だけは読んでいる面に文字が乗るので、既定を「表示しない」にする判断もあり得ます。畳んで読む頻度が高いなら、いまの既定のほうが親切です。件数の既定 6 も、実際に置いてみて決めましょう。</span></li>
         <li><span class="tag move">4</span><strong>覗きの 120ms / 240ms は妥当ですか。</strong><span class="why">短いと通り抜けで開き、長いと反応が鈍く感じます。Phase 1 で 80 / 120 / 200ms を試して決めましょう。設定で切れるようにもします。</span></li>
         <li><span class="tag move">3</span><strong>ヘッダーの3つは、これで合っていますか。</strong><span class="why">検索・幅・テーマを選びました。ここは「読んでいる最中に触るもの」だけを置く場所なので、実際の使用頻度と合わなければ入れ替えます（候補: 印刷、Finder で表示、ズーム）。</span></li>
