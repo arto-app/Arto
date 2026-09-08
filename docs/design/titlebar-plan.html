@@ -660,6 +660,40 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
 .dimtext { color: var(--muted); font-size: 12px; }
 .matrix td .mono { font-size: 12px; }
 
+/* Buttons on the left: the same three, in the order the setting names, with
+   the app's own glyph moving inboard of them. */
+.gcaps.left { padding: 0 8px 0 12px; margin-right: 2px; }
+.gcaps b.cls::before { transform: rotate(45deg); }
+.gcaps b.cls::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 7px;
+  height: 1px;
+  background: var(--m-dim);
+  transform: rotate(-45deg);
+}
+.gcaps.left b:nth-child(2)::before { width: 7px; height: 1px; border: 0; background: var(--m-dim); }
+.gcaps.left b:nth-child(3)::before {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--m-dim);
+  background: none;
+  transform: none;
+}
+.gcaps.left b:nth-child(3)::after { content: none; }
+
+/* A caption belonging to the figure above it, not to the prose. */
+.figcap {
+  margin: 8px 0 0;
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.figcap b { color: var(--ink); font-weight: 500; }
+
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -763,13 +797,21 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <div class="rule">
         <span class="n">⑤</span>
         <div>
-          <b>GNOME の窓ボタン配置を読めるか</b>
+          <b>環境ごとの窓ボタン配置を読めるか</b>
           <p>
-            <span class="mono">org.gnome.desktop.wm.preferences</span> の <span class="mono">button-layout</span> は左右も順序も利用者の設定です。
-            <span class="mono">gio</span> 0.18 は依存の木に既にあり、読めます。ただし <span class="mono">Settings::new</span> はスキーマが無い環境で
-            <strong>abort します</strong>（GNOME でない Linux は珍しくありません）。
-            <span class="mono">SettingsSchemaSource::default()?.lookup(id, true)?</span> で存在を確かめてから作る必要があります。
-            <span class="chip ok">通る（作法つき）</span>
+            はじめ GNOME の <span class="mono">org.gnome.desktop.wm.preferences</span> を読むつもりでいましたが、
+            <strong>それでは GNOME しか見ていないことになります</strong>。Linux はそこだけではありません。
+            正しい口は一段下、<strong>GTK 自身</strong>にありました ―― <span class="mono">GtkSettings</span> の
+            <span class="mono">gtk-decoration-layout</span> です。GNOME・Xfce・Cinnamon・MATE は XSETTINGS 経由でここへ書き、
+            KDE も <span class="mono">kde-gtk-config</span> が kwin の設定をここへ写します。
+            何も書かれない環境（sway など）では GTK 自身の既定に落ちます。
+            <span class="mono">connect_gtk_decoration_layout_notify</span> で変更にも追随できます。
+            <span class="chip ok">通る（GNOME 限定ではなくなった）</span>
+          </p>
+          <p style="margin-top:8px">
+            既定値はこの機械（GTK 3.24・デスクトップ環境なし）で実測しました ――
+            <span class="mono">menu:minimize,maximize,close</span>。プロパティ自身の既定値も同じです。
+            <span class="mono">gio</span> を直接足す必要も、スキーマが無い機械で <span class="mono">Settings::new</span> が abort する心配も、まとめて消えました。
           </p>
         </div>
       </div>
@@ -851,11 +893,14 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       </div>
     </div>
 
-    <h3 style="margin-top:34px">Linux ―― 丸ボタン、位置は利用者の設定に従う</h3>
+    <h3 style="margin-top:34px">Linux ―― 位置は環境に従い、見た目は Arto のもの</h3>
     <p class="caption">
-      装飾なし。GNOME の作法どおり右端に丸い3つ。ただし <span class="mono">button-layout</span> が左を指していれば左に置き、
-      並びもその設定に従います（⑤）。スキーマが読めない環境では右固定に倒します。
+      装飾なし。並びは <span class="mono">gtk-decoration-layout</span>（⑤）をそのまま読みます ――
+      <span class="mono">:</span> の左に書かれたものが左、右に書かれたものが右。
+      <b>各テーマの見た目は真似しません。</b>位置と順序だけ環境に従い、描くのはヘッダーの他の操作子と同じ静かな印です。
+      GNOME・Xfce・Cinnamon・MATE・KDE のどれでも、この1つの文字列で足ります。
     </p>
+
     <div class="mock-scroll">
       <div class="mock" style="min-width:640px">
         <div class="mock-tb csd gnome">
@@ -867,7 +912,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <span class="q sm-q"><svg class="i sm"><use href="#ic-sunmoon"/></svg></span>
           <span class="gcaps"><b></b><b></b><b></b></span>
         </div>
-        <div class="mock-body" style="min-height:150px">
+        <div class="mock-body" style="min-height:130px">
           <div class="rail qzone">
             <span class="q"><svg class="i md"><use href="#ic-folder"/></svg></span>
             <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
@@ -877,6 +922,34 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         </div>
       </div>
     </div>
+    <p class="figcap"><span class="mono">menu:minimize,maximize,close</span> ―― 何も設定されていないときの GTK の既定。実測値です。</p>
+
+    <div class="mock-scroll" style="margin-top:18px">
+      <div class="mock" style="min-width:640px">
+        <div class="mock-tb csd gnome">
+          <span class="gcaps left"><b class="cls"></b><b></b><b></b></span>
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-menu"/></svg></span>
+          <span class="crumb" style="font-size:12px">demo <span style="color:var(--m-line)">/</span> <b>README.md</b></span>
+          <span class="spacer"></span>
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-search"/></svg></span>
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-narrow"/></svg></span>
+          <span class="q sm-q"><svg class="i sm"><use href="#ic-sunmoon"/></svg></span>
+        </div>
+        <div class="mock-body" style="min-height:130px">
+          <div class="rail qzone">
+            <span class="q"><svg class="i md"><use href="#ic-folder"/></svg></span>
+            <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
+            <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
+          </div>
+          <div style="flex:1;min-width:0"><div class="doc" style="padding-top:16px"><div class="doc-narrow"><h1>Arto</h1><p>Arto — the Art of Reading Markdown.</p></div></div></div>
+        </div>
+      </div>
+    </div>
+    <p class="figcap">
+      <span class="mono">close,minimize,maximize:</span> ―― 左に寄せた設定のとき。
+      <b>順序もそのまま従います</b>（この例では閉じるが先頭）。メニューのグリフは窓ボタンの内側へ下がり、
+      パンくずとの間合いは変わりません。
+    </p>
   </div>
 
   <div class="sec">
@@ -889,7 +962,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         <tbody>
           <tr><th>macOS</th><td class="yes">AppKit</td><td>左・信号機</td><td>フルスクリーン<span class="dimtext">（native）</span></td><td>native</td><td>native</td></tr>
           <tr><th>Windows</th><td class="part">自前</td><td>右・46×32</td><td>最大化 / 元に戻す</td><td><span class="mono">drag()</span></td><td>tao の枠</td></tr>
-          <tr><th>Linux</th><td class="part">自前</td><td><span class="mono">button-layout</span> に従う</td><td>最大化 / 元に戻す</td><td><span class="mono">drag()</span></td><td><span class="mono">drag_resize_window</span></td></tr>
+          <tr><th>Linux</th><td class="part">自前</td><td><span class="mono">gtk-decoration-layout</span> に従う</td><td>最大化 / 元に戻す</td><td><span class="mono">drag()</span></td><td><span class="mono">drag_resize_window</span></td></tr>
         </tbody>
       </table>
     </div>
@@ -964,7 +1037,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <li>装飾を外し、窓ボタンを自前で描きます。二度手間を避けるため、2つは同じコンポーネントで、並びだけ差し替えます。</li>
           <li>タイトルバーの空き地を押したら <span class="mono">drag()</span>、ダブルクリックで最大化・元に戻す。</li>
           <li>Linux は8方向のリサイズ帯を自分で持ちます（Windows は tao の枠が担当）。</li>
-          <li>Linux の並びは <span class="mono">button-layout</span>。読めなければ右固定。</li>
+          <li>Linux の並びは <span class="mono">gtk-decoration-layout</span> ひとつ。GNOME でも KDE でも Xfce でも同じ口です。</li>
         </ul>
         <div class="code-block"><pre><code>#[cfg(target_os = "windows")]
 {
@@ -977,16 +1050,23 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
 {
     builder = builder.with_decorations(false);
 }</code></pre></div>
-        <div class="code-block"><pre><code>// GNOME のスキーマが無い機械で <span class="cm">Settings::new</span> は abort します。
-// 先に在ることを確かめてから作ります。
+        <div class="code-block"><pre><code>// GNOME だけの話にはしません。GTK 自身がこの文字列を持っていて、
+// GNOME・Xfce・Cinnamon・MATE は XSETTINGS で、KDE は <span class="cm">kde-gtk-config</span>
+// 経由でここへ流し込みます。何も無ければ GTK の既定に落ちます。
 #[cfg(target_os = "linux")]
-fn button_layout() -&gt; Option&lt;String&gt; {
-    let source = gio::SettingsSchemaSource::default()?;
-    source.lookup("org.gnome.desktop.wm.preferences", true)?;
-    let settings = gio::Settings::new("org.gnome.desktop.wm.preferences");
-    Some(settings.string("button-layout").to_string())
+fn decoration_layout() -&gt; String {
+    gtk::Settings::default()
+        .and_then(|settings| settings.gtk_decoration_layout())
+        .map(|layout| layout.to_string())
+        // 実測した既定値。デスクトップ環境の無い機械はここに来ます。
+        .unwrap_or_else(|| "menu:minimize,maximize,close".to_string())
+}
+
+/// <span class="cm">"close,minimize,maximize:"</span> なら左に3つ、右に0。書かれた順に並べます。
+fn split_layout(layout: &amp;str) -&gt; (Vec&lt;Control&gt;, Vec&lt;Control&gt;) {
+    let (left, right) = layout.split_once(':').unwrap_or((layout, ""));
+    (parse_side(left), parse_side(right))
 }</code></pre></div>
-        </div>
       </div>
 
       <div class="phase">
