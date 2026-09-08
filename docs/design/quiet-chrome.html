@@ -80,14 +80,14 @@ a { color: var(--accent); }
 
 .masthead { padding: 72px 0 40px; }
 .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0 0 18px; }
-.masthead h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(38px, 6vw, 62px); line-height: 1.08; letter-spacing: -.02em; margin: 0 0 20px; text-wrap: balance; }
+.masthead h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(38px, 6vw, 62px); line-height: 1.08; letter-spacing: -.02em; margin: 0 0 20px; text-wrap: balance; word-break: auto-phrase; }
 .masthead h1 em { font-style: italic; color: var(--accent); }
 .lede { font-size: 19px; color: var(--ink-2); max-width: 38rem; }
 .meta { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 11.5px; color: var(--muted); letter-spacing: .04em; }
 
 .sec { padding: 44px 0; border-top: 1px solid var(--line); }
 .sec-label { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
-h2 { font-family: var(--serif); font-weight: 400; font-size: 32px; line-height: 1.2; letter-spacing: -.015em; margin: 0 0 22px; text-wrap: balance; }
+h2 { font-family: var(--serif); font-weight: 400; font-size: 32px; line-height: 1.2; letter-spacing: -.015em; margin: 0 0 22px; text-wrap: balance; word-break: auto-phrase; }
 h3 { font-family: var(--sans); font-weight: 600; font-size: 15px; margin: 34px 0 12px; color: var(--ink); }
 h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
 
@@ -170,7 +170,38 @@ h4 { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing
 .spacer { flex: 1; }
 
 /* Panel -------------------------------------------------------------- */
-.panel { width: 246px; flex: none; border-right: 1px solid var(--m-line); background: var(--m-chrome); display: flex; flex-direction: column; }
+/* Rail — the panel's spine and its hover handle. Same quiet spec as
+   every other control: 16px glyph, no fill, accent + 2px indicator. */
+.rail { width: 40px; flex: none; border-right: 1px solid var(--m-line); background: var(--m-chrome); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; }
+.rail .q { position: relative; }
+.rail .q.on::before { content: ""; position: absolute; left: -5px; top: 6px; width: 2px; height: 18px; border-radius: 1px; background: var(--m-accent); }
+.rail .rail-foot { margin-top: auto; }
+
+.panel { width: 226px; flex: none; border-right: 1px solid var(--m-line); background: var(--m-chrome); display: flex; flex-direction: column; }
+.panel.peek { position: absolute; left: 0; top: 0; bottom: 0; z-index: 5; box-shadow: 8px 0 28px -12px rgba(1, 4, 9, .45); }
+.pane-top { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.pane-bottom { flex: none; height: 158px; display: flex; flex-direction: column; }
+.pane-div { height: 5px; flex: none; border-top: 1px solid var(--m-line); position: relative; }
+.pane-div::after { content: ""; position: absolute; left: 50%; top: 1px; transform: translateX(-50%); width: 22px; height: 2px; border-radius: 1px; background: var(--m-line); opacity: 0; transition: opacity .18s; }
+.qzone:hover .pane-div::after { opacity: 1; }
+
+/* State schematics --------------------------------------------------- */
+.states { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 30px; }
+@media (max-width: 780px) { .states { grid-template-columns: 1fr; } }
+.state figure { margin: 0; }
+.state .sk { position: relative; height: 104px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-bg); overflow: hidden; display: flex; }
+.sk .sk-rail { width: 14px; background: var(--m-chrome); border-right: 1px solid var(--m-line); flex: none; }
+.sk .sk-panel { width: 62px; background: var(--m-chrome); border-right: 1px solid var(--m-line); flex: none; }
+.sk .sk-panel.float { position: absolute; left: 14px; top: 0; bottom: 0; box-shadow: 6px 0 18px -8px rgba(1, 4, 9, .5); }
+.sk .sk-doc { flex: 1; padding: 12px 10px; display: flex; flex-direction: column; gap: 5px; }
+.sk .sk-doc i { display: block; height: 3px; border-radius: 2px; background: var(--m-line); }
+.sk .sk-doc i:nth-child(1) { width: 55%; height: 5px; }
+.sk .sk-doc i:nth-child(2) { width: 92%; }
+.sk .sk-doc i:nth-child(3) { width: 84%; }
+.sk .sk-doc i:nth-child(4) { width: 88%; }
+.state h3 { margin: 12px 0 4px; font-size: 14px; }
+.state p { font-family: var(--sans); font-size: 12.5px; line-height: 1.6; margin: 0; color: var(--muted); }
+.state .keys { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; color: var(--accent); margin-top: 7px; display: block; }
 .sect {
   display: flex; align-items: center; gap: 8px; padding: 7px 12px 6px;
   font-family: var(--mono); font-size: 9.5px; letter-spacing: .13em; text-transform: uppercase;
@@ -301,14 +332,15 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
 
   <header class="masthead">
     <p class="eyebrow">Arto / interface — 統合案と操作子の設計</p>
-    <h1>置く場所ではなく、<br><em>インクの量</em>を減らす。</h1>
+    <h1>減らすのは数ではなく、<br><em>インクの量</em>です。</h1>
     <p class="lede">
       A を土台に B の <kbd>⌘K</kbd> を載せ、C のライブラリを起動画面と新規タブに据える ―― その前提で、
-      アイコンレールをやめます。押しやすさは当たり判定が、存在感の薄さは表示の側が受け持つ、という分担に変えます。
+      レールは<strong>残します</strong>。見えている取っ手だからホバーで開いても誤爆しない、という指摘のとおりです。
+      強さだけを落とし、パネルは上下2段にして<strong>ファイラーと開いているファイルを同時に</strong>出します。
     </p>
     <div class="meta">
       <span>構成 — A + B + C（起動画面）</span>
-      <span>争点 — 操作子の存在感</span>
+      <span>改訂 — レールを残す / パネル2段 / 開閉の規定</span>
       <span>追加が必要なアイコン — 2 個</span>
     </div>
   </header>
@@ -342,28 +374,29 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
   <section class="sec">
     <p class="sec-label">争点</p>
     <div class="col">
-      <h2>アイコンレールは、なぜ強く見えるのか</h2>
+      <h2>レールが強かったのは、レールだからではありません</h2>
       <p>
-        44px 幅の縦帯に 20px のアイコンが5つ、選択中は塗りつぶしのチップ。
-        これは「面・枠・彩度」を3つとも使っている状態で、本文と<strong>同じ強さで視野に居座ります</strong>。
-        しかもアイコン単体は意味を運びません ―― 星が「お気に入り」だと分かるのは、一度覚えたあとだけです。
+        強く見えていたのは 20px のアイコン・塗りつぶしのチップ・44px の面という<strong>描き方</strong>のほうで、
+        レールという構造そのものではありませんでした。レールには、他では代えられない役割があります ――
+        <strong>常に見えている、パネルのための取っ手</strong>です。
       </p>
       <p>
-        代わりに、セクション見出しの文字そのものを操作子にします。見出しは情報として<strong>どのみち必要</strong>なので、
-        操作子を置くための追加のインクがゼロになります。
+        画面端のホバーが誤爆したのは、そこに何も無いからでした。40px の帯が「パネルはここにある」と示していれば、
+        ポインタがそこへ行くのは意図です。<strong>不可視のトリガーを可視の対象に変える</strong> ―― これが誤爆への正しい答えで、
+        トリガーを消すことではありませんでした。前回の私の判断は、そこを取り違えていました。
       </p>
     </div>
 
     <div class="vs">
       <div class="vs-item">
-        <h4>これまで — アイコンレール</h4>
+        <h4>これまでの描き方</h4>
         <div class="vs-shell">
           <div class="rail-old">
-            <span class="b on"><svg class="i md"><use href="#ic-folder"/></svg></span>
-            <span class="b"><svg class="i md"><use href="#ic-doc-open"/></svg></span>
-            <span class="b"><svg class="i md"><use href="#ic-clock"/></svg></span>
-            <span class="b"><svg class="i md"><use href="#ic-star"/></svg></span>
-            <span class="b"><svg class="i md"><use href="#ic-search"/></svg></span>
+            <span class="b on"><svg class="i" style="width:20px;height:20px;stroke-width:2"><use href="#ic-folder"/></svg></span>
+            <span class="b"><svg class="i" style="width:20px;height:20px;stroke-width:2"><use href="#ic-doc-open"/></svg></span>
+            <span class="b"><svg class="i" style="width:20px;height:20px;stroke-width:2"><use href="#ic-clock"/></svg></span>
+            <span class="b"><svg class="i" style="width:20px;height:20px;stroke-width:2"><use href="#ic-star"/></svg></span>
+            <span class="b"><svg class="i" style="width:20px;height:20px;stroke-width:2"><use href="#ic-search"/></svg></span>
           </div>
           <div class="vs-fill">
             <div class="sect open">Workspace</div>
@@ -372,30 +405,134 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>CONTRIBUTING.md</span></div>
           </div>
         </div>
-        <p class="demo-cap">常時可視のアイコン 5 個 ／ 塗り 1 個 ／ 幅 44px の専有</p>
+        <p class="demo-cap">20px・線幅 2・不透明度 100% ／ 塗りのチップ ／ 幅 44px ／ 項目 5</p>
       </div>
 
       <div class="vs-item">
-        <h4>これから — 見出しが操作子</h4>
-        <div class="vs-shell">
-          <div class="vs-fill" style="border-left:1px solid var(--m-line);border-radius:8px">
-            <div class="sect open">Workspace <span class="count">3</span><svg class="i xs chev"><use href="#ic-down"/></svg></div>
+        <h4>これからの描き方 — 同じ構造、静かに</h4>
+        <div class="vs-shell qzone">
+          <div class="rail" style="border-radius:8px 0 0 8px;border:1px solid var(--m-line);border-right:none;padding:8px 0 8px">
+            <span class="q on"><svg class="i md"><use href="#ic-folder"/></svg></span>
+            <span class="q"><svg class="i md"><use href="#ic-clock"/></svg></span>
+            <span class="q"><svg class="i md"><use href="#ic-star"/></svg></span>
+          </div>
+          <div class="vs-fill">
+            <div class="sect open">Workspace <span class="count">3</span></div>
             <div class="row"><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
             <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
-            <div class="sect">Open <span class="count">12</span><svg class="i xs chev"><use href="#ic-right"/></svg></div>
-            <div class="sect">Recent <span class="count"></span><svg class="i xs chev"><use href="#ic-right"/></svg></div>
-            <div class="sect">Starred <span class="count">6</span><svg class="i xs chev"><use href="#ic-right"/></svg></div>
+            <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>CONTRIBUTING.md</span></div>
           </div>
         </div>
-        <p class="demo-cap">常時可視のアイコン 0 個 ／ 塗り 0 個 ／ 追加の幅 0px</p>
+        <p class="demo-cap">16px・線幅 1.5・不透明度 30% ／ 塗りなし・2px の指示線 ／ 幅 40px ／ 項目 3</p>
       </div>
     </div>
 
     <div class="col" style="margin-top:26px">
+      <h3>レールは3つに減ります</h3>
       <p>
-        4つのセクションはアコーディオンです。開いているのは基本1つ、残りは1行の見出しとして畳まれ、
-        件数だけを出しています。見出し行の全幅が当たり判定で、開閉の <span class="mono">›</span> はホバーで初めて現れます。
-        キーボードは <kbd>⌘1</kbd>–<kbd>⌘4</kbd>。
+        <span class="mono">Files</span> / <span class="mono">Recent</span> / <span class="mono">Starred</span> の3つ。
+        <strong>Open（開いているファイル）はレールに入りません</strong> ―― 常に見えている必要があるので、
+        切り替えの対象ではなく、パネルの下段に据えます。次のとおりです。
+      </p>
+      <p>
+        レールの一番下には設定の歯車。<kbd>⌘1</kbd>–<kbd>⌘3</kbd> で上段を切り替え、<kbd>⌘0</kbd> で下段の Open に飛びます。
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <section class="sec">
+    <p class="sec-label">パネルの中身</p>
+    <div class="col">
+      <h2>ファイラーと、開いているファイルは同時に見える</h2>
+      <p>
+        パネルは上下2段です。<strong>上段</strong>はレールで切り替わる面（ツリー・履歴・お気に入り）、
+        <strong>下段</strong>は開いている文書の一覧で、これは切り替わりません ―― かつてのタブバーが、縦になってここに来ます。
+      </p>
+      <p>
+        境界はドラッグで動かせます。上段を潰せば下段だけの「タブ一覧」に、下段を潰せば全部ツリー。
+        高さは <code>config.json</code> に保存され、幅と同じ扱いになります。
+      </p>
+    </div>
+
+    <div class="mock-band">
+      <div class="mock-scroll">
+        <div class="mock" style="min-width:760px">
+          <div class="mock-tb">
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="tb-title">README.md — arto</div>
+          </div>
+          <div class="mock-body" style="min-height:360px">
+            <div class="rail qzone">
+              <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
+              <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
+              <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
+            </div>
+            <div class="panel qzone">
+              <div class="pane-top">
+                <div class="sect open">Workspace <span class="count">3</span></div>
+                <div class="rows">
+                  <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
+                  <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>crates</span></div>
+                  <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>docs</span></div>
+                  <div class="row ind sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
+                  <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>CONTRIBUTING.md</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
+                  <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>daily.md</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>~/Documents/spec</span></div>
+                  <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
+                </div>
+              </div>
+              <div class="pane-div"></div>
+              <div class="pane-bottom">
+                <div class="sect open">Open <span class="count">12</span></div>
+                <div class="rows">
+                  <div class="row sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span><span class="sub">arto</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>installation.md</span><span class="sub">docs</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>cli.md</span><span class="sub">docs</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>keybindings.md</span><span class="sub">docs</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>ui-design.md</span><span class="sub">rules</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="stage" style="flex-direction:column">
+              <div class="hdr qzone">
+                <span class="q"><svg class="i md"><use href="#ic-left"/></svg></span>
+                <span class="crumb">arto <span style="color:var(--m-line)">/</span> <b>README.md</b> <span class="hint">⌘K</span></span>
+                <span class="spacer"></span>
+                <span class="q"><svg class="i md"><use href="#ic-search"/></svg></span>
+                <span class="q"><svg class="i md"><use href="#ic-narrow"/></svg></span>
+                <span class="q"><svg class="i md"><use href="#ic-sunmoon"/></svg></span>
+              </div>
+              <div style="display:flex;flex:1">
+                <div class="doc">
+                  <div class="doc-narrow">
+                    <h1>Arto</h1>
+                    <p>Arto — the Art of Reading Markdown. A desktop app that renders Markdown the way GitHub does, locally and offline.</p>
+                    <h2>Why</h2>
+                    <p>Most Markdown tools are built for writing. Arto is built for reading: the name is short for “Art of Reading”.</p>
+                    <div class="code">$ arto page README.md</div>
+                  </div>
+                </div>
+                <div class="gutter">
+                  <span class="tick h1 cur"></span>
+                  <span class="tick h2"></span>
+                  <span class="tick h3"></span>
+                  <span class="tick h2 hit"></span>
+                  <span class="tick h3"></span>
+                  <span class="tick h2"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="caption">
+        <b>上段にツリー、下段に開いている12本。</b>レールにポインタを乗せると3つのグリフが起き、
+        段の境界にはドラッグ用の摘みが現れます。下段の行はドラッグでウィンドウ間に移せます ―― タブでやっていた操作の行き先です。
+        読んでいる間に見えているグリフは、レールの4つとヘッダー右の3つ、合計7つ。すべて 30% で、面も枠も持ちません。
       </p>
     </div>
   </section>
@@ -495,7 +632,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         <div class="n">06</div>
         <div>
           <b>すでにある文字を操作子にする</b>
-          <p>セクション見出しは開閉、パンくずのファイル名は <kbd>⌘K</kbd>、ルート名はルート切替。新しい印を足さずに操作を増やせます。</p>
+          <p>パンくずのファイル名は <kbd>⌘K</kbd>、ルート名は折りたたみ、段の見出しはその段へのフォーカス移動。新しい印を足さずに操作を増やせます。</p>
         </div>
         <div class="demo">
           <div class="demo-box qzone" style="padding:4px 6px">
@@ -509,74 +646,105 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
 
   <!-- ============================================================= -->
   <section class="sec">
-    <p class="sec-label">画面</p>
+    <p class="sec-label">開き方</p>
     <div class="col">
-      <h2>これが読んでいるときの画面です</h2>
+      <h2>パネルは3つの状態を持ちます</h2>
       <p>
-        常時見えているグリフは、ヘッダー右の3つとパネル下の歯車の<strong>合計4つ</strong>、すべて 30%。
-        ヘッダー帯かパネルにポインタを入れると起きます。実際に乗せて確かめてください。
+        レールは<strong>常に見えていて、消えません</strong>。消えるのはパネルのほうだけです。
+        だから「開き方」は、見えているレールに対する操作として定義できます ―― 乗せれば覗け、押せば留まる。
       </p>
+    </div>
+
+    <div class="states">
+      <div class="state">
+        <figure>
+          <div class="sk">
+            <div class="sk-rail"></div>
+            <div class="sk-doc"><i></i><i></i><i></i><i></i></div>
+          </div>
+        </figure>
+        <h3>畳んでいる</h3>
+        <p>レール 40px だけ。本文が窓のほぼ全部を使います。既定はこの状態にしません ―― 集中したいときの状態です。</p>
+        <span class="keys">⌘B で切替</span>
+      </div>
+      <div class="state">
+        <figure>
+          <div class="sk">
+            <div class="sk-rail"></div>
+            <div class="sk-doc"><i></i><i></i><i></i><i></i></div>
+            <div class="sk-panel float"></div>
+          </div>
+        </figure>
+        <h3>覗いている</h3>
+        <p>レールにポインタが留まると、パネルが本文の<strong>上に</strong>せり出します。本文は動きません。離せば戻ります。</p>
+        <span class="keys">レールに 120ms 留まる</span>
+      </div>
+      <div class="state">
+        <figure>
+          <div class="sk">
+            <div class="sk-rail"></div>
+            <div class="sk-panel"></div>
+            <div class="sk-doc"><i></i><i></i><i></i><i></i></div>
+          </div>
+        </figure>
+        <h3>留めている</h3>
+        <p>レールのグリフを押すと固定され、本文が押し出されます。既定の状態。同じグリフをもう一度押すと畳みます。</p>
+        <span class="keys">クリック / ⌘1–⌘3</span>
+      </div>
+    </div>
+
+    <div class="col" style="margin-top:34px">
+      <h3>誤爆しないための規定</h3>
+      <ul class="list">
+        <li><span class="tag keep">1</span><strong>開くのはレールの上だけ。</strong><span class="why">窓の端 1px ではなく、40px の帯に <strong>120ms 留まった</strong>ときに開きます。通り抜けでは開きません。</span></li>
+        <li><span class="tag keep">2</span><strong>閉じるのは遅らせる。</strong><span class="why">パネルから出て 240ms 後に閉じます。レールからパネルへ斜めに動くとき、いったん外に出ても閉じません。</span></li>
+        <li><span class="tag keep">3</span><strong>覗きは本文を動かさない。</strong><span class="why">せり出しは重ね（オーバーレイ）で、影を落とします。読んでいる行が横に流れないので、誤って開いても実害がありません ―― これが「誤爆」を無害にする一番の仕掛けです。</span></li>
+        <li><span class="tag keep">4</span><strong>覗きから開いたら、閉じる。</strong><span class="why">覗いた状態でファイルを開くと、パネルは自動的に引っ込みます。留めているときは残ります。</span></li>
+        <li><span class="tag keep">5</span><strong>esc でいつでも引っ込む。</strong><span class="why">覗いている間だけ有効。留めている状態には効きません（そちらは <kbd>⌘B</kbd>）。</span></li>
+        <li><span class="tag move">6</span><strong>覗きを切れる。</strong><span class="why">設定に「ホバーで覗く」のオン/オフを置きます。切るとクリックと <kbd>⌘B</kbd> だけになり、ホバーは完全に無効です。</span></li>
+      </ul>
     </div>
 
     <div class="mock-band">
       <div class="mock-scroll">
-        <div class="mock">
+        <div class="mock" style="min-width:760px">
           <div class="mock-tb">
             <div class="lights"><i></i><i></i><i></i></div>
             <div class="tb-title">README.md — arto</div>
           </div>
-          <div class="mock-body">
-            <div class="panel qzone">
-              <div class="sect open">Workspace <span class="count">3</span><svg class="i xs chev"><use href="#ic-down"/></svg></div>
-              <div class="rows">
-                <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
-                <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>crates</span></div>
-                <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>docs</span></div>
-                <div class="row ind sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
-                <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>CONTRIBUTING.md</span></div>
-                <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
-                <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>daily.md</span></div>
-                <div class="row ind"><svg class="i sm"><use href="#ic-file"/></svg><span>reading-list.md</span></div>
-                <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>~/Documents/spec</span></div>
-                <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
-              </div>
-              <div class="sect">Open <span class="count">12</span><svg class="i xs chev"><use href="#ic-right"/></svg></div>
-              <div class="sect">Recent <span class="count"></span><svg class="i xs chev"><use href="#ic-right"/></svg></div>
-              <div class="sect">Starred <span class="count">6</span><svg class="i xs chev"><use href="#ic-right"/></svg></div>
-              <div class="panel-foot">
-                <span class="q"><svg class="i md"><use href="#ic-gear"/></svg></span>
-              </div>
+          <div class="mock-body" style="min-height:320px">
+            <div class="rail force-hover">
+              <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
+              <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
+              <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
             </div>
-
-            <div class="stage" style="flex-direction:column">
-              <div class="hdr qzone">
-                <span class="q"><svg class="i md"><use href="#ic-left"/></svg></span>
-                <span class="crumb">arto <span style="color:var(--m-line)">/</span> <b>README.md</b> <span class="hint">⌘K</span></span>
-                <span class="spacer"></span>
-                <span class="q"><svg class="i md"><use href="#ic-search"/></svg></span>
-                <span class="q"><svg class="i md"><use href="#ic-narrow"/></svg></span>
-                <span class="q"><svg class="i md"><use href="#ic-sunmoon"/></svg></span>
+            <div class="stage">
+              <div class="doc" style="padding-left:250px">
+                <p style="max-width:none">Arto — the Art of Reading Markdown. A desktop app that renders Markdown the way GitHub does, locally and offline.</p>
+                <p style="max-width:none">Most Markdown tools are built for writing. Arto is built for reading: the name is short for “Art of Reading”. Markdown is where documentation, communication and thinking now live, and reading it deserves more than a preview pane.</p>
+                <p style="max-width:none">The document does not reflow while the panel is peeking — it is drawn on top, and the line you were reading stays where it was.</p>
               </div>
-              <div style="display:flex;flex:1">
-                <div class="doc">
-                  <div class="doc-narrow">
-                    <h1>Arto</h1>
-                    <p>Arto — the Art of Reading Markdown. A desktop app that renders Markdown the way GitHub does, locally and offline.</p>
-                    <h2>Why</h2>
-                    <p>Most Markdown tools are built for writing. Arto is built for reading: the name is short for “Art of Reading”.</p>
-                    <h2>Features</h2>
-                    <p>GitHub-accurate rendering with the extended syntax, auto-reload when the file changes on disk, and no network required.</p>
-                    <div class="code">$ arto page README.md</div>
+              <div class="panel peek">
+                <div class="pane-top">
+                  <div class="sect open">Workspace <span class="count">3</span></div>
+                  <div class="rows">
+                    <div class="row"><svg class="i sm"><use href="#ic-down"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
+                    <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>crates</span></div>
+                    <div class="row ind"><svg class="i sm"><use href="#ic-right"/></svg><span>docs</span></div>
+                    <div class="row ind sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span></div>
+                    <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
+                    <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
                   </div>
                 </div>
-                <div class="gutter">
-                  <span class="tick h1 cur"></span>
-                  <span class="tick h2"></span>
-                  <span class="tick h3"></span>
-                  <span class="tick h2 hit"></span>
-                  <span class="tick h3"></span>
-                  <span class="tick h2"></span>
-                  <span class="tick h3 hit"></span>
+                <div class="pane-div"></div>
+                <div class="pane-bottom" style="height:120px">
+                  <div class="sect open">Open <span class="count">12</span></div>
+                  <div class="rows">
+                    <div class="row sel"><svg class="i sm"><use href="#ic-file"/></svg><span>README.md</span><span class="sub">arto</span></div>
+                    <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>installation.md</span><span class="sub">docs</span></div>
+                    <div class="row"><svg class="i sm"><use href="#ic-file"/></svg><span>cli.md</span><span class="sub">docs</span></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -584,8 +752,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         </div>
       </div>
       <p class="caption">
-        <b>読んでいるとき。</b>ヘッダー右の3つ（検索・幅・テーマ）とパネル下の歯車が 30% で待機しています。
-        「進む」は履歴が無いので描かれていません。本文右のガターが目次で、青が現在地、黄がピン留め検索のヒットです。
+        <b>覗いている状態。</b>パネルが本文の上にせり出し、影を落としています。本文は 1px も動きません。
+        レールのグリフはポインタがそこにあるので 72% に起きています。
       </p>
     </div>
 
@@ -597,9 +765,14 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <div class="tb-title">README.md — arto</div>
           </div>
           <div class="mock-body" style="min-height:210px">
+            <div class="rail">
+              <span class="q" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
+              <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
+              <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
+            </div>
             <div class="stage" style="flex-direction:column">
               <div class="hdr force-hover">
-                <span class="q"><svg class="i md"><use href="#ic-sidebar"/></svg></span>
                 <span class="q"><svg class="i md"><use href="#ic-left"/></svg></span>
                 <span class="crumb">arto <span style="color:var(--m-line)">/</span> <b>README.md</b> <span class="hint">⌘K</span></span>
                 <span class="spacer"></span>
@@ -616,8 +789,9 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
         </div>
       </div>
       <p class="caption">
-        <b>パネルを閉じ（<kbd>⌘B</kbd>）、全幅にし、ダークにした状態。</b>ヘッダーにポインタが乗っているときの見え方です。
-        パネルが無いときだけ、左端にパネルを戻すグリフが増えます。有効中の幅トグルは accent 色 ―― 塗りつぶしではありません。
+        <b>畳んで（<kbd>⌘B</kbd>）、全幅にし、ダークにした状態。</b>ヘッダーにポインタが乗っているときの見え方です。
+        レールは残っているので、戻す手段を別に用意する必要がありません ―― 乗せれば覗け、押せば留まります。
+        どのセクションも選ばれていないので、レールに指示線はありません。有効中の幅トグルは accent 色 ―― 塗りつぶしではありません。
       </p>
     </div>
   </section>
@@ -628,7 +802,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
     <div class="col">
       <h2>どの操作子が、どこに住むか</h2>
       <p>
-        文書に効くものはヘッダー右、パネルに効くものはパネル下端、めったに使わないものは <kbd>⌘K</kbd> とメニューだけ。
+        文書に効くものはヘッダー右、パネルに効くものはレール、めったに使わないものは <kbd>⌘K</kbd> とメニューだけ。
         これが唯一の配置規則です。
       </p>
     </div>
@@ -644,16 +818,19 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           </tr>
         </thead>
         <tbody>
-          <tr><th scope="row">セクション切替（Files / Open / Recent / Starred）</th><td>パネルの見出し文字</td><td class="num">見出しとして常時</td><td><span class="k">⌘1–⌘4</span></td></tr>
+          <tr><th scope="row">上段の切替（Files / Recent / Starred）</th><td>レールの3グリフ</td><td class="num">30% ／ 選択中は accent + 2px 線</td><td><span class="k">⌘1–⌘3</span></td></tr>
+          <tr><th scope="row">開いている文書の一覧</th><td>パネル下段（切り替わらない常設）</td><td class="num">常時</td><td><span class="k">⌘0</span></td></tr>
+          <tr><th scope="row">上下段の高さ</th><td>段の境界をドラッグ</td><td class="num">1px の線のみ ／ 摘みはホバー時</td><td>—</td></tr>
           <tr><th scope="row">戻る / 進む</th><td>ヘッダー左（16px）</td><td class="num">30% ／ 不能なら非表示</td><td><span class="k">⌘[ ⌘]</span></td></tr>
           <tr><th scope="row">移動・コマンド（⌘K）</th><td>ヘッダーのパンくずをクリック</td><td class="num">文字として常時</td><td><span class="k">⌘K</span></td></tr>
           <tr><th scope="row">ページ内検索</th><td>ヘッダー右（16px）</td><td class="num">30%</td><td><span class="k">⌘F</span></td></tr>
           <tr><th scope="row">幅（読み幅 / 全幅）</th><td>ヘッダー右（16px）</td><td class="num">30% ／ 有効中は accent</td><td><span class="k">⌘⇧W</span></td></tr>
           <tr><th scope="row">テーマ（Light / Dark / Auto）</th><td>ヘッダー右（16px）</td><td class="num">30% ／ 現在の状態を表示</td><td><span class="k">⌘⇧T</span></td></tr>
           <tr><th scope="row">目次</th><td>本文右のガター（目盛り）</td><td class="num">2px の線のみ</td><td><span class="k">⌘J</span></td></tr>
-          <tr><th scope="row">設定</th><td>パネル下端の歯車</td><td class="num">30%</td><td><span class="k">⌘,</span></td></tr>
+          <tr><th scope="row">設定</th><td>レール下端の歯車</td><td class="num">30%</td><td><span class="k">⌘,</span></td></tr>
           <tr><th scope="row">ルートを追加</th><td>ツリー末尾の「Add folder」行</td><td class="num">文字（faint）</td><td><span class="k">⌘⇧O</span></td></tr>
-          <tr><th scope="row">パネル開閉</th><td>ヘッダー最左（閉じている間だけ）</td><td class="num">30% ／ 開いていれば非表示</td><td><span class="k">⌘B</span></td></tr>
+          <tr><th scope="row">パネルを覗く</th><td>レールに 120ms 留まる</td><td class="num">レールが常時見えている</td><td>—</td></tr>
+          <tr><th scope="row">パネルを留める / 畳む</th><td>レールのグリフをクリック</td><td class="num">同上</td><td><span class="k">⌘B</span></td></tr>
           <tr><th scope="row">お気に入り追加 / 解除</th><td>行のホバー時のみ</td><td class="num">非表示</td><td><span class="k">⌘D</span></td></tr>
           <tr><th scope="row">コピー・再読込・Finder で表示</th><td>右クリックメニューのみ</td><td class="num">非表示</td><td>—</td></tr>
           <tr><th scope="row">全ファイル表示の切替</th><td>設定のみ</td><td class="num">非表示</td><td>—</td></tr>
@@ -701,7 +878,12 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">領域ホバー時</th><td class="num">—</td><td class="num">0.72 <span class="k">--opacity-woken</span></td><td>新規トークン。親の <span class="mono">:hover</span> で切替</td></tr>
           <tr><th scope="row">直接ホバー時</th><td class="num">0.8 <span class="k">--opacity-hover</span></td><td class="num">1.0</td><td>面は <span class="mono">--bg-secondary</span>、枠なし</td></tr>
           <tr><th scope="row">遷移</th><td class="num">0.2s</td><td class="num">0.18s ease</td><td><span class="mono">opacity</span> と <span class="mono">background-color</span> のみ</td></tr>
-          <tr><th scope="row">有効中</th><td class="num">accent 背景 8–10%</td><td class="num">accent 文字色のみ</td><td>選択行は左 2px の線を維持</td></tr>
+          <tr><th scope="row">有効中</th><td class="num">accent 背景 8–10%</td><td class="num">accent 文字色のみ</td><td>選択行とレールは 2px の指示線</td></tr>
+          <tr><th scope="row">レール幅</th><td class="num">—</td><td class="num">40px</td><td>グリフ 16px を 30×30 の判定で中央に</td></tr>
+          <tr><th scope="row">覗きの開始</th><td class="num">即時（端 1px）</td><td class="num">120ms の滞留（レール上）</td><td><span class="mono">--peek-open-delay</span></td></tr>
+          <tr><th scope="row">覗きの終了</th><td class="num">即時</td><td class="num">240ms の猶予</td><td><span class="mono">--peek-close-delay</span>。斜め移動を許容</td></tr>
+          <tr><th scope="row">覗きの重なり</th><td class="num">押し出し</td><td class="num">オーバーレイ＋影</td><td>本文を再レイアウトしない</td></tr>
+          <tr><th scope="row">下段の高さ</th><td class="num">—</td><td class="num">既定 160px / 最小 60px</td><td><code>config.json</code> に保存</td></tr>
         </tbody>
       </table>
     </div>
@@ -743,7 +925,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <tr><th scope="row">幅 — 読み幅に戻す</th><td class="num">viewport-narrow</td><td class="num">ViewportNarrow</td><td><span class="badge has">あり</span></td></tr>
           <tr><th scope="row">検索</th><td class="num">search</td><td class="num">Search</td><td><span class="badge has">あり</span></td></tr>
           <tr><th scope="row">設定</th><td class="num">settings</td><td class="num">Gear</td><td><span class="badge has">あり</span></td></tr>
-          <tr><th scope="row">パネル開閉</th><td class="num">layout-sidebar</td><td class="num">Sidebar</td><td><span class="badge has">あり</span></td></tr>
+          <tr><th scope="row">レール — Files</th><td class="num">folder</td><td class="num">Folder</td><td><span class="badge has">あり</span></td></tr>
+          <tr><th scope="row">パネル開閉（メニュー用）</th><td class="num">layout-sidebar</td><td class="num">Sidebar</td><td><span class="badge has">あり</span></td></tr>
           <tr><th scope="row">戻る / 進む・ツリー開閉</th><td class="num">chevron-*</td><td class="num">ChevronLeft ほか</td><td><span class="badge has">あり</span></td></tr>
           <tr><th scope="row">お気に入り</th><td class="num">star / star-filled</td><td class="num">Star / StarFilled</td><td><span class="badge has">あり</span></td></tr>
           <tr><th scope="row">⌘K の入口ヒント</th><td class="num">command</td><td class="num">Command</td><td><span class="badge has">あり</span></td></tr>
@@ -757,6 +940,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <p>
         <code>Add</code>（plus）で代用できるので <code>folder-plus</code> は必須ではありません。
         ただ「Add folder」の行はツリーの末尾に置くため、ファイル行と見分けがつく形のほうが安全です。
+        レールに出るのは <code>Folder</code> / <code>History</code> / <code>Star</code> と <code>Gear</code> の4つだけで、
+        <code>Sidebar</code> は画面には出さずメニュー項目のアイコンとして残します。
       </p>
     </div>
   </section>
@@ -780,18 +965,29 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <div class="tb-title">Library</div>
           </div>
           <div class="mock-body" style="min-height:380px">
-            <div class="panel qzone">
-              <div class="sect open">Workspace <span class="count">3</span><svg class="i xs chev"><use href="#ic-down"/></svg></div>
-              <div class="rows">
-                <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
-                <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
-                <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>~/Documents/spec</span></div>
-                <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
+            <div class="rail qzone">
+              <span class="q on" title="Files"><svg class="i md"><use href="#ic-folder"/></svg></span>
+              <span class="q" title="Recent"><svg class="i md"><use href="#ic-clock"/></svg></span>
+              <span class="q" title="Starred"><svg class="i md"><use href="#ic-star"/></svg></span>
+              <span class="q rail-foot" title="Settings"><svg class="i md"><use href="#ic-gear"/></svg></span>
+            </div>
+            <div class="panel qzone" style="width:206px">
+              <div class="pane-top">
+                <div class="sect open">Workspace <span class="count">3</span></div>
+                <div class="rows">
+                  <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>arto</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>notes</span></div>
+                  <div class="row"><svg class="i sm"><use href="#ic-right"/></svg><svg class="i sm"><use href="#ic-folder"/></svg><span>~/Documents/spec</span></div>
+                  <div class="row quiet"><svg class="i sm"><use href="#ic-plus"/></svg><span>Add folder</span></div>
+                </div>
               </div>
-              <div class="sect">Open <span class="count">12</span><svg class="i xs chev"><use href="#ic-right"/></svg></div>
-              <div class="sect">Recent <span class="count"></span><svg class="i xs chev"><use href="#ic-right"/></svg></div>
-              <div class="sect">Starred <span class="count">6</span><svg class="i xs chev"><use href="#ic-right"/></svg></div>
-              <div class="panel-foot"><span class="q"><svg class="i md"><use href="#ic-gear"/></svg></span></div>
+              <div class="pane-div"></div>
+              <div class="pane-bottom" style="height:110px">
+                <div class="sect open">Open <span class="count">0</span></div>
+                <div class="rows">
+                  <div class="row quiet" style="padding-top:8px">開いている文書はありません</div>
+                </div>
+              </div>
             </div>
 
             <div class="lib">
@@ -900,7 +1096,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
             <li><code>--opacity-rest</code> / <code>--opacity-woken</code> / <code>--hit-size</code> を <code>variables.css</code> に追加</li>
             <li>今のヘッダーのボタンをこの仕様に置き換え、サイズを 20px → 16px、線幅 1.5 に</li>
             <li>disabled の戻る/進むを非表示に変更</li>
-            <li>設定をタブから独立ウィンドウへ／画面端のホバートリガーを廃止（前回の Phase 0 と同じ）</li>
+            <li>設定をタブから独立ウィンドウへ</li>
+            <li>画面端のホバートリガーを外す ―― ただし廃止ではなく、Phase 1 でレール上の滞留に置き換えます。それまでの間は <kbd>⌘B</kbd> とメニューだけにします</li>
           </ul>
         </div>
       </div>
@@ -911,7 +1108,9 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
           <ul>
             <li><code>root_directory</code> をルートのリストへ。ツリーを複数ルート対応に</li>
             <li>アプリ横断の閲覧履歴を持つ（Recent の実体）</li>
-            <li>Workspace / Open / Recent / Starred の4アコーディオン。<kbd>⌘1</kbd>–<kbd>⌘4</kbd></li>
+            <li>レール（Files / Recent / Starred ＋ 歯車）と、上下2段のパネル。境界はドラッグで可変</li>
+            <li>下段の Open にタブの中身を移し、タブバーを外す。行のドラッグでウィンドウ間移動</li>
+            <li>畳む / 覗く / 留める の3状態と、<span class="mono">120ms</span> / <span class="mono">240ms</span> の滞留・猶予</li>
             <li>右サイドバーを廃止し、目次を本文右のガターへ</li>
           </ul>
         </div>
@@ -949,7 +1148,8 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       <h2>触ってから決めたい3点</h2>
       <ul class="list" style="margin-top:18px">
         <li><span class="tag move">1</span><strong>30% は薄すぎませんか。</strong><span class="why">このページのデモは sRGB のブラウザ表示です。実機の輝度と GitHub テーマの背景では印象が変わるので、Phase 0 で 30 / 40 / 50 を並べて決めましょう。high contrast テーマでは自動的に 1段階上げる想定です。</span></li>
-        <li><span class="tag move">2</span><strong>アコーディオンは4つで足りますか。</strong><span class="why">Open と Recent は性質が近いので、1つにまとめて「開いているものを上に、閉じたものを下に」並べる案もあります。3セクションのほうが見出しの行数が減ります。</span></li>
+        <li><span class="tag move">2</span><strong>下段は Open だけで足りますか。</strong><span class="why">Recent（最近閉じたもの）は性質が近いので、下段を「開いているものを上に、閉じたものを区切り線の下に」という一本のリストにして、レールを Files / Starred の2つに減らす案もあります。どちらが自然かは、閉じた文書へ戻る頻度次第です。</span></li>
+        <li><span class="tag move">4</span><strong>覗きの 120ms / 240ms は妥当ですか。</strong><span class="why">短いと通り抜けで開き、長いと反応が鈍く感じます。Phase 1 で 80 / 120 / 200ms を試して決めましょう。設定で切れるようにもします。</span></li>
         <li><span class="tag move">3</span><strong>ヘッダーの3つは、これで合っていますか。</strong><span class="why">検索・幅・テーマを選びました。ここは「読んでいる最中に触るもの」だけを置く場所なので、実際の使用頻度と合わなければ入れ替えます（候補: 印刷、Finder で表示、ズーム）。</span></li>
       </ul>
     </div>
