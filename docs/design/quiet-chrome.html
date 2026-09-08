@@ -316,6 +316,8 @@ td .k { font-family: var(--mono); font-size: 11px; color: var(--muted); }
 .list li:last-child { border-bottom: none; }
 .list .why { display: block; font-size: 12px; color: var(--muted); line-height: 1.55; margin-top: 3px; }
 .tag { position: absolute; left: 0; top: 9px; width: 16px; font-family: var(--mono); font-size: 13px; line-height: 1.7; }
+.list.wide li { padding-left: 56px; }
+.list.wide .tag { width: 46px; font-size: 11px; letter-spacing: .04em; }
 .tag.drop { color: var(--drop); } .tag.keep { color: var(--keep); } .tag.move { color: var(--care); }
 
 /* Phases ------------------------------------------------------------- */
@@ -1115,11 +1117,108 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; padding: 28px 0 60
       </table>
     </div>
 
+    <div class="col" style="margin-top:34px">
+      <h3>どうなったら「別のフォルダ」として積まれるか</h3>
+      <p>
+        ここが曖昧なままでした。判定は<strong>ウィンドウごと</strong>に、次の2問だけで決まります ――
+        <strong>暗黙か明示か</strong>、そして<strong>すでにある根に含まれているか</strong>。
+      </p>
+    </div>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">きっかけ</th><th scope="col">既存の根との関係</th><th scope="col">結果</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row" rowspan="2">暗黙 ―― 文書を開いた副作用<br><span class="k">Finder・CLI・リンク・履歴から</span></th>
+            <td>どれかの根に<strong>含まれる</strong></td>
+            <td class="num">積まない。その根を展開して選択（複数に含まれるなら最も深い根）</td>
+          </tr>
+          <tr>
+            <td>どの根にも<strong>含まれない</strong></td>
+            <td class="num">開始点を1つ求めて積む（次の表）</td>
+          </tr>
+          <tr>
+            <th scope="row" rowspan="2">明示 ―― フォルダを指した<br><span class="k">ドロップ・「ここを根にする」・⌘K にパス</span></th>
+            <td><strong>まったく同じパス</strong>が既にある</td>
+            <td class="num">積まない。その行へスクロールして選択</td>
+          </tr>
+          <tr>
+            <td>それ以外</td>
+            <td class="num"><strong>含まれていても積む</strong> ―― 指したこと自体が意図なので</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col" style="margin-top:26px">
+      <p>
+        判定はパスを正規化してから行います（<code>..</code> を畳み、シンボリックリンクを解決し、
+        macOS では大文字小文字を無視）。ここを揃えないと、同じ場所が二重に積まれます。
+      </p>
+      <h3>暗黙のとき、どこを根にするか</h3>
+      <p>
+        文書の親をそのまま根にすると、<code>docs/api/</code> のような葉に降り立ってしまい、兄弟が見えません。
+        上に辿って<strong>まとまりの単位</strong>を探します。
+      </p>
+    </div>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">順</th><th scope="col">条件</th><th scope="col">根になるディレクトリ</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">1</th><td>祖先に <code>.git</code> / <code>.hg</code> / <code>.svn</code> / <code>.jj</code> がある</td><td class="num">最も近いその祖先</td></tr>
+          <tr><th scope="row">2</th><td>1 が無い</td><td class="num">文書の親ディレクトリ</td></tr>
+          <tr><th scope="row">3</th><td>1 の結果がホーム（<code>~</code>）やボリュームの根になる</td><td class="num">2 に戻す ―― 広すぎる根は根ではない</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col" style="margin-top:26px">
+      <p>
+        <code>~/src/arto/docs/cli.md</code> を開けば根は <code>~/src/arto</code>、
+        <code>~/Downloads/spec.md</code> なら <code>~/Downloads</code> になります。
+        リポジトリを読むときは全体が、そうでないときはそのフォルダが出る ―― という挙動です。
+      </p>
+      <h3>入れ子になったとき</h3>
+      <ul class="list wide">
+        <li><span class="tag keep">祖先</span><strong>既にある一時の根の、祖先を積んだとき</strong><span class="why">配下の一時は<strong>吸収して消えます</strong>。「もっと広く見たい」という操作なので、狭いほうを残す理由がありません。</span></li>
+        <li><span class="tag keep">子孫</span><strong>既にある根の、子孫を積んだとき</strong><span class="why"><strong>両方残します</strong>。「ここに集中したい」という操作なので、広いほうも残っていて構いません。同じフォルダが2か所に見えますが、片方は全体、片方は絞り込みです。</span></li>
+        <li><span class="tag move">場所</span><strong>場所を追加したとき、その配下に一時がある</strong><span class="why">一時は<strong>吸収して消えます</strong>。恒久のほうが残るので、重複を置く意味がありません。</span></li>
+      </ul>
+    </div>
+
+    <div class="col" style="margin-top:30px">
+      <h3>実際の並び ―― 手順で追う</h3>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">#</th><th scope="col">操作</th><th scope="col">一時の根</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">0</th><td>起動（場所: <code>arto</code>, <code>notes</code>）</td><td class="num">なし</td></tr>
+          <tr><th scope="row">1</th><td>Finder で <code>~/src/arto/docs/cli.md</code> を開く</td><td class="num">なし ―― <code>arto</code> に含まれる</td></tr>
+          <tr><th scope="row">2</th><td><code>~/work/handbook/README.md</code> を開く</td><td class="num">＋ <code>~/work/handbook</code>（<code>.git</code> まで遡った）</td></tr>
+          <tr><th scope="row">3</th><td><code>~/Downloads/spec.md</code> を開く</td><td class="num">＋ <code>~/Downloads</code>（<code>.git</code> が無いので親）</td></tr>
+          <tr><th scope="row">4</th><td><code>~/work/handbook/docs</code> をドロップ</td><td class="num">＋ <code>…/handbook/docs</code> ―― 明示なので、含まれていても積む</td></tr>
+          <tr><th scope="row">5</th><td><code>~/work</code> をドロップ</td><td class="num">＋ <code>~/work</code>、配下の2つを吸収 → 残るのは <code>~/work</code> と <code>~/Downloads</code></td></tr>
+          <tr><th scope="row">6</th><td><code>~/Downloads</code> を Add folder… で追加</td><td class="num">一時から消え、場所へ</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <div class="col" style="margin-top:26px">
       <p>
         一時の根は<strong>畳んだ状態で積まれ</strong>、1行しか取りません。上限は8つで、
-        古い（最後に触ってから長い）ものから静かに落ちます ―― どこへ行ったかは履歴が覚えているので、失われません。
+        最後に触ってから長いものから静かに落ちます ―― ただし<strong>いま読んでいる文書を含む根は落としません</strong>。
+        どこへ行ったかは履歴が覚えているので、落ちても失われません。
         「閉じる」は一時の根にだけあり、場所は「場所から外す」で消します。
+        読んでいる文書の根を閉じても本文はそのままで、パンくずが絶対パスに変わるだけです。
       </p>
     </div>
 
