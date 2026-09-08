@@ -51,8 +51,11 @@ pub enum Action {
     CopyImageAsMarkdown,
     CopyLinkPath,
 
-    // Window (6)
+    // Window (7)
     WindowNew,
+    /// A copy of this window: its temporary roots, its document and the place
+    /// in it the reader had reached.
+    WindowDuplicate,
     /// Put the document down; the library takes its place.
     WindowNewDocument,
     WindowClose,
@@ -176,6 +179,7 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
         "Window",
         &[
             Action::WindowNew,
+            Action::WindowDuplicate,
             Action::WindowNewDocument,
             Action::WindowClose,
             Action::WindowCloseAllChildWindows,
@@ -266,6 +270,7 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
 /// action appears here.
 pub const MENU_ACTIONS: &[Action] = &[
     Action::WindowNew,
+    Action::WindowDuplicate,
     Action::WindowNewDocument,
     Action::FileOpen,
     Action::FileOpenDirectory,
@@ -369,6 +374,7 @@ action_strings! {
     CopyImageAsMarkdown => "clipboard.copy_image_as_markdown",
     CopyLinkPath => "clipboard.copy_link_path",
     WindowNew => "window.new",
+    WindowDuplicate => "window.duplicate",
     WindowNewDocument => "window.new_document",
     WindowClose => "window.close",
     WindowCloseAllChildWindows => "window.close_all_child_windows",
@@ -428,7 +434,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 76);
+        assert_eq!(all_actions().len(), 77);
     }
 
     #[test]

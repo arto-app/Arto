@@ -14,6 +14,7 @@ use crate::window::{self, CreateMainWindowConfigParams};
 enum MenuId {
     About,
     NewWindow,
+    DuplicateWindow,
     NewDocument,
     Open,
     OpenDirectory,
@@ -42,6 +43,7 @@ impl MenuId {
         match s {
             "app.about" => Some(Self::About),
             "file.new_window" => Some(Self::NewWindow),
+            "file.duplicate_window" => Some(Self::DuplicateWindow),
             "file.new_document" => Some(Self::NewDocument),
             "file.open" => Some(Self::Open),
             "file.open_directory" => Some(Self::OpenDirectory),
@@ -71,6 +73,7 @@ impl MenuId {
         match self {
             Self::About => "app.about",
             Self::NewWindow => "file.new_window",
+            Self::DuplicateWindow => "file.duplicate_window",
             Self::NewDocument => "file.new_document",
             Self::Open => "file.open",
             Self::OpenDirectory => "file.open_directory",
@@ -176,6 +179,7 @@ fn menu_action_for_id(id: MenuId) -> Option<&'static str> {
     Some(match id {
         MenuId::About => "app.about",
         MenuId::NewWindow => "window.new",
+        MenuId::DuplicateWindow => "window.duplicate",
         MenuId::NewDocument => "window.new_document",
         MenuId::Open => "file.open",
         MenuId::OpenDirectory => "file.open_directory",
@@ -242,6 +246,7 @@ fn add_file_menu(menu: &Menu) {
     file_menu
         .append_items(&[
             &create_menu_item(MenuId::NewWindow, "New Window"),
+            &create_menu_item(MenuId::DuplicateWindow, "Duplicate Window"),
             &create_menu_item(MenuId::NewDocument, "New Document"),
             &PredefinedMenuItem::separator(),
             &create_menu_item(MenuId::Open, "Open File..."),
@@ -437,6 +442,9 @@ pub fn handle_menu_event_with_state(event: &MenuEvent, state: &mut AppState) -> 
         MenuId::About => Action::AppAbout,
         MenuId::Preferences => Action::FilePreferences,
         MenuId::NewDocument => Action::WindowNewDocument,
+        // Duplicating needs this window's document and roots, so it is state-
+        // dependent rather than global like New Window.
+        MenuId::DuplicateWindow => Action::WindowDuplicate,
         MenuId::Open => Action::FileOpen,
         MenuId::OpenDirectory => Action::FileOpenDirectory,
         MenuId::CloseWindow => Action::WindowClose,
@@ -478,6 +486,7 @@ mod tests {
         let all_ids = [
             "app.about",
             "file.new_window",
+            "file.duplicate_window",
             "file.new_document",
             "file.open",
             "file.open_directory",
@@ -520,6 +529,7 @@ mod tests {
         let all_ids = [
             MenuId::About,
             MenuId::NewWindow,
+            MenuId::DuplicateWindow,
             MenuId::NewDocument,
             MenuId::Open,
             MenuId::OpenDirectory,

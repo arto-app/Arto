@@ -86,13 +86,15 @@ mod tests {
         // Directory defaults
         assert_eq!(config.directory.default_directory, None);
         assert_eq!(config.directory.on_startup, StartupBehavior::Default);
-        assert_eq!(config.directory.on_new_window, NewWindowBehavior::Default);
 
         // Markdown defaults
         assert!(config.markdown.auto_link_urls); // Default is true
 
         // Sidebar defaults
         assert!(!config.sidebar.default_pinned); // Default is false (unpinned, overlay on hover)
+        assert_eq!(config.sidebar.min_content_width, 640.0);
+        assert_eq!(config.sidebar.recent_trace, RecentTrace::HiddenWhenSidebar);
+        assert_eq!(config.sidebar.recent_trace_count, 6);
         assert_eq!(config.sidebar.default_width, 280.0);
         assert!(!config.sidebar.default_show_all_files);
         assert_eq!(config.sidebar.default_zoom_level, 1.0);
@@ -163,13 +165,15 @@ mod tests {
             directory: DirectoryConfig {
                 default_directory: Some(PathBuf::from("/home/user")),
                 on_startup: StartupBehavior::Default,
-                on_new_window: NewWindowBehavior::Default,
             },
             sidebar: SidebarConfig {
                 default_pinned: false,
                 default_width: 320.0,
                 default_show_all_files: true,
                 default_zoom_level: 1.2,
+                min_content_width: 800.0,
+                recent_trace: RecentTrace::Always,
+                recent_trace_count: 4,
                 on_startup: StartupBehavior::LastClosed,
                 on_new_window: NewWindowBehavior::LastFocused,
             },
@@ -233,6 +237,9 @@ mod tests {
         assert!(!parsed.sidebar.default_pinned);
         assert_eq!(parsed.sidebar.default_width, 320.0);
         assert_eq!(parsed.sidebar.default_zoom_level, 1.2);
+        assert_eq!(parsed.sidebar.min_content_width, 800.0);
+        assert_eq!(parsed.sidebar.recent_trace, RecentTrace::Always);
+        assert_eq!(parsed.sidebar.recent_trace_count, 4);
         assert_eq!(parsed.window_position.default_position.x.value, 10.0);
         assert_eq!(
             parsed.window_position.default_position.x.unit,
@@ -267,8 +274,11 @@ mod tests {
         // Markdown defaults (auto_link_urls defaults to true even when section is missing)
         assert!(parsed.markdown.auto_link_urls);
 
-        // Sidebar zoom defaults
+        // Sidebar zoom and layout defaults
         assert_eq!(parsed.sidebar.default_zoom_level, 1.0);
+        assert_eq!(parsed.sidebar.min_content_width, 640.0);
+        assert_eq!(parsed.sidebar.recent_trace, RecentTrace::HiddenWhenSidebar);
+        assert_eq!(parsed.sidebar.recent_trace_count, 6);
         assert_eq!(parsed.file_open, FileOpenBehavior::LastFocused);
     }
 

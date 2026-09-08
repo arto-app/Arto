@@ -29,12 +29,6 @@ pub use context_menu_state::{close_context_menu, CONTENT_CONTEXT_MENU};
 // Re-export search handler for App-level setup
 pub use search_handler::use_search_handler;
 
-/// How many documents the margin trace names.
-///
-/// A ribbon, not a list: enough to recognise the last few, few enough that
-/// the margin still reads as margin. Configurable in Phase 5.
-const TRACE_COUNT: usize = 6;
-
 #[component]
 pub fn Content() -> Element {
     let state = use_context::<AppState>();
@@ -57,11 +51,11 @@ pub fn Content() -> Element {
 
     let headings = state.headings;
 
-    // The trace keeps out of the panel's way: with the panel out there are
-    // already two lists of documents on screen, and the margin one is the
-    // one nobody asked for. The other three choices, and the widths that
-    // fold it away, arrive with the layout budget.
-    let trace_visible = use_memo(move || !state.sidebar.read().pinned);
+    // The trace answers to the setting first and to the width last; the
+    // gutter only to the width. Both come from `AppState`, so narrowing the
+    // window folds them and widening brings them back as configured.
+    let trace_visible = use_memo(move || state.trace_visible());
+    let gutter_visible = use_memo(move || state.visible_chrome().gutter);
 
     // With nothing to read, the whole area is the library — the trace and the
     // gutter have nothing to say beside it.
@@ -73,7 +67,7 @@ pub fn Content() -> Element {
 
         // The documents read before this one, at the edge of the page.
         if trace_visible() && !showing_library() {
-            trace::MarginTrace { count: TRACE_COUNT }
+            trace::MarginTrace { count: crate::config::CONFIG.read().sidebar.recent_trace_count }
         }
 
         div {
@@ -108,7 +102,9 @@ pub fn Content() -> Element {
         // The contents live beside the document rather than in a panel of
         // their own: always there, 24px wide, and impossible to open by
         // accident because there is nothing to open.
-        ContentsGutter { headings: headings() }
+        if gutter_visible() && !showing_library() {
+            ContentsGutter { headings: headings() }
+        }
         }
     }
 }

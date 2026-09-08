@@ -6,6 +6,10 @@
       "action": "window.new"
     },
     {
+      "key": "Cmd+Shift+n",
+      "action": "window.duplicate"
+    },
+    {
       "key": "Cmd+t",
       "action": "window.new_document"
     },

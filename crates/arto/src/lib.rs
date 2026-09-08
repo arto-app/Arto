@@ -54,6 +54,10 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
     // Clear stale WebView cache when build changes (app upgrade via Homebrew, etc.)
     cache::clear_stale_webview_cache_if_needed();
 
+    // A configured default directory becomes a place, once: the two lists
+    // are one now, and this is where the old value crosses over.
+    config::migrate_default_directory_to_places();
+
     // Start IPC server to accept connections from future instances
     ipc::start_ipc_server();
 

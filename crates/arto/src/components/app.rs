@@ -40,10 +40,10 @@ use shortcut_overlay::{
 pub fn App(
     // The document to open in this window, if there is one.
     document: Document,
-    // Directory to root the file explorer at (resolved in create_main_window or
-    // MainApp). None means no directory is opened, so the sidebar shows its
-    // empty/welcome state instead of scanning an arbitrary directory.
-    directory: Option<PathBuf>,
+    // Temporary roots this window starts with, beside the places (resolved
+    // by the window's creator or by MainApp). Empty means the tree shows the
+    // places alone, rather than scanning an arbitrary directory.
+    temps: Vec<PathBuf>,
     theme: Theme, // The enum: Auto/Light/Dark
     content_full_width: bool,
     sidebar_pinned: bool,
@@ -55,16 +55,21 @@ pub fn App(
     // Initialize application state with the provided document
     let mut state = use_context_provider(|| {
         let mut app_state = AppState::new(theme);
+        // A duplicated window arrives with the place its original had reached
+        // recorded in the document's history; a fresh one carries the top.
+        if let Some(entry) = document.history.current() {
+            app_state
+                .pending_scroll_anchor
+                .set(Some(entry.scroll_anchor));
+        }
         app_state.document.set(document);
         app_state.content_full_width.set(content_full_width);
 
         // Apply initial sidebar settings from params (including directory)
         {
             let mut sidebar = app_state.sidebar.write();
-            sidebar.roots = crate::roots::Roots::new(
-                crate::bookmarks::BOOKMARKS.read().places(),
-                directory.iter().cloned().collect(),
-            );
+            sidebar.roots =
+                crate::roots::Roots::new(crate::bookmarks::BOOKMARKS.read().places(), temps);
             sidebar.pinned = sidebar_pinned;
             sidebar.width = sidebar_width;
             sidebar.show_all_files = sidebar_show_all_files;
@@ -204,7 +209,13 @@ pub fn App(
     // if mouse is inside, onmouseleave will handle hiding naturally.
     let mut left_mouse_inside = use_signal(|| false);
 
-    let left_pinned = state.sidebar.read().pinned;
+    // The width has the last word on what is drawn beside the document. The
+    // panel's own choice is untouched by it, so widening the window brings a
+    // panel back exactly as it was left; a panel folded with Cmd+B stays
+    // folded, because that was intent rather than a consequence of width.
+    let chrome = use_memo(move || state.visible_chrome());
+    let rail_visible = use_memo(move || chrome().rail);
+    let left_pinned = state.sidebar.read().pinned && chrome().panel;
 
     /// Grace before a peeking panel retracts.
     ///
@@ -247,16 +258,19 @@ pub fn App(
                 });
             },
 
-            // The rail is always here. It is what switches the panel's faces
-            // and, because it is visible and exists for the purpose, it is
-            // also what the pointer can safely aim at to bring the panel back.
-            crate::components::sidebar::rail::Rail {
-                on_peek: move |_| {
-                    if !state.sidebar.read().pinned {
-                        left_hover_active.set(true);
-                        left_hide_gen.set(left_hide_gen() + 1);
-                    }
-                },
+            // The rail is here whenever the window can spare 40px for it. It
+            // is what switches the panel's faces and, because it is visible
+            // and exists for the purpose, it is also what the pointer can
+            // safely aim at to bring the panel back.
+            if rail_visible() {
+                crate::components::sidebar::rail::Rail {
+                    on_peek: move |_| {
+                        if !state.sidebar.read().pinned {
+                            left_hover_active.set(true);
+                            left_hide_gen.set(left_hide_gen() + 1);
+                        }
+                    },
+                }
             }
 
             // Left sidebar: pinned → flex layout, unpinned → overlay with animation

@@ -55,6 +55,10 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
                     crate::window::create_main_window_sync(&dioxus::desktop::window(), crate::state::Document::default(), crate::window::CreateMainWindowConfigParams::default());
                     close();
                 } }
+                ContextMenuItem { label: "Duplicate Window", shortcut: shortcut("window.duplicate"), on_click: move |_| {
+                    crate::keybindings::dispatcher::dispatch_action(&arto_keybindings::Action::WindowDuplicate, state);
+                    close();
+                } }
                 ContextMenuItem { label: "New Document", shortcut: shortcut("window.new_document"), icon: Some(IconName::Add), on_click: move |_| {
                     state.update_document(|document| *document = crate::state::Document::default());
                     close();

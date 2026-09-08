@@ -53,6 +53,8 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::ZoomReset => state.zoom_reset(),
 
         // --- Window ---
+        // A new window is a fresh start: the places, the library, and nothing
+        // this window happened to have wandered into.
         Action::WindowNew => {
             crate::window::create_main_window_sync(
                 &dioxus::desktop::window(),
@@ -60,6 +62,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
                 crate::window::CreateMainWindowConfigParams::default(),
             );
         }
+        Action::WindowDuplicate => duplicate_window(&mut state),
         // Putting the document down is what "new" means for a window that
         // reads one: the library takes its place, offering the next.
         Action::WindowNewDocument => {
@@ -814,6 +817,43 @@ pub(crate) fn show_action_feedback(message: &str) {
     spawn_detached(async move {
         let _ = document::eval(&js).await;
     });
+}
+
+/// Open a copy of this window beside it.
+///
+/// A duplicate is for reading the same thing two ways — the document, the
+/// place in it, and the folders that were open to reach it — so it carries
+/// all three, and the window's own look with them. Its own scroll position
+/// is saved into the history first, which is what the copy then restores.
+fn duplicate_window(state: &mut AppState) {
+    let anchor = *state.current_scroll_anchor.read();
+    state.save_current_scroll_anchor(anchor);
+
+    let document = state.document();
+    let (temps, sidebar_pinned, sidebar_width, sidebar_show_all_files, sidebar_zoom_level) = {
+        let sidebar = state.sidebar.read();
+        (
+            sidebar.roots.temps().to_vec(),
+            sidebar.pinned,
+            sidebar.width,
+            sidebar.show_all_files,
+            sidebar.zoom_level,
+        )
+    };
+
+    let params = crate::window::CreateMainWindowConfigParams {
+        directory: None,
+        temps,
+        theme: *state.current_theme.read(),
+        content_full_width: *state.content_full_width.read(),
+        sidebar_pinned,
+        sidebar_width,
+        sidebar_show_all_files,
+        sidebar_zoom_level,
+        zoom_level: *state.zoom_level.read(),
+        ..crate::window::CreateMainWindowConfigParams::default()
+    };
+    crate::window::create_main_window_sync(&dioxus::desktop::window(), document, params);
 }
 
 fn get_current_file(state: &AppState) -> Option<std::path::PathBuf> {

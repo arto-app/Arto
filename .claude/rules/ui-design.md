@@ -117,6 +117,33 @@ reads as a few faint marks while staying as easy to click as a toolbar:
 - A control that cannot act is not drawn. `disabled` styling leaves something
   in the eye that offers nothing; render the button conditionally instead.
 
+### Giving way to the document
+
+When the window cannot hold everything, the document wins. There is one
+setting — `sidebar.minContentWidth` (640px by default, 360–900) — and every
+threshold is that number plus the width of whatever is still drawn beside the
+page. Things give way from the outside in:
+
+| Order | What folds | Threshold | Default |
+| --- | --- | --- | --- |
+| 1 | Margin trace (138px) | min + rail + panel + trace + gutter | below 1068px |
+| 2 | Panel (its current width) | min + rail + panel + gutter | below 930px |
+| 3 | Contents gutter (24px) | min + rail + gutter | below 704px |
+| 4 | Rail (40px) | min + rail | below 680px |
+
+`crate::hooks::layout_budget::budget` is the whole rule, and it is pure — the
+table above is its test. `AppState::visible_chrome` collects the window's own
+numbers for it, measuring width *after zoom* because magnifying the page is
+the same as narrowing the window.
+
+What comes back is state, never settings: widening the window restores the
+panel exactly as configured. The one thing width never overrides is a panel
+the reader folded with Cmd+B, because that was intent.
+
+The header's right takes none of the document's width, so it never folds into
+an overflow menu; the breadcrumb's trail truncates from the left instead
+(`arto / … / README.md`) and absorbs the shrink.
+
 ### Visual Consistency
 
 - Selected items: `border-color: var(--accent-bg)` + light accent background (`8-10%` opacity)

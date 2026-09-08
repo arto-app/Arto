@@ -9,7 +9,8 @@
 
 .margin-trace {
   flex-shrink: 0;
-  width: 9rem;
+  /* The width the layout budget reserves for it. */
+  width: 138px;
   padding: 28px 12px 0 16px;
   display: flex;
   flex-direction: column;

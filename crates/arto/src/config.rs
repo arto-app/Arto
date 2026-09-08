@@ -25,6 +25,37 @@ pub static CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
     RwLock::new(config)
 });
 
+/// Move a configured default directory into the places, once.
+///
+/// A folder worth starting every window in is a folder worth keeping, and
+/// those are now the same list. The setting it came from is gone, so this
+/// carries the value across rather than dropping it: the directory is added
+/// to the bookmarks and the field cleared, and a failure to save leaves both
+/// alone so the next start tries again.
+pub fn migrate_default_directory_to_places() {
+    let Some(directory) = CONFIG.read().directory.default_directory.clone() else {
+        return;
+    };
+
+    if !crate::bookmarks::BOOKMARKS
+        .read()
+        .places()
+        .contains(&directory)
+    {
+        crate::bookmarks::toggle_bookmark(&directory);
+    }
+
+    let mut config = CONFIG.write();
+    config.directory.default_directory = None;
+    match config.save() {
+        Ok(()) => tracing::info!(?directory, "Moved the default directory into the places"),
+        Err(error) => {
+            tracing::warn!(%error, "Could not save the configuration after moving the default directory");
+            config.directory.default_directory = Some(directory);
+        }
+    }
+}
+
 /// Broadcast channel to notify all windows when config changes.
 /// Subscribers call `.subscribe()` to get a receiver.
 pub static CONFIG_CHANGED_BROADCAST: LazyLock<broadcast::Sender<()>> =

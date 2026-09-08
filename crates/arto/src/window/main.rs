@@ -61,7 +61,13 @@ pub fn create_main_window_config(params: &CreateMainWindowConfigParams) -> Confi
 /// Parameters for creating a new main window
 pub struct CreateMainWindowConfigParams {
     pub directory: Option<PathBuf>, // Auto-detect from the document's file if None
-    pub theme: Theme,               // The enum: Auto/Light/Dark
+    /// Temporary roots the new window starts with, beside the places.
+    ///
+    /// Empty for a window opened fresh; a duplicate carries the roots the
+    /// window it came from had wandered into. When it is non-empty it stands
+    /// in for `directory`, which names a single root.
+    pub temps: Vec<PathBuf>,
+    pub theme: Theme, // The enum: Auto/Light/Dark
     pub content_full_width: bool,
     pub sidebar_pinned: bool,
     pub sidebar_width: f64,
@@ -92,6 +98,7 @@ impl CreateMainWindowConfigParams {
 
         Self {
             directory: directory_pref.directory,
+            temps: Vec::new(),
             theme: theme_pref.theme,
             content_full_width,
             sidebar_pinned: sidebar_pref.pinned,
@@ -304,14 +311,20 @@ fn build_window_dom_and_config(
     document: Document,
     mut params: CreateMainWindowConfigParams,
 ) -> (VirtualDom, Config) {
-    let directory = resolve_directory(params.directory.take(), &document);
+    let temps = if params.temps.is_empty() {
+        resolve_directory(params.directory.take(), &document)
+            .into_iter()
+            .collect()
+    } else {
+        std::mem::take(&mut params.temps)
+    };
     let shifted_position = compute_shifted_position(&params);
 
     let dom = VirtualDom::new_with_props(
         App,
         AppProps {
             document,
-            directory,
+            temps,
             theme: params.theme,
             content_full_width: params.content_full_width,
             sidebar_pinned: params.sidebar_pinned,

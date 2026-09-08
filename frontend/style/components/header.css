@@ -274,3 +274,19 @@
   color: var(--text-secondary);
   opacity: var(--opacity-secondary);
 }
+
+/* The trail from the root shortens from the left as the window narrows, so
+   what survives is always the part nearest the name. The header's right is
+   only 90px of glyphs and takes none of the document's width, so nothing
+   there has to fold into an overflow menu: this is what absorbs the shrink. */
+.breadcrumb-prefix {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  font-weight: 400;
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}

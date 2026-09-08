@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use dioxus::prelude::*;
 
 use crate::components::icon::{Icon, IconName};
@@ -33,6 +35,18 @@ pub fn Breadcrumb(label: String) -> Element {
     let _ = revision();
 
     let current = state.current_file();
+    // The folders between the root the document was reached through and the
+    // document itself. It truncates from the left, so what survives at any
+    // width is the part nearest the name.
+    let prefix = current
+        .as_deref()
+        .and_then(|file| {
+            let sidebar = state.sidebar.read();
+            let root = sidebar.roots.covering(file)?;
+            let parent = file.parent()?;
+            Some(trail(root, parent))
+        })
+        .unwrap_or_default();
     let rows: Vec<Visit> = {
         let visits = VISITS.read();
         visits
@@ -54,6 +68,9 @@ pub fn Breadcrumb(label: String) -> Element {
                 class: if is_open() { "open" },
                 title: "Recently read",
                 onclick: move |_| is_open.toggle(),
+                if !prefix.is_empty() {
+                    span { class: "breadcrumb-prefix", "{prefix}" }
+                }
                 span { class: "file-name", "{label}" }
                 Icon { name: IconName::ChevronDown, size: 12 }
             }
@@ -102,5 +119,54 @@ pub fn Breadcrumb(label: String) -> Element {
                 }
             }
         }
+    }
+}
+
+/// The folders from `root` down to `parent`, as `arto / docs /`.
+///
+/// The root's own name leads, because knowing which of several roots the
+/// document came from is the question the trail actually answers.
+fn trail(root: &Path, parent: &Path) -> String {
+    let root_name = root
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| root.to_string_lossy().into_owned());
+
+    let mut names = vec![root_name];
+    if let Ok(rest) = parent.strip_prefix(root) {
+        names.extend(
+            rest.components()
+                .map(|part| part.as_os_str().to_string_lossy().into_owned()),
+        );
+    }
+
+    format!("{} / ", names.join(" / "))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn the_trail_starts_at_the_root_it_came_from() {
+        let root = PathBuf::from("/home/reader/arto");
+        let parent = PathBuf::from("/home/reader/arto/docs/design");
+        assert_eq!(trail(&root, &parent), "arto / docs / design / ");
+    }
+
+    #[test]
+    fn a_document_in_the_root_names_only_the_root() {
+        let root = PathBuf::from("/home/reader/arto");
+        assert_eq!(trail(&root, &root), "arto / ");
+    }
+
+    #[test]
+    fn a_parent_outside_the_root_still_names_the_root() {
+        // `covering` only hands over a root the file is under, so this is a
+        // defensive case rather than one the app reaches.
+        let root = PathBuf::from("/home/reader/arto");
+        let parent = PathBuf::from("/elsewhere");
+        assert_eq!(trail(&root, &parent), "arto / ");
     }
 }

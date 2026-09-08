@@ -51,6 +51,7 @@ These are the shortcuts as currently bound. Change them in Preferences → Keybi
   <div>
     <table>
       <tr><td><code>{{window.new}}</code></td><td>New window</td></tr>
+      <tr><td><code>{{window.duplicate}}</code></td><td>Duplicate this window</td></tr>
       <tr><td><code>{{window.new_document}}</code></td><td>Put the document down</td></tr>
       <tr><td><code>{{sidebar.face_recent}}</code></td><td>All the history</td></tr>
       <tr><td><code>{{window.close}}</code></td><td>Close window</td></tr>

@@ -12,6 +12,7 @@ use crate::theme::Theme;
 
 mod document;
 mod focused_panel;
+mod layout;
 mod sidebar;
 pub(crate) mod sidebar_cursor;
 
