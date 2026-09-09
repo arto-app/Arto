@@ -12,9 +12,11 @@ use crate::state::AppState;
 /// those ticks stand for, for as long as the pointer is in the column.
 ///
 /// A panel of headings was a second thing to open, close and mis-open; a ruler
-/// down the edge of the text is always there and costs 24px. Depth is the
-/// tick's length, so the shape of the document is legible without a word being
-/// read, and the current tick is the dense one.
+/// down the edge of the text is always there, and what it costs the page is a
+/// column of margin (`layout_budget::GUTTER_WIDTH`, plus the distance it
+/// stands off the text). Depth is the tick's length, so the shape of the
+/// document is legible without a word being read, and the current tick is the
+/// thick one.
 ///
 /// Resting in the column brings the names out over the document. It is the
 /// rail's rule applied to the other edge: the strip is visible, it exists to
@@ -23,8 +25,11 @@ use crate::state::AppState;
 /// while it is out — they are what a pinned search will colour, and a list
 /// that replaced them would take those marks away with it.
 ///
-/// It sits inside the document's own area rather than at the window's edge,
-/// which is why it cannot be opened by accident: there is nothing to open.
+/// It stands in the page's own right margin, opposite the margin trace and
+/// the same distance from the text, rather than at the window's edge — a map
+/// of the document belongs beside the document. That is also why it cannot be
+/// opened by accident: it is nowhere the pointer crosses on its way anywhere,
+/// and there is nothing to open.
 ///
 /// The marks a search pinned are listed here too, above the headings. Their
 /// colour is already on these ticks; listing them anywhere else would put the
@@ -83,6 +88,13 @@ fn Ruler(headings: Vec<HeadingInfo>) -> Element {
             class: "contents-gutter",
             "aria-hidden": "true",
 
+            // The ticks, in a box of their own. The column is as tall as the
+            // page so that they sit level with its middle, and this is what
+            // the pointer can rest in: crossing the empty part of a column is
+            // crossing a margin, not reaching for the contents.
+            div {
+                class: "contents-gutter-run",
+
             // With no headings there are no ticks, and a column with nothing
             // in it cannot be rested on. The marks put one thing in it.
             if headings.is_empty() {
@@ -116,6 +128,7 @@ fn Ruler(headings: Vec<HeadingInfo>) -> Element {
                         }
                     }
                 }
+            }
             }
         }
     }

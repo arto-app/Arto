@@ -125,9 +125,9 @@ page. Things give way from the outside in:
 
 | Order | What folds | Threshold | Default |
 | --- | --- | --- | --- |
-| 1 | Margin trace (138px) | min + rail + panel + trace + gutter | below 1068px |
-| 2 | Panel (its current width) | min + rail + panel + gutter | below 930px |
-| 3 | Contents gutter (24px) | min + rail + gutter | below 704px |
+| 1 | Margin trace (138px) | min + rail + panel + trace + gutter | below 1076px |
+| 2 | Panel (its current width) | min + rail + panel + gutter | below 938px |
+| 3 | Contents gutter (32px) | min + rail + gutter | below 712px |
 | 4 | Rail (40px) | min + rail | below 680px |
 
 `crate::hooks::layout_budget::budget` is the whole rule, and it is pure — the

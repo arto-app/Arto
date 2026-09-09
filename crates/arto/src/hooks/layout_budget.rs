@@ -21,7 +21,7 @@
 pub const RAIL_WIDTH: f64 = 40.0;
 
 /// The contents gutter's width.
-pub const GUTTER_WIDTH: f64 = 24.0;
+pub const GUTTER_WIDTH: f64 = 32.0;
 
 /// The margin trace's width.
 pub const TRACE_WIDTH: f64 = 138.0;
@@ -82,27 +82,27 @@ mod tests {
     }
 
     // The specification's table, from both sides of every threshold:
-    // 1068 / 930 / 704 / 680 for a 640px document.
+    // 1076 / 938 / 712 / 680 for a 640px document.
 
     #[test]
     fn the_trace_goes_first() {
-        assert!(at(1068.0, 640.0).trace);
-        assert!(!at(1067.0, 640.0).trace);
-        assert!(at(1067.0, 640.0).panel);
+        assert!(at(1076.0, 640.0).trace);
+        assert!(!at(1075.0, 640.0).trace);
+        assert!(at(1075.0, 640.0).panel);
     }
 
     #[test]
     fn then_the_panel() {
-        assert!(at(930.0, 640.0).panel);
-        assert!(!at(929.0, 640.0).panel);
-        assert!(at(929.0, 640.0).gutter);
+        assert!(at(938.0, 640.0).panel);
+        assert!(!at(937.0, 640.0).panel);
+        assert!(at(937.0, 640.0).gutter);
     }
 
     #[test]
     fn then_the_gutter() {
-        assert!(at(704.0, 640.0).gutter);
-        assert!(!at(703.0, 640.0).gutter);
-        assert!(at(703.0, 640.0).rail);
+        assert!(at(712.0, 640.0).gutter);
+        assert!(!at(711.0, 640.0).gutter);
+        assert!(at(711.0, 640.0).rail);
     }
 
     #[test]
@@ -125,16 +125,16 @@ mod tests {
         );
     }
 
-    // The same table with the setting raised: 1228 / 1090 / 864 / 840.
+    // The same table with the setting raised: 1236 / 1098 / 872 / 840.
 
     #[test]
     fn a_wider_document_folds_things_sooner() {
-        assert!(at(1228.0, 800.0).trace);
-        assert!(!at(1227.0, 800.0).trace);
-        assert!(at(1090.0, 800.0).panel);
-        assert!(!at(1089.0, 800.0).panel);
-        assert!(at(864.0, 800.0).gutter);
-        assert!(!at(863.0, 800.0).gutter);
+        assert!(at(1236.0, 800.0).trace);
+        assert!(!at(1235.0, 800.0).trace);
+        assert!(at(1098.0, 800.0).panel);
+        assert!(!at(1097.0, 800.0).panel);
+        assert!(at(872.0, 800.0).gutter);
+        assert!(!at(871.0, 800.0).gutter);
         assert!(at(840.0, 800.0).rail);
         assert!(!at(839.0, 800.0).rail);
     }
@@ -143,9 +143,9 @@ mod tests {
     fn a_wider_panel_folds_at_a_wider_window() {
         // The panel's own width is part of its threshold, so dragging it
         // wider moves the point at which it gives way.
-        assert!(budget(930.0, 640.0, 226.0).panel);
-        assert!(!budget(930.0, 640.0, 280.0).panel);
-        assert!(budget(984.0, 640.0, 280.0).panel);
+        assert!(budget(938.0, 640.0, 226.0).panel);
+        assert!(!budget(938.0, 640.0, 280.0).panel);
+        assert!(budget(992.0, 640.0, 280.0).panel);
     }
 
     #[test]

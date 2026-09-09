@@ -99,9 +99,17 @@ pub fn Content() -> Element {
             }
         }
 
+        // The scrollbar as the reader sees it, over the native one that
+        // catches the clicks. See `frontend/src/scroll-indicator.ts`.
+        div {
+            class: "scroll-indicator",
+            "aria-hidden": "true",
+            div { class: "scroll-indicator-thumb" }
+        }
+
         // The contents live beside the document rather than in a panel of
-        // their own: always there, 24px wide, and impossible to open by
-        // accident because there is nothing to open.
+        // their own: always there, in the page's own right margin, and
+        // impossible to open by accident because there is nothing to open.
         //
         // Held open by name, the same list stays out without the ruler — which
         // is what makes `contents.toggle` reach the headings at a width that
