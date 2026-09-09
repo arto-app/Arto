@@ -1,5 +1,5 @@
 use crate::ipc::OpenEvent;
-use crate::state::Document;
+use crate::state::{Document, PersistedState};
 use crate::window::settings;
 #[cfg(not(target_os = "windows"))]
 use dioxus::desktop::use_muda_event_handler;
@@ -115,11 +115,31 @@ pub fn MainApp() -> Element {
     let content_full_width = settings::get_content_full_width_preference();
     let zoom_pref = settings::get_zoom_preference(is_first_window);
 
-    // Directory resolution: override (from event) → config default → parent of an
-    // explicitly opened file. Stays None on a blank config with no opened file so
-    // the sidebar shows its empty/welcome state instead of scanning home.
-    let params_directory = directory_override.or(directory_pref.directory);
-    let directory = crate::window::main::resolve_directory(params_directory, &document);
+    // Roots: a directory named on the command line wins; otherwise the session
+    // being restored, if the configuration asks for one; otherwise the parent
+    // of the file being opened; and failing all of those, the folder the last
+    // window was in.
+    //
+    // That last fallback is what gives a window opening on the welcome page a
+    // current directory to show. A configuration that names no default is a
+    // question nobody answered, not an answer of "nowhere" — and the folder
+    // the reader was last in is the only non-arbitrary place to start. It is
+    // still never the home directory: unasked-for, that would only be a scan
+    // wide enough to make macOS ask about every folder in it.
+    let temps: Vec<_> = match directory_override {
+        Some(directory) => vec![directory],
+        None => {
+            let restored = settings::get_startup_roots();
+            if restored.is_empty() {
+                crate::window::main::resolve_directory(directory_pref.directory, &document)
+                    .or_else(|| PersistedState::load().directory)
+                    .into_iter()
+                    .collect()
+            } else {
+                restored
+            }
+        }
+    };
 
     // Render App component with initial state
     // Subsequent system events are handled by custom_event_handler (main.rs)
@@ -127,7 +147,7 @@ pub fn MainApp() -> Element {
     rsx! {
         crate::components::app::App {
             document: document,
-            directory: directory,
+            temps: temps,
             theme: theme_pref.theme,
             content_full_width,
             sidebar_pinned: sidebar_pref.pinned,

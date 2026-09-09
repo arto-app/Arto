@@ -16,6 +16,9 @@
   --radius-full: 50%;
 
   /* Font Sizes */
+  /* Below the smallest reading size: for the labels that name a group of
+     rows rather than say anything themselves. */
+  --font-size-2xs: 9px;
   --font-size-xs: 11px;
   --font-size-sm: 12px;
   --font-size-md: 13px;
@@ -28,17 +31,64 @@
   --opacity-secondary: 0.6;
   --opacity-hover: 0.8;
 
+  /* Quiet controls: ink and hit area are separate, and state is a step
+     along this same scale rather than a colour. A control rests at
+     --opacity-rest, wakes to --opacity-woken when the pointer enters the
+     band it belongs to, and reaches 1 only under the pointer itself. */
+  --opacity-rest: 0.3;
+  --opacity-woken: 0.72;
+  --opacity-active: 0.65;
+  --hit-size: 30px;
+  --transition-quiet: 0.18s;
+
+  /* The band of air above the first row of quiet controls. The header and the
+     rail are separate columns that both start at the top of the window, so
+     they share this to put their first glyph on one line. */
+  --chrome-inset: 10px;
+
+  /* The band's height. The chrome beside the document is laid out against
+     the window rather than against the reading area, so what it has to keep
+     clear of the band is said here once. */
+  --header-height: calc(var(--hit-size) + var(--chrome-inset) * 2);
+
+  /* For the few places that label rather than say: a shortcut, a marginal
+     note's heading. */
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
+
+  /* The peeking panel's shadow. The offset and the negative spread keep it
+     off the rail on the panel's left: it is cast to the right, over the
+     document it is floating above, and nowhere else. No ring — an outline
+     would be a second way of saying what the shadow already says. */
+  --shadow-peek: 8px 0 16px -6px rgb(1 4 9 / 18%);
+
+  /* What hangs from a band and covers the page below it: no ring, and the
+     shadow falls the way the thing does. */
+  --shadow-drop: 0 14px 34px -16px rgb(1 4 9 / 45%);
+
   /* Z-Index Scale */
-  --z-base: 1;
   --z-resize-handle: 10;
-  --z-search-bar: 50;
   --z-header: 60;
-  --z-pinned-chips: 99;
+  --z-pin-popover: 99;
   --z-dropdown: 200;
   --z-modal-backdrop: 10000;
   --z-context-menu-backdrop: 10001;
   --z-context-menu: 10002;
   --z-context-submenu: 10003;
+}
+
+/* A reader who has asked for less motion never sees a control fade in, so a
+   glyph resting at 30% would simply look absent and stay that way. The band
+   starts awake instead, and nothing transitions. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --opacity-rest: 0.72;
+    --transition-quiet: 0s;
+    --transition-fast: 0s;
+    --transition-normal: 0s;
+    --transition-slow: 0s;
+  }
 }
 
 /* ========================================
@@ -72,6 +122,11 @@
   --bg-tertiary: var(--bgColor-neutral-muted);
   --link-color: var(--fgColor-accent);
   --hover-bg: var(--control-bgColor-hover);
+
+  /* A row's state is a step of its own ground, not a colour: one step under
+     the pointer, two for the document being read. */
+  --bg-row-hover: var(--control-bgColor-hover);
+  --bg-row-active: var(--control-bgColor-active);
   --hover-border: var(--borderColor-emphasis);
   --accent-bg: var(--bgColor-accent-emphasis);
   --accent-fg: var(--fgColor-onEmphasis);
@@ -90,8 +145,6 @@
   --warning-color: var(--fgColor-attention);
 
   /* Shadows */
-  --shadow-xs: var(--shadow-resting-xsmall);
-  --shadow-sm: var(--shadow-resting-small);
   --shadow-md: var(--shadow-floating-small);
   --shadow-lg: var(--shadow-floating-medium);
 
@@ -105,7 +158,18 @@
   --search-highlight: color-mix(in srgb, var(--data-lemon-color-emphasis) 45%, transparent);
   --search-active-outline: var(--focus-outline-color);
 
-  /* Pinned highlight colors */
+  /* A pinned mark, in the two strengths it is drawn at.
+     `--mark-*` is the colour itself, for a dot or a tick: a solid shape a few
+     pixels across has to be the full tone or it reads as grey, which is what
+     the thinned version does on a light ground.
+     `--pinned-*` is that colour thinned enough to read words through, which is
+     the only place it is laid behind text. */
+  --mark-green: var(--data-green-color-emphasis);
+  --mark-blue: var(--data-blue-color-emphasis);
+  --mark-pink: var(--data-pink-color-emphasis);
+  --mark-orange: var(--data-orange-color-emphasis);
+  --mark-purple: var(--data-purple-color-emphasis);
+
   --pinned-green: color-mix(in srgb, var(--data-green-color-emphasis) 45%, transparent);
   --pinned-blue: color-mix(in srgb, var(--data-blue-color-emphasis) 45%, transparent);
   --pinned-pink: color-mix(in srgb, var(--data-pink-color-emphasis) 45%, transparent);

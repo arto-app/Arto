@@ -350,14 +350,6 @@
       "action": "sidebar.toggle_show_all_files"
     },
     {
-      "key": "Shift+h",
-      "action": "directory.back"
-    },
-    {
-      "key": "Shift+l",
-      "action": "directory.forward"
-    },
-    {
       "key": "Ctrl+w h",
       "action": "focus.left_sidebar"
     },

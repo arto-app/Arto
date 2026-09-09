@@ -119,8 +119,6 @@ pub enum Action {
 
     // Directory — sidebar navigation (3) — keyboard-only
     DirectoryParent,
-    DirectoryBack,
-    DirectoryForward,
 
     // Cancel (1) — keyboard-only
     Cancel,
@@ -260,14 +258,7 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::ContentOpenViewer,
         ],
     ),
-    (
-        "Directory",
-        &[
-            Action::DirectoryParent,
-            Action::DirectoryBack,
-            Action::DirectoryForward,
-        ],
-    ),
+    ("Directory", &[Action::DirectoryParent]),
     ("Cancel", &[Action::Cancel]),
 ];
 
@@ -427,8 +418,6 @@ action_strings! {
     ContentPrevHeading => "content.prev_heading",
     ContentOpenViewer => "content.open_viewer",
     DirectoryParent => "directory.parent",
-    DirectoryBack => "directory.back",
-    DirectoryForward => "directory.forward",
     Cancel => "cancel",
 }
 
@@ -446,7 +435,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 79);
+        assert_eq!(all_actions().len(), 77);
     }
 
     #[test]

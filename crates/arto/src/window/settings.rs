@@ -256,29 +256,51 @@ pub fn get_theme_preference(is_first_window: bool) -> ThemePreference {
     ThemePreference { theme }
 }
 
-pub fn get_directory_preference(is_first_window: bool) -> DirectoryPreference {
+/// The temporary roots the first window starts with.
+///
+/// Only the first window has any: it is restoring a session. Later windows
+/// are opened by a command that already says which folders it wants, so
+/// there is nothing here for them.
+///
+/// Places are not included — they are the bookmarks, and every window starts
+/// with all of them.
+pub fn get_startup_roots() -> Vec<PathBuf> {
     let cfg = CONFIG.read();
-    let directory: Option<PathBuf> = choose_by_behavior(
-        is_first_window,
-        cfg.directory.on_startup,
-        cfg.directory.on_new_window,
-        || cfg.directory.default_directory.clone(),
-        || {
-            // When a focused window exists, inherit its directory verbatim -
-            // including `None` (welcome state), so a new window also opens no
-            // directory. Only fall back to persisted state / config default
-            // when there is no focused window to inherit from.
-            resolve_from_state_or_persisted(
-                |state| state.sidebar.read().root_directory.clone(),
-                |persisted| {
-                    persisted
-                        .directory
-                        .clone()
-                        .or_else(|| cfg.directory.default_directory.clone())
-                },
-            )
-        },
-    );
+    match cfg.directory.on_startup {
+        StartupBehavior::Default => Vec::new(),
+        StartupBehavior::LastClosed => resolve_from_state_or_persisted(
+            |state| state.sidebar.read().roots.temps().to_vec(),
+            |persisted| persisted.temporary_roots(),
+        ),
+    }
+}
+
+/// Where the file tree starts.
+///
+/// Only the first window resolves one: it is restoring a session, so it
+/// takes the directory the last window was reading, or the configured
+/// default. Every later window is opened by a command that already says
+/// which folders it wants — Cmd+N the places alone, Cmd+Shift+N this
+/// window's temporary roots too, opening a file its parent — so there is
+/// nothing here for it to guess.
+pub fn get_directory_preference(is_first_window: bool) -> DirectoryPreference {
+    if !is_first_window {
+        return DirectoryPreference { directory: None };
+    }
+
+    let cfg = CONFIG.read();
+    let directory: Option<PathBuf> = match cfg.directory.on_startup {
+        StartupBehavior::Default => cfg.directory.default_directory.clone(),
+        StartupBehavior::LastClosed => resolve_from_state_or_persisted(
+            |state| state.sidebar.read().primary_root().cloned(),
+            |persisted| {
+                persisted
+                    .directory
+                    .clone()
+                    .or_else(|| cfg.directory.default_directory.clone())
+            },
+        ),
+    };
     DirectoryPreference { directory }
 }
 

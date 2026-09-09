@@ -8,33 +8,45 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use super::sidebar::{Group, PanelRow, TreeRow};
 use crate::utils::file::is_markdown_file;
 
 /// Maximum recursion depth for directory traversal.
 /// Prevents unbounded recursion from symlink cycles or extremely deep trees.
 const MAX_DEPTH: usize = 128;
 
-/// Build a flat list of visible tree nodes by walking the directory tree.
+/// Build a flat list of visible tree nodes, over every root the tree shows.
 ///
-/// Replicates the ordering in `file_explorer.rs`:
-/// directories first, then files, both alphabetical.
-/// Respects `show_all_files` filter (hides non-markdown files when false).
-/// Only recurses into expanded directories.
-pub fn visible_items(
-    root: &Path,
-    expanded: &HashSet<PathBuf>,
+/// Replicates the ordering in `file_explorer.rs`: each root heads its own
+/// subtree, directories before files and both alphabetical, so the cursor
+/// moves down through one root and on into the next exactly as the eye does.
+/// Respects `show_all_files` (hides non-markdown files when false) and only
+/// recurses into expanded directories.
+pub fn visible_items_in_roots(
+    roots: &[PanelRow],
+    expanded: &HashSet<TreeRow>,
     show_all_files: bool,
-) -> Vec<PathBuf> {
+) -> Vec<PanelRow> {
     let mut items = Vec::new();
-    collect_visible(root, expanded, show_all_files, &mut items, 0);
+    for (group, root) in roots {
+        items.push((*group, root.clone()));
+        // A shut root is one row, not a subtree. The rows under it are not
+        // drawn, and a cursor that walked them would disappear into a folder
+        // nobody had opened.
+        if expanded.contains(&(*group, root.clone(), root.clone())) {
+            collect_visible(*group, root, root, expanded, show_all_files, &mut items, 0);
+        }
+    }
     items
 }
 
 fn collect_visible(
+    group: Group,
+    root: &Path,
     dir: &Path,
-    expanded: &HashSet<PathBuf>,
+    expanded: &HashSet<TreeRow>,
     show_all_files: bool,
-    out: &mut Vec<PathBuf>,
+    out: &mut Vec<PanelRow>,
     depth: usize,
 ) {
     if depth >= MAX_DEPTH {
@@ -70,11 +82,21 @@ fn collect_visible(
             continue;
         }
 
-        out.push(child.clone());
+        out.push((group, child.clone()));
 
-        // Recurse into expanded directories
-        if is_dir && expanded.contains(&child) {
-            collect_visible(&child, expanded, show_all_files, out, depth + 1);
+        // Recurse into expanded directories. The row is the root it descends
+        // from as well as its path: one folder can be drawn under two roots,
+        // open in one and shut in the other.
+        if is_dir && expanded.contains(&(group, root.to_path_buf(), child.clone())) {
+            collect_visible(
+                group,
+                root,
+                &child,
+                expanded,
+                show_all_files,
+                out,
+                depth + 1,
+            );
         }
     }
 }
@@ -84,14 +106,14 @@ fn collect_visible(
 /// - `None` current → first item
 /// - At end → stays at last item (no wrap)
 /// - Current not found in items → first item
-pub fn move_down(current: &Option<PathBuf>, items: &[PathBuf]) -> Option<PathBuf> {
+pub fn move_down<T: Clone + PartialEq>(current: &Option<T>, items: &[T]) -> Option<T> {
     if items.is_empty() {
         return None;
     }
     let Some(cur) = current else {
         return Some(items[0].clone());
     };
-    let pos = items.iter().position(|p| p == cur);
+    let pos = items.iter().position(|item| item == cur);
     match pos {
         Some(i) if i + 1 < items.len() => Some(items[i + 1].clone()),
         Some(i) => Some(items[i].clone()), // stay at end
@@ -104,14 +126,14 @@ pub fn move_down(current: &Option<PathBuf>, items: &[PathBuf]) -> Option<PathBuf
 /// - `None` current → last item
 /// - At start → stays at first item (no wrap)
 /// - Current not found in items → last item
-pub fn move_up(current: &Option<PathBuf>, items: &[PathBuf]) -> Option<PathBuf> {
+pub fn move_up<T: Clone + PartialEq>(current: &Option<T>, items: &[T]) -> Option<T> {
     if items.is_empty() {
         return None;
     }
     let Some(cur) = current else {
         return Some(items[items.len() - 1].clone());
     };
-    let pos = items.iter().position(|p| p == cur);
+    let pos = items.iter().position(|item| item == cur);
     match pos {
         Some(0) => Some(items[0].clone()), // stay at start
         Some(i) => Some(items[i - 1].clone()),
@@ -123,9 +145,13 @@ pub fn move_up(current: &Option<PathBuf>, items: &[PathBuf]) -> Option<PathBuf> 
 ///
 /// Used for the "collapse" action: when cursor is on a file or collapsed directory,
 /// move cursor to its parent directory in the tree.
-pub fn find_parent_dir(current: &Path, items: &[PathBuf]) -> Option<PathBuf> {
-    let parent = current.parent()?;
-    items.iter().find(|p| *p == parent).cloned()
+pub fn find_parent_dir(current: &PanelRow, items: &[PanelRow]) -> Option<PanelRow> {
+    let (group, path) = current;
+    let parent = path.parent()?;
+    items
+        .iter()
+        .find(|(row_group, row)| row_group == group && row == parent)
+        .cloned()
 }
 
 #[cfg(test)]
@@ -133,6 +159,34 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::TempDir;
+
+    /// One root's visible items, without the root row `visible_items_in_roots`
+    /// draws above them.
+    fn visible_items(
+        root: &Path,
+        expanded: &HashSet<TreeRow>,
+        show_all_files: bool,
+    ) -> Vec<PathBuf> {
+        rows(root, expanded, show_all_files)
+            .into_iter()
+            .map(|(_, path)| path)
+            .collect()
+    }
+
+    /// The rows themselves, for the tests that care which list they are in.
+    fn rows(root: &Path, expanded: &HashSet<TreeRow>, show_all_files: bool) -> Vec<PanelRow> {
+        let mut items = Vec::new();
+        collect_visible(
+            Group::Current,
+            root,
+            root,
+            expanded,
+            show_all_files,
+            &mut items,
+            0,
+        );
+        items
+    }
 
     fn setup_test_tree() -> TempDir {
         let tmp = TempDir::new().unwrap();
@@ -189,11 +243,39 @@ mod tests {
     }
 
     #[test]
+    fn a_shut_root_is_one_row() {
+        let tmp = setup_test_tree();
+        let root = tmp.path();
+
+        let items = visible_items_in_roots(
+            &[(Group::Current, root.to_path_buf())],
+            &HashSet::new(),
+            false,
+        );
+
+        assert_eq!(items, vec![(Group::Current, root.to_path_buf())]);
+    }
+
+    #[test]
+    fn an_open_root_is_its_rows_as_well() {
+        let tmp = setup_test_tree();
+        let root = tmp.path();
+        let mut expanded = HashSet::new();
+        expanded.insert((Group::Current, root.to_path_buf(), root.to_path_buf()));
+
+        let items =
+            visible_items_in_roots(&[(Group::Current, root.to_path_buf())], &expanded, false);
+
+        assert!(items.len() > 1);
+        assert_eq!(items[0], (Group::Current, root.to_path_buf()));
+    }
+
+    #[test]
     fn visible_items_with_expanded_dir() {
         let tmp = setup_test_tree();
         let root = tmp.path();
         let mut expanded = HashSet::new();
-        expanded.insert(root.join("alpha"));
+        expanded.insert((Group::Current, root.to_path_buf(), root.join("alpha")));
 
         let items = visible_items(root, &expanded, false);
 
@@ -246,7 +328,7 @@ mod tests {
 
     #[test]
     fn move_down_empty_list() {
-        assert_eq!(move_down(&None, &[]), None);
+        assert_eq!(move_down::<PathBuf>(&None, &[]), None);
         assert_eq!(move_down(&Some(PathBuf::from("/a")), &[]), None);
     }
 
@@ -283,7 +365,7 @@ mod tests {
 
     #[test]
     fn move_up_empty_list() {
-        assert_eq!(move_up(&None, &[]), None);
+        assert_eq!(move_up::<PathBuf>(&None, &[]), None);
     }
 
     #[test]
@@ -296,33 +378,56 @@ mod tests {
         assert_eq!(move_up(&current, &items), Some(PathBuf::from("/only")));
     }
 
+    /// A row, in the group the tree's own rows are in.
+    fn row(path: &str) -> PanelRow {
+        (Group::Current, PathBuf::from(path))
+    }
+
     #[test]
     fn find_parent_dir_found() {
         let items = vec![
-            PathBuf::from("/root/alpha"),
-            PathBuf::from("/root/alpha/file.md"),
-            PathBuf::from("/root/beta"),
+            row("/root/alpha"),
+            row("/root/alpha/file.md"),
+            row("/root/beta"),
         ];
-        let current = PathBuf::from("/root/alpha/file.md");
+
         assert_eq!(
-            find_parent_dir(&current, &items),
-            Some(PathBuf::from("/root/alpha"))
+            find_parent_dir(&row("/root/alpha/file.md"), &items),
+            Some(row("/root/alpha"))
         );
     }
 
     #[test]
     fn find_parent_dir_not_in_list() {
-        let items = vec![PathBuf::from("/root/alpha/file.md")];
-        let current = PathBuf::from("/root/alpha/file.md");
+        let items = vec![row("/root/alpha/file.md")];
         // Parent /root/alpha is not in items
-        assert_eq!(find_parent_dir(&current, &items), None);
+        assert_eq!(find_parent_dir(&row("/root/alpha/file.md"), &items), None);
     }
 
     #[test]
     fn find_parent_dir_root_path() {
-        let items = vec![PathBuf::from("/")];
-        let current = PathBuf::from("/");
+        let items = vec![row("/")];
         // Root has no parent
-        assert_eq!(find_parent_dir(&current, &items), None);
+        assert_eq!(find_parent_dir(&row("/"), &items), None);
+    }
+
+    #[test]
+    fn find_parent_dir_stays_in_its_own_group() {
+        // The same folder is drawn in both groups; going up from a row in one
+        // of them must not land in the other.
+        let items = vec![
+            (Group::Current, PathBuf::from("/w/arto")),
+            (Group::Current, PathBuf::from("/w/arto/docs")),
+            (Group::Bookmark, PathBuf::from("/w/arto")),
+        ];
+
+        assert_eq!(
+            find_parent_dir(&(Group::Current, PathBuf::from("/w/arto/docs")), &items),
+            Some((Group::Current, PathBuf::from("/w/arto")))
+        );
+        assert_eq!(
+            find_parent_dir(&(Group::Bookmark, PathBuf::from("/w/arto/docs")), &items),
+            Some((Group::Bookmark, PathBuf::from("/w/arto")))
+        );
     }
 }
