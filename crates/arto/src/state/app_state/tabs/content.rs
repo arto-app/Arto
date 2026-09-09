@@ -12,8 +12,6 @@ pub enum TabContent {
     Inline(String),
     /// File that cannot be opened (binary or error)
     FileError(PathBuf, String),
-    /// Preferences page (browser-style settings)
-    Preferences,
 }
 
 #[cfg(test)]
@@ -29,6 +27,6 @@ mod tests {
     fn test_tab_content_equality() {
         let path = PathBuf::from("/test/file.md");
         assert_eq!(TabContent::File(path.clone()), TabContent::File(path));
-        assert_ne!(TabContent::None, TabContent::Preferences);
+        assert_ne!(TabContent::None, TabContent::Inline(String::new()));
     }
 }

@@ -15,10 +15,9 @@ use file_error_view::FileErrorView;
 use file_viewer::FileViewer;
 use inline_viewer::InlineViewer;
 use no_file_view::NoFileView;
-use preferences_view::PreferencesView;
 
 // Re-export for menu system
-pub use preferences_view::set_preferences_tab_to_about;
+pub use preferences_view::{set_preferences_tab_to_about, PreferencesView};
 
 // Re-export context menu types for App-level rendering
 pub use context_menu::ContentContextMenu;
@@ -69,9 +68,6 @@ pub fn Content() -> Element {
                             .unwrap_or("Unknown file")
                             .to_string();
                         rsx! { FileErrorView { filename, error_message: error } }
-                    },
-                    Some(TabContent::Preferences) => {
-                        rsx! { PreferencesView {} }
                     },
                     _ => rsx! { NoFileView {} },
                 }

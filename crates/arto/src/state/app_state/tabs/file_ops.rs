@@ -1,8 +1,5 @@
 //! AppState extension methods for file operations in tabs.
 
-use super::content::TabContent;
-use super::tab::Tab;
-use crate::history::HistoryManager;
 use crate::state::AppState;
 use dioxus::prelude::*;
 use std::path::{Path, PathBuf};
@@ -35,68 +32,35 @@ impl AppState {
         });
     }
 
-    /// Open preferences in a tab. Reuses existing preferences tab if found.
-    /// Unpins both sidebars so preferences gets the full window.
+    /// Open the preferences window, or focus it if it is already open.
+    ///
+    /// Preferences used to be a tab, which gave a short errand the lifetime of
+    /// a document and left it sitting open. It is a window now; what the
+    /// "Current Settings" section needs from this window is handed over as a
+    /// snapshot, since the preferences window has no `AppState` of its own.
     pub fn open_preferences(&mut self) {
-        // Unpin both sidebars and close overlays (preferences is a full-screen settings page)
-        self.sidebar.write().pinned = false;
-        self.right_sidebar.write().pinned = false;
-        self.left_hover_active.set(false);
-        self.right_hover_active.set(false);
-
-        // Check if preferences tab already exists
-        let tabs = self.tabs.read();
-        if let Some(index) = tabs
-            .iter()
-            .position(|tab| matches!(tab.content, TabContent::Preferences))
-        {
-            drop(tabs);
-            self.switch_to_tab(index);
-            return;
-        }
-        drop(tabs);
-
-        // Check if current tab is empty (None, Inline, or FileError) - reuse it
-        if self.is_current_tab_no_file() {
-            self.update_current_tab(|tab| {
-                tab.content = TabContent::Preferences;
-            });
-        } else {
-            // Create new tab with preferences
-            let mut tabs = self.tabs.write();
-            tabs.push(Tab {
-                content: TabContent::Preferences,
-                history: HistoryManager::new(),
-                pinned: false,
-            });
-            let new_index = tabs.len() - 1;
-            drop(tabs);
-            self.active_tab.set(new_index);
-        }
-    }
-
-    /// Toggle preferences tab. Opens if not present, closes if currently active.
-    pub fn toggle_preferences(&mut self) {
-        // Check if preferences tab already exists
-        let tabs = self.tabs.read();
-        let preferences_index = tabs
-            .iter()
-            .position(|tab| matches!(tab.content, TabContent::Preferences));
-        drop(tabs);
-
-        if let Some(index) = preferences_index {
-            // Preferences tab exists - check if it's the active tab
-            let active_index = *self.active_tab.read();
-            if active_index == index {
-                // Close the preferences tab
-                self.close_tab(index);
-            } else {
-                // Switch to the preferences tab
-                self.switch_to_tab(index);
-            }
-        } else {
-            // No preferences tab - open new one
-            self.open_preferences();
-        }
+        let (sidebar_width, sidebar_zoom_level, directory) = {
+            let sidebar = self.sidebar.read();
+            (
+                sidebar.width,
+                sidebar.zoom_level,
+                sidebar.root_directory.clone(),
+            )
+        };
+        let (right_sidebar_width, right_sidebar_zoom_level) = {
+            let right = self.right_sidebar.read();
+            (right.width, right.zoom_level)
+        };
+        crate::window::preferences::open_or_focus_preferences_window(
+            crate::window::preferences::PreferencesSnapshot {
+                window_id: dioxus::desktop::window().id(),
+                sidebar_width,
+                sidebar_zoom_level,
+                right_sidebar_width,
+                right_sidebar_zoom_level,
+                directory,
+            },
+            *self.current_theme.read(),
+        );
     }
 }
