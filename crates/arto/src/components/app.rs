@@ -37,7 +37,7 @@ use drag_drop_overlay::DragDropOverlay;
 use drag_handlers::{handle_drag_mouse_motion, handle_drag_mouse_release};
 use drop_handlers::handle_dropped_files;
 use keybinding_engine::setup_keybinding_engine;
-use listeners::setup_cross_window_open_listeners;
+use listeners::{setup_cross_window_open_listeners, setup_preferences_listeners};
 use shortcut_overlay::{
     build_shortcut_help_items, close_shortcut_overlay, split_shortcut_help_columns,
     ShortcutHelpOverlay, ShortcutOverlayVisibility,
@@ -277,6 +277,7 @@ pub fn App(
 
     // Listen for cross-window file/directory open events (from sidebar context menu)
     setup_cross_window_open_listeners(state);
+    setup_preferences_listeners(state);
 
     // Update window title when active tab changes
     use_effect(move || {

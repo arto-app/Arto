@@ -110,7 +110,7 @@ pub fn close_all_child_windows() {
 
 /// Try to focus an existing child window, or mark it as pending for creation.
 /// Returns `true` if a new window needs to be created.
-fn try_focus_or_mark_pending(child_id: &str, parent_id: WindowId) -> bool {
+pub(super) fn try_focus_or_mark_pending(child_id: &str, parent_id: WindowId) -> bool {
     CHILD_WINDOWS.with(|windows| {
         let mut windows = windows.borrow_mut();
         windows.retain(|_, state| match state {
@@ -133,7 +133,7 @@ fn try_focus_or_mark_pending(child_id: &str, parent_id: WindowId) -> bool {
 }
 
 /// Register a newly created child window, or close it if the pending state was removed.
-async fn create_and_register_child_window(
+pub(super) async fn create_and_register_child_window(
     child_id: String,
     dom: VirtualDom,
     config: Config,

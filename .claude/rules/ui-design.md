@@ -102,18 +102,25 @@ wrong in every theme but the one it was taken from.
 - All similar buttons must have matching sizes (padding, font-size, border-radius)
 - Use `color-mix(in srgb, var(--accent-bg) 8%, transparent)` for subtle selection backgrounds
 
-## In-Page Settings (Browser-Style)
+## Preferences is its own window
 
-**Prefer in-page settings over modal dialogs for preferences.**
+**Preferences is a window, not a tab and not a modal.**
 
-Settings should integrate with the tab system rather than blocking the UI with modals.
-This follows browser conventions (Chrome's `chrome://settings`, Firefox's `about:preferences`).
+Changing a setting is a short errand; a tab is where a document lives for as
+long as it is being read. Giving the errand a document's lifetime is what left
+a settings tab sitting open for days, so it gets a window that closes instead.
 
 ### Architecture
 
-- Add a `TabContent::Preferences` variant to the content enum
-- Implement `open_preferences()` method with tab deduplication (reuse existing preferences tab)
-- Use state-based navigation instead of broadcast channels for window-specific features
+- `window::preferences::open_or_focus_preferences_window` opens it, reusing the
+  child-window machinery in `window/child.rs`: one window at a time, focused
+  rather than duplicated, closed with its parent.
+- The window holds no `AppState`. What the "Current Settings" section reports
+  comes over as a `PreferencesSnapshot` taken when it opens, and what it
+  changes goes back through the `SET_*_ZOOM_IN_WINDOW` events, targeted at the
+  window that opened it.
+- `AppState::open_preferences()` is still the single entry point, so the menu
+  item and the keybinding stay unchanged.
 
 ### Layout Structure
 

@@ -5,7 +5,7 @@ use super::tabs::{
 };
 use crate::components::icon::{Icon, IconName};
 use crate::config::{Config, CONFIG, CONFIG_CHANGED_BROADCAST};
-use crate::state::AppState;
+use crate::window::preferences::PreferencesSnapshot;
 use dioxus::prelude::*;
 use parking_lot::RwLock;
 use std::sync::LazyLock;
@@ -43,8 +43,7 @@ enum SaveStatus {
 }
 
 #[component]
-pub fn PreferencesView() -> Element {
-    let state = use_context::<AppState>();
+pub fn PreferencesView(snapshot: PreferencesSnapshot) -> Element {
     let mut config = use_signal(Config::default);
     let mut has_changes = use_signal(|| false);
     let mut active_tab = use_signal(|| *LAST_PREFERENCES_TAB.read());
@@ -234,7 +233,7 @@ pub fn PreferencesView() -> Element {
                             DirectoryTab {
                                 config,
                                 has_changes,
-                                current_directory: state.sidebar.read().root_directory.clone(),
+                                current_directory: snapshot.directory.clone(),
                             }
                         },
                         PreferencesTab::WindowSize => rsx! {
@@ -253,14 +252,18 @@ pub fn PreferencesView() -> Element {
                             SidebarTab {
                                 config,
                                 has_changes,
-                                state,
+                                window_id: snapshot.window_id,
+                                current_width: snapshot.sidebar_width,
+                                current_zoom: snapshot.sidebar_zoom_level,
                             }
                         },
                         PreferencesTab::RightSidebar => rsx! {
                             RightSidebarTab {
                                 config,
                                 has_changes,
-                                state,
+                                window_id: snapshot.window_id,
+                                current_width: snapshot.right_sidebar_width,
+                                current_zoom: snapshot.right_sidebar_zoom_level,
                             }
                         },
                         PreferencesTab::Keybindings => rsx! {

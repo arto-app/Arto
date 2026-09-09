@@ -301,11 +301,5 @@ mod tests {
             let content = TabContent::Inline("content".to_string());
             assert!(!is_tab_transferable(&content));
         }
-
-        #[test]
-        fn preferences_tab_is_not_transferable() {
-            let content = TabContent::Preferences;
-            assert!(!is_tab_transferable(&content));
-        }
     }
 }

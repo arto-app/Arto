@@ -11,8 +11,8 @@ paths: "crates/arto/src/window/**, crates/arto/src/events.rs, crates/arto/src/ma
    `WindowCloseBehaviour::WindowHides` keeps the last window alive instead of
    quitting. Further windows come from File → New Window and each owns its
    tabs and state.
-2. **Child windows** (Mermaid, math, image viewers) are owned by a main
-   window and close with it.
+2. **Child windows** (Mermaid, math, image viewers, preferences) are owned by
+   a main window and close with it.
 
 ## Creating windows
 
@@ -74,6 +74,10 @@ Windows coordinate through the broadcast channels in
   floating tab and drop indicators.
 - `OPEN_FILE_IN_WINDOW` / `OPEN_DIRECTORY_IN_WINDOW`: open a path in a
   specific window.
+- `SET_SIDEBAR_ZOOM_IN_WINDOW` / `SET_RIGHT_SIDEBAR_ZOOM_IN_WINDOW`: the
+  preferences window acting on the window that opened it. Preferences holds no
+  `AppState` of its own, so a "Current Settings" slider sends rather than
+  writes.
 
 ```rust
 // Send

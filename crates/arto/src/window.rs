@@ -3,6 +3,7 @@ pub mod icon;
 pub mod index;
 pub mod main;
 pub mod metrics;
+pub mod preferences;
 pub mod preview;
 pub mod settings;
 mod types;
