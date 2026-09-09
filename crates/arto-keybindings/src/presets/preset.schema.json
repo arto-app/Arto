@@ -11,7 +11,8 @@
     "sidebar": { "$ref": "#/$defs/bindings" },
     "quickAccess": { "$ref": "#/$defs/bindings" },
     "rightSidebar": { "$ref": "#/$defs/bindings" },
-    "search": { "$ref": "#/$defs/bindings" }
+    "search": { "$ref": "#/$defs/bindings" },
+    "palette": { "$ref": "#/$defs/bindings" }
   },
   "$defs": {
     "bindings": {

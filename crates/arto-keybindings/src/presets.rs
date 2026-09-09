@@ -52,12 +52,13 @@ fn parse_bindings_json(json: &str, name: &str) -> BindingSet {
 }
 
 fn validate_preset_bindings(name: &str, bindings: &BindingSet) {
-    let fields: [(&str, &Vec<KeyAction>); 5] = [
+    let fields: [(&str, &Vec<KeyAction>); 6] = [
         ("global", &bindings.global),
         ("content", &bindings.content),
         ("sidebar", &bindings.sidebar),
         ("quick_access", &bindings.quick_access),
         ("search", &bindings.search),
+        ("palette", &bindings.palette),
     ];
 
     for (context, actions) in fields {

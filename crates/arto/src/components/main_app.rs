@@ -67,7 +67,7 @@ pub fn MainApp() -> Element {
     if first_event.is_some() {
         tracing::debug!(?first_event, "Received initial open event from IPC queue");
     } else {
-        tracing::debug!("No initial event, will show welcome screen");
+        tracing::debug!("No initial event, the window opens on the welcome page");
     }
 
     // Resolve the document and directory from the event. A window reads one
@@ -84,14 +84,11 @@ pub fn MainApp() -> Element {
                 request.directory.clone(),
             )
         }
-        _ => {
-            let welcome_content = crate::assets::get_default_markdown_content();
-            (
-                Document::with_inline_content(welcome_content),
-                Vec::new(),
-                None,
-            )
-        }
+        // Launched with nothing to read: the window opens on the welcome
+        // page, the same as a window made with Cmd+N or a document put down
+        // with Cmd+T. A window with nothing in it says what there is to read
+        // rather than explaining that nothing is open.
+        _ => (Document::default(), Vec::new(), None),
     };
 
     // Everything after the first path, once — a launch naming several files is

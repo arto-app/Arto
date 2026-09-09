@@ -51,6 +51,13 @@ pub enum Action {
     CopyImageAsMarkdown,
     CopyLinkPath,
 
+    // Palette — the history, two keystrokes away, and moving through it
+    PaletteOpen,
+    PaletteNext,
+    PalettePrev,
+    PaletteConfirm,
+    PaletteClose,
+
     // Window (7)
     WindowNew,
     /// A copy of this window: the document, and the place in it the reader had
@@ -177,6 +184,16 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
         ],
     ),
     (
+        "Palette",
+        &[
+            Action::PaletteOpen,
+            Action::PaletteNext,
+            Action::PalettePrev,
+            Action::PaletteConfirm,
+            Action::PaletteClose,
+        ],
+    ),
+    (
         "Window",
         &[
             Action::WindowNew,
@@ -271,6 +288,120 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
 /// Kept in sync with the desktop app's menu module, which maps menu items to
 /// these actions and has a drift-guard test asserting every menu item's
 /// action appears here.
+impl Action {
+    /// The name this action answers to when it is typed rather than pressed.
+    ///
+    /// `None` means the action is a motion — a scroll, a cursor step, a focus
+    /// move — or is only meaningful with something already under the cursor.
+    /// Naming those would fill a search with rows that do nothing when the
+    /// list they act on is not the thing being looked at, so they stay on the
+    /// keyboard where they belong.
+    ///
+    /// The labels match the menu wherever the menu has the same item, so a
+    /// reader who learned a name in one place finds it in the other.
+    pub fn command_label(&self) -> Option<&'static str> {
+        let label = match self {
+            // History
+            Self::HistoryBack => "Back",
+            Self::HistoryForward => "Forward",
+
+            // Search
+            Self::SearchOpen => "Find in Page",
+
+            // Zoom
+            Self::ZoomIn => "Zoom In",
+            Self::ZoomOut => "Zoom Out",
+            Self::ZoomReset => "Actual Size",
+
+            // Clipboard — the two that act on the document rather than on
+            // whatever the content cursor happens to be standing on.
+            Self::CopyFilePath => "Copy File Path",
+            Self::CopyAsMarkdown => "Copy Document as Markdown",
+
+            // Window
+            Self::WindowNew => "New Window",
+            Self::WindowDuplicate => "Duplicate Window",
+            Self::WindowNewDocument => "New Document",
+            Self::WindowClose => "Close Window",
+            Self::WindowCloseAllChildWindows => "Close All Child Windows",
+            Self::WindowCloseAllWindows => "Close All Windows",
+            Self::WindowToggleSidebar => "Toggle Sidebar",
+            Self::WindowReload => "Reload Document",
+
+            // File
+            Self::FileOpen => "Open File\u{2026}",
+            Self::FileOpenDirectory => "Open Directory\u{2026}",
+            Self::FileSetParentAsRoot => "Make This the Window's Folder",
+            Self::FileToggleBookmark => "Toggle Star",
+            Self::FilePreferences => "Preferences\u{2026}",
+            Self::FileRevealInFinder => "Reveal in Finder",
+            Self::FilePrint => "Print\u{2026}",
+
+            // App
+            Self::AppAbout => "About Arto",
+            Self::AppQuit => "Quit Arto",
+            Self::AppGoToHomepage => "Go to Homepage",
+
+            // Contents
+
+            // Sidebar
+            Self::SidebarToggleShowAllFiles => "Show All Files",
+            Self::SidebarFacePlaces => "Show Places",
+            Self::SidebarFaceRecent => "Show Recent",
+            Self::SidebarFaceStarred => "Show Starred",
+            Self::SidebarFaceNext => "Next Face",
+            Self::SidebarFacePrev => "Previous Face",
+
+            // Theme
+            Self::ThemeSetLight => "Light Theme",
+            Self::ThemeSetDark => "Dark Theme",
+            Self::ThemeSetAuto => "Match System Theme",
+
+            _ => return None,
+        };
+        Some(label)
+    }
+}
+
+pub const COMMAND_ACTIONS: &[Action] = &[
+    Action::HistoryBack,
+    Action::HistoryForward,
+    Action::SearchOpen,
+    Action::ZoomIn,
+    Action::ZoomOut,
+    Action::ZoomReset,
+    Action::CopyFilePath,
+    Action::CopyAsMarkdown,
+    Action::WindowNew,
+    Action::WindowDuplicate,
+    Action::WindowNewDocument,
+    Action::WindowClose,
+    Action::WindowCloseAllChildWindows,
+    Action::WindowCloseAllWindows,
+    Action::WindowToggleSidebar,
+    Action::WindowReload,
+    Action::FileOpen,
+    Action::FileOpenDirectory,
+    Action::FileSetParentAsRoot,
+    Action::FileToggleBookmark,
+    Action::FilePreferences,
+    Action::FileRevealInFinder,
+    Action::FilePrint,
+    Action::AppAbout,
+    Action::AppQuit,
+    Action::AppGoToHomepage,
+    Action::SidebarToggleShowAllFiles,
+    Action::SidebarFacePlaces,
+    Action::SidebarFaceRecent,
+    Action::SidebarFaceStarred,
+    Action::SidebarFaceNext,
+    Action::SidebarFacePrev,
+    Action::ThemeSetLight,
+    Action::ThemeSetDark,
+    Action::ThemeSetAuto,
+];
+
+/// Actions that are menu items.
 pub const MENU_ACTIONS: &[Action] = &[
     Action::WindowNew,
     Action::WindowDuplicate,
@@ -376,6 +507,11 @@ action_strings! {
     CopyImagePath => "clipboard.copy_image_path",
     CopyImageAsMarkdown => "clipboard.copy_image_as_markdown",
     CopyLinkPath => "clipboard.copy_link_path",
+    PaletteOpen => "palette.open",
+    PaletteNext => "palette.next",
+    PalettePrev => "palette.prev",
+    PaletteConfirm => "palette.confirm",
+    PaletteClose => "palette.close",
     WindowNew => "window.new",
     WindowDuplicate => "window.duplicate",
     WindowNewDocument => "window.new_document",
@@ -439,7 +575,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 79);
+        assert_eq!(all_actions().len(), 84);
     }
 
     #[test]

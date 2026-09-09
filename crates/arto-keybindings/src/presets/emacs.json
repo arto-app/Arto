@@ -170,6 +170,10 @@
     {
       "key": "Ctrl+x r",
       "action": "focus.recent"
+    },
+    {
+      "key": "Cmd+k",
+      "action": "palette.open"
     }
   ],
   "content": [
@@ -264,6 +268,36 @@
     {
       "key": "Ctrl+x Ctrl+k",
       "action": "focus.places"
+    }
+  ],
+  "palette": [
+    {
+      "key": "Ctrl+n",
+      "action": "palette.next"
+    },
+    {
+      "key": "Ctrl+p",
+      "action": "palette.prev"
+    },
+    {
+      "key": "ArrowDown",
+      "action": "palette.next"
+    },
+    {
+      "key": "ArrowUp",
+      "action": "palette.prev"
+    },
+    {
+      "key": "Enter",
+      "action": "palette.confirm"
+    },
+    {
+      "key": "Ctrl+g",
+      "action": "palette.close"
+    },
+    {
+      "key": "Escape",
+      "action": "palette.close"
     }
   ]
 }

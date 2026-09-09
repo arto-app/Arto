@@ -173,6 +173,13 @@ impl KeybindingEngine {
     /// 2. Global match (context=None) → fallback
     /// 3. Different context → invisible (ignored)
     fn find_match(&self, keys: &[KeyChord], context: KeyContext) -> (Option<Action>, bool) {
+        // A bare key inside a field is what is being typed, so the global set
+        // — where a letter can mean "scroll" — does not answer for it. A chord
+        // with a modifier is not typing, and still does: Cmd+W closes the
+        // window from inside a search.
+        let typing =
+            context.owns_input() && keys.first().is_some_and(|chord| chord.modifiers.is_empty());
+
         let mut exact_context_match: Option<Action> = None;
         let mut exact_global_match: Option<Action> = None;
         let mut has_prefix = false;
@@ -180,8 +187,8 @@ impl KeybindingEngine {
         for binding in &self.bindings {
             // Check context visibility
             let is_visible = match (&binding.context, &context) {
-                // Binding is global → always visible
-                (None, _) => true,
+                // Binding is global → visible unless a field is being typed in
+                (None, _) => !typing,
                 // Binding has context, panel has same context → visible
                 (Some(bc), pc) if bc == pc => true,
                 // Binding has context but panel doesn't match → invisible
@@ -484,5 +491,27 @@ mod tests {
         // In sidebar: content-only Ctrl+j binding is not visible.
         let result = engine.process_key(&chord("Ctrl+j"), false, KeyContext::Sidebar);
         assert_eq!(result, KeyMatchResult::NoMatch);
+    }
+
+    #[test]
+    fn a_bare_key_in_a_field_is_typing() {
+        // `j` scrolls the document; typed into the palette it is a letter.
+        let bindings = BindingSet {
+            global: vec![KeyAction {
+                key: "j".to_string(),
+                action: "scroll.down".to_string(),
+            }],
+            ..Default::default()
+        };
+        let mut engine = KeybindingEngine::new(&bindings);
+
+        assert_eq!(
+            engine.process_key(&chord("j"), false, KeyContext::Content),
+            KeyMatchResult::Matched(Action::ScrollDown)
+        );
+        assert_eq!(
+            engine.process_key(&chord("j"), false, KeyContext::Palette),
+            KeyMatchResult::NoMatch
+        );
     }
 }

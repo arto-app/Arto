@@ -1,0 +1,160 @@
+/* =================================
+   Palette
+   =================================
+
+   The quickest window on the history: open, return, back to the document
+   before this one. It floats over the reading area rather than displacing
+   it, so what it is taking the reader away from stays visible behind. */
+
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-backdrop);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+  background: color-mix(in srgb, var(--bg-color) 45%, transparent);
+}
+
+.palette {
+  display: flex;
+  flex-direction: column;
+  /* The welcome page's column, which is the same list on a page: one list, one
+     width, whichever way it was opened. */
+  width: min(720px, calc(100vw - 48px));
+  max-height: 60vh;
+  overflow: hidden;
+  background: var(--bg-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+/* The field is the only lined element here: it is being typed into, and a
+   text box that does not read as one is a box nobody types in. */
+.palette-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+/* The same input the welcome page carries in the middle of its page, so it
+   gives up its width the way a field in a page has to. */
+.palette-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-color);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+}
+
+.palette-input::placeholder {
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+.palette-rows {
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.palette-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  color: var(--text-color);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* The cursor is a surface, not a colour: the row under it is where return
+   goes, and saying so needs no hue. It wears the same class the panel's rows
+   and the contents' do, because it is the same thing being said. */
+.palette-row.keyboard-focused,
+.palette-row:hover {
+  background: var(--bg-secondary);
+}
+
+.palette-row .icon {
+  align-self: center;
+  opacity: var(--opacity-muted);
+}
+
+.palette-row-name {
+  flex-shrink: 0;
+}
+
+/* The folder the document sits in. Written left to right like the path it is:
+   turning the direction round to truncate from the head puts the separators
+   and the `~` at the wrong end of it. What is cut is the tail, which is the
+   part nearest the name that is already spelled out on the left. */
+.palette-row-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+  text-align: right;
+}
+
+/* The word over each kind of row, the same device the panel's lists use. */
+.palette-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 10px 3px;
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+.palette-group:first-child {
+  margin-top: 2px;
+}
+
+.palette-group::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+
+/* What the row would have cost on the keyboard. It sits where a document
+   row's directory sits, so the two kinds of row share one right edge. */
+.palette-row-hint {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+  text-align: right;
+}
+
+/* The way out of the short list and into the whole history. */
+.palette-row-all {
+  margin: 0 4px 4px;
+  color: var(--text-secondary);
+}
+
+.palette-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}

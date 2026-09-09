@@ -35,7 +35,7 @@ Markdown is where documentation, communication and thinking now live, and readin
 
 **Reading** — GitHub-accurate rendering with the extended syntax, auto-reload when the file changes on disk, and no network required.
 
-**Getting around** — file explorer sidebar with history, bookmarks for the files you keep returning to, an automatic table of contents, and back/forward navigation across linked documents.
+**Getting around** — a file explorer over several folders at once, a reading history reachable from the panel, the document's name, the welcome page and the palette, bookmarks for the folders you keep returning to, a contents gutter beside the page, and back/forward across linked documents.
 
 **Finding** — find in page, plus pinned searches that keep multi-colour highlights across sessions.
 

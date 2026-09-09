@@ -32,13 +32,6 @@ fn render_options() -> RenderOptions {
     }
 }
 
-/// Render Markdown to HTML, honoring the user's rendering preferences.
-pub fn render_to_html(markdown: impl AsRef<str>, base_path: impl AsRef<Path>) -> Result<String> {
-    let rendered = arto_markdown::render_to_html(markdown, base_path, &render_options())?;
-    crate::assets::images::register(rendered.images);
-    Ok(rendered.html)
-}
-
 /// Render Markdown to HTML with TOC information, honoring the user's
 /// rendering preferences.
 pub fn render_to_html_with_toc(

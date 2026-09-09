@@ -3,8 +3,8 @@
 //! A reader loses nothing by closing a document, so "open" was never a state
 //! worth keeping — the only thing that turns out to matter is what was read
 //! and how recently. That is this list, and it is the one behind every way
-//! the interface offers to go back: the list dropped from the breadcrumb and
-//! the panel's history face.
+//! the interface offers to go back: the palette's resting state, the list
+//! dropped from the breadcrumb, the panel's history face, and the welcome page.
 //!
 //! Grouping coarsens with age. The last few days are worth separating by day;
 //! a year ago, the month is as fine as anyone needs, and a year before that,
@@ -127,6 +127,29 @@ pub fn group(visits: &[Visit], now: DateTime<Local>) -> Vec<(Bucket, Vec<&Visit>
 
 /// Whether a visit answers a filter query.
 ///
+/// The palette, the panel's history face and the welcome page all narrow the same
+/// list, so they narrow it the same way: a query that finds a document in one
+/// of them finds it in all three.
+///
+/// Terms are separated by whitespace and all of them must match, each against
+/// the whole path rather than the name alone — so `guide arto` finds
+/// `~/arto/docs/guide.md` however the two words are ordered, and `docs/`
+/// narrows to a directory. Matching ignores case, which is what a reader
+/// typing quickly expects.
+pub fn matches(visit: &Visit, query: &str) -> bool {
+    matches_path(&visit.path, query)
+}
+
+/// The same rule, for the lists that are not visits — the places kept and the
+/// documents starred. One query narrows a screen, so it has to mean the same
+/// thing in every list on it.
+pub fn matches_path(path: &Path, query: &str) -> bool {
+    let haystack = path.to_string_lossy().to_lowercase();
+    query
+        .split_whitespace()
+        .all(|term| haystack.contains(&term.to_lowercase()))
+}
+
 /// When a document was last read, said in whatever unit still adds something.
 ///
 /// The heading above a row already says the day, so repeating it there is a
@@ -163,6 +186,11 @@ pub fn last_read_under(dir: &Path) -> Option<DateTime<Local>> {
         .iter()
         .find(|visit| visit.path.starts_with(dir))
         .map(|visit| visit.at)
+}
+
+/// The visits answering a query, newest first.
+pub fn filter<'a>(visits: &'a [Visit], query: &str) -> Vec<&'a Visit> {
+    visits.iter().filter(|v| matches(v, query)).collect()
 }
 
 /// The visit list, newest first.
@@ -470,5 +498,48 @@ mod tests {
         assert_eq!(Bucket::LastWeek.heading(), "Last week");
         assert_eq!(Bucket::Month(2026, 3).heading(), "2026-03");
         assert_eq!(Bucket::Year(2024).heading(), "2024");
+    }
+
+    // === matches(): one rule for the palette, the face and the welcome page ===
+
+    #[test]
+    fn an_empty_query_matches_everything() {
+        let visit = Visit::new("/home/reader/notes/guide.md", at(2026, 4, 16));
+        assert!(matches(&visit, ""));
+        assert!(matches(&visit, "   "));
+    }
+
+    #[test]
+    fn matching_ignores_case_and_spans_the_whole_path() {
+        let visit = Visit::new("/home/reader/Arto/docs/Guide.md", at(2026, 4, 16));
+        assert!(matches(&visit, "guide"));
+        assert!(matches(&visit, "docs/"));
+        assert!(matches(&visit, "ARTO"));
+        assert!(!matches(&visit, "readme"));
+    }
+
+    #[test]
+    fn every_term_must_match_in_any_order() {
+        let visit = Visit::new("/home/reader/arto/docs/guide.md", at(2026, 4, 16));
+        assert!(matches(&visit, "guide arto"));
+        assert!(matches(&visit, "arto guide"));
+        assert!(!matches(&visit, "guide missing"));
+    }
+
+    #[test]
+    fn filter_keeps_the_order_it_was_given() {
+        let visits = vec![
+            Visit::new("/notes/b.md", at(2026, 4, 16)),
+            Visit::new("/notes/a.md", at(2026, 4, 15)),
+            Visit::new("/other/c.md", at(2026, 4, 14)),
+        ];
+        let found = filter(&visits, "notes");
+        assert_eq!(
+            found
+                .iter()
+                .map(|v| crate::utils::paths::short_name(&v.path))
+                .collect::<Vec<_>>(),
+            vec!["notes/b.md", "notes/a.md"]
+        );
     }
 }

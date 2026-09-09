@@ -12,7 +12,8 @@ export interface KeyEventData {
   key: string;
   modifiers: number;
   repeat: boolean;
-  searchFocused: boolean;
+  /** Which of the app's own fields the key was typed into, if any. */
+  field?: "search" | "palette";
 }
 
 type KeydownCallback = (data: KeyEventData) => void;
@@ -125,9 +126,19 @@ function isEditableElement(target: EventTarget | null): boolean {
   return false;
 }
 
-function isSearchInputFocused(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return target.classList.contains("search-input");
+/**
+ * Which of the app's own fields the keystroke is in, if any.
+ *
+ * These two forward their keys to the bindings — the keys that move through a
+ * list of results are bindings like any other — and the engine answers a bare
+ * key there out of that field's own bindings only, so what is typed stays
+ * typing.
+ */
+function fieldOf(target: EventTarget | null): "search" | "palette" | undefined {
+  if (!(target instanceof HTMLElement)) return undefined;
+  if (target.classList.contains("search-input")) return "search";
+  if (target.classList.contains("palette-input")) return "palette";
+  return undefined;
 }
 
 function buildModifiers(e: KeyboardEvent): number {
@@ -139,12 +150,45 @@ function buildModifiers(e: KeyboardEvent): number {
   return mods;
 }
 
+/**
+ * Whether an input method has taken this keystroke, so the keybindings must
+ * not also have it.
+ *
+ * A composition in progress is the clear case, and `compositionstart` is what
+ * `composing` tracks. But that event arrives *after* the keydown that began
+ * the composition, so the flag is one keystroke late — and that keystroke is
+ * the input method's own: SKK's Ctrl+J, its mode letters. `keyCode === 229` is
+ * the event saying so a keystroke earlier.
+ *
+ * Only where there is something to compose into. Some input methods report 229
+ * for every key while they are merely *selected*, whatever mode they are in,
+ * so reading it over the document would hand an input method every keystroke
+ * in the window and leave the reader with no keybindings at all.
+ */
+export function inputMethodHasKey(e: {
+  composing: boolean;
+  isComposing: boolean;
+  keyCode: number;
+  editable: boolean;
+}): boolean {
+  if (e.composing || e.isComposing) {
+    return true;
+  }
+  return e.editable && e.keyCode === IME_KEY_CODE;
+}
+
+/** What a `keydown` reports for a key its input method has taken. */
+const IME_KEY_CODE = 229;
+
 function handleKeydown(e: KeyboardEvent): void {
   if (paused) return;
-  if (composing) return;
   if (!currentCallback) return;
-  const searchFocused = isSearchInputFocused(e.target);
-  if (isEditableElement(e.target) && !searchFocused) return;
+  const editable = isEditableElement(e.target);
+  if (inputMethodHasKey({ composing, isComposing: e.isComposing, keyCode: e.keyCode, editable })) {
+    return;
+  }
+  const field = fieldOf(e.target);
+  if (editable && !field) return;
 
   const key = e.key;
 
@@ -183,7 +227,7 @@ function handleKeydown(e: KeyboardEvent): void {
     // Re-show content cursor when switching from mouse to keyboard mode
     window.Arto?.contentCursor?.show?.();
   }
-  currentCallback({ key, modifiers, repeat: e.repeat, searchFocused });
+  currentCallback({ key, modifiers, repeat: e.repeat, field });
 }
 
 function handleCompositionStart(): void {

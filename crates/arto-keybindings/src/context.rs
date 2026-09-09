@@ -14,6 +14,20 @@ pub enum KeyContext {
     Sidebar,
     QuickAccess,
     Search,
+    Palette,
+}
+
+impl KeyContext {
+    /// Whether this context is a field being typed into.
+    ///
+    /// What is typed there is text, not shortcuts, so a bare key belongs to
+    /// the field: only this context's own bindings answer it, and the global
+    /// ones — which is where `j` means "scroll" — stay out of the way. A chord
+    /// with a modifier is nobody's idea of typing, so those still fall through
+    /// to the global set, and Cmd+W closes the window from inside a search.
+    pub fn owns_input(&self) -> bool {
+        matches!(self, Self::Palette)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,6 +48,7 @@ impl fmt::Display for KeyContext {
             Self::Sidebar => f.write_str("sidebar"),
             Self::QuickAccess => f.write_str("quick_access"),
             Self::Search => f.write_str("search"),
+            Self::Palette => f.write_str("palette"),
         }
     }
 }
@@ -47,6 +62,7 @@ impl FromStr for KeyContext {
             "sidebar" => Ok(Self::Sidebar),
             "quick_access" => Ok(Self::QuickAccess),
             "search" => Ok(Self::Search),
+            "palette" => Ok(Self::Palette),
             _ => Err(KeyContextParseError(s.to_string())),
         }
     }

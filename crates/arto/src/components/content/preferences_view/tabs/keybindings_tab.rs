@@ -133,6 +133,14 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
                 has_changes,
             }
             BindingSection {
+                title: "Palette",
+                scope: BindingScope::Engine(Some(KeyContext::Palette)),
+                bindings: keybindings.palette.clone(),
+                filter_query: filter_text(),
+                config,
+                has_changes,
+            }
+            BindingSection {
                 title: "Search",
                 scope: BindingScope::Engine(Some(KeyContext::Search)),
                 bindings: keybindings.search.clone(),
@@ -783,6 +791,7 @@ fn bindings_mut(set: &mut crate::config::BindingSet, scope: BindingScope) -> &mu
         BindingScope::Engine(Some(KeyContext::Sidebar)) => &mut set.sidebar,
         BindingScope::Engine(Some(KeyContext::QuickAccess)) => &mut set.quick_access,
         BindingScope::Engine(Some(KeyContext::Search)) => &mut set.search,
+        BindingScope::Engine(Some(KeyContext::Palette)) => &mut set.palette,
     }
 }
 
@@ -873,6 +882,7 @@ fn context_label(context: Option<KeyContext>) -> &'static str {
         Some(KeyContext::Sidebar) => "Sidebar",
         Some(KeyContext::QuickAccess) => "Quick Access",
         Some(KeyContext::Search) => "Search",
+        Some(KeyContext::Palette) => "Palette",
     }
 }
 

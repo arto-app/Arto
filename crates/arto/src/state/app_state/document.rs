@@ -25,13 +25,11 @@ use std::path::{Path, PathBuf};
 /// What the window is showing.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum DocumentContent {
-    /// Nothing yet.
+    /// Nothing yet, so the welcome page is shown instead.
     #[default]
     None,
     /// A file from the filesystem.
     File(PathBuf),
-    /// Markdown the app itself supplies, such as the welcome text.
-    Inline(String),
     /// A file that cannot be shown, and why.
     FileError(PathBuf, String),
 }
@@ -45,13 +43,6 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn with_inline_content(content: impl Into<String>) -> Self {
-        Self {
-            content: DocumentContent::Inline(content.into()),
-            history: HistoryManager::new(),
-        }
-    }
-
     pub fn new(file: impl Into<PathBuf>) -> Self {
         let file = file.into();
         let mut history = HistoryManager::new();
@@ -70,11 +61,11 @@ impl Document {
         }
     }
 
-    /// Whether there is no document to show.
+    /// Whether there is no document to show — the welcome page's condition.
     pub fn is_empty(&self) -> bool {
         matches!(
             self.content,
-            DocumentContent::None | DocumentContent::Inline(_) | DocumentContent::FileError(_, _)
+            DocumentContent::None | DocumentContent::FileError(_, _)
         )
     }
 
@@ -85,7 +76,7 @@ impl Document {
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_else(|| "Unnamed".to_string()),
-            DocumentContent::Inline(_) | DocumentContent::None => "Welcome".to_string(),
+            DocumentContent::None => "Welcome".to_string(),
         }
     }
 
@@ -105,7 +96,9 @@ mod tests {
     fn a_fresh_window_holds_nothing() {
         let document = Document::default();
         assert_eq!(document.content, DocumentContent::None);
+        assert!(document.is_empty());
         assert_eq!(document.file(), None);
+        assert_eq!(document.display_name(), "Welcome");
     }
 
     #[test]
@@ -115,7 +108,20 @@ mod tests {
 
         assert_eq!(document.content, DocumentContent::File(path.clone()));
         assert_eq!(document.file(), Some(path.as_path()));
+        assert!(!document.is_empty());
         assert_eq!(document.history.current_path(), Some(path.as_path()));
+    }
+
+    #[test]
+    fn a_file_that_cannot_be_shown_is_still_a_file() {
+        let path = PathBuf::from("/path/to/binary.exe");
+        let document = Document {
+            content: DocumentContent::FileError(path.clone(), "Binary file".to_string()),
+            ..Default::default()
+        };
+        assert!(document.is_empty());
+        assert_eq!(document.file(), Some(path.as_path()));
+        assert_eq!(document.display_name(), "binary.exe");
     }
 
     #[test]
@@ -124,6 +130,10 @@ mod tests {
         assert_eq!(
             Document::new("/path/to/日本語ファイル.md").display_name(),
             "日本語ファイル.md"
+        );
+        assert_eq!(
+            Document::new("/path/to/notes_📝.md").display_name(),
+            "notes_📝.md"
         );
         assert_eq!(
             Document::new("/path/to/.hidden.md").display_name(),
@@ -138,12 +148,6 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(document.display_name(), "Unnamed");
-    }
-
-    #[test]
-    fn a_window_with_nothing_open_is_empty() {
-        assert!(Document::default().is_empty());
-        assert!(!Document::new("/test/file.md").is_empty());
     }
 
     #[test]

@@ -29,6 +29,8 @@ pub struct BindingSet {
     pub quick_access: Vec<KeyAction>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub search: Vec<KeyAction>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub palette: Vec<KeyAction>,
 }
 
 /// A single key → action mapping.
