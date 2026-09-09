@@ -336,3 +336,82 @@
   color: var(--text-secondary);
   opacity: var(--opacity-secondary);
 }
+
+/* =================================
+   Find, in the header's own row
+   =================================
+
+   It takes the breadcrumb's room rather than a row of its own, so a search
+   neither covers the top of the document nor pushes it down. Opaque, and with
+   the header's own ground: at a width where it meets the controls beside it,
+   it has to cover rather than blend into them. */
+.header-find {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--bg-color);
+}
+
+.header-find-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 360px;
+  min-width: 0;
+  height: var(--hit-size);
+  padding: 0 8px 0 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-color);
+  color: var(--text-secondary);
+  transition: border-color var(--transition-quiet) ease;
+}
+
+.header-find-field:focus-within {
+  border-color: var(--hover-border);
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-color);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+}
+
+.search-input::placeholder {
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+/* Inside the field, because both are true of what was typed: how many there
+   are, and what Return would do with them. */
+.header-find-count {
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.header-find-hint {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: var(--font-size-2xs);
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+/* The controls beside the field act on the search, not on what was typed, so
+   they are the header's own quiet buttons. */
+.header-find .nav-button {
+  flex-shrink: 0;
+}

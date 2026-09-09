@@ -71,7 +71,7 @@ pub struct AppState {
     pub search_open: Signal<bool>,
     pub search_match_count: Signal<usize>,
     pub search_current_index: Signal<usize>,
-    /// Initial search text to populate when opening search bar
+    /// Initial search text to populate when the find field opens
     pub search_initial_text: Signal<Option<String>>,
     /// Monotonic counter bumped on every open-search request, so the search
     /// input is (re)focused even when the bar is already open.
@@ -206,7 +206,7 @@ impl AppState {
         self.zoom_level.set(normalize_content_zoom(current + delta));
     }
 
-    /// Toggle search bar visibility
+    /// Toggle the find field in the header
     ///
     /// Note: Does NOT clear search state when closing. Search highlights and
     /// results persist until the user explicitly clears them (via clear button)
@@ -236,11 +236,11 @@ impl AppState {
         self.search_matches.set(matches);
     }
 
-    /// Open search bar and populate with given text
+    /// Open the find field and populate it with the given text
     pub fn open_search_with_text(&mut self, text: Option<String>) {
         // Set initial text for SearchBar to pick up
         self.search_initial_text.set(text);
-        // Open search bar
+        // Open the field
         self.search_open.set(true);
         // Request focus even if the bar is already open and the text is
         // unchanged — otherwise no signal changes and the input keeps focus

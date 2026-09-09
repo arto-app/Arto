@@ -45,7 +45,7 @@
   position: absolute;
   top: calc(100% + 4px);
   left: 50%;
-  z-index: var(--z-dropdown); /* Above search bar (z-index: 100) */
+  z-index: var(--z-dropdown); /* Above the band it hangs from */
 
   display: flex;
   flex-direction: column;
