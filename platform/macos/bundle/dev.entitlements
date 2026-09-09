@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  No entitlements, on purpose.
+
+  macOS will not launch an app bundle that carries no seal of its own: the
+  binary's linker signature is not a bundle signature, and the kernel answers
+  the missing `_CodeSignature` with SIGKILL before `main` runs. `dx serve`
+  therefore has to sign the bundle it assembles, and `dx` insists on an
+  entitlements file when it is asked to. The release build signs with none
+  (`crates/arto/justfile`, `_embed-quicklook`), so the development build
+  claims none either — an entitlement granted here and not there would be a
+  capability that only ever works on the machine it was built on.
+-->
+<plist version="1.0">
+  <dict/>
+</plist>
