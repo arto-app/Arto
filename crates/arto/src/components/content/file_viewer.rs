@@ -97,7 +97,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                         match render_to_html_with_toc(&content, &file) {
                             Ok((rendered, headings)) => {
                                 html.set(rendered);
-                                state.right_sidebar_headings.set(headings);
+                                state.headings.set(headings);
                                 tracing::trace!("Rendered as Markdown: {:?}", &file);
                             }
                             Err(e) => {
@@ -113,7 +113,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                                     escaped_content
                                 );
                                 html.set(plain_html);
-                                state.right_sidebar_headings.set(Vec::new());
+                                state.headings.set(Vec::new());
                             }
                         }
                     } else {
@@ -125,11 +125,11 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                             escaped_content
                         );
                         html.set(plain_html);
-                        state.right_sidebar_headings.set(Vec::new());
+                        state.headings.set(Vec::new());
                     }
 
                     // Re-apply search highlighting after content changes
-                    // This preserves search state across tab switches
+                    // This preserves search state across document changes
                     reapply_search().await;
                 }
                 Err(e) => {
@@ -137,7 +137,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                     tracing::error!("Failed to read file {:?} as text: {}", file, e);
                     let error_msg = format!("{:?}", e);
 
-                    // Update tab content to FileError
+                    // Report the failure as the document's content
                     let file_clone = file.clone();
                     state.update_document(move |document| {
                         document.content = DocumentContent::FileError(file_clone, error_msg);
@@ -151,7 +151,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
 
 /// Handle scroll position when navigating to a file.
 ///
-/// If pending_scroll_anchor is set (from back/forward navigation or tab switch),
+/// If pending_scroll_anchor is set (from back/forward navigation),
 /// restore that position in two phases:
 /// 1. Immediately when DOM content changes (MutationObserver, before browser paint)
 /// 2. After Mermaid/KaTeX rendering completes (adjusts for content height changes)
@@ -262,7 +262,8 @@ fn handle_scroll_anchor(state: &mut AppState) {
 }
 
 /// Re-apply search highlighting after DOM changes.
-/// This is called after content rendering to preserve search state across tab switches.
+/// This is called after content rendering to preserve search state across
+/// document changes.
 async fn reapply_search() {
     // Use MutationObserver to detect when DOM is actually updated, then reapply.
     // This is more robust than RAF-based timing which is not guaranteed.

@@ -1,6 +1,9 @@
-//! Pinned search chips component for the search bar.
+//! The marks kept on this document, listed where their colour already shows.
 //!
-//! Displays pinned search items as compact chips with color and settings popover.
+//! A pinned search is a standing highlight: it outlives the field that made
+//! it, and its position is already drawn on the contents' ticks. So the list
+//! of them heads the contents, and everything done to one — its colour,
+//! whether it is showing, taking it away — is done there.
 
 use dioxus::prelude::*;
 
@@ -9,81 +12,73 @@ use crate::pinned_search::{
     remove_pinned_search, set_pinned_search_color, toggle_pinned_search_disabled, HighlightColor,
     PinnedSearch,
 };
+use crate::state::AppState;
 
-/// Pinned chips row displayed below the search bar.
-///
-/// Returns `None` if there are no pinned searches (hiding the row).
+/// The pinned marks, above the headings.
 #[component]
-pub fn PinnedChipsRow(pinned_searches: Vec<PinnedSearch>) -> Element {
+pub fn PinnedMarks(pinned_searches: Vec<PinnedSearch>) -> Element {
     if pinned_searches.is_empty() {
         return rsx! {};
     }
 
     rsx! {
-        div {
-            class: "search-bar-pinned",
-            span {
-                class: "search-bar-pinned-label",
-                Icon { name: IconName::Pin, size: 16 }
-            }
-            div {
-                class: "pinned-chips",
-                for pinned in pinned_searches.iter() {
-                    PinnedChip {
-                        key: "{pinned.id}",
-                        pinned: pinned.clone(),
-                    }
-                }
-            }
+        div { class: "contents-toc-label", "Pinned" }
+
+        for pinned in pinned_searches.iter() {
+            PinnedMark { key: "{pinned.id}", pinned: pinned.clone() }
         }
     }
 }
 
-/// A single pinned search chip with settings popover.
+/// One mark: its colour, its word, and the ways to change it.
 #[component]
-pub fn PinnedChip(pinned: PinnedSearch) -> Element {
+fn PinnedMark(pinned: PinnedSearch) -> Element {
+    let state = use_context::<AppState>();
     let mut show_popover = use_signal(|| false);
     let id = pinned.id.clone();
+    let count = state
+        .pinned_matches
+        .read()
+        .get(&pinned.id)
+        .map(|matches| matches.len())
+        .unwrap_or_default();
     let pattern = pinned.pattern.clone();
     let color = pinned.color;
     let disabled = pinned.disabled;
 
-    let chip_class = if disabled {
-        format!("pinned-chip disabled {}", color.css_class())
-    } else {
-        format!("pinned-chip {}", color.css_class())
-    };
-
     rsx! {
         div {
-            class: "{chip_class}",
+            class: "contents-toc-row contents-toc-pin",
+            class: if disabled { "disabled" },
 
-            // Chip body (clickable to show edit popover)
+            // The colour is the control: pressing it opens what can be done
+            // to the mark, which is mostly a choice of colour.
             button {
-                class: "pinned-chip-body",
-                title: "Edit",
-                onclick: move |e| {
-                    e.stop_propagation();
+                class: "contents-toc-pin-dot {color.css_class()}",
+                title: "Colour, visibility, remove",
+                onclick: move |evt| {
+                    evt.stop_propagation();
                     show_popover.toggle();
                 },
-                "{pattern}"
             }
 
-            // Remove button (X)
+            span { class: "contents-toc-name", "{pattern}" }
+
+            span { class: "contents-toc-pin-count", "{count}" }
+
             button {
-                class: "pinned-chip-remove",
+                class: "contents-toc-pin-remove",
                 title: "Remove",
                 onclick: {
                     let id = id.clone();
-                    move |e| {
-                        e.stop_propagation();
+                    move |evt: Event<MouseData>| {
+                        evt.stop_propagation();
                         remove_pinned_search(&id);
                     }
                 },
                 Icon { name: IconName::Close, size: 12 }
             }
 
-            // Edit popover
             if *show_popover.read() {
                 ColorPalettePopover {
                     current_color: color,

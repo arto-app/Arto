@@ -23,7 +23,7 @@
 @import url("./components/app.css");
 @import url("./components/header.css");
 @import url("./components/search-bar.css");
-@import url("./components/pinned-chips.css");
+@import url("./components/pinned-marks.css");
 @import url("./components/action-feedback.css");
 
 /* Left sidebar */
@@ -32,8 +32,8 @@
 @import url("./components/left-sidebar/faces.css");
 @import url("./components/left-sidebar/starred.css");
 
-/* Right sidebar */
-@import url("./components/right-sidebar.css");
+/* The contents, beside the page */
+@import url("./components/contents-gutter.css");
 
 /* Content area */
 @import url("./components/content.css");

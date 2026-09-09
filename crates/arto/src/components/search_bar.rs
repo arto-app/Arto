@@ -2,7 +2,6 @@ use dioxus::document;
 use dioxus::prelude::*;
 
 use crate::components::icon::{Icon, IconName};
-use crate::components::pinned_chips::PinnedChipsRow;
 use crate::pinned_search::{
     add_pinned_search, PinnedSearch, PINNED_SEARCHES, PINNED_SEARCHES_CHANGED,
 };
@@ -298,9 +297,6 @@ pub fn SearchBar() -> Element {
             }
 
             // Pinned chips row (only visible when pinned searches exist)
-            PinnedChipsRow {
-                pinned_searches: pinned_searches.read().clone(),
-            }
         }
     }
 }

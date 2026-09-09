@@ -28,7 +28,6 @@ fn bindings_for_context(bindings: &BindingSet, context: KeyContext) -> &[KeyActi
         KeyContext::Content => &bindings.content,
         KeyContext::Sidebar => &bindings.sidebar,
         KeyContext::QuickAccess => &bindings.quick_access,
-        KeyContext::RightSidebar => &bindings.right_sidebar,
         KeyContext::Search => &bindings.search,
     }
 }

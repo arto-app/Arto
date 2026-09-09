@@ -14,7 +14,6 @@ use crate::state::AppState;
 
 use crate::assets::{main_stylesheet_head, with_asset_protocol};
 use crate::components::app::{App, AppProps};
-use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::{WindowPositionOffset, CONFIG};
 use crate::state::Document;
 use crate::theme::Theme;
@@ -61,23 +60,22 @@ pub fn create_main_window_config(params: &CreateMainWindowConfigParams) -> Confi
 
 /// Parameters for creating a new main window
 pub struct CreateMainWindowConfigParams {
-    pub directory: Option<PathBuf>, // Auto-detect from tab/file if None
-    pub theme: Theme,               // The enum: Auto/Light/Dark
+    pub directory: Option<PathBuf>, // Auto-detect from the document's file if None
+    /// Temporary roots the new window starts with, beside the places.
+    ///
+    /// Empty for a window opened fresh; a duplicate carries the roots the
+    /// window it came from had wandered into. When it is non-empty it stands
+    /// in for `directory`, which names a single root.
+    pub temps: Vec<PathBuf>,
+    pub theme: Theme, // The enum: Auto/Light/Dark
     pub content_full_width: bool,
     pub sidebar_pinned: bool,
     pub sidebar_width: f64,
     pub sidebar_show_all_files: bool,
     pub sidebar_zoom_level: f64,
-    pub right_sidebar_pinned: bool,
-    pub right_sidebar_width: f64,
-    pub right_sidebar_tab: RightSidebarTab,
-    pub right_sidebar_zoom_level: f64,
     pub zoom_level: f64,
     pub size: LogicalSize<u32>,
     pub position: LogicalPosition<i32>,
-    /// Skip position shifting for overlap avoidance.
-    /// Used for preview windows during drag where exact cursor-relative position is required.
-    pub skip_position_shift: bool,
     /// Take the keyboard focus once the window exists. `arto --behind` clears
     /// it so the window can appear without interrupting what the user is doing.
     pub focused: bool,
@@ -90,7 +88,6 @@ impl CreateMainWindowConfigParams {
         let directory_pref = settings::get_directory_preference(is_first_window);
         let theme_pref = settings::get_theme_preference(is_first_window);
         let sidebar_pref = settings::get_sidebar_preference(is_first_window);
-        let right_sidebar_pref = settings::get_right_sidebar_preference(is_first_window);
         let content_full_width = settings::get_content_full_width_preference();
         let zoom_pref = settings::get_zoom_preference(is_first_window);
         let size_pref = settings::get_window_size_preference(is_first_window);
@@ -98,20 +95,16 @@ impl CreateMainWindowConfigParams {
 
         Self {
             directory: directory_pref.directory,
+            temps: Vec::new(),
             theme: theme_pref.theme,
             content_full_width,
             sidebar_pinned: sidebar_pref.pinned,
             sidebar_width: sidebar_pref.width,
             sidebar_show_all_files: sidebar_pref.show_all_files,
             sidebar_zoom_level: sidebar_pref.zoom_level,
-            right_sidebar_pinned: right_sidebar_pref.pinned,
-            right_sidebar_width: right_sidebar_pref.width,
-            right_sidebar_tab: right_sidebar_pref.tab,
-            right_sidebar_zoom_level: right_sidebar_pref.zoom_level,
             zoom_level: zoom_pref.zoom_level,
             size: size_pref.size,
             position: position_pref.position,
-            skip_position_shift: false,
             focused: true,
         }
     }
@@ -279,14 +272,6 @@ pub(crate) fn resolve_directory(
 
 /// Compute the shifted position for a new window, avoiding overlap with existing windows.
 fn compute_shifted_position(params: &CreateMainWindowConfigParams) -> LogicalPosition<i32> {
-    if params.skip_position_shift {
-        tracing::debug!(
-            resolved_position=?params.position,
-            "Position shift skipped (skip_position_shift=true)"
-        );
-        return params.position;
-    }
-
     let position_offset = CONFIG.read().window_position.position_offset;
     let (screen_origin, screen_size) = get_current_display_bounds()
         .unwrap_or_else(|| (LogicalPosition::new(0, 0), LogicalSize::new(1000, 800)));
@@ -314,11 +299,13 @@ fn build_window_dom_and_config(
     document: Document,
     mut params: CreateMainWindowConfigParams,
 ) -> (VirtualDom, Config) {
-    // One temporary root: the folder the window is working in, if the caller
-    // named one or the document names one by sitting in it.
-    let temps: Vec<_> = resolve_directory(params.directory.take(), &document)
-        .into_iter()
-        .collect();
+    let temps = if params.temps.is_empty() {
+        resolve_directory(params.directory.take(), &document)
+            .into_iter()
+            .collect()
+    } else {
+        std::mem::take(&mut params.temps)
+    };
     let shifted_position = compute_shifted_position(&params);
 
     let dom = VirtualDom::new_with_props(
@@ -332,10 +319,6 @@ fn build_window_dom_and_config(
             sidebar_width: params.sidebar_width,
             sidebar_show_all_files: params.sidebar_show_all_files,
             sidebar_zoom_level: params.sidebar_zoom_level,
-            right_sidebar_pinned: params.right_sidebar_pinned,
-            right_sidebar_width: params.right_sidebar_width,
-            right_sidebar_tab: params.right_sidebar_tab,
-            right_sidebar_zoom_level: params.right_sidebar_zoom_level,
             zoom_level: params.zoom_level,
         },
     );
@@ -503,10 +486,9 @@ mod tests {
 
     #[test]
     fn test_resolve_directory_none_when_no_config_and_no_file() {
-        // Blank config (no explicit directory) with a window that has no
-        // document must yield None so the sidebar shows the empty/welcome
-        // state instead of scanning an arbitrary directory such as the user's
-        // home.
+        // Blank config (no explicit directory) with no document must yield
+        // None so the sidebar shows its empty state instead of scanning an
+        // arbitrary directory such as the user's home.
         let document = Document::default();
         assert_eq!(resolve_directory(None, &document), None);
     }

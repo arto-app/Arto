@@ -11,7 +11,7 @@ pub const DEFAULT_ZOOM_LEVEL: f64 = 1.0;
 pub const MIN_CONTENT_ZOOM: f64 = 0.5;
 pub const MAX_CONTENT_ZOOM: f64 = 5.0;
 
-/// Zoom range for the left and right sidebar panels.
+/// Zoom range for the panel beside the document.
 pub const MIN_SIDEBAR_ZOOM: f64 = 0.5;
 pub const MAX_SIDEBAR_ZOOM: f64 = 2.0;
 

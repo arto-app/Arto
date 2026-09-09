@@ -28,8 +28,6 @@ pub struct BindingSet {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub quick_access: Vec<KeyAction>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub right_sidebar: Vec<KeyAction>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub search: Vec<KeyAction>,
 }
 
@@ -52,7 +50,6 @@ mod tests {
         assert!(set.content.is_empty());
         assert!(set.sidebar.is_empty());
         assert!(set.quick_access.is_empty());
-        assert!(set.right_sidebar.is_empty());
         assert!(set.search.is_empty());
     }
 
@@ -82,7 +79,6 @@ mod tests {
         assert!(set.content.is_empty());
         assert!(set.sidebar.is_empty());
         assert!(set.quick_access.is_empty());
-        assert!(set.right_sidebar.is_empty());
         assert!(set.search.is_empty());
     }
 

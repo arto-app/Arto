@@ -18,8 +18,6 @@ use super::content::{
     close_context_menu, use_search_handler, Content, ContentContextMenu, CONTENT_CONTEXT_MENU,
 };
 use super::header::Header;
-use super::right_sidebar::RightSidebar;
-use super::right_sidebar::RightSidebarTab;
 use super::search_bar::SearchBar;
 use super::sidebar::file_explorer::SidebarContextMenuHost;
 use super::sidebar::Sidebar;
@@ -32,7 +30,7 @@ use crate::theme::Theme;
 use drag_drop_overlay::DragDropOverlay;
 use drop_handlers::handle_dropped_files;
 use keybinding_engine::setup_keybinding_engine;
-use listeners::{setup_cross_window_open_listeners, setup_preferences_listeners};
+use listeners::setup_preferences_listeners;
 use shortcut_overlay::{
     build_shortcut_help_items, close_shortcut_overlay, split_shortcut_help_columns,
     ShortcutHelpOverlay, ShortcutOverlayVisibility,
@@ -52,10 +50,6 @@ pub fn App(
     sidebar_width: f64,
     sidebar_show_all_files: bool,
     sidebar_zoom_level: f64,
-    right_sidebar_pinned: bool,
-    right_sidebar_width: f64,
-    right_sidebar_tab: RightSidebarTab,
-    right_sidebar_zoom_level: f64,
     zoom_level: f64,
 ) -> Element {
     // Initialize application state with the provided document
@@ -87,18 +81,9 @@ pub fn App(
             sidebar.show_all_files = sidebar_show_all_files;
         }
 
-        // Apply initial right sidebar settings from params
-        {
-            let mut right_sidebar = app_state.right_sidebar.write();
-            right_sidebar.pinned = right_sidebar_pinned;
-            right_sidebar.width = right_sidebar_width;
-            right_sidebar.tab = right_sidebar_tab;
-        }
-
         // Apply initial zoom levels from params (already normalized in window::settings)
         {
             app_state.sidebar.write().zoom_level = sidebar_zoom_level;
-            app_state.right_sidebar.write().zoom_level = right_sidebar_zoom_level;
             app_state.zoom_level.set(zoom_level);
         }
 
@@ -192,8 +177,6 @@ pub fn App(
         }
     });
 
-    // Listen for cross-window file/directory open events (from sidebar context menu)
-    setup_cross_window_open_listeners(state);
     setup_preferences_listeners(state);
 
     // Keep the window title on the document being read
@@ -224,18 +207,14 @@ pub fn App(
     // Hover state for overlay sidebars is stored in AppState
     // so that dispatcher.rs (keybinding focus actions) can access it.
     let mut left_hover_active = state.left_hover_active;
-    let mut right_hover_active = state.right_hover_active;
     // Generation counters for auto-hide timer cancellation
     let mut left_hide_gen = use_signal(|| 0u32);
-    let mut right_hide_gen = use_signal(|| 0u32);
     // Track whether mouse is physically inside the overlay wrapper.
     // Used by on_resize_change to decide whether to start a hide timer:
     // if mouse is inside, onmouseleave will handle hiding naturally.
     let mut left_mouse_inside = use_signal(|| false);
-    let mut right_mouse_inside = use_signal(|| false);
 
     let left_pinned = state.sidebar.read().pinned;
-    let right_pinned = state.right_sidebar.read().pinned;
 
     /// Grace before a peeking panel retracts.
     ///
@@ -359,28 +338,6 @@ pub fn App(
                 Content {},
             }
 
-            // Right sidebar: pinned → flex layout, unpinned → overlay with animation
-            if right_pinned {
-                RightSidebar {
-                    headings: state.right_sidebar_headings.read().clone(),
-                    on_pin_toggle: move |_| {
-                        state.right_sidebar.write().pinned = false;
-                        right_hover_active.set(true);
-                    },
-                }
-            }
-
-            // Hover triggers and overlays (only when unpinned)
-            if !right_pinned {
-                div {
-                    class: "sidebar-hover-trigger right",
-                    onmouseenter: move |_| {
-                        right_hover_active.set(true);
-                        right_hide_gen.set(right_hide_gen() + 1);
-                    },
-                }
-            }
-
             // Overlay wrappers (rendered when unpinned, animated via .visible class)
             if !left_pinned {
                 div {
@@ -418,43 +375,6 @@ pub fn App(
                             } else if !left_mouse_inside() {
                                 // Resize ended with mouse outside: start hide timer
                                 retract_after_grace(left_hide_gen, left_hover_active);
-                            }
-                            // Resize ended with mouse inside: do nothing,
-                            // onmouseleave will handle hiding when mouse leaves.
-                        },
-                    }
-                }
-            }
-
-            if !right_pinned {
-                div {
-                    class: "sidebar-overlay-wrapper right",
-                    class: if right_hover_active() { "visible" },
-                    onmouseenter: move |_| {
-                        right_mouse_inside.set(true);
-                        right_hide_gen.set(right_hide_gen() + 1);
-                    },
-                    onmouseleave: move |evt| {
-                        right_mouse_inside.set(false);
-                        // Don't auto-hide while mouse button is held (e.g., resize drag)
-                        if evt.data().held_buttons().contains(dioxus::html::input_data::MouseButton::Primary) {
-                            return;
-                        }
-                        retract_after_grace(right_hide_gen, right_hover_active);
-                    },
-                    RightSidebar {
-                        headings: state.right_sidebar_headings.read().clone(),
-                        on_pin_toggle: move |_| {
-                            state.right_sidebar.write().pinned = true;
-                            right_hover_active.set(false);
-                        },
-                        on_resize_change: move |resizing: bool| {
-                            if resizing {
-                                // Cancel any pending hide timer
-                                right_hide_gen.set(right_hide_gen() + 1);
-                            } else if !right_mouse_inside() {
-                                // Resize ended with mouse outside: start hide timer
-                                retract_after_grace(right_hide_gen, right_hover_active);
                             }
                             // Resize ended with mouse inside: do nothing,
                             // onmouseleave will handle hiding when mouse leaves.

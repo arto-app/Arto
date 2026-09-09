@@ -116,10 +116,6 @@
       "action": "search.open"
     },
     {
-      "key": "Ctrl+x 4 r",
-      "action": "window.toggle_right_sidebar"
-    },
-    {
       "key": "Ctrl+x Ctrl+r",
       "action": "window.reload"
     },
@@ -174,10 +170,6 @@
     {
       "key": "Ctrl+x r",
       "action": "focus.recent"
-    },
-    {
-      "key": "Ctrl+x o",
-      "action": "focus.right_sidebar"
     }
   ],
   "content": [
@@ -272,32 +264,6 @@
     {
       "key": "Ctrl+x Ctrl+k",
       "action": "focus.places"
-    }
-  ],
-  "rightSidebar": [
-    {
-      "key": "Ctrl+n",
-      "action": "cursor.down"
-    },
-    {
-      "key": "Ctrl+p",
-      "action": "cursor.up"
-    },
-    {
-      "key": "Ctrl+f",
-      "action": "cursor.open"
-    },
-    {
-      "key": "Enter",
-      "action": "cursor.open"
-    },
-    {
-      "key": "Ctrl+b",
-      "action": "cursor.collapse"
-    },
-    {
-      "key": "Ctrl+x o",
-      "action": "focus.content"
     }
   ]
 }

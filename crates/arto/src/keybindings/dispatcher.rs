@@ -1,7 +1,6 @@
 use dioxus::document;
 use dioxus::prelude::*;
 
-use crate::components::right_sidebar::RightSidebarTab;
 use crate::document_link::{open_document_link, LinkOpen};
 use crate::pinned_search::add_pinned_search;
 use crate::state::sidebar_cursor;
@@ -81,13 +80,6 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         // Closing the panel hands the keyboard back to the document; that
         // belongs to `hide_panel`, so both the rail and this go through it.
         Action::WindowToggleSidebar => state.toggle_sidebar(),
-        Action::WindowToggleRightSidebar => {
-            let closing = state.right_sidebar.read().pinned;
-            state.toggle_right_sidebar();
-            if closing && *state.focused_panel.read() == FocusedPanel::RightSidebar {
-                state.focused_panel.set(FocusedPanel::Content);
-            }
-        }
         Action::WindowReload => {
             let current = *state.reload_trigger.read();
             state.reload_trigger.set(current + 1);
@@ -130,22 +122,8 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::FocusPlaces => face_to(&mut state, crate::state::Face::Places),
         Action::FocusStarred => face_to(&mut state, crate::state::Face::Starred),
         Action::FocusRecent => face_to(&mut state, crate::state::Face::Recent),
-        Action::FocusRightSidebar => {
-            // Show overlay if not pinned, then focus it
-            if !state.right_sidebar.read().pinned {
-                state.right_hover_active.set(true);
-                state.left_hover_active.set(false);
-            }
-            state.focused_panel.set(FocusedPanel::RightSidebar);
-            // Initialize cursor to first heading if not set
-            if state.toc_cursor.read().is_none() && !state.right_sidebar_headings.read().is_empty()
-            {
-                state.toc_cursor.set(Some(0));
-            }
-        }
         Action::FocusContent => {
             state.focus_content();
-            state.right_hover_active.set(false);
         }
 
         // --- Cursor ---
@@ -220,23 +198,6 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         }
 
         // --- Right sidebar ---
-        Action::RightSidebarShowContents => {
-            if !state.right_sidebar.read().pinned {
-                state.right_hover_active.set(true);
-                state.left_hover_active.set(false);
-            }
-            state.set_right_sidebar_tab(RightSidebarTab::Contents);
-            state.focused_panel.set(FocusedPanel::RightSidebar);
-        }
-        Action::RightSidebarShowSearch => {
-            if !state.right_sidebar.read().pinned {
-                state.right_hover_active.set(true);
-                state.left_hover_active.set(false);
-            }
-            state.set_right_sidebar_tab(RightSidebarTab::Search);
-            state.focused_panel.set(FocusedPanel::RightSidebar);
-        }
-
         // --- Theme ---
         Action::ThemeSetLight => state.current_theme.set(Theme::Light),
         Action::ThemeSetDark => state.current_theme.set(Theme::Dark),
@@ -369,38 +330,7 @@ fn dispatch_cursor_move(state: &mut AppState, direction: CursorDirection) {
                 scroll_cursor_into_view();
             }
         }
-        FocusedPanel::RightSidebar => {
-            let headings_len = state.right_sidebar_headings.read().len();
-            if headings_len > 0 {
-                let current = *state.toc_cursor.read();
-                state
-                    .toc_cursor
-                    .set(move_index_cursor(current, headings_len, &direction));
-                scroll_cursor_into_view();
-            }
-        }
         FocusedPanel::Content => {}
-    }
-}
-
-/// Move an index-based cursor up or down within a list of `len` items.
-/// No-wrap: stays at boundary when reaching start/end.
-fn move_index_cursor(
-    current: Option<usize>,
-    len: usize,
-    direction: &CursorDirection,
-) -> Option<usize> {
-    match direction {
-        CursorDirection::Down => match current {
-            None => Some(0),
-            Some(i) if i + 1 < len => Some(i + 1),
-            Some(i) => Some(i), // stay at end
-        },
-        CursorDirection::Up => match current {
-            None => Some(len - 1),
-            Some(0) => Some(0), // stay at start
-            Some(i) => Some(i - 1),
-        },
     }
 }
 
@@ -419,7 +349,6 @@ fn dispatch_cursor_enter(state: &mut AppState) {
             }
         }
         // Right sidebar & quick access: same as cursor.open (scroll to heading / open bookmark)
-        FocusedPanel::RightSidebar => open_right_sidebar(state),
         FocusedPanel::Content => {}
     }
 }
@@ -429,7 +358,6 @@ fn dispatch_cursor_open(state: &mut AppState) {
     let panel = *state.focused_panel.read();
     match panel {
         FocusedPanel::Panel => open_sidebar(state),
-        FocusedPanel::RightSidebar => open_right_sidebar(state),
         FocusedPanel::Content => {}
     }
 }
@@ -477,36 +405,6 @@ fn root_of(state: &AppState, row: &crate::state::PanelRow) -> std::path::PathBuf
         .unwrap_or_else(|| path.to_path_buf())
 }
 
-fn open_right_sidebar(state: &mut AppState) {
-    let heading_id = {
-        let idx = *state.toc_cursor.read();
-        idx.and_then(|i| {
-            state
-                .right_sidebar_headings
-                .read()
-                .get(i)
-                .map(|h| h.id.clone())
-        })
-    };
-    let Some(id) = heading_id else { return };
-    spawn_detached(async move {
-        let id_json = serde_json::to_string(&id).unwrap_or_else(|_| "null".to_string());
-        let js = format!(
-            r#"
-            (() => {{
-                const el = document.getElementById({id_json});
-                if (el) {{
-                    el.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
-                }}
-            }})();
-            "#,
-        );
-        if let Err(e) = document::eval(&js).await {
-            tracing::debug!(%id, "Failed to scroll to heading: {e}");
-        }
-    });
-}
-
 fn dispatch_cursor_collapse(state: &mut AppState) {
     let panel = *state.focused_panel.read();
     match panel {
@@ -529,7 +427,7 @@ fn dispatch_cursor_collapse(state: &mut AppState) {
             }
         }
         // No-op for other panels
-        FocusedPanel::RightSidebar | FocusedPanel::Content => {}
+        FocusedPanel::Content => {}
     }
 }
 
@@ -947,7 +845,7 @@ fn toggle_bookmark_on_cursor_or_current(state: &mut AppState) {
 fn get_bookmark_target_path(state: &AppState) -> Option<std::path::PathBuf> {
     match *state.focused_panel.read() {
         FocusedPanel::Panel => state.panel_cursor.read().clone().map(|(_, path)| path),
-        FocusedPanel::RightSidebar | FocusedPanel::Content => None,
+        FocusedPanel::Content => None,
     }
 }
 
@@ -1188,39 +1086,4 @@ fn duplicate_window(state: &mut AppState) {
         ..crate::window::CreateMainWindowConfigParams::default()
     };
     crate::window::create_main_window_sync(&dioxus::desktop::window(), document, params);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn move_index_cursor_down_from_none_selects_first() {
-        let next = move_index_cursor(None, 3, &CursorDirection::Down);
-        assert_eq!(next, Some(0));
-    }
-
-    #[test]
-    fn move_index_cursor_down_advances_and_stops_at_end() {
-        let next = move_index_cursor(Some(1), 3, &CursorDirection::Down);
-        assert_eq!(next, Some(2));
-
-        let at_end = move_index_cursor(Some(2), 3, &CursorDirection::Down);
-        assert_eq!(at_end, Some(2));
-    }
-
-    #[test]
-    fn move_index_cursor_up_from_none_selects_last() {
-        let next = move_index_cursor(None, 3, &CursorDirection::Up);
-        assert_eq!(next, Some(2));
-    }
-
-    #[test]
-    fn move_index_cursor_up_moves_and_stops_at_start() {
-        let next = move_index_cursor(Some(2), 3, &CursorDirection::Up);
-        assert_eq!(next, Some(1));
-
-        let at_start = move_index_cursor(Some(0), 3, &CursorDirection::Up);
-        assert_eq!(at_start, Some(0));
-    }
 }

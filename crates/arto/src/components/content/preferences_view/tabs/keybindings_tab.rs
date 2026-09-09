@@ -131,14 +131,6 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
                 has_changes,
             }
             BindingSection {
-                title: "Right Sidebar",
-                scope: BindingScope::Engine(Some(KeyContext::RightSidebar)),
-                bindings: keybindings.right_sidebar.clone(),
-                filter_query: filter_text(),
-                config,
-                has_changes,
-            }
-            BindingSection {
                 title: "Search",
                 scope: BindingScope::Engine(Some(KeyContext::Search)),
                 bindings: keybindings.search.clone(),
@@ -788,7 +780,6 @@ fn bindings_mut(set: &mut crate::config::BindingSet, scope: BindingScope) -> &mu
         BindingScope::Engine(Some(KeyContext::Content)) => &mut set.content,
         BindingScope::Engine(Some(KeyContext::Sidebar)) => &mut set.sidebar,
         BindingScope::Engine(Some(KeyContext::QuickAccess)) => &mut set.quick_access,
-        BindingScope::Engine(Some(KeyContext::RightSidebar)) => &mut set.right_sidebar,
         BindingScope::Engine(Some(KeyContext::Search)) => &mut set.search,
     }
 }
@@ -879,7 +870,6 @@ fn context_label(context: Option<KeyContext>) -> &'static str {
         Some(KeyContext::Content) => "Content",
         Some(KeyContext::Sidebar) => "Sidebar",
         Some(KeyContext::QuickAccess) => "Quick Access",
-        Some(KeyContext::RightSidebar) => "Right Sidebar",
         Some(KeyContext::Search) => "Search",
     }
 }
@@ -1016,10 +1006,6 @@ mod tests {
     fn context_label_display() {
         assert_eq!(context_label(None), "Global");
         assert_eq!(context_label(Some(KeyContext::Content)), "Content");
-        assert_eq!(
-            context_label(Some(KeyContext::RightSidebar)),
-            "Right Sidebar"
-        );
     }
 
     #[test]

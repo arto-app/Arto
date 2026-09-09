@@ -1,0 +1,105 @@
+/* ============================================
+   What can be done to a pinned mark
+   ============================================
+
+   The marks themselves are rows of the contents (`contents-gutter.css`);
+   this is the popover their colour opens. */
+
+/* ============================================
+   Color Palette Popover
+   ============================================ */
+
+.color-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-pin-popover);
+}
+
+.color-palette-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  padding: 6px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.color-palette-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.color-palette-swatch:hover {
+  transform: scale(1.1);
+}
+
+.color-palette-swatch.selected {
+  border-color: var(--bg-color);
+  box-shadow: 0 0 0 2px var(--text-color);
+}
+
+.color-palette-swatch.highlight-green {
+  background-color: #4caf50;
+}
+.color-palette-swatch.highlight-blue {
+  background-color: #00bcd4;
+}
+.color-palette-swatch.highlight-pink {
+  background-color: #e91e63;
+}
+.color-palette-swatch.highlight-orange {
+  background-color: #ff9800;
+}
+.color-palette-swatch.highlight-purple {
+  background-color: #9c27b0;
+}
+
+.color-palette-separator {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color);
+  margin: 0 2px;
+  align-self: center;
+}
+
+.color-palette-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-primary);
+  opacity: var(--opacity-secondary);
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.color-palette-action .icon {
+  display: block;
+}
+
+.color-palette-action:hover {
+  background: var(--hover-bg);
+  opacity: 1;
+}
+
+.color-palette-remove:hover {
+  background: rgba(220, 53, 69, 0.15);
+  color: var(--error-color);
+}

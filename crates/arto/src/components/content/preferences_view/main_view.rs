@@ -1,7 +1,7 @@
 use super::tabs::{
     about_tab::AboutTab, directory_tab::DirectoryTab, general_tab::GeneralTab,
-    keybindings_tab::KeybindingsTab, right_sidebar_tab::RightSidebarTab, sidebar_tab::SidebarTab,
-    theme_tab::ThemeTab, window_position_tab::WindowPositionTab, window_size_tab::WindowSizeTab,
+    keybindings_tab::KeybindingsTab, sidebar_tab::SidebarTab, theme_tab::ThemeTab,
+    window_position_tab::WindowPositionTab, window_size_tab::WindowSizeTab,
 };
 use crate::components::icon::{Icon, IconName};
 use crate::config::{Config, CONFIG, CONFIG_CHANGED_BROADCAST};
@@ -19,7 +19,6 @@ pub enum PreferencesTab {
     WindowSize,
     WindowPosition,
     Sidebar,
-    RightSidebar,
     Keybindings,
     About,
 }
@@ -155,15 +154,6 @@ pub fn PreferencesView(snapshot: PreferencesSnapshot) -> Element {
                         span { "Sidebar" }
                     }
                     button {
-                        class: if current_tab == PreferencesTab::RightSidebar { "nav-tab active" } else { "nav-tab" },
-                        onclick: move |_| {
-                            active_tab.set(PreferencesTab::RightSidebar);
-                            *LAST_PREFERENCES_TAB.write() = PreferencesTab::RightSidebar;
-                        },
-                        Icon { name: IconName::List, size: 18 }
-                        span { "Right Sidebar" }
-                    }
-                    button {
                         class: if current_tab == PreferencesTab::Keybindings { "nav-tab active" } else { "nav-tab" },
                         onclick: move |_| {
                             active_tab.set(PreferencesTab::Keybindings);
@@ -255,15 +245,6 @@ pub fn PreferencesView(snapshot: PreferencesSnapshot) -> Element {
                                 window_id: snapshot.window_id,
                                 current_width: snapshot.sidebar_width,
                                 current_zoom: snapshot.sidebar_zoom_level,
-                            }
-                        },
-                        PreferencesTab::RightSidebar => rsx! {
-                            RightSidebarTab {
-                                config,
-                                has_changes,
-                                window_id: snapshot.window_id,
-                                current_width: snapshot.right_sidebar_width,
-                                current_zoom: snapshot.right_sidebar_zoom_level,
                             }
                         },
                         PreferencesTab::Keybindings => rsx! {

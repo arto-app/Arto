@@ -69,17 +69,11 @@ impl AppState {
                 sidebar.primary_root().cloned(),
             )
         };
-        let (right_sidebar_width, right_sidebar_zoom_level) = {
-            let right = self.right_sidebar.read();
-            (right.width, right.zoom_level)
-        };
         crate::window::preferences::open_or_focus_preferences_window(
             crate::window::preferences::PreferencesSnapshot {
                 window_id: dioxus::desktop::window().id(),
                 sidebar_width,
                 sidebar_zoom_level,
-                right_sidebar_width,
-                right_sidebar_zoom_level,
                 directory,
             },
             *self.current_theme.read(),

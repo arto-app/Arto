@@ -67,10 +67,9 @@ use_drop(move || {
 Windows coordinate through the broadcast channels in
 `crates/arto/src/events.rs`; the module doc there is the reference.
 
-- `SET_SIDEBAR_ZOOM_IN_WINDOW` / `SET_RIGHT_SIDEBAR_ZOOM_IN_WINDOW`: the
-  preferences window acting on the window that opened it. Preferences holds no
-  `AppState` of its own, so a "Current Settings" slider sends rather than
-  writes.
+- `SET_SIDEBAR_ZOOM_IN_WINDOW`: the preferences window acting on the window
+  that opened it. Preferences holds no `AppState` of its own, so a "Current
+  Settings" slider sends rather than writes.
 
 ```rust
 // Send

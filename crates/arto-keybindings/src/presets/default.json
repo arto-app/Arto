@@ -54,10 +54,6 @@
       "action": "window.toggle_sidebar"
     },
     {
-      "key": "Cmd+Shift+b",
-      "action": "window.toggle_right_sidebar"
-    },
-    {
       "key": "Cmd+0",
       "action": "zoom.reset"
     },
@@ -146,10 +142,6 @@
     {
       "key": "Ctrl+ArrowLeft",
       "action": "focus.places"
-    },
-    {
-      "key": "Ctrl+ArrowRight",
-      "action": "focus.right_sidebar"
     }
   ],
   "content": [
@@ -176,10 +168,6 @@
     {
       "key": "Ctrl+ArrowLeft",
       "action": "focus.places"
-    },
-    {
-      "key": "Ctrl+ArrowRight",
-      "action": "focus.right_sidebar"
     }
   ],
   "search": [
@@ -240,36 +228,6 @@
     {
       "key": "Ctrl+ArrowLeft",
       "action": "focus.places"
-    }
-  ],
-  "rightSidebar": [
-    {
-      "key": "ArrowDown",
-      "action": "cursor.down"
-    },
-    {
-      "key": "ArrowUp",
-      "action": "cursor.up"
-    },
-    {
-      "key": "ArrowRight",
-      "action": "cursor.open"
-    },
-    {
-      "key": "Enter",
-      "action": "cursor.open"
-    },
-    {
-      "key": "ArrowLeft",
-      "action": "cursor.collapse"
-    },
-    {
-      "key": "Ctrl+ArrowRight",
-      "action": "focus.right_sidebar"
-    },
-    {
-      "key": "Ctrl+ArrowLeft",
-      "action": "focus.content"
     }
   ]
 }

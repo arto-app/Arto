@@ -1,0 +1,82 @@
+/* =================================
+   What a search marks on the page
+   =================================
+
+   These belong to the document, not to the field that put them there: a
+   pinned mark outlives every find, and the field it was typed into is a row
+   of the header now. */
+
+/* Matches are wrapped in `mark`, whose UA rule sets `color: marktext` — a
+   system colour, not the theme's ink, and it does not inherit. Every fill
+   below is a theme token, so the ink has to be one too or the pairing is left
+   to the browser. */
+.markdown-body mark {
+  color: var(--text-color);
+}
+
+/* Highlight styles for matches in content */
+.markdown-body .search-highlight {
+  background-color: var(--search-highlight);
+  border-radius: var(--radius-xs);
+  padding: 0 2px;
+}
+
+.markdown-body .search-highlight-active {
+  background-color: var(--search-highlight);
+  border-radius: var(--radius-xs);
+  padding: 1px 3px;
+  outline: 2px solid var(--search-active-outline);
+  animation: search-active-outline 140ms ease-out;
+}
+
+@keyframes search-active-outline {
+  0% {
+    outline-color: color-mix(in srgb, var(--search-active-outline) 0%, transparent);
+  }
+  100% {
+    outline-color: var(--search-active-outline);
+  }
+}
+
+/* Pinned search highlights (5 colors, no yellow) */
+.markdown-body .pinned-highlight {
+  border-radius: var(--radius-xs);
+  padding: 0 1px;
+}
+
+.pinned-highlight[data-color="green"] {
+  background-color: var(--pinned-green);
+}
+.pinned-highlight[data-color="blue"] {
+  background-color: var(--pinned-blue);
+}
+.pinned-highlight[data-color="pink"] {
+  background-color: var(--pinned-pink);
+}
+.pinned-highlight[data-color="orange"] {
+  background-color: var(--pinned-orange);
+}
+.pinned-highlight[data-color="purple"] {
+  background-color: var(--pinned-purple);
+}
+
+/* Disabled: override the browser default background of `mark` */
+.markdown-body .pinned-highlight-disabled {
+  background-color: transparent;
+}
+
+/* Flash animation when scrolling to pinned match */
+.pinned-highlight-flash {
+  animation: pinned-flash 0.5s ease-out;
+}
+
+@keyframes pinned-flash {
+  0% {
+    outline: 2px solid var(--accent-bg);
+    outline-offset: 2px;
+  }
+  100% {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+}
