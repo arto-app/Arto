@@ -4,7 +4,6 @@ pub mod index;
 pub mod main;
 pub mod metrics;
 pub mod preferences;
-pub mod preview;
 pub mod settings;
 mod types;
 
@@ -57,12 +56,6 @@ pub use child::{
 pub use main::has_any_main_windows;
 pub use main::{
     close_all_main_windows, create_main_window_config, create_main_window_sync,
-    create_main_window_sync_with_tabs, get_any_main_window, register_main_window,
-    register_window_state, shutdown_all_windows, unregister_window_state,
-    update_last_focused_window, CreateMainWindowConfigParams,
-};
-pub use preview::{
-    close_preview_window, commit_preview_window, create_preview_window, discard_preview_window,
-    get_preview_window_id, has_preview_window, hide_preview_window, show_preview_window,
-    update_preview_position,
+    get_any_main_window, register_main_window, register_window_state, shutdown_all_windows,
+    unregister_window_state, update_last_focused_window, CreateMainWindowConfigParams,
 };

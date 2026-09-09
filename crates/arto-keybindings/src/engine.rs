@@ -450,14 +450,14 @@ mod tests {
 
     #[test]
     fn user_overrides_default_global_binding() {
-        // User edits Cmd+r from window.reload to tab.new in their global config.
+        // User edits Cmd+r from window.reload to window.new in their global config.
         let mut custom = crate::presets::default_bindings();
         let cmd_r = custom.global.iter_mut().find(|b| b.key == "Cmd+r").unwrap();
-        cmd_r.action = "tab.new".to_string();
+        cmd_r.action = "window.new".to_string();
 
         let mut engine = KeybindingEngine::new(&custom);
         let result = engine.process_key(&chord("Cmd+r"), false, KeyContext::Content);
-        assert_eq!(result, KeyMatchResult::Matched(Action::TabNew));
+        assert_eq!(result, KeyMatchResult::Matched(Action::WindowNew));
     }
 
     #[test]

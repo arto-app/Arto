@@ -51,7 +51,7 @@ pub(super) fn LinkContextItems(href: String, on_close: EventHandler<()>) -> Elem
             on_click: {
                 let on_close = on_close;
                 move |_| {
-                    dispatch_action(&Action::FileOpenLinkInNewTab, state);
+                    dispatch_action(&Action::FileOpenLinkInNewWindow, state);
                     on_close.call(());
                 }
             },

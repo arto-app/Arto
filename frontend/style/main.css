@@ -20,7 +20,6 @@
 /* Layout */
 @import url("./components/app.css");
 @import url("./components/header.css");
-@import url("./components/tab-bar.css");
 @import url("./components/search-bar.css");
 @import url("./components/pinned-chips.css");
 @import url("./components/action-feedback.css");

@@ -35,7 +35,7 @@ enum OpenModeArg {
         \x20 arto --behind README.md  Open without taking the focus\n\
         \x20 arto --directory=. README.md\n\
         \x20 arto docs/               Open a directory in the file explorer\n\
-        \x20 arto file1.md file2.md   Open multiple files in tabs\n\
+        \x20 arto file1.md file2.md   Open each file in its own window\n\
         \x20 arto page README.md      Print README.md as a self-contained HTML page",
     // Subcommands and the open-paths form are exclusive, so `arto page` is
     // never mistaken for a request to open a file called `page` (use

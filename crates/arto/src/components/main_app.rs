@@ -1,5 +1,5 @@
 use crate::ipc::OpenEvent;
-use crate::state::Tab;
+use crate::state::Document;
 use crate::window::settings;
 #[cfg(not(target_os = "windows"))]
 use dioxus::desktop::use_muda_event_handler;
@@ -20,7 +20,8 @@ use dioxus::prelude::*;
 ///
 /// System events (Reopen, file open, IPC) are handled by the Tao event loop's
 /// custom_event_handler and IPC's GCD wake callback.
-/// This component only handles the initial event (first CLI path) for its own tab.
+/// This component only handles the initial event (the first CLI path) for its
+/// own document; any further paths get windows of their own.
 #[component]
 pub fn MainApp() -> Element {
     // Configure WindowCloseBehaviour::WindowHides for first window
@@ -69,22 +70,42 @@ pub fn MainApp() -> Element {
         tracing::debug!("No initial event, will show welcome screen");
     }
 
-    // Resolve initial tabs and directory from event
+    // Resolve the document and directory from the event. A window reads one
+    // document, so the first path named is this window's; the rest each get a
+    // window of their own below.
     let is_first_window = true;
-    let (tabs, directory_override) = match &first_event {
+    let (document, rest, directory_override) = match &first_event {
         Some(OpenEvent::Open(request)) => {
-            let tabs = if request.files.is_empty() {
-                vec![Tab::default()]
-            } else {
-                request.files.iter().cloned().map(Tab::new).collect()
-            };
-            (tabs, request.directory.clone())
+            let mut files = request.files.iter();
+            let document = files.next().map(Document::new).unwrap_or_default();
+            (
+                document,
+                files.cloned().collect::<Vec<_>>(),
+                request.directory.clone(),
+            )
         }
         _ => {
             let welcome_content = crate::assets::get_default_markdown_content();
-            (vec![Tab::with_inline_content(welcome_content)], None)
+            (
+                Document::with_inline_content(welcome_content),
+                Vec::new(),
+                None,
+            )
         }
     };
+
+    // Everything after the first path, once — a launch naming several files is
+    // a request for several windows, and dropping them would lose what the
+    // command line asked for.
+    use_hook(move || {
+        for path in rest {
+            crate::window::create_main_window_sync(
+                &window(),
+                Document::new(path),
+                crate::window::CreateMainWindowConfigParams::default(),
+            );
+        }
+    });
 
     // Get initial configuration values
     let directory_pref = settings::get_directory_preference(is_first_window);
@@ -98,14 +119,14 @@ pub fn MainApp() -> Element {
     // explicitly opened file. Stays None on a blank config with no opened file so
     // the sidebar shows its empty/welcome state instead of scanning home.
     let params_directory = directory_override.or(directory_pref.directory);
-    let directory = crate::window::main::resolve_directory(params_directory, &tabs);
+    let directory = crate::window::main::resolve_directory(params_directory, &document);
 
     // Render App component with initial state
     // Subsequent system events are handled by custom_event_handler (main.rs)
     // and GCD wake callback (ipc.rs).
     rsx! {
         crate::components::app::App {
-            tabs: tabs,
+            document: document,
             directory: directory,
             theme: theme_pref.theme,
             content_full_width,

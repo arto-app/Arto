@@ -14,8 +14,8 @@ pub fn Header() -> Element {
 
     let mut is_menu_open = use_signal(|| false);
 
-    let current_tab = state.current_tab();
-    let file_path = current_tab.as_ref().and_then(|tab| tab.file());
+    let document = state.document();
+    let file_path = document.file();
     let file = file_path
         .as_ref()
         .map(|f| {
@@ -26,12 +26,8 @@ pub fn Header() -> Element {
         })
         .unwrap_or_else(|| "No file opened".to_string());
 
-    let can_go_back = current_tab
-        .as_ref()
-        .is_some_and(|tab| tab.history.can_go_back());
-    let can_go_forward = current_tab
-        .as_ref()
-        .is_some_and(|tab| tab.history.can_go_forward());
+    let can_go_back = document.history.can_go_back();
+    let can_go_forward = document.history.can_go_forward();
 
     let on_back = move |_| {
         state.save_scroll_and_go_back();
@@ -48,7 +44,7 @@ pub fn Header() -> Element {
         // Set reloading state
         is_reloading_write.set(true);
 
-        state.reload_current_tab();
+        state.reload_document();
 
         // Reset reloading state after animation
         spawn(async move {

@@ -5,7 +5,6 @@ pub mod cli;
 mod components;
 mod config;
 mod document_link;
-mod drag;
 mod events;
 mod history;
 mod hooks;
@@ -108,11 +107,7 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
                     event: WindowEvent::Focused(true),
                     window_id,
                     ..
-                } if !window::has_preview_window() => {
-                    // Skip updating LAST_FOCUSED_WINDOW while a preview window exists
-                    // to prevent focus from jumping to wrong window during drag.
-                    // This blocks all focus updates during drag, not just when the
-                    // preview window itself gains focus.
+                } => {
                     window::update_last_focused_window(*window_id);
                 }
                 Event::MainEventsCleared => {
@@ -149,7 +144,7 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
     };
 
     // Launch MainApp (first window only)
-    // MainApp pops the first CLI event from IPC queue for its initial tab.
+    // MainApp pops the first CLI event from IPC queue for its initial document.
     // Remaining events are processed by custom_event_handler and GCD callbacks.
     dioxus::LaunchBuilder::desktop()
         .with_cfg(config)

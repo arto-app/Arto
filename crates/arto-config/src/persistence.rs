@@ -193,7 +193,7 @@ mod tests {
         let mappings = BindingSet {
             global: vec![KeyAction {
                 key: "m".to_string(),
-                action: "tab.close".to_string(),
+                action: "file.open".to_string(),
             }],
             ..Default::default()
         };

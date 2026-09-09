@@ -428,10 +428,7 @@ fn FileTreeNode(
         return rsx! {};
     }
 
-    let current_tab = state.current_tab();
-    let is_active = current_tab
-        .and_then(|tab| tab.file().map(|f| f == path))
-        .unwrap_or(false);
+    let is_active = state.current_file().is_some_and(|file| file == path);
 
     let is_keyboard_focused = *state.focused_panel.read() == FocusedPanel::LeftSidebar
         && state
@@ -684,11 +681,11 @@ pub fn SidebarContextMenuHost() -> Element {
             }
             let path = path.clone();
             spawn(async move {
-                let (tab, directory) = if is_dir {
-                    (crate::state::Tab::default(), Some(path))
+                let (document, directory) = if is_dir {
+                    (crate::state::Document::default(), Some(path))
                 } else {
                     (
-                        crate::state::Tab::new(&path),
+                        crate::state::Document::new(&path),
                         path.parent().map(|p| p.to_path_buf()),
                     )
                 };
@@ -697,7 +694,11 @@ pub fn SidebarContextMenuHost() -> Element {
                     directory,
                     ..Default::default()
                 };
-                crate::window::main::create_main_window(tab, params).await;
+                crate::window::create_main_window_sync(
+                    &dioxus::desktop::window(),
+                    document,
+                    params,
+                );
             });
             state.close_sidebar_context_menu();
         }

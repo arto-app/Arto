@@ -10,7 +10,7 @@ mod search_handler;
 use dioxus::prelude::*;
 
 use crate::scroll_anchor::ScrollAnchor;
-use crate::state::{AppState, TabContent};
+use crate::state::{AppState, DocumentContent};
 use file_error_view::FileErrorView;
 use file_viewer::FileViewer;
 use inline_viewer::InlineViewer;
@@ -31,10 +31,10 @@ pub fn Content() -> Element {
     let state = use_context::<AppState>();
     let zoom_level = state.zoom_level;
 
-    // Memoize the current tab's content to prevent re-rendering when non-active tabs change.
-    // Without this, any write to state.tabs (even for other tabs) would trigger a re-render
-    // of Content and its children, potentially disrupting scroll position.
-    let content = use_memo(move || state.current_tab().map(|tab| tab.content));
+    // Memoize the document's content so unrelated writes to the state do not
+    // re-render Content and its children, which would disturb the scroll
+    // position.
+    let content = use_memo(move || state.document.read().content.clone());
 
     // Use CSS zoom property for vector-based scaling (not transform: scale)
     // This ensures fonts and images remain sharp at any zoom level.
@@ -55,13 +55,13 @@ pub fn Content() -> Element {
                 style: "{zoom_style}",
 
                 match content() {
-                    Some(TabContent::File(file)) => {
+                    DocumentContent::File(file) => {
                         rsx! { FileViewer { file } }
                     },
-                    Some(TabContent::Inline(markdown)) => {
+                    DocumentContent::Inline(markdown) => {
                         rsx! { InlineViewer { markdown } }
                     },
-                    Some(TabContent::FileError(file, error)) => {
+                    DocumentContent::FileError(file, error) => {
                         let filename = file
                             .file_name()
                             .and_then(|n| n.to_str())
