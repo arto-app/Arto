@@ -5,17 +5,20 @@
  *
  * All of it is the same question asked in different words — where in this
  * document are we, and what is around us — so it shares one passive scroll
- * listener and one frame's worth of work.
+ * listener and one frame's worth of work. The scrollbar the reader sees is
+ * the same question again, so it is drawn from here too.
  */
 
+import { drawScrollIndicator } from "./scroll-indicator";
+
 /**
- * How much of the column the margin trace has to centre itself against.
+ * How much of the column a marginal one has to centre itself against.
  *
- * The trace is set level with the middle of what is being read, and what is
- * being read is the document — until the document is taller than the window,
- * when it is the window. So: the smaller of the two.
+ * Both are set level with the middle of what is being read, and what is being
+ * read is the document — until the document is taller than the window, when
+ * it is the window. So: the smaller of the two.
  */
-const TRACE_EXTENT = "--trace-extent";
+const MARGIN_EXTENT = "--margin-extent";
 
 /**
  * How far the margin trace has to move to reach the document.
@@ -29,41 +32,53 @@ const TRACE_EXTENT = "--trace-extent";
 const TRACE_OFFSET = "--trace-offset";
 
 /**
- * How much air is left between the trace and the text it annotates.
+ * How far the contents ruler has to move to reach the document.
+ *
+ * The same errand as [`TRACE_OFFSET`], on the other side: the ruler is laid
+ * out at the right edge of the reading area and moved left into the page's
+ * own margin, so that the two columns stand the same distance from the text
+ * they are about.
+ */
+const GUTTER_OFFSET = "--gutter-offset";
+
+/**
+ * How much air is left between a marginal column and the text it is about.
  *
  * Kept here rather than as padding on the column, so that widening the gap
  * moves the whole column instead of eating the room its names are set in.
  */
-export const TRACE_GAP = 56;
+export const MARGIN_GAP = 56;
 
 /** The attribute that says the page has taken the margin the trace sits in. */
-const CROWDED = "data-trace-crowded";
+const TRACE_CROWDED = "data-trace-crowded";
+
+/** The same, for the margin the contents ruler sits in. */
+const GUTTER_CROWDED = "data-gutter-crowded";
+
+/** The attribute that says the page is keeping the ruler's column back. */
+const RULER = "data-ruler";
 
 /**
- * Where the trace's column goes, and whether there is a margin left for it.
+ * Where a column set in the page's margin goes, and whether there is a margin
+ * left to put it in.
  *
- * Both arguments are measured from the left edge of the reading area:
- * `traceRight` is where the column ends where it is laid out, `bodyLeft`
- * where the page begins. The column is moved right until it stands
- * `TRACE_GAP` short of the page.
+ * `room` is the distance between the column where it is laid out — at one
+ * edge of the reading area — and the page. The column is moved that far,
+ * less the gap it keeps from the text.
  *
- * The layout budget reserves the trace's width against the document's
+ * The layout budget reserves each column's width against the document's
  * *minimum* width, but the page is set to its own width and centred in
  * whatever is left of the window — so magnifying the page, or a wide panel
- * beside it, closes the margin while the budget still allows the trace. When
- * the margin can no longer hold the column at its distance from the text, the
- * trace gives way, as it does to every other claim on the space; the
- * alternative is a column of names written over the first inch of every line.
+ * beside it, closes the margin while the budget still allows the column. When
+ * the margin can no longer hold it at its distance from the text, the column
+ * gives way, as it does to every other claim on the space; the alternative is
+ * a column written over the first inch of every line.
  */
-export function traceColumn(
-  bodyLeft: number,
-  traceRight: number,
-): { offset: number; crowded: boolean } {
-  const room = bodyLeft - traceRight;
-  if (room < TRACE_GAP) {
+export function marginColumn(room: number): { offset: number; crowded: boolean } {
+  if (room < MARGIN_GAP) {
     return { offset: 0, crowded: true };
   }
-  return { offset: Math.round(room - TRACE_GAP), crowded: false };
+  return { offset: Math.round(room - MARGIN_GAP), crowded: false };
 }
 
 /** The attribute that marks the heading the reader is inside. */
@@ -227,6 +242,11 @@ function update(): void {
     listening = content;
   }
 
+  const indicator = document.querySelector<HTMLElement>(".scroll-indicator");
+  if (indicator) {
+    drawScrollIndicator(indicator, content);
+  }
+
   const area = content.closest<HTMLElement>(".content-area");
   const body = content.querySelector<HTMLElement>(".markdown-body");
   measured = watch(measured, body);
@@ -234,25 +254,52 @@ function update(): void {
   if (area) {
     const document_ = body?.getBoundingClientRect().height ?? content.clientHeight;
     const window_ = content.clientHeight;
-    area.style.setProperty(TRACE_EXTENT, `${Math.round(Math.min(document_, window_))}px`);
+    area.style.setProperty(MARGIN_EXTENT, `${Math.round(Math.min(document_, window_))}px`);
 
-    // Layout coordinates for the trace, so that the offset already applied to
-    // it does not feed back into the next measurement.
+    // Layout coordinates for the columns, so that the offset already applied
+    // to one does not feed back into the next measurement. The page is
+    // measured where it is painted, because zoom is what closes these
+    // margins: the page is magnified, the columns beside it are not.
+    // `offsetLeft` reads the same space, both columns being outside the
+    // zoomed wrapper.
+    const page = body?.getBoundingClientRect();
+    const areaLeft = area.getBoundingClientRect().left;
+
     const trace = area.querySelector<HTMLElement>(".margin-trace");
-    if (trace && body) {
+    if (trace && page) {
       const traceRight = trace.offsetLeft + trace.offsetWidth;
-      // The page is measured where it is painted, because zoom is what closes
-      // the margin: the column is magnified with the document, the trace is
-      // not. `offsetLeft` reads the same space, the trace being outside the
-      // zoomed wrapper.
-      const bodyLeft = body.getBoundingClientRect().left - area.getBoundingClientRect().left;
-      const { offset, crowded } = traceColumn(bodyLeft, traceRight);
+      const { offset, crowded } = marginColumn(page.left - areaLeft - traceRight);
       area.style.setProperty(TRACE_OFFSET, `${offset}px`);
-      area.toggleAttribute(CROWDED, crowded);
+      area.toggleAttribute(TRACE_CROWDED, crowded);
       // Until this has run once, the column is still at the window's edge
       // rather than beside the text; drawn there and then moved, it reads as
       // the page settling into place after the reader is already looking.
       area.dataset.traceReady = "";
+    }
+
+    // The ruler's own margin, which is the trace's read from the other side:
+    // it is laid out against the right edge and travels left. Measured
+    // against the area and the column's width rather than against where the
+    // column currently is, because that is what the offset moves: reading it
+    // back would make each measurement an answer to the last one.
+    const gutter = area.querySelector<HTMLElement>(".contents-gutter");
+    // Whether the page keeps the ruler's column back. Answered by looking for
+    // the ruler rather than by asking whether the width allows one: a
+    // document with no headings and nothing pinned has no map to draw, and
+    // the page would have given up the column to nothing.
+    area.toggleAttribute(RULER, gutter !== null);
+    if (gutter && page) {
+      const shelf = area.clientWidth - gutter.offsetWidth;
+      const { offset, crowded } = marginColumn(shelf - (page.right - areaLeft));
+      area.style.setProperty(GUTTER_OFFSET, `${offset}px`);
+      area.toggleAttribute(GUTTER_CROWDED, crowded);
+      area.dataset.gutterReady = "";
+    } else {
+      // What the ruler left behind, when the width folds it away or the
+      // document has no headings: the contents are still opened by name, and
+      // they are placed against the column that is no longer there.
+      area.style.setProperty(GUTTER_OFFSET, "0px");
+      area.toggleAttribute(GUTTER_CROWDED, false);
     }
   }
 

@@ -37,7 +37,7 @@
      only case that needs measuring, and `reading-position.ts` measures it,
      because nothing in CSS can see how tall a sibling's contents are; without
      it the box is the reading area itself. */
-  height: var(--trace-extent, auto);
+  height: var(--margin-extent, auto);
   /* Moved up against the document rather than left at the window's edge: a
      note in the margin belongs beside the text it is a note on. The distance
      is measured in `reading-position.ts`, because the column it has to reach

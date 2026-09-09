@@ -15,65 +15,188 @@
   position: relative;
 }
 
+/* In the page's own margin, opposite the trace. Out of the flow for the same
+   reason the trace is: the page is centred in the whole of the reading area
+   and the columns beside it take what that leaves over, so that neither of
+   them moves the text by coming or going. How far it travels from the right
+   edge to reach the page is measured in `reading-position.ts`, because the
+   column it is a map of is centred in whatever is left of the window. */
 .contents-gutter {
-  flex-shrink: 0;
-  width: 24px;
-  padding: 28px 0 0;
+  position: absolute;
+  /* Placed rather than moved. A transform would put a translucent box on a
+     layer of its own over the scrolling page, and what that layer had drawn
+     was left behind on the page when either of them moved; `right` keeps the
+     column in the page's own paint. It can be written straight in because the
+     measurement does not read the column's position — see
+     `reading-position.ts` — so where it is put cannot feed back into where it
+     is put next. */
+  right: var(--gutter-offset, 0px);
+  top: 0;
+  width: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  /* Level with the middle of what is being read, on the same measurement the
+     trace is set by: the two columns are a pair, and a pair that did not
+     start level would read as one of them having slipped. */
+  justify-content: center;
+  height: var(--margin-extent, auto);
+  overflow: hidden;
+  box-sizing: border-box;
+  /* The box is the page's height; the ticks are not. Only they answer to the
+     pointer, or the contents would come out for a pointer crossing an empty
+     column on its way somewhere else. */
+  pointer-events: none;
+  /* Nothing translucent about the column itself: its marks carry their own
+     densities (below), so that the page underneath is never seen through a
+     transparency group of the ruler's. What is left here is the fade in and
+     out of existence, where the column is either painted or not at all. */
+  transition: opacity var(--transition-normal) ease;
+}
+
+/* What the pointer can rest in, and the whole of what it can rest in: the
+   ticks are contiguous down it, so moving from one to the next never leaves
+   the column and never flickers the list beside it. */
+.contents-gutter-run {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
-  overflow: hidden;
+  gap: 2px;
+  width: 100%;
+  max-height: 100%;
+  pointer-events: auto;
 }
 
+/* The page keeps the ruler's column back: its own 32px and the 56px every
+   marginal column stands off the text by (`MARGIN_GAP` in
+   `reading-position.ts`).
+
+   The trace opposite takes only the margin the page happened to leave, and
+   the ruler cannot: a page is centred in what is left of the window, so the
+   margin it leaves is nothing at all until the window is wide enough for the
+   page to stop growing — a thousand pixels of window in which the map of the
+   document would have been written over the last word of every line, or, if
+   it gave way instead, not drawn at all. The reader can lose a note in the
+   margin at a narrow window; the map is what `contents.toggle` opens by name
+   and what the ticks are a ruler for.
+
+   Only while there is a ruler to keep it for: `data-ruler` says so, and it is
+   set where the ruler is looked for rather than where it is asked for — see
+   `reading-position.ts` — because a document with no headings and nothing
+   pinned draws none. */
+.content-area[data-ruler] .markdown-viewer {
+  padding-right: 88px;
+}
+
+/* Not drawn until it has been measured, so that it fades in beside the text
+   rather than appearing at the window's edge and walking there. */
+.content-area:not([data-gutter-ready]) .contents-gutter {
+  opacity: 0;
+  transition: none;
+}
+
+/* No margin left to be a map in. The page keeps one back, so this is what is
+   left when the window is narrow enough that keeping it back was not enough.
+   Measured in `reading-position.ts`; the ruler gives way, and
+   `contents.toggle` still opens the same list by name. */
+.content-area[data-gutter-crowded] .contents-gutter {
+  opacity: 0;
+}
+
+/* A column that is not drawn is not there to be touched either. Said on the
+   run rather than on the column, because `pointer-events: auto` on a
+   descendant answers for itself whatever an ancestor says: without this the
+   ticks stay hit-testable where the column is invisible, over the scrollbar
+   they sit beside, and the contents come out for a pointer that was reaching
+   for the bar. */
+.content-area[data-gutter-crowded] .contents-gutter-run,
+.content-area:not([data-gutter-ready]) .contents-gutter-run {
+  pointer-events: none;
+}
+
+/* The column is faint at rest and wakes when the pointer is in it — in the
+   page's margin it is close enough to the text to be read as part of it. Said
+   mark by mark rather than as one `opacity` on the column: a translucent
+   group over a scrolling page is what left the marks it had already drawn
+   behind on the page, and the marks keep their own densities anyway. */
+.contents-gutter:hover .contents-gutter-tick::before {
+  opacity: 0.5;
+}
+
+/* A row of constant height, whatever the mark inside it weighs. The mark is
+   the `::before`, so a tick that thickens because the reader reached it does
+   not make the column taller — a column that re-centred itself at every
+   heading would shift the whole map sideways under the pointer, and leave the
+   engine repainting a layer that had already moved. */
 .contents-gutter-tick {
   flex-shrink: 0;
-  height: 2px;
+  height: 6px;
+  display: flex;
+  align-items: center;
   padding: 0;
   border: none;
-  border-radius: 1px;
-  background: var(--text-color);
-  opacity: var(--opacity-rest);
+  background: transparent;
   cursor: pointer;
+}
+
+/* The mark, drawn in a box that never changes size. Thickness is the border
+   giving way, not the box growing: a box that shrank left its old, thicker
+   self painted on the column until something else made the engine repaint
+   that strip — which is what put three current ticks in a column that has
+   one. */
+.contents-gutter-tick::before {
+  content: "";
+  width: 100%;
+  height: 6px;
+  box-sizing: border-box;
+  border-top: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+  border-radius: 3px;
+  background: var(--text-color);
+  background-clip: padding-box;
+  opacity: 0.15;
+  /* The weight is not animated. It is the answer to "where am I", which the
+     reader crosses a heading to change, and an engine asked to interpolate a
+     border on a mark that small leaves the old one drawn where it was. */
   transition:
     background-color var(--transition-quiet) ease,
     opacity var(--transition-quiet) ease;
 }
 
 .contents-gutter-tick[data-level="1"] {
-  width: 15px;
+  width: 24px;
 }
 
 .contents-gutter-tick[data-level="2"] {
-  width: 10px;
+  width: 17px;
 }
 
 .contents-gutter-tick[data-level="3"] {
-  width: 7px;
+  width: 12px;
 }
 
 .contents-gutter-tick[data-level="4"],
 .contents-gutter-tick[data-level="5"],
 .contents-gutter-tick[data-level="6"] {
-  width: 5px;
+  width: 8px;
 }
 
-/* Waking the column must not close the gap between the current tick and the
-   rest: they wake to half, the current one to all of it, so where the reader
-   is stays the densest mark in the column at every step. */
-.contents-gutter:hover .contents-gutter-tick {
-  opacity: 0.5;
+/* Weight, and nothing else in the column has any. Three questions, three
+   devices, none of them shared: the width is how deep the heading is, the
+   colour is a search's, and the thickness is where the reader is. Density
+   said this before and said it too quietly — between two 2px lines a step in
+   opacity is a step between two faint greys. */
+.contents-gutter-tick[data-current]::before {
+  border-top-width: 0;
+  border-bottom-width: 0;
+  opacity: 0.3;
 }
 
-/* Where the reader is, in the one currency this column has. A colour would
-   say it too, and the chrome has none left to spend. */
-.contents-gutter-tick[data-current] {
-  opacity: 0.8;
+.contents-gutter:hover .contents-gutter-tick[data-current]::before {
+  opacity: 1;
 }
 
-.contents-gutter:hover .contents-gutter-tick[data-current],
-.contents-gutter-tick:hover,
-.contents-gutter:hover .contents-gutter-tick:hover {
+.contents-gutter-tick:hover::before {
   opacity: 1;
 }
 
@@ -81,17 +204,23 @@
    document, so this is where a search says *where* its hits are — in the
    colour the pinned search carries, which is the one colour left in the
    interface and the only one that means anything. */
-.contents-gutter-tick[data-hit],
-.contents-gutter:hover .contents-gutter-tick[data-hit] {
-  background: var(--hit-colour);
+/* Colour, and only colour. The mark keeps the width its heading's depth gives
+   it and the thickness every other tick has: a mark that also took length was
+   saying something about depth that was not true, and one that also took
+   weight was answering a question the reader's own mark is the answer to. It
+   is the one thing in this column with a colour, which is device enough. */
+.contents-gutter-tick[data-hit]::before {
+  /* The longhand, and it has to be: `background` is a shorthand, and setting
+     it here would reset `background-clip` with everything else it resets —
+     the paint would spread into the transparent borders that are the mark's
+     thinness, and every marked tick would be drawn at the weight that means
+     "you are here". */
+  background-color: var(--hit-colour);
+  opacity: 0.45;
+}
+
+.contents-gutter:hover .contents-gutter-tick[data-hit]::before {
   opacity: 1;
-  /* Enough of it to be a colour. A 2px sliver of a mid-tone reads as grey on
-     a light ground however saturated it is, so a marked tick takes the length
-     of a top-level heading and twice the weight — which is also what makes it
-     findable in a column of thirty. */
-  height: 4px;
-  min-width: 15px;
-  border-radius: 2px;
 }
 
 /* ---------------------------------------------------------------------- *
@@ -104,7 +233,10 @@
 .contents-toc {
   position: absolute;
   top: 24px;
-  right: 24px;
+  /* Beside the ruler that opened it, wherever the page's margin has put that
+     — not at the window's edge, which is half a screen from the column the
+     pointer is resting in. */
+  right: calc(32px + var(--gutter-offset, 0px));
   z-index: var(--z-dropdown);
   min-width: 260px;
   /* Wide enough for a heading to be read rather than guessed at — most fit

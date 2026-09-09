@@ -3,6 +3,7 @@ import "../style/main.css";
 import { applyPictureTheme } from "./picture-theme";
 import { refreshReadingPosition, setupReadingPosition } from "./reading-position";
 import { setupRowHover } from "./row-hover";
+import { setupScrollbarReach } from "./scrollbar-reach";
 import { type Theme, currentTheme, isDarkTheme, themedElement } from "./theme";
 import * as mermaidRenderer from "./mermaid-renderer";
 import { renderCoordinator } from "./render-coordinator";
@@ -230,6 +231,9 @@ export function init(): void {
   // The full name of a row the panel had to cut, floating clear of the box
   // that scrolls it.
   setupRowHover();
+  // The scrollbar, brought up to a native width by the pointer arriving at
+  // the edge it is on.
+  setupScrollbarReach();
   const trackAfterRender = (): void => {
     refreshReadingPosition();
     renderCoordinator.onRenderComplete(trackAfterRender);

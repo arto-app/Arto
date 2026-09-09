@@ -42,19 +42,64 @@
    So it is not drawn at rest. It is still there — a document with no headings
    has no gutter, and a scrollbar is also the way to drag a long page about —
    and it appears as soon as the pointer is in the page. */
-.content::-webkit-scrollbar-track {
-  background: transparent;
+/* What can be caught and what is drawn are two different things here. The
+   native bar keeps a native width, so that aiming at it is aiming at
+   something — a 4px strip had to be hunted for — but nothing of it is
+   painted. What the reader sees is `.scroll-indicator`, an ordinary element
+   drawn over it from the scroller's own numbers, because a scrollbar
+   pseudo-element is painted by the engine's scrollbar theme and repaints when
+   that theme decides to: a width told to change as the pointer came near
+   changed once and stayed changed. */
+.content::-webkit-scrollbar {
+  width: 14px;
 }
 
-.content::-webkit-scrollbar-thumb {
-  background: transparent;
-}
-
-.content:hover::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-}
-
-.content:hover::-webkit-scrollbar-thumb:hover,
+.content::-webkit-scrollbar-track,
+.content::-webkit-scrollbar-thumb,
+.content::-webkit-scrollbar-thumb:hover,
 .content::-webkit-scrollbar-thumb:active {
+  background: transparent;
+}
+
+/* The lane the native bar occupies, and nothing else: the clicks go through
+   to it. */
+.scroll-indicator {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  pointer-events: none;
+}
+
+/* Drawn as a hairline, because the page has a better position indicator than
+   a scrollbar beside it and two rulers down one edge is one too many. It is
+   not drawn at all until the pointer is in the page. */
+.scroll-indicator-thumb {
+  position: absolute;
+  top: 0;
+  right: 5px;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--scrollbar-thumb);
+  opacity: 0;
+  transition:
+    width var(--transition-normal) ease,
+    right var(--transition-normal) ease,
+    opacity var(--transition-normal) ease;
+}
+
+.content-area:hover .scroll-indicator-thumb {
+  opacity: 1;
+}
+
+/* Reaching for it is what brings it up to the width it is being reached for
+   at: the thing a reader does before catching a scrollbar is move towards the
+   edge of the window, so that is what widens it — before the aiming, rather
+   than after it has failed. `scrollbar-reach.ts` measures the distance. */
+.pointer-near-scrollbar .scroll-indicator-thumb {
+  width: 10px;
+  right: 2px;
+  opacity: 1;
   background: var(--scrollbar-thumb-hover);
 }
