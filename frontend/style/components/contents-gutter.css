@@ -285,7 +285,9 @@
   background: var(--border-color);
 }
 
-.contents-toc-pin {
+/* What the popover is placed against. The row cannot be it: a popover inside
+   the row is inside the thing that opens it. */
+.contents-toc-pin-slot {
   position: relative;
 }
 
@@ -294,8 +296,8 @@
   opacity: var(--opacity-secondary);
 }
 
-/* The colour is the control: what can be done to a mark is mostly a choice of
-   which colour it is. */
+/* The colour says whether the mark is on the page, and pressing it is what
+   takes it off: an outline is the mark named but not shown. */
 .contents-toc-pin-dot {
   flex-shrink: 0;
   width: 10px;
@@ -307,11 +309,24 @@
   /* The mark's own colour, at the strength it has on the page: the dot and
      the words it highlights are the same mark, so they are the same colour. */
   background: var(--pin-colour, var(--border-color));
-  transition: box-shadow var(--transition-quiet) ease;
+  transition:
+    background-color var(--transition-quiet) ease,
+    box-shadow var(--transition-quiet) ease;
+}
+
+.contents-toc-pin.disabled .contents-toc-pin-dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--pin-colour, var(--border-color));
 }
 
 .contents-toc-pin-dot:hover {
   box-shadow: 0 0 0 2px var(--bg-row-hover);
+}
+
+.contents-toc-pin.disabled .contents-toc-pin-dot:hover {
+  box-shadow:
+    inset 0 0 0 1px var(--pin-colour, var(--border-color)),
+    0 0 0 2px var(--bg-row-hover);
 }
 
 .contents-toc-pin-dot.highlight-green {
@@ -338,29 +353,6 @@
   font-size: var(--font-size-sm);
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
-}
-
-/* Drawn at rest, not on hover: taking a mark off is the one thing a reader
-   comes to this list to do, and a control that appears under the pointer is
-   one that has to be looked for first. */
-.contents-toc-pin-remove {
-  flex: none;
-  display: flex;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-color);
-  cursor: pointer;
-  opacity: var(--opacity-rest);
-  transition: opacity var(--transition-quiet) ease;
-}
-
-.contents-toc-pin:hover .contents-toc-pin-remove {
-  opacity: var(--opacity-secondary);
-}
-
-.contents-toc-pin-remove:hover {
-  opacity: 1;
 }
 
 /* With no headings there is no ruler to rest on, so the marks put one mark in

@@ -47,36 +47,37 @@ fn PinnedMark(pinned: PinnedSearch) -> Element {
     let disabled = pinned.disabled;
 
     rsx! {
+        // The popover hangs off this rather than off the row, so that a click
+        // inside it is not also a click on the row that opened it.
         div {
-            class: "contents-toc-row contents-toc-pin",
-            class: if disabled { "disabled" },
+            class: "contents-toc-pin-slot",
 
-            // The colour is the control: pressing it opens what can be done
-            // to the mark, which is mostly a choice of colour.
-            button {
-                class: "contents-toc-pin-dot {color.css_class()}",
+            // The row is the control, all of it: it lights up under the
+            // pointer as one thing, so it has to answer as one thing.
+            div {
+                class: "contents-toc-row contents-toc-pin",
+                class: if disabled { "disabled" },
                 title: "Colour, visibility, remove",
-                onclick: move |evt| {
-                    evt.stop_propagation();
-                    show_popover.toggle();
-                },
-            }
+                onclick: move |_| show_popover.toggle(),
 
-            span { class: "contents-toc-name", "{pattern}" }
+                // Except the colour, which is the mark showing or not showing
+                // on the page — the one thing here that is worth a click of
+                // its own, and the thing the dot already says.
+                button {
+                    class: "contents-toc-pin-dot {color.css_class()}",
+                    title: if disabled { "Show" } else { "Hide" },
+                    onclick: {
+                        let id = id.clone();
+                        move |evt: Event<MouseData>| {
+                            evt.stop_propagation();
+                            toggle_pinned_search_disabled(&id);
+                        }
+                    },
+                }
 
-            span { class: "contents-toc-pin-count", "{count}" }
+                span { class: "contents-toc-name", "{pattern}" }
 
-            button {
-                class: "contents-toc-pin-remove",
-                title: "Remove",
-                onclick: {
-                    let id = id.clone();
-                    move |evt: Event<MouseData>| {
-                        evt.stop_propagation();
-                        remove_pinned_search(&id);
-                    }
-                },
-                Icon { name: IconName::Close, size: 12 }
+                span { class: "contents-toc-pin-count", "{count}" }
             }
 
             if *show_popover.read() {
