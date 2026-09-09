@@ -7,7 +7,7 @@ use super::context_menu_state::{open_context_menu, ContentContextMenuState};
 use crate::document_link::{open_document_link, scroll_to_heading_js, LinkOpen};
 use crate::markdown::render_to_html_with_toc;
 use crate::scroll_anchor::ScrollAnchor;
-use crate::state::{AppState, TabContent};
+use crate::state::{AppState, DocumentContent};
 use crate::utils::file::is_markdown_file;
 use crate::watcher::FILE_WATCHER;
 
@@ -139,8 +139,8 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
 
                     // Update tab content to FileError
                     let file_clone = file.clone();
-                    state.update_current_tab(move |tab| {
-                        tab.content = TabContent::FileError(file_clone, error_msg);
+                    state.update_document(move |document| {
+                        document.content = DocumentContent::FileError(file_clone, error_msg);
                     });
                     html.set(String::new());
                 }
@@ -348,7 +348,7 @@ fn use_file_watcher(file: ReadSignal<PathBuf>, mut state: AppState) {
 
             while watcher.recv().await.is_some() {
                 tracing::info!("File change detected, reloading: {:?}", file_path);
-                state.reload_current_tab();
+                state.reload_document();
             }
 
             if let Err(e) = FILE_WATCHER.unwatch(file_path.clone()).await {
@@ -403,8 +403,8 @@ fn handle_link_click(click_data: LinkClickData, current_file: &Path, state: &mut
     tracing::info!("Markdown link clicked: {} (button: {})", path, button);
 
     let how = match button {
-        MIDDLE_CLICK => LinkOpen::NewTab,
-        LEFT_CLICK => LinkOpen::CurrentTab { scroll_anchor },
+        MIDDLE_CLICK => LinkOpen::NewWindow,
+        LEFT_CLICK => LinkOpen::Here { scroll_anchor },
         _ => {
             tracing::debug!("Ignoring click with button: {}", button);
             return;

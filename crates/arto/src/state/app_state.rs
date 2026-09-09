@@ -10,16 +10,16 @@ use crate::pinned_search::PinnedSearchId;
 use crate::scroll_anchor::ScrollAnchor;
 use crate::theme::Theme;
 
+mod document;
 mod focused_panel;
 mod right_sidebar;
 mod sidebar;
 pub(crate) mod sidebar_cursor;
-mod tabs;
 
+pub use document::{Document, DocumentContent};
 pub use focused_panel::*;
 pub use right_sidebar::RightSidebar;
 pub use sidebar::Sidebar;
-pub use tabs::{Tab, TabContent};
 
 /// Information about a single search match for display in the Search tab.
 #[derive(Debug, Clone, PartialEq)]
@@ -51,16 +51,16 @@ pub struct SearchMatch {
 /// # Why Per-field Signals?
 ///
 /// We use per-field `Signal<T>` instead of `Signal<AppState>` for fine-grained reactivity:
-/// - Changing `current_theme` doesn't trigger re-renders in components that only watch `tabs`
+/// - Changing `current_theme` doesn't trigger re-renders in components that only watch `document`
 /// - Different components can update different fields concurrently without conflicts
-/// - Components subscribe only to the fields they need (e.g., Header watches theme, TabBar watches tabs)
+/// - Components subscribe only to the fields they need (e.g., Header watches theme, Content watches the document)
 ///
 /// If we used `Signal<AppState>`, any field change would trigger re-renders in ALL components
 /// that access the state, causing unnecessary performance overhead.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AppState {
-    pub tabs: Signal<Vec<Tab>>,
-    pub active_tab: Signal<usize>,
+    /// The one document this window is reading.
+    pub document: Signal<Document>,
     pub current_theme: Signal<Theme>,
     pub zoom_level: Signal<f64>,
     /// Whether the content area ignores the markdown body's max-width and fills the pane.
@@ -131,8 +131,7 @@ impl AppState {
     /// Used when creating windows with specific initial state.
     pub fn new(theme: Theme) -> Self {
         Self {
-            tabs: Signal::new(vec![Tab::default()]),
-            active_tab: Signal::new(0),
+            document: Signal::new(Document::default()),
             current_theme: Signal::new(theme),
             zoom_level: Signal::new(DEFAULT_ZOOM_LEVEL),
             content_full_width: Signal::new(false),

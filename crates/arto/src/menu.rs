@@ -15,13 +15,12 @@ use crate::window::{self, CreateMainWindowConfigParams};
 enum MenuId {
     About,
     NewWindow,
-    NewTab,
+    DuplicateWindow,
+    NewDocument,
     Open,
     OpenDirectory,
     RevealInFinder,
     CopyFilePath,
-    CloseTab,
-    CloseAllTabs,
     CloseWindow,
     CloseAllChildWindows,
     CloseAllWindows,
@@ -46,13 +45,12 @@ impl MenuId {
         match s {
             "app.about" => Some(Self::About),
             "file.new_window" => Some(Self::NewWindow),
-            "file.new_tab" => Some(Self::NewTab),
+            "file.duplicate_window" => Some(Self::DuplicateWindow),
+            "file.new_document" => Some(Self::NewDocument),
             "file.open" => Some(Self::Open),
             "file.open_directory" => Some(Self::OpenDirectory),
             "file.reveal_in_finder" => Some(Self::RevealInFinder),
             "file.copy_file_path" => Some(Self::CopyFilePath),
-            "file.close_tab" => Some(Self::CloseTab),
-            "file.close_all_tabs" => Some(Self::CloseAllTabs),
             "file.close_window" => Some(Self::CloseWindow),
             "window.close_all_child_windows" => Some(Self::CloseAllChildWindows),
             "window.close_all_windows" => Some(Self::CloseAllWindows),
@@ -78,13 +76,12 @@ impl MenuId {
         match self {
             Self::About => "app.about",
             Self::NewWindow => "file.new_window",
-            Self::NewTab => "file.new_tab",
+            Self::DuplicateWindow => "file.duplicate_window",
+            Self::NewDocument => "file.new_document",
             Self::Open => "file.open",
             Self::OpenDirectory => "file.open_directory",
             Self::RevealInFinder => "file.reveal_in_finder",
             Self::CopyFilePath => "file.copy_file_path",
-            Self::CloseTab => "file.close_tab",
-            Self::CloseAllTabs => "file.close_all_tabs",
             Self::CloseWindow => "file.close_window",
             Self::CloseAllChildWindows => "window.close_all_child_windows",
             Self::CloseAllWindows => "window.close_all_windows",
@@ -186,13 +183,12 @@ fn menu_action_for_id(id: MenuId) -> Option<&'static str> {
     Some(match id {
         MenuId::About => "app.about",
         MenuId::NewWindow => "window.new",
-        MenuId::NewTab => "tab.new",
+        MenuId::DuplicateWindow => "window.duplicate",
+        MenuId::NewDocument => "window.new_document",
         MenuId::Open => "file.open",
         MenuId::OpenDirectory => "file.open_directory",
         MenuId::RevealInFinder => "file.reveal_in_finder",
         MenuId::CopyFilePath => "clipboard.copy_file_path",
-        MenuId::CloseTab => "tab.close",
-        MenuId::CloseAllTabs => "tab.close_all",
         MenuId::CloseWindow => "window.close",
         MenuId::CloseAllChildWindows => "window.close_all_child_windows",
         MenuId::CloseAllWindows => "window.close_all_windows",
@@ -255,7 +251,8 @@ fn add_file_menu(menu: &Menu) {
     file_menu
         .append_items(&[
             &create_menu_item(MenuId::NewWindow, "New Window"),
-            &create_menu_item(MenuId::NewTab, "New Tab"),
+            &create_menu_item(MenuId::DuplicateWindow, "Duplicate Window"),
+            &create_menu_item(MenuId::NewDocument, "New Document"),
             &PredefinedMenuItem::separator(),
             &create_menu_item(MenuId::Open, "Open File..."),
             &create_menu_item(MenuId::OpenDirectory, "Open Directory..."),
@@ -263,8 +260,6 @@ fn add_file_menu(menu: &Menu) {
             &create_menu_item(MenuId::CopyFilePath, "Copy File Path"),
             &create_menu_item(MenuId::RevealInFinder, "Reveal in Finder"),
             &PredefinedMenuItem::separator(),
-            &create_menu_item(MenuId::CloseTab, "Close Tab"),
-            &create_menu_item(MenuId::CloseAllTabs, "Close All Tabs"),
             &create_menu_item(MenuId::CloseWindow, "Close Window"),
             &PredefinedMenuItem::separator(),
             &create_menu_item(MenuId::Print, "Print..."),
@@ -347,11 +342,11 @@ fn add_help_menu(menu: &Menu) {
     menu.append(&help_menu).unwrap();
 }
 
-/// Check if a menu event is a close action (Close Tab or Close Window)
+/// Check if a menu event is a close action (Close Window)
 pub fn is_close_action(event: &MenuEvent) -> bool {
     matches!(
         MenuId::from_str(event.id().0.as_ref()),
-        Some(MenuId::CloseTab | MenuId::CloseWindow)
+        Some(MenuId::CloseWindow)
     )
 }
 
@@ -359,7 +354,7 @@ pub fn is_close_action(event: &MenuEvent) -> bool {
 ///
 /// # Handled events
 /// - `NewWindow`: Creates a new window (no state needed)
-/// - `NewTab` (no windows exist): Creates a window as fallback
+/// - `NewDocument` (no windows exist): Creates a window as fallback
 /// - `Preferences`: Declined here (requires per-window state), returns `false`
 /// - `CloseAllChildWindows`: Uses window manager API
 /// - `CloseAllWindows`: Uses window manager API
@@ -379,15 +374,17 @@ pub fn handle_menu_event_global(event: &MenuEvent) -> bool {
         MenuId::NewWindow => {
             window::create_main_window_sync(
                 &window(),
-                crate::state::Tab::default(),
+                crate::state::Document::default(),
                 CreateMainWindowConfigParams::default(),
             );
         }
-        MenuId::NewTab => {
+        MenuId::NewDocument => {
+            // Nothing to put down when there is no window: make one, showing
+            // what a window with no document shows.
             if !window::has_any_main_windows() {
                 window::create_main_window_sync(
                     &window(),
-                    crate::state::Tab::default(),
+                    crate::state::Document::default(),
                     CreateMainWindowConfigParams::default(),
                 );
                 return true;
@@ -420,10 +417,10 @@ pub fn handle_menu_event_global(event: &MenuEvent) -> bool {
 /// # Handled events
 /// - `About`: Opens preferences page on About tab
 /// - `Preferences`: Opens preferences page
-/// - `NewTab`: Adds an empty tab to current window
+/// - `NewDocument`: Puts the document down, leaving the window empty
 /// - `Open`: Opens file picker for markdown files
 /// - `OpenDirectory`: Opens directory picker
-/// - `CloseTab` / `CloseAllTabs` / `CloseWindow`: Tab/window management
+/// - `CloseWindow`: Window management
 /// - `ToggleLeftSidebar`: Toggles left sidebar pin state
 /// - `ToggleRightSidebar`: Toggles right sidebar pin state
 /// - `ActualSize` / `ZoomIn` / `ZoomOut`: Zoom controls
@@ -456,11 +453,10 @@ pub fn handle_menu_event_with_state(event: &MenuEvent, state: &mut AppState) -> 
     let action = match id {
         MenuId::About => Action::AppAbout,
         MenuId::Preferences => Action::FilePreferences,
-        MenuId::NewTab => Action::TabNew,
+        MenuId::NewDocument => Action::WindowNewDocument,
+        MenuId::DuplicateWindow => Action::WindowDuplicate,
         MenuId::Open => Action::FileOpen,
         MenuId::OpenDirectory => Action::FileOpenDirectory,
-        MenuId::CloseTab => Action::TabClose,
-        MenuId::CloseAllTabs => Action::TabCloseAll,
         MenuId::CloseWindow => Action::WindowClose,
         MenuId::ToggleLeftSidebar => Action::WindowToggleSidebar,
         MenuId::ToggleRightSidebar => Action::WindowToggleRightSidebar,
@@ -503,13 +499,12 @@ mod tests {
         let all_ids = [
             "app.about",
             "file.new_window",
-            "file.new_tab",
+            "file.duplicate_window",
+            "file.new_document",
             "file.open",
             "file.open_directory",
             "file.reveal_in_finder",
             "file.copy_file_path",
-            "file.close_tab",
-            "file.close_all_tabs",
             "file.close_window",
             "window.close_all_child_windows",
             "window.close_all_windows",
@@ -548,13 +543,12 @@ mod tests {
         let all_ids = [
             MenuId::About,
             MenuId::NewWindow,
-            MenuId::NewTab,
+            MenuId::DuplicateWindow,
+            MenuId::NewDocument,
             MenuId::Open,
             MenuId::OpenDirectory,
             MenuId::RevealInFinder,
             MenuId::CopyFilePath,
-            MenuId::CloseTab,
-            MenuId::CloseAllTabs,
             MenuId::CloseWindow,
             MenuId::CloseAllChildWindows,
             MenuId::CloseAllWindows,
@@ -592,18 +586,14 @@ mod tests {
     #[test]
     fn test_is_close_action() {
         use dioxus_desktop::muda::MenuId as MudaMenuId;
-        let close_tab = MenuEvent {
-            id: MudaMenuId("file.close_tab".to_string()),
-        };
         let close_window = MenuEvent {
             id: MudaMenuId("file.close_window".to_string()),
         };
-        let new_tab = MenuEvent {
-            id: MudaMenuId("file.new_tab".to_string()),
+        let new_document = MenuEvent {
+            id: MudaMenuId("file.new_document".to_string()),
         };
 
-        assert!(is_close_action(&close_tab));
         assert!(is_close_action(&close_window));
-        assert!(!is_close_action(&new_tab));
+        assert!(!is_close_action(&new_document));
     }
 }

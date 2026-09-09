@@ -14,10 +14,7 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
     let shortcut = |action| crate::keybindings::shortcut_hint_for_global_action(action);
 
     // Get information on the currently open file (for invalidation determination)
-    let current_tab = state.current_tab();
-    let current_file = current_tab
-        .as_ref()
-        .and_then(|t| t.file().map(|f| f.to_path_buf()));
+    let current_file = state.current_file();
     let has_file = current_file.is_some();
 
     let close = move || on_close.call(());
@@ -52,11 +49,15 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
             // === File ===
             ContextMenuSubmenu { label: "File",
                 ContextMenuItem { label: "New Window", shortcut: shortcut("window.new"), on_click: move |_| {
-                    crate::window::create_main_window_sync(&dioxus::desktop::window(), crate::state::Tab::default(), crate::window::CreateMainWindowConfigParams::default());
+                    crate::window::create_main_window_sync(&dioxus::desktop::window(), crate::state::Document::default(), crate::window::CreateMainWindowConfigParams::default());
                     close();
                 } }
-                ContextMenuItem { label: "New Tab", shortcut: shortcut("tab.new"), icon: Some(IconName::Add), on_click: move |_| {
-                    state.add_empty_tab(true);
+                ContextMenuItem { label: "Duplicate Window", shortcut: shortcut("window.duplicate"), on_click: move |_| {
+                    crate::keybindings::dispatcher::dispatch_action(&crate::keybindings::Action::WindowDuplicate, state);
+                    close();
+                } }
+                ContextMenuItem { label: "New Document", shortcut: shortcut("window.new_document"), icon: Some(IconName::Add), on_click: move |_| {
+                    state.update_document(|document| *document = crate::state::Document::default());
                     close();
                 } }
                 ContextMenuSeparator {}
@@ -82,18 +83,6 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
                     close();
                 } } }
                 ContextMenuSeparator {}
-                ContextMenuItem { label: "Close Tab", shortcut: shortcut("tab.close"), on_click: move |_| {
-                    let active = *state.active_tab.read();
-                    state.close_tab(active);
-                    close();
-                } }
-                ContextMenuItem { label: "Close All Tabs", shortcut: shortcut("tab.close_all"), on_click: move |_| {
-                    let mut tabs = state.tabs.write();
-                    tabs.clear();
-                    tabs.push(crate::state::Tab::default());
-                    state.active_tab.set(0);
-                    close();
-                } }
                 ContextMenuItem { label: "Close Window", shortcut: shortcut("window.close"), on_click: move |_| {
                     dioxus::desktop::window().close();
                 } }

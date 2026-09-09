@@ -12,11 +12,11 @@ use crate::state::AppState;
 /// Where a document link opens.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LinkOpen {
-    /// Navigate the current tab, remembering `scroll_anchor` in its
-    /// history so that going back lands where the reader was.
-    CurrentTab { scroll_anchor: ScrollAnchor },
-    /// Open a new tab and switch to it.
-    NewTab,
+    /// Follow it in this window, remembering `scroll_anchor` in the
+    /// document's history so that going back lands where the reader was.
+    Here { scroll_anchor: ScrollAnchor },
+    /// Open it in a window of its own, leaving this one where it is.
+    NewWindow,
 }
 
 /// Split a link as written in the document into its path and fragment.
@@ -66,7 +66,7 @@ pub fn open_document_link(
     let current_canonical = current_file
         .canonicalize()
         .unwrap_or_else(|_| current_file.to_path_buf());
-    if matches!(how, LinkOpen::CurrentTab { .. }) && canonical_path == current_canonical {
+    if matches!(how, LinkOpen::Here { .. }) && canonical_path == current_canonical {
         if let Some(fragment) = fragment {
             let _ = document::eval(&scroll_to_heading_js(&fragment));
         }
@@ -76,10 +76,14 @@ pub fn open_document_link(
     tracing::info!("Opening file: {:?}", canonical_path);
     state.pending_scroll_fragment.set(fragment);
     match how {
-        LinkOpen::NewTab => {
-            state.add_file_tab(canonical_path, true);
+        LinkOpen::NewWindow => {
+            crate::window::create_main_window_sync(
+                &dioxus::desktop::window(),
+                crate::state::Document::new(canonical_path),
+                crate::window::CreateMainWindowConfigParams::default(),
+            );
         }
-        LinkOpen::CurrentTab { scroll_anchor } => {
+        LinkOpen::Here { scroll_anchor } => {
             state.save_current_scroll_anchor(scroll_anchor);
             state.navigate_to_file(canonical_path);
         }

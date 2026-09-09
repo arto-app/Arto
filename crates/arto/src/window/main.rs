@@ -1,7 +1,7 @@
 use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
 use dioxus::desktop::tao::window::WindowId;
 use dioxus::desktop::{
-    window, Config, DesktopService, WeakDesktopContext, WindowBuilder, WindowCloseBehaviour,
+    Config, DesktopService, WeakDesktopContext, WindowBuilder, WindowCloseBehaviour,
 };
 use dioxus::prelude::*;
 
@@ -16,7 +16,7 @@ use crate::assets::{main_stylesheet_head, with_asset_protocol};
 use crate::components::app::{App, AppProps};
 use crate::components::right_sidebar::RightSidebarTab;
 use crate::config::{WindowPositionOffset, CONFIG};
-use crate::state::Tab;
+use crate::state::Document;
 use crate::theme::Theme;
 use crate::utils::screen::get_current_display_bounds;
 
@@ -268,11 +268,12 @@ pub fn shutdown_all_windows() -> usize {
 /// trigger unnecessary TCC permission prompts.
 pub(crate) fn resolve_directory(
     params_directory: Option<PathBuf>,
-    tabs: &[Tab],
+    document: &Document,
 ) -> Option<PathBuf> {
     params_directory.or_else(|| {
-        tabs.iter()
-            .find_map(|tab| tab.file().and_then(|p| p.parent().map(|p| p.to_path_buf())))
+        document
+            .file()
+            .and_then(|path| path.parent().map(|parent| parent.to_path_buf()))
     })
 }
 
@@ -310,16 +311,16 @@ fn compute_shifted_position(params: &CreateMainWindowConfigParams) -> LogicalPos
 
 /// Build VirtualDom and Config for a new main window.
 fn build_window_dom_and_config(
-    tabs: Vec<Tab>,
+    document: Document,
     mut params: CreateMainWindowConfigParams,
 ) -> (VirtualDom, Config) {
-    let directory = resolve_directory(params.directory.take(), &tabs);
+    let directory = resolve_directory(params.directory.take(), &document);
     let shifted_position = compute_shifted_position(&params);
 
     let dom = VirtualDom::new_with_props(
         App,
         AppProps {
-            tabs,
+            document,
             directory,
             theme: params.theme,
             content_full_width: params.content_full_width,
@@ -358,24 +359,10 @@ fn build_window_dom_and_config(
 /// IMPORTANT: Must be called on the main thread (event loop thread).
 pub fn create_main_window_sync(
     desktop: &Rc<DesktopService>,
-    tab: Tab,
+    document: Document,
     params: CreateMainWindowConfigParams,
 ) {
-    create_main_window_sync_with_tabs(desktop, vec![tab], params);
-}
-
-/// Create a new main window synchronously with multiple initial tabs.
-///
-/// The window is created by the Tao event loop on the next iteration.
-/// The App component self-registers via `register_main_window()`.
-///
-/// IMPORTANT: Must be called on the main thread (event loop thread).
-pub fn create_main_window_sync_with_tabs(
-    desktop: &Rc<DesktopService>,
-    tabs: Vec<Tab>,
-    params: CreateMainWindowConfigParams,
-) {
-    let (dom, config) = build_window_dom_and_config(tabs, params);
+    let (dom, config) = build_window_dom_and_config(document, params);
 
     // Fire-and-forget: PendingDesktopContext is dropped, but window still gets created.
     // new_window() synchronously pushes PendingWebview and sends NewWindow event.
@@ -389,24 +376,6 @@ pub fn create_main_window_sync_with_tabs(
 /// share the same `SharedContext`, so any window works.
 pub fn get_any_main_window() -> Option<Rc<DesktopService>> {
     MAIN_WINDOWS.with(|windows| windows.borrow().iter().find_map(|w| w.upgrade()))
-}
-
-// ============================================================================
-// Async window creation (used by drag-and-drop etc.)
-// ============================================================================
-
-/// Create a new main window with a tab (async version).
-/// Returns the window handle for further operations (e.g., drag preview).
-pub(crate) async fn create_main_window(
-    tab: Tab,
-    params: CreateMainWindowConfigParams,
-) -> Rc<DesktopService> {
-    let (dom, config) = build_window_dom_and_config(vec![tab], params);
-
-    let pending = window().new_window(dom, config);
-    let handle = pending.await;
-
-    handle
 }
 
 pub fn update_last_focused_window(window_id: WindowId) {
@@ -530,19 +499,20 @@ mod tests {
 
     #[test]
     fn test_resolve_directory_none_when_no_config_and_no_file() {
-        // Blank config (no explicit directory) with a no-file/welcome tab must
-        // yield None so the sidebar shows the empty/welcome state instead of
-        // scanning an arbitrary directory such as the user's home.
-        let tabs = vec![Tab::default()];
-        assert_eq!(resolve_directory(None, &tabs), None);
+        // Blank config (no explicit directory) with a window that has no
+        // document must yield None so the sidebar shows the empty/welcome
+        // state instead of scanning an arbitrary directory such as the user's
+        // home.
+        let document = Document::default();
+        assert_eq!(resolve_directory(None, &document), None);
     }
 
     #[test]
     fn test_resolve_directory_uses_explicit_directory() {
-        let tabs = vec![Tab::default()];
+        let document = Document::default();
         let explicit = PathBuf::from("/explicit/dir");
         assert_eq!(
-            resolve_directory(Some(explicit.clone()), &tabs),
+            resolve_directory(Some(explicit.clone()), &document),
             Some(explicit)
         );
     }
@@ -551,19 +521,19 @@ mod tests {
     fn test_resolve_directory_falls_back_to_opened_file_parent() {
         // Opening a file explicitly (no configured directory) roots the sidebar
         // at the file's parent directory.
-        let tabs = vec![Tab::new(PathBuf::from("/some/project/README.md"))];
+        let document = Document::new(PathBuf::from("/some/project/README.md"));
         assert_eq!(
-            resolve_directory(None, &tabs),
+            resolve_directory(None, &document),
             Some(PathBuf::from("/some/project"))
         );
     }
 
     #[test]
     fn test_resolve_directory_prefers_explicit_over_file_parent() {
-        let tabs = vec![Tab::new(PathBuf::from("/some/project/README.md"))];
+        let document = Document::new(PathBuf::from("/some/project/README.md"));
         let explicit = PathBuf::from("/explicit/dir");
         assert_eq!(
-            resolve_directory(Some(explicit.clone()), &tabs),
+            resolve_directory(Some(explicit.clone()), &document),
             Some(explicit)
         );
     }

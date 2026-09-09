@@ -6,19 +6,15 @@
       "action": "window.new"
     },
     {
+      "key": "Cmd+Shift+n",
+      "action": "window.duplicate"
+    },
+    {
       "key": "Cmd+t",
-      "action": "tab.new"
+      "action": "window.new_document"
     },
     {
       "key": "Cmd+w",
-      "action": "tab.close"
-    },
-    {
-      "key": "Cmd+Alt+w",
-      "action": "tab.close_all"
-    },
-    {
-      "key": "Cmd+Shift+w",
       "action": "window.close"
     },
     {
@@ -88,20 +84,12 @@
       "action": "window.reload"
     },
     {
-      "key": "Cmd+Alt+Shift+w",
-      "action": "tab.close_others"
-    },
-    {
-      "key": "Cmd+Alt+p",
-      "action": "tab.toggle_pin"
-    },
-    {
       "key": "Cmd+Enter",
       "action": "file.open_link"
     },
     {
       "key": "Cmd+Shift+Enter",
-      "action": "file.open_link_in_new_tab"
+      "action": "file.open_link_in_new_window"
     },
     {
       "key": "Cmd+d",
@@ -138,14 +126,6 @@
     {
       "key": "End",
       "action": "scroll.bottom"
-    },
-    {
-      "key": "Ctrl+Tab",
-      "action": "tab.next"
-    },
-    {
-      "key": "Ctrl+Shift+Tab",
-      "action": "tab.prev"
     },
     {
       "key": "Ctrl+ArrowLeft",

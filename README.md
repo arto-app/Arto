@@ -39,7 +39,7 @@ Markdown is where documentation, communication and thinking now live, and readin
 
 **Finding** — find in page, plus pinned searches that keep multi-colour highlights across sessions.
 
-**Windows and tabs** — tabs, multiple windows, tabs dragged between windows, child windows for diagrams, and drag-and-drop to open.
+**Windows** — one document to a window, as many windows as you like, child windows for diagrams, and drag-and-drop to open.
 
 **Rich content** — Mermaid diagrams in an interactive viewer with zoom, pan and copy-as-image; KaTeX math; syntax-highlighted code with a copy button; YAML frontmatter as a collapsible table; and GitHub alerts (`NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`).
 

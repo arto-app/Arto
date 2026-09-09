@@ -104,17 +104,14 @@ pub fn get_primary_display() -> Option<DisplayInfo> {
 /// - Windows (`GetCursorPos`) reports physical pixels, because tao marks the
 ///   process `DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2`.
 ///
-/// Everything the drag code compares against is logical: DOM
-/// `screen_coordinates()`, the tab bar bounds measured from the DOM, and the
-/// rects `drag::is_point_in_window` derives as `physical / scale`. Feeding a
-/// physical value into that world silently breaks it — at 150% scaling the
-/// cursor reads 1.5x too far, so every window hit test misses, the drag detaches
-/// immediately, and the preview window is positioned far off target.
+/// Everything this is compared against is logical — the display bounds a new
+/// window is placed within, among them — so feeding a physical value into that
+/// world silently misplaces it: at 150% scaling the cursor reads 1.5x too far,
+/// and a window asked to open at the pointer opens well away from it.
 ///
-/// `scale_factor` is the scale factor used to convert raw coordinates into
-/// logical coordinates. Ideally this comes from the display currently under the
-/// cursor; some call sites (e.g. drag tracking) may use the source window's scale
-/// factor, which can be inaccurate across mixed-DPI monitors.
+/// `scale_factor` converts raw coordinates into logical ones. Ideally it comes
+/// from the display currently under the cursor; a caller using another
+/// window's scale factor can be inaccurate across mixed-DPI monitors.
 pub fn cursor_position_to_logical(x: f64, y: f64, scale_factor: f64) -> (f64, f64) {
     #[cfg(target_os = "windows")]
     {

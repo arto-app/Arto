@@ -1,12 +1,11 @@
 mod drag_drop_overlay;
-pub(crate) mod drag_handlers;
 mod drop_handlers;
 mod keybinding_engine;
 mod listeners;
 mod shortcut_overlay;
 
 use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
-use dioxus::desktop::tao::event::{DeviceEvent, ElementState, Event as TaoEvent, WindowEvent};
+use dioxus::desktop::tao::event::{Event as TaoEvent, WindowEvent};
 #[cfg(not(target_os = "windows"))]
 use dioxus::desktop::use_muda_event_handler;
 use dioxus::desktop::{use_wry_event_handler, window};
@@ -24,17 +23,13 @@ use super::right_sidebar::RightSidebarTab;
 use super::search_bar::SearchBar;
 use super::sidebar::file_explorer::SidebarContextMenuHost;
 use super::sidebar::Sidebar;
-use super::tab::TabBar;
 use crate::assets::main_script_url;
-use crate::drag;
-use crate::events::{ActiveDragUpdate, ACTIVE_DRAG_UPDATE};
 #[cfg(not(target_os = "windows"))]
 use crate::menu;
-use crate::state::{AppState, PersistedState, Tab};
+use crate::state::{AppState, Document, PersistedState};
 use crate::theme::Theme;
 
 use drag_drop_overlay::DragDropOverlay;
-use drag_handlers::{handle_drag_mouse_motion, handle_drag_mouse_release};
 use drop_handlers::handle_dropped_files;
 use keybinding_engine::setup_keybinding_engine;
 use listeners::{setup_cross_window_open_listeners, setup_preferences_listeners};
@@ -43,50 +38,10 @@ use shortcut_overlay::{
     ShortcutHelpOverlay, ShortcutOverlayVisibility,
 };
 
-/// Left mouse button ID for DeviceEvent::Button (platform-dependent raw value)
-///
-/// tao does not normalize this value across platforms:
-/// - macOS reports `NSEvent::buttonNumber()`, which is 0-based (left = 0).
-/// - Windows derives it from the raw-input button index as `index + 1` for
-///   consistency with X11, so left = 1.
-///
-/// Getting this wrong is silent and severe: the release event never matches, so
-/// `handle_drag_mouse_release` never runs and an active tab drag never ends. The
-/// detached preview window then keeps following the cursor forever, and the
-/// global drag state is never cleared.
-#[cfg(target_os = "macos")]
-const MOUSE_BUTTON_LEFT: u32 = 0;
-#[cfg(not(target_os = "macos"))]
-const MOUSE_BUTTON_LEFT: u32 = 1;
-
-/// Apply tao's device event filter to match whether a tab drag is in progress.
-///
-/// `DeviceEventFilter::Unfocused` (tao's default) drops device events for
-/// unfocused windows, which is the right trade-off while idle but fatal during a
-/// drag - see the call site. Only the transitions are applied, so this is cheap
-/// to call on every event.
-#[cfg(target_os = "windows")]
-fn sync_device_event_filter<T>(
-    target: &dioxus::desktop::tao::event_loop::EventLoopWindowTarget<T>,
-    dragging: bool,
-) {
-    use dioxus::desktop::tao::event_loop::DeviceEventFilter;
-    use std::sync::atomic::{AtomicBool, Ordering};
-
-    static RELAXED: AtomicBool = AtomicBool::new(false);
-
-    if RELAXED.swap(dragging, Ordering::Relaxed) != dragging {
-        target.set_device_event_filter(if dragging {
-            DeviceEventFilter::Never
-        } else {
-            DeviceEventFilter::Unfocused
-        });
-    }
-}
-
 #[component]
 pub fn App(
-    tabs: Vec<Tab>, // Initial tabs (at least one tab must be present)
+    // The document to open in this window, if there is one.
+    document: Document,
     // Directory to root the file explorer at (resolved in create_main_window or
     // MainApp). None means no directory is opened, so the sidebar shows its
     // empty/welcome state instead of scanning an arbitrary directory.
@@ -103,18 +58,17 @@ pub fn App(
     right_sidebar_zoom_level: f64,
     zoom_level: f64,
 ) -> Element {
-    // Initialize application state with the provided tab
+    // Initialize application state with the provided document
     let mut state = use_context_provider(|| {
         let mut app_state = AppState::new(theme);
-        let initial_tabs = if tabs.is_empty() {
-            vec![Tab::default()]
-        } else {
-            tabs
-        };
-
-        // Initialize with provided tabs (preserves ordering)
-        app_state.tabs.set(initial_tabs);
-        app_state.active_tab.set(0);
+        // A duplicated window arrives with the place its original had reached
+        // recorded in the document's history; a fresh one carries the top.
+        if let Some(entry) = document.history.current() {
+            app_state
+                .pending_scroll_anchor
+                .set(Some(entry.scroll_anchor));
+        }
+        app_state.document.set(document);
         app_state.content_full_width.set(content_full_width);
 
         // Apply initial sidebar settings from params (including directory)
@@ -199,19 +153,6 @@ pub fn App(
 
     // Handle window events
     use_wry_event_handler(move |event, target| {
-        // A tab drag is tracked exclusively by its SOURCE window, but tao drops
-        // DeviceEvents for unfocused windows by default. Detaching a tab creates
-        // and focuses a preview window, which unfocuses the source - so tracking
-        // died mid-drag: motion stopped and the release that ends the drag never
-        // arrived, leaving a drag that follows the cursor forever. Relax the
-        // filter while dragging and restore it after, so idle windows do not pay
-        // for device events they do not need.
-        //
-        // Windows-only by nature: tao ignores this filter everywhere else, which
-        // is exactly why the drag architecture works on macOS as written.
-        #[cfg(target_os = "windows")]
-        sync_device_event_filter(target, drag::is_active_drag());
-        #[cfg(not(target_os = "windows"))]
         let _ = target;
 
         match event {
@@ -243,34 +184,6 @@ pub fn App(
                     );
                 }
             }
-            // DeviceEvent: Global mouse tracking for tab drag
-            // These events are delivered regardless of window focus, enabling cross-window drag
-            TaoEvent::DeviceEvent {
-                event: DeviceEvent::MouseMotion { .. },
-                ..
-            } => {
-                // Only process if we're the source window of an active drag
-                if let Some(dragged) = drag::get_dragged_tab() {
-                    if dragged.source_window_id == window().id() && drag::is_active_drag() {
-                        handle_drag_mouse_motion(state);
-                    }
-                }
-            }
-            TaoEvent::DeviceEvent {
-                event:
-                    DeviceEvent::Button {
-                        state: ElementState::Released,
-                        button,
-                        ..
-                    },
-                ..
-            } if *button == MOUSE_BUTTON_LEFT => {
-                if let Some(dragged) = drag::get_dragged_tab() {
-                    if dragged.source_window_id == window().id() && drag::is_active_drag() {
-                        handle_drag_mouse_release(state);
-                    }
-                }
-            }
             _ => {}
         }
     });
@@ -279,82 +192,16 @@ pub fn App(
     setup_cross_window_open_listeners(state);
     setup_preferences_listeners(state);
 
-    // Update window title when active tab changes
+    // Keep the window title on the document being read
     use_effect(move || {
-        let active_index = *state.active_tab.read();
-        let tabs = state.tabs.read();
-
-        if let Some(tab) = tabs.get(active_index) {
-            let title = crate::utils::window_title::generate_window_title(&tab.content);
-            window().set_title(&title);
-        }
-    });
-
-    // Listen for tab transfer events (from drag-and-drop and context menu "Move to Window")
-    use_future(move || async move {
-        let mut rx = crate::events::TRANSFER_TAB_TO_WINDOW.subscribe();
-        let current_window_id = window().id();
-
-        while let Ok((target_window_id, target_index, tab)) = rx.recv().await {
-            // Only process transfers targeted to this window
-            if target_window_id != current_window_id {
-                continue;
-            }
-
-            tracing::debug!(?target_window_id, ?target_index, "Received tab transfer");
-
-            // Insert the tab at the specified position
-            let tabs_len = state.tabs.read().len();
-            let insert_index = target_index.unwrap_or(tabs_len);
-            let new_tab_index = state.insert_tab(tab, insert_index);
-            state.switch_to_tab(new_tab_index);
-
-            // Focus this window after receiving the tab
-            window().set_focus();
-
-            tracing::info!("Tab transfer completed");
-        }
+        let title =
+            crate::utils::window_title::generate_window_title(&state.document.read().content);
+        window().set_title(&title);
     });
 
     // Save state and close child windows when this window closes
     use_drop(move || {
         let window_id = window().id();
-
-        // Clean up drag state if this window was the drag source
-        // This prevents orphaned tabs when source window closes during drag
-        if let Some(dragged) = drag::get_dragged_tab() {
-            if dragged.source_window_id == window_id {
-                if let Some(active) = drag::get_active_drag() {
-                    let is_single_tab = active.source_tab_count == 1;
-
-                    match &active.detach_state {
-                        drag::DetachState::None => {
-                            // Multi-tab: tab was removed, restore it to this window
-                            if !is_single_tab {
-                                state.insert_tab(dragged.tab.clone(), dragged.source_index);
-                            }
-                            // Single-tab: tab is still in window, nothing to restore
-                        }
-                        drag::DetachState::Pending { .. } | drag::DetachState::Creating => {
-                            // Multi-tab: tab was removed, restore it to this window
-                            if !is_single_tab {
-                                state.insert_tab(dragged.tab.clone(), dragged.source_index);
-                            }
-                            // Single-tab: tab is still in window, nothing to restore
-                        }
-                        drag::DetachState::Detached { .. } => {
-                            // Preview window exists - commit it as permanent window
-                            crate::window::commit_preview_window();
-                        }
-                    }
-                }
-                // Clear global drag state
-                drag::end_active_drag();
-                drag::end_drag();
-                // Notify other windows to clear drag UI
-                ACTIVE_DRAG_UPDATE.send(ActiveDragUpdate).ok();
-            }
-        }
 
         // Unregister this window's state from the global mapping
         crate::window::unregister_window_state(window_id);
@@ -440,7 +287,6 @@ pub fn App(
                 class: "main-area",
                 Header {},
                 SearchBar {},
-                TabBar {},
                 Content {},
             }
 

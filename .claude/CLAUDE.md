@@ -21,7 +21,7 @@ crate. Do NOT report completion while any of these fail.
 
 | Path | What it is |
 | --- | --- |
-| `crates/arto/` | The desktop app (Dioxus). Windows, tabs, sidebar, menus, IPC client/server |
+| `crates/arto/` | The desktop app (Dioxus). Windows, the panel and its faces, menus, IPC client/server |
 | `crates/arto-markdown/` | Markdown → HTML pipeline shared by the app, `arto page` and Quick Look |
 | `crates/arto-config/` | `config.json` types and file I/O (no globals) |
 | `crates/arto-keybindings/` | Keybinding parsing and defaults |
@@ -39,5 +39,5 @@ state, configuration, IPC, menus, the Markdown pipeline, Dioxus async
 patterns, testing, UI design. `.claude/TIPS.md` collects longer-form
 lessons; read it when a rule points there.
 
-Welcome page text lives in `crates/arto/assets/welcome.md` and the project
-description in `README.md`; quote those instead of inventing descriptions.
+The project description lives in `README.md`; quote it instead of inventing
+descriptions.

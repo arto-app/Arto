@@ -17,16 +17,6 @@ pub enum Action {
     ScrollTop,
     ScrollBottom,
 
-    // Tab — MenuId: NewTab, CloseTab, CloseAllTabs + keyboard navigation
-    TabNew,
-    TabClose,
-    TabCloseAll,
-    TabCloseOthers,
-    TabTogglePin,
-    TabOpenInNewWindow,
-    TabNext,
-    TabPrev,
-
     // History (2) — MenuId: GoBack, GoForward
     HistoryBack,
     HistoryForward,
@@ -61,8 +51,13 @@ pub enum Action {
     CopyImageAsMarkdown,
     CopyLinkPath,
 
-    // Window (4)
+    // Window (7)
     WindowNew,
+    /// A copy of this window: the document, and the place in it the reader had
+    /// reached.
+    WindowDuplicate,
+    /// Put the document down; the window keeps everything else.
+    WindowNewDocument,
     WindowClose,
     WindowCloseAllChildWindows,
     WindowCloseAllWindows,
@@ -84,7 +79,7 @@ pub enum Action {
     FileSetParentAsRoot,
     FileToggleBookmark,
     FileOpenLink,
-    FileOpenLinkInNewTab,
+    FileOpenLinkInNewWindow,
     FileSaveImageAs,
     FilePreferences,
     FileRevealInFinder,
@@ -148,19 +143,6 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::ScrollBottom,
         ],
     ),
-    (
-        "Tab",
-        &[
-            Action::TabNew,
-            Action::TabClose,
-            Action::TabCloseAll,
-            Action::TabCloseOthers,
-            Action::TabTogglePin,
-            Action::TabOpenInNewWindow,
-            Action::TabNext,
-            Action::TabPrev,
-        ],
-    ),
     ("History", &[Action::HistoryBack, Action::HistoryForward]),
     (
         "Search",
@@ -199,6 +181,8 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
         "Window",
         &[
             Action::WindowNew,
+            Action::WindowDuplicate,
+            Action::WindowNewDocument,
             Action::WindowClose,
             Action::WindowCloseAllChildWindows,
             Action::WindowCloseAllWindows,
@@ -224,7 +208,7 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::FileSetParentAsRoot,
             Action::FileToggleBookmark,
             Action::FileOpenLink,
-            Action::FileOpenLinkInNewTab,
+            Action::FileOpenLinkInNewWindow,
             Action::FileSaveImageAs,
             Action::FilePreferences,
             Action::FileRevealInFinder,
@@ -295,13 +279,12 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
 /// action appears here.
 pub const MENU_ACTIONS: &[Action] = &[
     Action::WindowNew,
-    Action::TabNew,
+    Action::WindowDuplicate,
+    Action::WindowNewDocument,
     Action::FileOpen,
     Action::FileOpenDirectory,
     Action::CopyFilePath,
     Action::FileRevealInFinder,
-    Action::TabClose,
-    Action::TabCloseAll,
     Action::WindowClose,
     Action::FilePrint,
     Action::FilePreferences,
@@ -376,14 +359,6 @@ action_strings! {
     ScrollHalfPageUp => "scroll.half_page_up",
     ScrollTop => "scroll.top",
     ScrollBottom => "scroll.bottom",
-    TabNew => "tab.new",
-    TabClose => "tab.close",
-    TabCloseAll => "tab.close_all",
-    TabCloseOthers => "tab.close_others",
-    TabTogglePin => "tab.toggle_pin",
-    TabOpenInNewWindow => "tab.open_in_new_window",
-    TabNext => "tab.next",
-    TabPrev => "tab.prev",
     HistoryBack => "history.back",
     HistoryForward => "history.forward",
     SearchOpen => "search.open",
@@ -409,6 +384,8 @@ action_strings! {
     CopyImageAsMarkdown => "clipboard.copy_image_as_markdown",
     CopyLinkPath => "clipboard.copy_link_path",
     WindowNew => "window.new",
+    WindowDuplicate => "window.duplicate",
+    WindowNewDocument => "window.new_document",
     WindowClose => "window.close",
     WindowCloseAllChildWindows => "window.close_all_child_windows",
     WindowCloseAllWindows => "window.close_all_windows",
@@ -424,7 +401,7 @@ action_strings! {
     FileSetParentAsRoot => "file.set_parent_as_root",
     FileToggleBookmark => "file.toggle_bookmark",
     FileOpenLink => "file.open_link",
-    FileOpenLinkInNewTab => "file.open_link_in_new_tab",
+    FileOpenLinkInNewWindow => "file.open_link_in_new_window",
     FileSaveImageAs => "file.save_image_as",
     FilePreferences => "file.preferences",
     FileRevealInFinder => "file.reveal_in_finder",
@@ -469,7 +446,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 85);
+        assert_eq!(all_actions().len(), 79);
     }
 
     #[test]
@@ -486,7 +463,7 @@ mod tests {
     #[test]
     fn display_format() {
         assert_eq!(Action::ScrollDown.to_string(), "scroll.down");
-        assert_eq!(Action::TabNew.to_string(), "tab.new");
+        assert_eq!(Action::WindowNew.to_string(), "window.new");
         assert_eq!(Action::CopyFilePath.to_string(), "clipboard.copy_file_path");
         assert_eq!(Action::Cancel.to_string(), "cancel");
         assert_eq!(Action::FocusLeftSidebar.to_string(), "focus.left_sidebar");
