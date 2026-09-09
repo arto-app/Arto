@@ -8,3 +8,6 @@ package-lock.json
 
 # Build-generated version file (CI only)
 crates/arto/VERSION
+
+# Playwright MCP writes its snapshots and console logs here.
+.playwright-mcp/
