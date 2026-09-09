@@ -34,7 +34,7 @@ pub(super) fn LinkContextItems(href: String, on_close: EventHandler<()>) -> Elem
         ContextMenuItem {
             label: "Open Link",
             shortcut: shortcut("file.open_link"),
-            icon: Some(IconName::ExternalLink),
+            icon: Some(IconName::Link),
             on_click: {
                 let on_close = on_close;
                 move |_| {
@@ -45,9 +45,9 @@ pub(super) fn LinkContextItems(href: String, on_close: EventHandler<()>) -> Elem
         }
 
         ContextMenuItem {
-            label: "Open Link in New Tab",
-            shortcut: shortcut("file.open_link_in_new_tab"),
-            icon: Some(IconName::Add),
+            label: "Open Link in New Window",
+            shortcut: shortcut("file.open_link_in_new_window"),
+            icon: Some(IconName::AppWindow),
             on_click: {
                 let on_close = on_close;
                 move |_| {

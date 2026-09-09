@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 use std::path::PathBuf;
 
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
+use crate::components::icon::IconName;
 
 /// "Copy As..." submenu: Text / Markdown
 #[component]
@@ -18,9 +19,11 @@ pub(super) fn CopyAsSubmenu(
     rsx! {
         ContextMenuSubmenu {
             label: "Copy As...",
+            icon: Some(IconName::Copy),
 
             ContextMenuItem {
                 label: "Text",
+                icon: Some(IconName::LetterT),
                 on_click: {
                     let text = selected_text.clone();
                     move |_| {
@@ -33,6 +36,7 @@ pub(super) fn CopyAsSubmenu(
             if has_markdown_source {
                 ContextMenuItem {
                     label: "Markdown",
+                    icon: Some(IconName::Markdown),
                     on_click: {
                         let file = current_file.clone().unwrap();
                         let start = source_line.unwrap();

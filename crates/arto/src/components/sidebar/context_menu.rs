@@ -165,6 +165,7 @@ pub fn SidebarContextMenu(
 
             ContextMenuItem {
                 label: "Open in New Window",
+                icon: Some(IconName::AppWindow),
                 on_click: move |_| on_open_in_new_window.call(()),
             }
 

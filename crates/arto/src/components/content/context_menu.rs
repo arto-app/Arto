@@ -265,6 +265,56 @@ pub fn ContentContextMenu(
                 },
             }
 
+            // === The document itself ===
+            //
+            // A right-click that lands in the margin, or on the band above the
+            // page, is about the document rather than about anything in it —
+            // and so is one that lands on a paragraph, once the paragraph's own
+            // offers have been made. These are the same things the panel offers
+            // on the row that opened it.
+            if state.current_file().is_some() {
+                ContextMenuSeparator {}
+
+                ContextMenuItem {
+                    label: "Copy File Path",
+                    shortcut: shortcut("clipboard.copy_file_path"),
+                    icon: Some(IconName::Copy),
+                    on_click: {
+                        let on_close = on_close;
+                        move |_| {
+                            dispatch_action(&Action::CopyFilePath, state);
+                            on_close.call(());
+                        }
+                    },
+                }
+
+                ContextMenuItem {
+                    label: "Reveal in Finder",
+                    shortcut: shortcut("file.reveal_in_finder"),
+                    icon: Some(IconName::Folder),
+                    on_click: {
+                        let on_close = on_close;
+                        move |_| {
+                            dispatch_action(&Action::FileRevealInFinder, state);
+                            on_close.call(());
+                        }
+                    },
+                }
+
+                ContextMenuItem {
+                    label: "Reload",
+                    shortcut: shortcut("window.reload"),
+                    icon: Some(IconName::Refresh),
+                    on_click: {
+                        let on_close = on_close;
+                        move |_| {
+                            dispatch_action(&Action::WindowReload, state);
+                            on_close.call(());
+                        }
+                    },
+                }
+            }
+
             // === Section 3: Copy As... submenus ===
             if has_any_submenu {
                 ContextMenuSeparator {}
@@ -347,8 +397,8 @@ pub fn ContentContextMenu(
                 ContentContext::Image { .. } => rsx! {
                     ContextMenuItem {
                         label: "Save Image As...",
-                        shortcut: shortcut("file.save_image_as"),
                         icon: Some(IconName::Download),
+                        shortcut: shortcut("file.save_image_as"),
                         on_click: {
                             let on_close = on_close;
                             move |_| {
@@ -361,8 +411,8 @@ pub fn ContentContextMenu(
                 ContentContext::Mermaid { .. } | ContentContext::MathBlock { .. } => rsx! {
                     ContextMenuItem {
                         label: "Save Image As...",
-                        shortcut: shortcut("file.save_image_as"),
                         icon: Some(IconName::Download),
+                        shortcut: shortcut("file.save_image_as"),
                         on_click: {
                             let on_close = on_close;
                             move |_| {

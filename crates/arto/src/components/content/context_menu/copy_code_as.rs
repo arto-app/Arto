@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use super::source_ops::build_path_with_range;
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
+use crate::components::icon::IconName;
 
 /// "Copy Code As..." submenu: Code / Markdown / Path with Range
 #[component]
@@ -26,9 +27,11 @@ pub(super) fn CopyCodeAsSubmenu(
     rsx! {
         ContextMenuSubmenu {
             label: "Copy Code As...",
+            icon: Some(IconName::Code),
 
             ContextMenuItem {
                 label: "Code",
+                icon: Some(IconName::Code),
                 on_click: {
                     let code_content = code_content.clone();
                     move |_| {
@@ -42,6 +45,7 @@ pub(super) fn CopyCodeAsSubmenu(
             if has_markdown {
                 ContextMenuItem {
                     label: "Markdown",
+                    icon: Some(IconName::Markdown),
                     on_click: {
                         let file = current_file.clone().unwrap();
                         let start = block_source_line.unwrap();

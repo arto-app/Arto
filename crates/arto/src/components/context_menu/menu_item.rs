@@ -45,7 +45,11 @@ pub fn ContextMenuSeparator() -> Element {
 
 /// Reusable submenu component with hover-to-open behavior.
 #[component]
-pub fn ContextMenuSubmenu(label: String, children: Element) -> Element {
+pub fn ContextMenuSubmenu(
+    label: String,
+    #[props(default)] icon: Option<IconName>,
+    children: Element,
+) -> Element {
     let mut show = use_signal(|| false);
 
     rsx! {
@@ -53,6 +57,17 @@ pub fn ContextMenuSubmenu(label: String, children: Element) -> Element {
             class: "context-menu-item has-submenu",
             onmouseenter: move |_| show.set(true),
             onmouseleave: move |_| show.set(false),
+
+            // A row that opens onto more rows is still a row: it wears its
+            // icon in the same column as the items around it, or the column
+            // breaks wherever a submenu sits in the list.
+            if let Some(icon) = icon {
+                Icon {
+                    name: icon,
+                    size: 14,
+                    class: "context-menu-icon",
+                }
+            }
 
             span { class: "context-menu-label", "{label}" }
             span { class: "submenu-arrow", "›" }
