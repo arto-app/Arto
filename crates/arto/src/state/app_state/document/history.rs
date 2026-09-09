@@ -15,6 +15,7 @@ impl AppState {
     pub fn save_scroll_and_go_back(&mut self) -> bool {
         let position = *self.current_scroll_anchor.read();
         self.save_current_scroll_anchor(position);
+        self.keep_reading_position();
         self.go_back_in_history()
     }
 
@@ -25,6 +26,7 @@ impl AppState {
     pub fn save_scroll_and_go_forward(&mut self) -> bool {
         let position = *self.current_scroll_anchor.read();
         self.save_current_scroll_anchor(position);
+        self.keep_reading_position();
         self.go_forward_in_history()
     }
 

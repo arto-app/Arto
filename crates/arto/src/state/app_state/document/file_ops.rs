@@ -5,11 +5,16 @@ use dioxus::prelude::*;
 use std::path::{Path, PathBuf};
 
 impl AppState {
-    /// Read a file in this window.
+    /// Read a file in this window, at the place it was left.
     ///
     /// Opening the document already on screen is not a move, so it does
-    /// nothing: the window would otherwise gain a history entry for standing
-    /// still.
+    /// nothing beyond noting the visit: the window would otherwise gain a
+    /// history entry for standing still.
+    ///
+    /// A document that has been read before opens where the reader had got
+    /// to. Coming back to a long document at the top of it is being made to
+    /// find your place again every time, and the history is already keeping
+    /// the answer.
     pub fn open_file(&mut self, file: impl AsRef<Path>) {
         // Folded here rather than at each store's own door, so that the
         // window and the lists beside it are all talking about the same
@@ -20,12 +25,16 @@ impl AppState {
         let file = file.as_path();
         self.reveal_in_roots(file);
         if self.current_file().as_deref() != Some(file) {
+            self.keep_reading_position();
+            let resume = crate::visits::position(file).filter(|anchor| !anchor.is_top());
+            self.pending_scroll_anchor.set(resume);
             self.update_document(|document| document.navigate_to(file));
         }
         // Recorded once the window is already showing it. Every window on the
-        // history reads it against the document on screen, so announcing the
-        // visit first would redraw them all around a document that is not the
-        // current one yet.
+        // history reads it against the document on screen — the trace leaves
+        // out what is being read, the palette starts on the one before it —
+        // so announcing the visit first would redraw them all around a
+        // document that is not the current one yet.
         self.record_visit(file);
     }
 
@@ -39,6 +48,19 @@ impl AppState {
     pub fn record_visit(&mut self, file: impl AsRef<Path>) {
         crate::visits::record_visit(file.as_ref());
         *self.visits_revision.write() += 1;
+    }
+
+    /// Hand the document on screen's place to the history, so that leaving it
+    /// is what saves it.
+    ///
+    /// The position is noted in memory as the page scrolls; this is where it
+    /// is put on the row it belongs to before the row stops being the current
+    /// one. The write to disk comes with the visit that follows.
+    pub fn keep_reading_position(&mut self) {
+        let Some(file) = self.current_file() else {
+            return;
+        };
+        crate::visits::keep_position(&file, *self.current_scroll_anchor.read());
     }
 
     /// Follow a link inside the document being read.

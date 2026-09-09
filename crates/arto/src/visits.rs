@@ -11,6 +11,7 @@
 //! the year. [`group`] is where that happens, and it is pure so the
 //! boundaries can be tested against a fixed clock.
 
+use crate::scroll_anchor::ScrollAnchor;
 use chrono::{DateTime, Datelike, Days, Local, NaiveDate, Weekday};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -25,12 +26,20 @@ use tokio::sync::broadcast;
 /// where to find it again. Only the count is bounded, and generously.
 pub const MAX_VISITS: usize = 5_000;
 
-/// One document, and when it was last read.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// One document, when it was last read, and how far into it the reader had
+/// got.
+///
+/// The position is part of what "I have read this" means: a document opened
+/// again from the history opens where it was left, rather than at a top the
+/// reader has already been past. A history written before positions were kept
+/// has none, which reads as the top.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Visit {
     pub path: PathBuf,
     pub at: DateTime<Local>,
+    #[serde(default)]
+    pub anchor: ScrollAnchor,
 }
 
 impl Visit {
@@ -38,6 +47,7 @@ impl Visit {
         Self {
             path: path.into(),
             at,
+            anchor: ScrollAnchor::TOP,
         }
     }
 }
@@ -213,6 +223,25 @@ impl Visits {
         self.items.truncate(MAX_VISITS);
     }
 
+    /// Note how far into a document the reader has got.
+    ///
+    /// The order is left alone: this is not a visit, it is the same visit
+    /// still going on, and moving the row would make scrolling look like
+    /// reading something new.
+    pub fn keep_position(&mut self, path: &Path, anchor: ScrollAnchor) {
+        if let Some(visit) = self.items.iter_mut().find(|visit| visit.path == path) {
+            visit.anchor = anchor;
+        }
+    }
+
+    /// Where the reader had got to, if this document has been read before.
+    pub fn position(&self, path: &Path) -> Option<ScrollAnchor> {
+        self.items
+            .iter()
+            .find(|visit| visit.path == path)
+            .map(|visit| visit.anchor)
+    }
+
     /// Forget one document, for a reader who would rather it were not listed.
     pub fn forget(&mut self, path: &Path) {
         self.items.retain(|visit| visit.path != path);
@@ -282,6 +311,30 @@ pub static VISITS: LazyLock<RwLock<Visits>> = LazyLock::new(|| RwLock::new(Visit
 pub static VISITS_CHANGED: LazyLock<broadcast::Sender<()>> =
     LazyLock::new(|| broadcast::channel(16).0);
 
+/// Note where the reader has got to, in memory alone.
+///
+/// Called as a document is left rather than as it is scrolled: the window
+/// already holds the live position, so the history only needs it at the
+/// moment the row stops being the one being read. It goes to disk with the
+/// next save — the visit that follows, or the window closing.
+pub fn keep_position(path: &Path, anchor: ScrollAnchor) {
+    let path = crate::utils::paths::true_spelling(path);
+    VISITS.write().keep_position(&path, anchor);
+}
+
+/// Where the reader had got to in a document they have read before.
+pub fn position(path: &Path) -> Option<ScrollAnchor> {
+    let path = crate::utils::paths::true_spelling(path);
+    VISITS.read().position(&path)
+}
+
+/// Write the history out, positions and all.
+pub fn save_visits() {
+    if let Err(err) = VISITS.read().save() {
+        tracing::warn!(%err, "Failed to save visit history");
+    }
+}
+
 /// Record a visit, persist it, and tell the other windows.
 pub fn record_visit(path: impl Into<PathBuf>) {
     let mut visits = VISITS.write();
@@ -333,6 +386,46 @@ mod tests {
         assert_eq!(short_when(at(8, 30, 19, 44), now), "8/30");
     }
 
+    fn at(y: i32, m: u32, d: u32) -> DateTime<Local> {
+        Local.with_ymd_and_hms(y, m, d, 12, 0, 0).unwrap()
+    }
+
+    #[test]
+    fn a_kept_position_comes_back_and_leaves_the_order_alone() {
+        let mut visits = Visits::default();
+        visits.record("/docs/first.md", at(2026, 9, 8));
+        visits.record("/docs/second.md", at(2026, 9, 9));
+
+        let place = ScrollAnchor {
+            line: 42,
+            fraction: 0.25,
+        };
+        visits.keep_position(Path::new("/docs/first.md"), place);
+
+        assert_eq!(visits.position(Path::new("/docs/first.md")), Some(place));
+        // Reading on is not visiting again: the newest is still the newest.
+        assert_eq!(visits.items[0].path, PathBuf::from("/docs/second.md"));
+    }
+
+    #[test]
+    fn a_document_never_read_has_no_position() {
+        let mut visits = Visits::default();
+        visits.record("/docs/first.md", at(2026, 9, 8));
+        assert_eq!(visits.position(Path::new("/docs/other.md")), None);
+        // One that has been read but not scrolled starts at the top.
+        assert_eq!(
+            visits.position(Path::new("/docs/first.md")),
+            Some(ScrollAnchor::TOP)
+        );
+    }
+
+    #[test]
+    fn a_history_written_before_positions_existed_reads_as_the_top() {
+        let json = r#"{"items":[{"path":"/docs/first.md","at":"2026-09-08T12:00:00+09:00"}]}"#;
+        let visits: Visits = serde_json::from_str(json).expect("loads");
+        assert_eq!(visits.items[0].anchor, ScrollAnchor::TOP);
+    }
+
     fn day(y: i32, m: u32, d: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(y, m, d).unwrap()
     }
@@ -345,9 +438,7 @@ mod tests {
         day(TODAY.0, TODAY.1, TODAY.2)
     }
 
-    fn at(y: i32, m: u32, d: u32) -> DateTime<Local> {
-        Local.with_ymd_and_hms(y, m, d, 12, 0, 0).unwrap()
-    }
+    // === bucket_for(): the boundaries, from both sides ===
 
     #[test]
     fn today_and_yesterday_stand_alone() {

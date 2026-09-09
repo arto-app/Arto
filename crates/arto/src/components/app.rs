@@ -196,6 +196,12 @@ pub fn App(
         // Unregister this window's state from the global mapping
         crate::window::unregister_window_state(window_id);
 
+        // The other way a document is left: the history keeps the place so
+        // that opening it again opens where the reader was.
+        let mut state = state;
+        state.keep_reading_position();
+        crate::visits::save_visits();
+
         // Save last used state from this window to disk for next app launch
         let mut persisted = PersistedState::from(&state);
         let window_metrics = crate::window::metrics::capture_window_metrics(&window().window);
