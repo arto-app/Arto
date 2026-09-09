@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { shouldSwallowReservedKey } from "./keyboard-interceptor";
+import { inputMethodHasKey, shouldSwallowReservedKey } from "./keyboard-interceptor";
 
 // ============================================================================
 // shouldSwallowReservedKey
@@ -104,5 +104,43 @@ describe("shouldSwallowReservedKey", () => {
     expect(shouldSwallowReservedKey(decision({ key: "c", isMac: true, ctrlKey: true }))).toBe(
       false,
     );
+  });
+});
+
+// ============================================================================
+// inputMethodHasKey
+// ============================================================================
+
+/** A keystroke with nothing unusual about it. */
+function keystroke(overrides: Partial<Parameters<typeof inputMethodHasKey>[0]> = {}) {
+  return {
+    composing: false,
+    isComposing: false,
+    keyCode: 74,
+    editable: false,
+    ...overrides,
+  };
+}
+
+describe("inputMethodHasKey", () => {
+  test("an ordinary keystroke is the keybindings'", () => {
+    expect(inputMethodHasKey(keystroke())).toBe(false);
+  });
+
+  test("a composition in progress is the input method's", () => {
+    expect(inputMethodHasKey(keystroke({ isComposing: true }))).toBe(true);
+    expect(inputMethodHasKey(keystroke({ composing: true }))).toBe(true);
+  });
+
+  test("the keystroke that begins a composition, inside a field, is the input method's", () => {
+    // `compositionstart` has not arrived yet; 229 is what says so.
+    expect(inputMethodHasKey(keystroke({ keyCode: 229, editable: true }))).toBe(true);
+  });
+
+  test("229 over the document is still the keybindings'", () => {
+    // Some input methods report it for every key while they are selected, and
+    // there is nothing to compose into here. Reading it would take every
+    // keystroke in the window away from the bindings.
+    expect(inputMethodHasKey(keystroke({ keyCode: 229 }))).toBe(false);
   });
 });

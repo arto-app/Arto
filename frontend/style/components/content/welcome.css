@@ -1,0 +1,182 @@
+/* =================================
+   Welcome
+   =================================
+
+   What a window shows when it is not showing a document: the documents last
+   read and the places kept. Same list as the palette and the Recent face,
+   laid out to be read rather than aimed at. */
+
+.welcome {
+  display: flex;
+  justify-content: center;
+  min-height: 100%;
+  padding: 3rem 2rem 4rem;
+  box-sizing: border-box;
+}
+
+.welcome-content {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* The mark, and the one line that says what the app is for. A window with no
+   document in it has nothing for them to compete with. */
+.welcome-mark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.welcome-mark-image {
+  width: 240px;
+  height: auto;
+  user-select: none;
+}
+
+/* One canvas at a time, chosen by the theme rather than by the system. */
+:root[data-theme^="dark"] .welcome-mark-image.light,
+:root:not([data-theme^="dark"]) .welcome-mark-image.dark {
+  display: none;
+}
+
+.welcome-tagline {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+/* The way in, said once: a key, not a box. */
+.welcome-hint {
+  margin: 0;
+  text-align: center;
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+.welcome-key {
+  margin: 0 2px;
+  padding: 1px 5px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+}
+
+/* Whitespace separates the two columns; neither needs a rule or a surface. */
+.welcome-columns {
+  display: flex;
+  gap: 2.5rem;
+  align-items: flex-start;
+}
+
+/* Both columns hold the same kind of row — a document, its folder and when it
+   was last read — so both are given room to hold one. What is kept is on the
+   left and is the shorter list; the history is on the right and is the longer
+   one, not the wider one. */
+.welcome-column {
+  flex: 3 1 0;
+  min-width: 0;
+}
+
+.welcome-column-side {
+  flex: 2 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.welcome-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 0.5rem;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+.welcome-group {
+  margin: 0.75rem 0 0.25rem;
+  padding: 0 10px;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+.welcome-group:first-of-type {
+  margin-top: 0;
+}
+
+.welcome-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  color: var(--text-color);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+
+  .icon {
+    flex-shrink: 0;
+    opacity: var(--opacity-muted);
+  }
+}
+
+.welcome-row:hover {
+  background: var(--bg-secondary);
+}
+
+.welcome-row-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* When it was last read. It qualifies the row rather than being it, so it
+   trails the name and is the first thing the column gives up. */
+.welcome-row-when {
+  flex: none;
+  margin-left: auto;
+  padding-left: 12px;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.welcome-empty {
+  margin: 0;
+  padding: 0 10px;
+  font-size: var(--font-size-md);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+@media (width <= 720px) {
+  .welcome-columns {
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .welcome-column-side {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}

@@ -44,7 +44,7 @@ pub fn shortcut_hint_for_action(action: &str, context: Option<KeyContext>) -> Op
 /// Return a formatted shortcut hint from global (and menu) keybindings.
 ///
 /// This is the hint for an action reached by name rather than by key — from
-/// the in-app menu — so it asks for no context.
+/// the palette, or from the in-app menu — so it asks for no context.
 pub fn shortcut_hint_for_global_action(action: &str) -> Option<String> {
     shortcut_hint_for_action(action, None)
 }

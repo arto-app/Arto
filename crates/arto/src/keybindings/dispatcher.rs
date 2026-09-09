@@ -52,6 +52,16 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::ZoomOut => state.zoom_out(),
         Action::ZoomReset => state.zoom_reset(),
 
+        // --- Palette ---
+        Action::PaletteOpen => state.toggle_palette(),
+        Action::PaletteNext => step_palette(&mut state, true),
+        Action::PalettePrev => step_palette(&mut state, false),
+        Action::PaletteConfirm => {
+            let at = crate::components::palette::cursor_row(&state, *state.palette_rows.read());
+            activate_palette_row(state, at);
+        }
+        Action::PaletteClose => state.close_palette(),
+
         // --- Window ---
         // A new window is a fresh start: nothing this one happened to have
         // wandered into.
@@ -433,17 +443,51 @@ fn dispatch_cursor_collapse(state: &mut AppState) {
 
 /// Scroll the keyboard-focused element into view using JS.
 fn scroll_cursor_into_view() {
+    scroll_into_view(".keyboard-focused");
+}
+
+/// Bring the row a cursor just moved to into view, with room around it.
+///
+/// On the next frame, because the row it is looking for is the one the move
+/// has yet to draw.
+///
+/// Not `scrollIntoView({ block: 'nearest' })`: that is satisfied by a row
+/// with one pixel showing, so the cursor spends the whole list pinned to an
+/// edge with nothing ahead of it. The row is kept a couple of rows clear of
+/// both ends instead — what is coming next is as much of an answer as where
+/// the cursor is.
+fn scroll_into_view(selector: &'static str) {
     spawn_detached(async move {
-        if let Err(e) = document::eval(
+        let js = format!(
             r#"
-            requestAnimationFrame(() => {
-                document.querySelector('.keyboard-focused')?.scrollIntoView({ block: 'nearest' });
-            });
-            "#,
-        )
-        .await
-        {
-            tracing::debug!("Failed to scroll cursor into view: {e}");
+            requestAnimationFrame(() => {{
+                const row = document.querySelector({selector:?});
+                if (!row) return;
+                let box = row.parentElement;
+                while (box && box.scrollHeight <= box.clientHeight) {{
+                    box = box.parentElement;
+                }}
+                if (!box) {{
+                    row.scrollIntoView({{ block: 'nearest' }});
+                    return;
+                }}
+                const rowBox = row.getBoundingClientRect();
+                const view = box.getBoundingClientRect();
+                // Two rows of room, or a third of the list where two rows is
+                // most of it.
+                const margin = Math.min(rowBox.height * 2, view.height / 3);
+                const above = rowBox.top - view.top;
+                const below = view.bottom - rowBox.bottom;
+                if (above < margin) {{
+                    box.scrollTop += above - margin;
+                }} else if (below < margin) {{
+                    box.scrollTop -= below - margin;
+                }}
+            }});
+            "#
+        );
+        if let Err(e) = document::eval(&js).await {
+            tracing::debug!(selector, "Failed to scroll cursor into view: {e}");
         }
     });
 }
@@ -1086,4 +1130,45 @@ fn duplicate_window(state: &mut AppState) {
         ..crate::window::CreateMainWindowConfigParams::default()
     };
     crate::window::create_main_window_sync(&dioxus::desktop::window(), document, params);
+}
+
+/// Move the palette's cursor by one row.
+fn step_palette(state: &mut AppState, forward: bool) {
+    let len = *state.palette_rows.read();
+    let at = crate::components::palette::cursor_row(state, len);
+    state
+        .palette_cursor
+        .set(Some(crate::components::palette::step_cursor(
+            at, len, forward,
+        )));
+    scroll_into_view(".palette-row.keyboard-focused");
+}
+
+/// Take the row the palette is on: read the document, work in the folder, or
+/// do the thing.
+///
+/// The palette closes first. A command can put a modal file dialog or a new
+/// window on screen, and the list it was picked from has no business still
+/// floating over that.
+pub fn activate_palette_row(mut state: AppState, index: usize) {
+    let row = {
+        let visits = crate::visits::VISITS.read();
+        let (starred, places) = crate::components::palette::kept();
+        crate::components::palette::rows_for(
+            &visits.items,
+            &starred,
+            &places,
+            &state.palette_query.read(),
+        )
+        .get(index)
+        .cloned()
+    };
+    state.close_palette();
+    match row {
+        Some(crate::components::palette::Row::Document(visit)) => state.open_file(&visit.path),
+        Some(crate::components::palette::Row::Starred(path)) => state.open_file(&path),
+        Some(crate::components::palette::Row::Place(path)) => state.add_root(&path),
+        Some(crate::components::palette::Row::Command(action)) => dispatch_action(&action, state),
+        None => {}
+    }
 }

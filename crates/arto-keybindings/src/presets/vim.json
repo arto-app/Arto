@@ -278,6 +278,10 @@
     {
       "key": "Backslash r",
       "action": "focus.recent"
+    },
+    {
+      "key": "Cmd+k",
+      "action": "palette.open"
     }
   ],
   "content": [
@@ -388,6 +392,52 @@
     {
       "key": "Ctrl+w Ctrl+h",
       "action": "focus.places"
+    }
+  ],
+  "palette": [
+    {
+      "key": "Ctrl+n",
+      "action": "palette.next"
+    },
+    {
+      "key": "Ctrl+p",
+      "action": "palette.prev"
+    },
+    {
+      "key": "Ctrl+j",
+      "action": "palette.next"
+    },
+    {
+      "key": "Ctrl+k",
+      "action": "palette.prev"
+    },
+    {
+      "key": "ArrowDown",
+      "action": "palette.next"
+    },
+    {
+      "key": "ArrowUp",
+      "action": "palette.prev"
+    },
+    {
+      "key": "Tab",
+      "action": "palette.next"
+    },
+    {
+      "key": "Shift+Tab",
+      "action": "palette.prev"
+    },
+    {
+      "key": "Enter",
+      "action": "palette.confirm"
+    },
+    {
+      "key": "Escape",
+      "action": "palette.close"
+    },
+    {
+      "key": "Ctrl+c",
+      "action": "palette.close"
     }
   ]
 }

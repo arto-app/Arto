@@ -3,10 +3,9 @@ mod context_menu_state;
 mod file_error_view;
 mod file_viewer;
 mod gutter;
-mod inline_viewer;
-mod no_file_view;
 mod preferences_view;
 mod search_handler;
+mod welcome_view;
 
 use dioxus::prelude::*;
 
@@ -15,8 +14,7 @@ use crate::state::{AppState, DocumentContent};
 use file_error_view::FileErrorView;
 use file_viewer::FileViewer;
 use gutter::ContentsGutter;
-use inline_viewer::InlineViewer;
-use no_file_view::NoFileView;
+use welcome_view::WelcomeView;
 
 // Re-export for menu system
 pub use preferences_view::{set_preferences_tab_to_about, PreferencesView};
@@ -65,9 +63,6 @@ pub fn Content() -> Element {
                     DocumentContent::File(file) => {
                         rsx! { FileViewer { file } }
                     },
-                    DocumentContent::Inline(markdown) => {
-                        rsx! { InlineViewer { markdown } }
-                    },
                     DocumentContent::FileError(file, error) => {
                         let filename = file
                             .file_name()
@@ -76,7 +71,9 @@ pub fn Content() -> Element {
                             .to_string();
                         rsx! { FileErrorView { filename, error_message: error } }
                     },
-                    _ => rsx! { NoFileView {} },
+                    // A window with nothing open shows what there is to
+                    // read rather than explaining that nothing is open.
+                    _ => rsx! { WelcomeView {} },
                 }
             }
         }

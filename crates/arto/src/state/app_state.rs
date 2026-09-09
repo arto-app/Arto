@@ -98,6 +98,19 @@ pub struct AppState {
     pub reload_trigger: Signal<usize>,
     /// Which panel currently has keyboard focus (for context-aware keybindings).
     pub focused_panel: Signal<FocusedPanel>,
+    /// Whether the command palette is open.
+    pub palette_open: Signal<bool>,
+    /// What is typed into the palette, and which row the keys act on.
+    ///
+    /// Here rather than inside the palette, because the keys that move through
+    /// it are bindings like any other: they are dispatched from outside the
+    /// component, so what they move has to be reachable from there. Reset when
+    /// the palette opens.
+    pub palette_query: Signal<String>,
+    pub palette_cursor: Signal<Option<usize>>,
+    /// How many rows the palette is showing, written by the palette each time
+    /// it draws. The keys need it to know where the list ends.
+    pub palette_rows: Signal<usize>,
     /// Bumped whenever this window records a visit, so its own lists redraw
     /// without waiting for the broadcast to come back round.
     pub visits_revision: Signal<u32>,
@@ -148,6 +161,10 @@ impl AppState {
             current_scroll_anchor: Signal::new(ScrollAnchor::TOP),
             reload_trigger: Signal::new(0),
             focused_panel: Signal::new(FocusedPanel::Content),
+            palette_open: Signal::new(false),
+            palette_query: Signal::new(String::new()),
+            palette_cursor: Signal::new(None),
+            palette_rows: Signal::new(0),
             visits_revision: Signal::new(0),
             panel_cursor: Signal::new(None),
             quick_access_cursor: Signal::new(None),
@@ -204,6 +221,25 @@ impl AppState {
     fn step_zoom(&mut self, delta: f64) {
         let current = normalize_content_zoom(*self.zoom_level.read());
         self.zoom_level.set(normalize_content_zoom(current + delta));
+    }
+
+    /// Toggle the palette.
+    ///
+    /// Every opening starts empty, with the cursor on the row "take me back"
+    /// means: the palette is a gesture, and a gesture that remembered the last
+    /// one would have to be read before it could be trusted.
+    pub fn toggle_palette(&mut self) {
+        let open = !*self.palette_open.read();
+        if open {
+            self.palette_query.set(String::new());
+            self.palette_cursor.set(None);
+        }
+        self.palette_open.set(open);
+    }
+
+    /// Let the palette go.
+    pub fn close_palette(&mut self) {
+        self.palette_open.set(false);
     }
 
     /// Toggle the find field in the header

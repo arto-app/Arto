@@ -142,6 +142,10 @@
     {
       "key": "Ctrl+ArrowLeft",
       "action": "focus.places"
+    },
+    {
+      "key": "Cmd+k",
+      "action": "palette.open"
     }
   ],
   "content": [
@@ -228,6 +232,32 @@
     {
       "key": "Ctrl+ArrowLeft",
       "action": "focus.places"
+    }
+  ],
+  "palette": [
+    {
+      "key": "ArrowDown",
+      "action": "palette.next"
+    },
+    {
+      "key": "ArrowUp",
+      "action": "palette.prev"
+    },
+    {
+      "key": "Tab",
+      "action": "palette.next"
+    },
+    {
+      "key": "Shift+Tab",
+      "action": "palette.prev"
+    },
+    {
+      "key": "Enter",
+      "action": "palette.confirm"
+    },
+    {
+      "key": "Escape",
+      "action": "palette.close"
     }
   ]
 }

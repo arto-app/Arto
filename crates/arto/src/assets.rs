@@ -32,7 +32,6 @@
 mod frontend;
 pub mod images;
 
-use arto_keybindings::BindingSet;
 use dioxus::desktop::wry::http::{Request, Response};
 use dioxus::desktop::wry::{RequestAsyncResponder, WebViewId};
 use dioxus::desktop::Config;
@@ -203,35 +202,38 @@ pub fn main_stylesheet_head() -> String {
     )
 }
 
-/// The welcome page, with its images and shortcuts filled in.
-pub fn get_default_markdown_content() -> String {
-    let template = include_str!("../assets/welcome.md");
-
-    // The template names its images by their source-relative paths so that it
-    // stays a document that renders on its own; here they become data URLs,
-    // which the page can carry because they are small and are drawn once.
-    let template = template
-        .replace(
-            "../assets/arto-header-welcome-light.png",
-            &data_url(
-                "image/png",
-                include_bytes!("../assets/arto-header-welcome-light.png"),
-            ),
+/// The mark the welcome page opens with, drawn for a light and for a dark canvas.
+///
+/// The page carries both and the stylesheet shows the one the theme calls
+/// for: `prefers-color-scheme` answers for the system, and the theme here is
+/// the reader's own setting.
+///
+/// Encoded once each — the welcome page redraws on every keystroke in its field,
+/// and these bytes never change.
+pub fn welcome_mark_data_url(dark: bool) -> &'static str {
+    static LIGHT: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+        data_url(
+            "image/png",
+            include_bytes!("../assets/arto-header-welcome-light.png"),
         )
-        .replace(
-            "../assets/arto-header-welcome-dark.png",
-            &data_url(
-                "image/png",
-                include_bytes!("../assets/arto-header-welcome-dark.png"),
-            ),
-        );
+    });
+    static DARK: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+        data_url(
+            "image/png",
+            include_bytes!("../assets/arto-header-welcome-dark.png"),
+        )
+    });
 
-    with_current_shortcuts(&template)
+    if dark {
+        &DARK
+    } else {
+        &LIGHT
+    }
 }
 
-/// The app icon, for the About tab.
+/// The app icon, for the About section of the preferences.
 ///
-/// Encoded once: the tab re-renders on every configuration change, and the
+/// Encoded once: the section re-renders on every configuration change, and the
 /// icon it shows is the same 31 KB either way.
 pub fn app_icon_data_url() -> &'static str {
     static ICON: std::sync::LazyLock<String> =
@@ -256,85 +258,9 @@ fn data_url(mime: &str, bytes: &[u8]) -> String {
     )
 }
 
-/// What a shortcut reads as when the action has none bound.
-const UNBOUND_SHORTCUT: &str = "—";
-
-/// Replace every `{{action}}` in the welcome page with the shortcut bound to
-/// that action right now.
-///
-/// The page is the first thing a reader sees, and every shortcut on it is
-/// rebindable, so printing the defaults would be printing something untrue
-/// for anyone who has changed one — or who uses the Emacs or Vim preset.
-fn with_current_shortcuts(template: &str) -> String {
-    let config = crate::config::CONFIG.read();
-    substitute_shortcuts(template, &config.keybindings)
-}
-
-fn substitute_shortcuts(template: &str, bindings: &BindingSet) -> String {
-    let mut rendered = String::with_capacity(template.len());
-    let mut rest = template;
-    while let Some(open) = rest.find("{{") {
-        rendered.push_str(&rest[..open]);
-        let after = &rest[open + 2..];
-        let Some(close) = after.find("}}") else {
-            rendered.push_str(&rest[open..]);
-            return rendered;
-        };
-        let action = after[..close].trim();
-        let hint = arto_keybindings::hint_for_action(bindings, action, None);
-        rendered.push_str(hint.as_deref().unwrap_or(UNBOUND_SHORTCUT));
-        rest = &after[close + 2..];
-    }
-    rendered.push_str(rest);
-    rendered
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use arto_keybindings::KeyAction;
-
-    fn bound(key: &str, action: &str) -> BindingSet {
-        BindingSet {
-            global: vec![KeyAction {
-                key: key.to_string(),
-                action: action.to_string(),
-            }],
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn shortcuts_come_from_the_bindings_given() {
-        let rendered =
-            substitute_shortcuts("Open with `{{file.open}}`.", &bound("Cmd+p", "file.open"));
-
-        assert!(!rendered.contains("{{"), "placeholder left unrendered");
-        assert!(
-            !rendered.contains(UNBOUND_SHORTCUT),
-            "a bound action rendered as unbound: {rendered}"
-        );
-    }
-
-    #[test]
-    fn an_action_nobody_bound_says_so() {
-        let rendered = substitute_shortcuts("`{{file.open}}`", &BindingSet::default());
-        assert_eq!(rendered, format!("`{UNBOUND_SHORTCUT}`"));
-    }
-
-    #[test]
-    fn text_around_and_between_placeholders_survives() {
-        let rendered = substitute_shortcuts(
-            "before {{file.open}} between {{file.open}} after {{",
-            &bound("Cmd+p", "file.open"),
-        );
-        assert!(rendered.starts_with("before "));
-        assert!(
-            rendered.ends_with(" after {{"),
-            "unterminated tail lost: {rendered}"
-        );
-    }
-
     /// A request for anything but a bundled file is refused rather than
     /// answered from the filesystem.
     #[test]

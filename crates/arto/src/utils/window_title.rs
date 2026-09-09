@@ -12,7 +12,6 @@ fn extract_filename(path: &Path) -> &str {
 pub fn generate_window_title(content: &DocumentContent) -> String {
     match content {
         DocumentContent::File(path) => format!("Arto - {}", extract_filename(path)),
-        DocumentContent::Inline(_) => "Arto - Welcome".to_string(),
         DocumentContent::FileError(path, _) => {
             format!("Arto - {} (Error)", extract_filename(path))
         }

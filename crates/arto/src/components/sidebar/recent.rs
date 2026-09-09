@@ -10,8 +10,10 @@ use crate::visits::{Bucket, Visit, VISITS, VISITS_CHANGED};
 
 /// The whole reading history, newest first.
 ///
-/// It answers "everything, while I keep looking at what I am reading", which
-/// is why it is a face of the panel and not a screen of its own.
+/// The palette answers "back to the last one" and the welcome page answers "what
+/// shall I read"; this is the one that answers "everything, while I keep
+/// looking at what I am reading" — which is why it is a face of the panel and
+/// not another screen.
 ///
 /// Groups coarsen with age, and everything older than last week arrives
 /// collapsed to its heading and a count, so several years still fit in a dozen
