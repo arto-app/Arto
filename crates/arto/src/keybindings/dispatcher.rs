@@ -78,17 +78,9 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::WindowCloseAllWindows => {
             crate::window::close_all_main_windows();
         }
-        Action::WindowToggleSidebar => {
-            let closing = state.sidebar.read().pinned;
-            state.toggle_sidebar();
-            // Return focus to Content when closing a focused sidebar panel
-            if closing {
-                let panel = *state.focused_panel.read();
-                if matches!(panel, FocusedPanel::LeftSidebar | FocusedPanel::QuickAccess) {
-                    state.focused_panel.set(FocusedPanel::Content);
-                }
-            }
-        }
+        // Closing the panel hands the keyboard back to the document; that
+        // belongs to `hide_panel`, so both the rail and this go through it.
+        Action::WindowToggleSidebar => state.toggle_sidebar(),
         Action::WindowToggleRightSidebar => {
             let closing = state.right_sidebar.read().pinned;
             state.toggle_right_sidebar();
@@ -133,20 +125,11 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::CopyLinkPath => copy_link_path_from_cursor(),
 
         // --- Focus ---
-        Action::FocusLeftSidebar => {
-            // Show overlay if not pinned, then focus it
-            if !state.sidebar.read().pinned {
-                state.left_hover_active.set(true);
-                state.right_hover_active.set(false);
-            }
-            state.focused_panel.set(FocusedPanel::LeftSidebar);
-            // Initialize cursor to first row if not set
-            if state.panel_cursor.read().is_none() {
-                if let Some(first) = tree_items(&state).first() {
-                    state.panel_cursor.set(Some(first.clone()));
-                }
-            }
-        }
+        // One per face: the keyboard goes to the list that was asked for,
+        // rather than to whichever the panel happened to be showing.
+        Action::FocusPlaces => face_to(&mut state, crate::state::Face::Places),
+        Action::FocusStarred => face_to(&mut state, crate::state::Face::Starred),
+        Action::FocusRecent => face_to(&mut state, crate::state::Face::Recent),
         Action::FocusRightSidebar => {
             // Show overlay if not pinned, then focus it
             if !state.right_sidebar.read().pinned {
@@ -160,23 +143,8 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
                 state.toc_cursor.set(Some(0));
             }
         }
-        Action::FocusQuickAccess => {
-            // Show overlay if not pinned (quick access is part of sidebar)
-            if !state.sidebar.read().pinned {
-                state.left_hover_active.set(true);
-                state.right_hover_active.set(false);
-            }
-            state.focused_panel.set(FocusedPanel::QuickAccess);
-            // Initialize cursor to first bookmark if not set
-            if state.quick_access_cursor.read().is_none()
-                && !crate::bookmarks::BOOKMARKS.read().items.is_empty()
-            {
-                state.quick_access_cursor.set(Some(0));
-            }
-        }
         Action::FocusContent => {
-            state.focused_panel.set(FocusedPanel::Content);
-            state.left_hover_active.set(false);
+            state.focus_content();
             state.right_hover_active.set(false);
         }
 
@@ -241,6 +209,11 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::HelpShowKeyboardShortcuts => {}
 
         // --- Sidebar ---
+        Action::SidebarFacePlaces => face_to(&mut state, crate::state::Face::Places),
+        Action::SidebarFaceRecent => face_to(&mut state, crate::state::Face::Recent),
+        Action::SidebarFaceStarred => face_to(&mut state, crate::state::Face::Starred),
+        Action::SidebarFaceNext => step_face(&mut state, true),
+        Action::SidebarFacePrev => step_face(&mut state, false),
         Action::SidebarToggleShowAllFiles => {
             let current = state.sidebar.read().show_all_files;
             state.sidebar.write().show_all_files = !current;
@@ -310,14 +283,70 @@ fn extract_sidebar_data(state: &AppState) -> Option<TreeShape> {
     })
 }
 
-/// The rows the tree is drawing, in the order it draws them.
-fn tree_items(state: &AppState) -> Vec<crate::state::PanelRow> {
-    match extract_sidebar_data(state) {
-        Some(tree) => {
-            sidebar_cursor::visible_items_in_roots(&tree.roots, &tree.expanded, tree.show_all_files)
+/// The rows the panel is drawing, in the order it draws them.
+///
+/// One list per face, and the cursor walks whichever is on screen — the same
+/// keys, over a tree, a history or a set of stars. What is folded away counts:
+/// a cursor on a row nobody can see is a cursor nobody can follow.
+fn panel_items(state: &AppState) -> Vec<crate::state::PanelRow> {
+    match state.sidebar.peek().face {
+        crate::state::Face::Places => match extract_sidebar_data(state) {
+            Some(tree) => sidebar_cursor::visible_items_in_roots(
+                &tree.roots,
+                &tree.expanded,
+                tree.show_all_files,
+            ),
+            None => Vec::new(),
+        },
+        crate::state::Face::Recent => {
+            let folded = state.sidebar.peek().recent_collapsed.clone();
+            crate::visits::VISITS
+                .read()
+                .grouped(chrono::Local::now())
+                .into_iter()
+                .filter(|(bucket, _)| !folded.contains(&bucket.heading()))
+                .flat_map(|(_, visits)| {
+                    visits
+                        .into_iter()
+                        .map(|visit| (crate::state::Group::Flat, visit.path.clone()))
+                })
+                .collect()
         }
-        None => Vec::new(),
+        crate::state::Face::Starred => crate::bookmarks::BOOKMARKS
+            .read()
+            .items
+            .iter()
+            .filter(|bookmark| !bookmark.is_dir())
+            .map(|bookmark| (crate::state::Group::Flat, bookmark.path.clone()))
+            .collect(),
     }
+}
+
+/// Put the cursor on the first row, if it is not on one already.
+fn rest_cursor(state: &mut AppState) {
+    let items = panel_items(state);
+    let resting = state
+        .panel_cursor
+        .peek()
+        .as_ref()
+        .is_some_and(|at| items.contains(at));
+    if !resting {
+        state.panel_cursor.set(items.first().cloned());
+    }
+}
+
+/// Show a face and take the keyboard to it, cursor and all.
+fn face_to(state: &mut AppState, face: crate::state::Face) {
+    state.focus_face(face);
+    rest_cursor(state);
+    scroll_cursor_into_view();
+}
+
+/// Step along the rail to the next face.
+fn step_face(state: &mut AppState, forward: bool) {
+    state.step_face(forward);
+    rest_cursor(state);
+    scroll_cursor_into_view();
 }
 
 enum CursorDirection {
@@ -328,8 +357,8 @@ enum CursorDirection {
 fn dispatch_cursor_move(state: &mut AppState, direction: CursorDirection) {
     let panel = *state.focused_panel.read();
     match panel {
-        FocusedPanel::LeftSidebar => {
-            let items = tree_items(state);
+        FocusedPanel::Panel => {
+            let items = panel_items(state);
             if !items.is_empty() {
                 let current = state.panel_cursor.read().clone();
                 let next = match direction {
@@ -347,18 +376,6 @@ fn dispatch_cursor_move(state: &mut AppState, direction: CursorDirection) {
                 state
                     .toc_cursor
                     .set(move_index_cursor(current, headings_len, &direction));
-                scroll_cursor_into_view();
-            }
-        }
-        FocusedPanel::QuickAccess => {
-            let bookmarks_len = crate::bookmarks::BOOKMARKS.read().items.len();
-            if bookmarks_len > 0 {
-                let current = *state.quick_access_cursor.read();
-                state.quick_access_cursor.set(move_index_cursor(
-                    current,
-                    bookmarks_len,
-                    &direction,
-                ));
                 scroll_cursor_into_view();
             }
         }
@@ -391,7 +408,7 @@ fn move_index_cursor(
 fn dispatch_cursor_enter(state: &mut AppState) {
     let panel = *state.focused_panel.read();
     match panel {
-        FocusedPanel::LeftSidebar => {
+        FocusedPanel::Panel => {
             let Some((_, path)) = state.panel_cursor.read().clone() else {
                 return;
             };
@@ -403,7 +420,6 @@ fn dispatch_cursor_enter(state: &mut AppState) {
         }
         // Right sidebar & quick access: same as cursor.open (scroll to heading / open bookmark)
         FocusedPanel::RightSidebar => open_right_sidebar(state),
-        FocusedPanel::QuickAccess => open_quick_access(state),
         FocusedPanel::Content => {}
     }
 }
@@ -412,9 +428,8 @@ fn dispatch_cursor_enter(state: &mut AppState) {
 fn dispatch_cursor_open(state: &mut AppState) {
     let panel = *state.focused_panel.read();
     match panel {
-        FocusedPanel::LeftSidebar => open_sidebar(state),
+        FocusedPanel::Panel => open_sidebar(state),
         FocusedPanel::RightSidebar => open_right_sidebar(state),
-        FocusedPanel::QuickAccess => open_quick_access(state),
         FocusedPanel::Content => {}
     }
 }
@@ -438,7 +453,7 @@ fn open_sidebar(state: &mut AppState) {
     if !state.sidebar.peek().is_expanded(group, &root, &path) {
         state.toggle_directory_expansion(group, &root, &path);
     }
-    let items = tree_items(state);
+    let items = panel_items(state);
     let next = items
         .iter()
         .position(|item| item == &row)
@@ -492,32 +507,10 @@ fn open_right_sidebar(state: &mut AppState) {
     });
 }
 
-fn open_quick_access(state: &mut AppState) {
-    let bookmark_info = {
-        let idx = *state.quick_access_cursor.read();
-        idx.and_then(|i| {
-            let bookmarks = crate::bookmarks::BOOKMARKS.read();
-            bookmarks
-                .items
-                .get(i)
-                .map(|b| (b.path.clone(), b.exists(), b.is_dir()))
-        })
-    };
-    if let Some((path, exists, is_dir)) = bookmark_info {
-        if exists {
-            if is_dir {
-                state.add_root(&path);
-            } else {
-                state.open_file(&path);
-            }
-        }
-    }
-}
-
 fn dispatch_cursor_collapse(state: &mut AppState) {
     let panel = *state.focused_panel.read();
     match panel {
-        FocusedPanel::LeftSidebar => {
+        FocusedPanel::Panel => {
             let Some(row) = state.panel_cursor.read().clone() else {
                 return;
             };
@@ -529,14 +522,14 @@ fn dispatch_cursor_collapse(state: &mut AppState) {
             }
             // Out of a folder is up to the one holding it, where the list has
             // one.
-            let items = tree_items(state);
+            let items = panel_items(state);
             if let Some(parent) = sidebar_cursor::find_parent_dir(&row, &items) {
                 state.panel_cursor.set(Some(parent));
                 scroll_cursor_into_view();
             }
         }
         // No-op for other panels
-        FocusedPanel::RightSidebar | FocusedPanel::QuickAccess | FocusedPanel::Content => {}
+        FocusedPanel::RightSidebar | FocusedPanel::Content => {}
     }
 }
 
@@ -953,14 +946,7 @@ fn toggle_bookmark_on_cursor_or_current(state: &mut AppState) {
 
 fn get_bookmark_target_path(state: &AppState) -> Option<std::path::PathBuf> {
     match *state.focused_panel.read() {
-        FocusedPanel::LeftSidebar => state.panel_cursor.read().clone().map(|(_, path)| path),
-        FocusedPanel::QuickAccess => {
-            let cursor = *state.quick_access_cursor.read();
-            cursor.and_then(|index| {
-                let bookmarks = crate::bookmarks::BOOKMARKS.read();
-                bookmarks.items.get(index).map(|b| b.path.clone())
-            })
-        }
+        FocusedPanel::Panel => state.panel_cursor.read().clone().map(|(_, path)| path),
         FocusedPanel::RightSidebar | FocusedPanel::Content => None,
     }
 }

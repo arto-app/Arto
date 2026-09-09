@@ -116,10 +116,6 @@
       "action": "search.open"
     },
     {
-      "key": "Ctrl+x Ctrl+b",
-      "action": "focus.quick_access"
-    },
-    {
       "key": "Ctrl+x 4 r",
       "action": "window.toggle_right_sidebar"
     },
@@ -140,10 +136,6 @@
       "action": "window.new"
     },
     {
-      "key": "Ctrl+x o",
-      "action": "focus.right_sidebar"
-    },
-    {
       "key": "Ctrl+x Ctrl+c",
       "action": "app.quit"
     },
@@ -158,6 +150,34 @@
     {
       "key": "Ctrl+x r m",
       "action": "file.toggle_bookmark"
+    },
+    {
+      "key": "Cmd+1",
+      "action": "sidebar.face_places"
+    },
+    {
+      "key": "Cmd+2",
+      "action": "sidebar.face_recent"
+    },
+    {
+      "key": "Cmd+3",
+      "action": "sidebar.face_starred"
+    },
+    {
+      "key": "Ctrl+x p",
+      "action": "focus.places"
+    },
+    {
+      "key": "Ctrl+x s",
+      "action": "focus.starred"
+    },
+    {
+      "key": "Ctrl+x r",
+      "action": "focus.recent"
+    },
+    {
+      "key": "Ctrl+x o",
+      "action": "focus.right_sidebar"
     }
   ],
   "content": [
@@ -183,7 +203,7 @@
     },
     {
       "key": "Ctrl+x o",
-      "action": "focus.left_sidebar"
+      "action": "focus.places"
     }
   ],
   "search": [
@@ -242,8 +262,16 @@
       "action": "directory.parent"
     },
     {
-      "key": "Ctrl+x o",
-      "action": "focus.quick_access"
+      "key": "Ctrl+x n",
+      "action": "sidebar.face_next"
+    },
+    {
+      "key": "Ctrl+x p",
+      "action": "sidebar.face_prev"
+    },
+    {
+      "key": "Ctrl+x Ctrl+k",
+      "action": "focus.places"
     }
   ],
   "rightSidebar": [
@@ -270,36 +298,6 @@
     {
       "key": "Ctrl+x o",
       "action": "focus.content"
-    }
-  ],
-  "quickAccess": [
-    {
-      "key": "Ctrl+n",
-      "action": "cursor.down"
-    },
-    {
-      "key": "Ctrl+p",
-      "action": "cursor.up"
-    },
-    {
-      "key": "Ctrl+f",
-      "action": "cursor.open"
-    },
-    {
-      "key": "Enter",
-      "action": "cursor.open"
-    },
-    {
-      "key": "Ctrl+b",
-      "action": "cursor.collapse"
-    },
-    {
-      "key": "Ctrl+x o",
-      "action": "focus.right_sidebar"
-    },
-    {
-      "key": "Ctrl+x Ctrl+k",
-      "action": "focus.left_sidebar"
     }
   ]
 }

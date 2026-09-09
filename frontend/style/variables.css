@@ -57,6 +57,9 @@
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
     monospace;
 
+  /* The rail's width. */
+  --rail-width: 40px;
+
   /* The peeking panel's shadow. The offset and the negative spread keep it
      off the rail on the panel's left: it is cast to the right, over the
      document it is floating above, and nowhere else. No ring — an outline

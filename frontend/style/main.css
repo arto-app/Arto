@@ -13,6 +13,7 @@
 
 /* Shared components */
 @import url("./components/icon.css");
+@import url("./components/document-name.css");
 @import url("./components/row-hover.css");
 @import url("./components/buttons/bookmark.css");
 @import url("./components/context-menu/base.css");
@@ -26,8 +27,10 @@
 @import url("./components/action-feedback.css");
 
 /* Left sidebar */
+@import url("./components/left-rail.css");
 @import url("./components/left-sidebar.css");
-@import url("./components/left-sidebar/quick-access.css");
+@import url("./components/left-sidebar/faces.css");
+@import url("./components/left-sidebar/starred.css");
 
 /* Right sidebar */
 @import url("./components/right-sidebar.css");

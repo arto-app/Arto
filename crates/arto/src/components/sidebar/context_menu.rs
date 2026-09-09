@@ -191,8 +191,8 @@ pub fn SidebarContextMenu(
                 span {
                     class: "context-menu-label",
                     match (is_file, is_bookmarked) {
-                        (true, true) => "Remove from Stars",
-                        (true, false) => "Add to Stars",
+                        (true, true) => "Remove from Starred",
+                        (true, false) => "Add to Starred",
                         (false, true) => "Remove from Places",
                         (false, false) => "Add to Places",
                     }

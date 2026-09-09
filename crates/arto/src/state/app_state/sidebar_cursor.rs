@@ -429,5 +429,10 @@ mod tests {
             find_parent_dir(&(Group::Bookmark, PathBuf::from("/w/arto/docs")), &items),
             Some((Group::Bookmark, PathBuf::from("/w/arto")))
         );
+        // …and the group with no such parent drawn in it has nowhere to go.
+        assert_eq!(
+            find_parent_dir(&(Group::Flat, PathBuf::from("/w/arto/docs")), &items),
+            None
+        );
     }
 }

@@ -4,14 +4,18 @@ use crate::keybindings::KeyContext;
 ///
 /// When a panel is focused, the keybinding engine uses the associated
 /// `KeyContext` to match context-specific bindings (e.g., `j` → `cursor.down`
-/// in Sidebar vs `j` → `scroll.down` globally in Content).
+/// in the panel vs `j` → `scroll.down` globally in Content).
+///
+/// The panel is one entry however many faces it has: the keys that walk a
+/// list of documents are the same keys whether the list is a tree, a history
+/// or a set of stars, and having one per face was three chances to bind them
+/// differently.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FocusedPanel {
     #[default]
     Content,
-    LeftSidebar,
+    Panel,
     RightSidebar,
-    QuickAccess,
 }
 
 impl FocusedPanel {
@@ -19,9 +23,8 @@ impl FocusedPanel {
     pub fn key_context(&self) -> KeyContext {
         match self {
             Self::Content => KeyContext::Content,
-            Self::LeftSidebar => KeyContext::Sidebar,
+            Self::Panel => KeyContext::Sidebar,
             Self::RightSidebar => KeyContext::RightSidebar,
-            Self::QuickAccess => KeyContext::QuickAccess,
         }
     }
 }
@@ -41,8 +44,8 @@ mod tests {
     }
 
     #[test]
-    fn left_sidebar_maps_to_sidebar_context() {
-        assert_eq!(FocusedPanel::LeftSidebar.key_context(), KeyContext::Sidebar);
+    fn the_panel_maps_to_the_sidebar_context() {
+        assert_eq!(FocusedPanel::Panel.key_context(), KeyContext::Sidebar);
     }
 
     #[test]
@@ -50,14 +53,6 @@ mod tests {
         assert_eq!(
             FocusedPanel::RightSidebar.key_context(),
             KeyContext::RightSidebar
-        );
-    }
-
-    #[test]
-    fn quick_access_maps_to_quick_access_context() {
-        assert_eq!(
-            FocusedPanel::QuickAccess.key_context(),
-            KeyContext::QuickAccess
         );
     }
 }

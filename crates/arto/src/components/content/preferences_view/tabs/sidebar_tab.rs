@@ -1,7 +1,7 @@
 use super::super::form_controls::{OptionCardItem, OptionCards, SliderInput};
 use crate::config::{
-    normalize_sidebar_zoom, Config, NewWindowBehavior, StartupBehavior, MAX_SIDEBAR_ZOOM,
-    MIN_SIDEBAR_ZOOM, ZOOM_STEP,
+    normalize_sidebar_zoom, Config, NewWindowBehavior, OpenFromPanel, StartupBehavior,
+    MAX_SIDEBAR_ZOOM, MIN_SIDEBAR_ZOOM, ZOOM_STEP,
 };
 use crate::events::SET_SIDEBAR_ZOOM_IN_WINDOW;
 use dioxus::desktop::tao::window::WindowId;
@@ -155,6 +155,40 @@ pub fn SidebarTab(
             }
 
             h3 { class: "preference-section-title", "Behavior" }
+
+            div {
+                class: "preference-item",
+                div {
+                    class: "preference-item-header",
+                    label { "After Opening a Document" }
+                    p {
+                        class: "preference-description",
+                        "What the panel does once a document has been opened from one of its rows. Some readers work down the list, opening one document after another; others go to it for one thing and want the page to themselves once they have it."
+                    }
+                }
+                OptionCards {
+                    name: "sidebar-on-open".to_string(),
+                    options: vec![
+                        OptionCardItem {
+                            icon: None,
+                            value: OpenFromPanel::KeepOpen,
+                            title: "Keep the panel".to_string(),
+                            description: Some("The list stays where it is".to_string()),
+                        },
+                        OptionCardItem {
+                            icon: None,
+                            value: OpenFromPanel::ClosePanel,
+                            title: "Close the panel".to_string(),
+                            description: Some("The document is left alone on screen".to_string()),
+                        },
+                    ],
+                    selected: sidebar_cfg.on_open,
+                    on_change: move |new_behavior| {
+                        config.write().sidebar.on_open = new_behavior;
+                        has_changes.set(true);
+                    },
+                }
+            }
 
             div {
                 class: "preference-item",

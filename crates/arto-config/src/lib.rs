@@ -182,6 +182,7 @@ mod tests {
                 default_width: 320.0,
                 default_show_all_files: true,
                 default_zoom_level: 1.2,
+                on_open: OpenFromPanel::ClosePanel,
                 on_startup: StartupBehavior::LastClosed,
                 on_new_window: NewWindowBehavior::LastFocused,
             },
