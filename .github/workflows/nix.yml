@@ -26,9 +26,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { target: macos, os: blacksmith-6vcpu-macos-15 }
-          - { target: ubuntu, os: blacksmith-4vcpu-ubuntu-2404 }
-          - { target: ubuntu-arm64, os: blacksmith-4vcpu-ubuntu-2404-arm }
+          - { target: macos, os: blacksmith-12vcpu-macos-15 }
+          - { target: ubuntu, os: blacksmith-32vcpu-ubuntu-2404 }
+          - { target: ubuntu-arm64, os: blacksmith-32vcpu-ubuntu-2404-arm }
     steps:
       - uses: actions/checkout@v7
         with:

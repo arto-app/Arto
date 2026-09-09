@@ -34,7 +34,7 @@ jobs:
   # Turn the requested leg names into matrix entries. Kept in one place so a
   # caller only names legs and never repeats runner or artifact details.
   plan:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: blacksmith-32vcpu-ubuntu-2404
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
@@ -52,11 +52,14 @@ jobs:
           # is empty where none is. macOS has none deliberately: what makes
           # Arto worth installing there — the Finder associations and the
           # Quick Look extension — lives in the bundle, not in the binary.
+          #
+          # Every leg runs on Blacksmith except windows-arm64: Blacksmith
+          # publishes no Windows ARM image, so that one stays GitHub-hosted.
           legs='[
-            {"target":"macos","os":"macos-latest","standalone":"","artifacts":"./target/dx/arto/bundle/**/*.dmg"},
-            {"target":"ubuntu","os":"ubuntu-latest","standalone":"arto-linux-x86_64","artifacts":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage\n./dist/arto-linux-x86_64"},
-            {"target":"ubuntu-arm64","os":"ubuntu-24.04-arm","standalone":"arto-linux-aarch64","artifacts":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage\n./dist/arto-linux-aarch64"},
-            {"target":"windows","os":"windows-latest","standalone":"arto-windows-x86_64.exe","artifacts":"./target/dx/arto/bundle/**/*-setup.exe\n./dist/arto-windows-x86_64.exe"},
+            {"target":"macos","os":"blacksmith-12vcpu-macos-15","standalone":"","artifacts":"./target/dx/arto/bundle/**/*.dmg"},
+            {"target":"ubuntu","os":"blacksmith-32vcpu-ubuntu-2404","standalone":"arto-linux-x86_64","artifacts":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage\n./dist/arto-linux-x86_64"},
+            {"target":"ubuntu-arm64","os":"blacksmith-32vcpu-ubuntu-2404-arm","standalone":"arto-linux-aarch64","artifacts":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage\n./dist/arto-linux-aarch64"},
+            {"target":"windows","os":"blacksmith-32vcpu-windows-2025","standalone":"arto-windows-x86_64.exe","artifacts":"./target/dx/arto/bundle/**/*-setup.exe\n./dist/arto-windows-x86_64.exe"},
             {"target":"windows-arm64","os":"windows-11-arm","standalone":"arto-windows-aarch64.exe","artifacts":"./target/dx/arto/bundle/**/*-setup.exe\n./dist/arto-windows-aarch64.exe"}
           ]'
           matrix="$(jq -c --argjson want "$TARGETS" '[.[] | select(.target as $t | $want | index($t))]' <<<"$legs")"
