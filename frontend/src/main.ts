@@ -114,6 +114,17 @@ declare global {
         getSourceLineRange: typeof contentCursor.getSourceLineRange;
         getCurrentElement: typeof contentCursor.getCurrentElement;
       };
+      readingPosition: {
+        /**
+         * Measure again where the reader is and what is set beside the page.
+         *
+         * A scroll and a taller document ask for this on their own. Zoom does
+         * not: it changes how wide the page is drawn without changing the
+         * window or the page's own layout size, so nothing observes it — and
+         * the margin trace is placed against a margin that has just moved.
+         */
+        refresh: typeof refreshReadingPosition;
+      };
       feedback: {
         show: typeof actionFeedback.show;
       };
@@ -384,6 +395,9 @@ export function init(): void {
       getLinkHref: contentCursor.getLinkHref,
       getSourceLineRange: contentCursor.getSourceLineRange,
       getCurrentElement: contentCursor.getCurrentElement,
+    },
+    readingPosition: {
+      refresh: refreshReadingPosition,
     },
     feedback: {
       show: actionFeedback.show,

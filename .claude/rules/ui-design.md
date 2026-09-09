@@ -135,6 +135,16 @@ table above is its test. `AppState::visible_chrome` collects the window's own
 numbers for it, measuring width *after zoom* because magnifying the page is
 the same as narrowing the window.
 
+The budget is a model, and one thing is placed against the layout it actually
+gets: the margin trace, which is drawn in the margin the page leaves over
+rather than in a column of its own. The width reserved for it is measured
+against the document's *minimum* width, while the page is set to its own width
+and centred in whatever is left — so magnifying the page, or widening the
+panel beside it, can close that margin while the budget still allows the
+trace. `frontend/src/reading-position.ts` measures what is left and the trace
+fades out when it can no longer stand clear of the text, which is the same
+rule the budget states, applied to the space that is really there.
+
 What comes back is state, never settings: widening the window restores the
 panel exactly as configured. The one thing width never overrides is a panel
 the reader folded with Cmd+B, because that was intent.
