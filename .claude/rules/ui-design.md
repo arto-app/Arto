@@ -43,6 +43,13 @@ Arto uses a comprehensive design token system defined in `variables.css` for con
 --opacity-muted: 0.5;       /* Default icons, placeholders */
 --opacity-secondary: 0.6;   /* Secondary text */
 --opacity-hover: 0.8;       /* Hover state for icons */
+
+/* Quiet controls (see "Quiet controls" below) */
+--opacity-rest: 0.3;        /* A chrome control at rest */
+--opacity-woken: 0.72;      /* Its band has the pointer in it */
+--opacity-active: 0.65;     /* Selected or on, at rest */
+--hit-size: 30px;           /* Target size, independent of the glyph */
+--transition-quiet: 0.18s;
 ```
 
 **Z-Index Semantic Scale:**
@@ -91,7 +98,57 @@ wrong in every theme but the one it was taken from.
 - Use `transparent` backgrounds where possible
 - Use thin borders (`1px`) instead of thick (`2px`)
 - Prefer `font-weight: 400-500` over bold for navigation
-- Icon opacity: `var(--opacity-muted)` default, `var(--opacity-hover)` on hover/active
+
+### Quiet controls
+
+Chrome controls separate what is drawn from what can be hit, so a band of them
+reads as a few faint marks while staying as easy to click as a toolbar:
+
+- 16px glyph, `stroke-width: 1.5`, inside a `var(--hit-size)` (30px) target.
+- Nothing painted at rest: no border, no surface. A surface appears only under
+  the pointer, and only on the one control being pointed at.
+- `--opacity-rest` at rest, `--opacity-woken` when the pointer enters the band
+  (`.header:hover .nav-button`, not each button on its own), `1` under the
+  pointer. Waking the whole band means a control is already legible by the time
+  it is aimed at.
+- State is a step along that same scale — `--opacity-active` — not a colour and
+  not a filled chip.
+- A control that cannot act is not drawn. `disabled` styling leaves something
+  in the eye that offers nothing; render the button conditionally instead.
+
+### Giving way to the document
+
+When the window cannot hold everything, the document wins. There is one
+setting — `sidebar.minContentWidth` (640px by default, 360–900) — and every
+threshold is that number plus the width of whatever is still drawn beside the
+page. Things give way from the outside in:
+
+| Order | What folds | Threshold | Default |
+| --- | --- | --- | --- |
+| 1 | Margin trace (138px) | min + rail + panel + trace + gutter | below 1068px |
+| 2 | Panel (its current width) | min + rail + panel + gutter | below 930px |
+| 3 | Contents gutter (24px) | min + rail + gutter | below 704px |
+| 4 | Rail (40px) | min + rail | below 680px |
+
+`crate::hooks::layout_budget::budget` is the whole rule, and it is pure — the
+table above is its test. `AppState::visible_chrome` collects the window's own
+numbers for it, measuring width *after zoom* because magnifying the page is
+the same as narrowing the window.
+
+What comes back is state, never settings: widening the window restores the
+panel exactly as configured. The one thing width never overrides is a panel
+the reader folded with Cmd+B, because that was intent.
+
+Nothing folds without something behind it. The panel is the clearest case:
+`AppState::show_panel` pins it beside the document when the width allows and
+peeks it over the document when it does not, so Cmd+B and the rail still open
+something at any width — and the pinned choice itself is left untouched, which
+is what lets widening restore it. The contents gutter has the same
+arrangement: `contents.toggle` opens the same headings as an overlay.
+
+The header's right takes none of the document's width, so it never folds into
+an overflow menu; the breadcrumb's trail truncates from the left instead
+(`arto / … / README.md`) and absorbs the shrink.
 
 ### Visual Consistency
 
@@ -114,8 +171,8 @@ a settings tab sitting open for days, so it gets a window that closes instead.
   rather than duplicated, closed with its parent.
 - The window holds no `AppState`. What the "Current Settings" section reports
   comes over as a `PreferencesSnapshot` taken when it opens, and what it
-  changes goes back through the `SET_*_ZOOM_IN_WINDOW` events, targeted at the
-  window that opened it.
+  changes goes back through `events::SET_SIDEBAR_ZOOM_IN_WINDOW`, targeted at
+  the window that opened it.
 - `AppState::open_preferences()` is still the single entry point, so the menu
   item and the keybinding stay unchanged.
 
@@ -251,9 +308,9 @@ When content should fit without scrolling:
 }
 ```
 
-## Menu Integration with Tab Content
+## Menu Integration with the Preferences Window
 
-**Opening a specific tab when menu item is clicked:**
+**Opening a specific section when a menu item is clicked:**
 
 1. Create a static function to set the tab state before opening:
    ```rust
@@ -286,40 +343,25 @@ When content should fit without scrolling:
 
 **Unified context menu behavior across components:**
 
-Arto implements context menus in three areas:
-1. **Tab context menu** - Right-click on tab items
-2. **Sidebar tree context menu** - Right-click on files/directories
-3. **Content context menu** - Right-click in markdown viewer (future)
+Arto implements context menus in two areas:
+1. **Sidebar tree context menu** - Right-click on files/directories
+2. **Content context menu** - Right-click in markdown viewer
 
 ### Common Patterns
 
-**1. Window targeting with submenus:**
+**1. Hoisting the menu out of what it acts on:**
 ```rust
-// Refresh window list on menu open
-let handle_context_menu = move |evt: Event<MouseData>| {
-    let windows = crate::window::main::list_visible_main_windows();
-    let current_id = window().id();
-    other_windows.set(
-        windows
-            .iter()
-            .filter(|w| w.window.id() != current_id)
-            .map(|w| (w.window.id(), w.window.title()))
-            .collect(),
-    );
-    show_context_menu.set(true);
-};
-
-// Handler uses fire-and-forget transfer + auto-focus
-let handle_move_to_window = move |target_id: WindowId| {
-    crate::events::TRANSFER_TAB_TO_WINDOW.send((target_id, None, tab));
-    crate::window::main::focus_window(target_id);
-    show_context_menu.set(false);
-};
+// The row only records what was asked for; the menu itself is rendered once
+// at the app-container root by `SidebarContextMenuHost`, so a watcher-driven
+// remount of the tree cannot unmount an open menu.
+state.sidebar_context_menu.set(Some(SidebarContextMenuData::new(
+    cursor, viewport, path, kind, closable,
+)));
 ```
 
 **2. Submenu hover behavior:**
 ```rust
-// Track submenu state to show/hide "Open in Window" options
+// A flyout opens while the pointer rests on its parent item
 let mut show_submenu = use_signal(|| false);
 
 div {
@@ -327,21 +369,18 @@ div {
     onmouseenter: move |_| show_submenu.set(true),
     onmouseleave: move |_| show_submenu.set(false),
 
-    span { "Open in Window" }
+    span { "Copy As" }
     span { class: "submenu-arrow", "›" }
 
     if *show_submenu.read() {
-        div {
-            class: "context-submenu",
-            // Window list...
-        }
+        div { class: "context-submenu", /* items */ }
     }
 }
 ```
 
 **3. Backdrop for outside-click closing:**
 ```rust
-// Invisible backdrop catches clicks outside menu
+// Invisible backdrop catches clicks outside the menu
 div {
     class: "context-menu-backdrop",
     onclick: move |_| on_close.call(()),
@@ -353,7 +392,6 @@ div {
 **Stop propagation to prevent conflicts:**
 - Context menu clicks should `evt.stop_propagation()` to prevent parent handlers
 - Sidebar tree clicks use split areas with `stop_propagation()` on chevron
-- Tab context menu should not interfere with drag events
 
 ### Menu Positioning
 
@@ -375,5 +413,5 @@ div {
 }
 ```
 
-**Auto-focus target window after operations:**
-All "Open in Window" / "Move to Window" operations should call `crate::window::main::focus_window(target_id)` after sending the event, providing immediate visual feedback to the user.
+**Auto-focus a window an action reached across:**
+An action that acts on another window calls `crate::window::main::focus_window(target_id)` after sending its event, so the window it acted on is the one in front.

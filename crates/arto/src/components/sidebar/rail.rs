@@ -32,7 +32,7 @@ pub fn Rail(on_peek: EventHandler<Face>) -> Element {
     // most needs to see, because it decides whether moving the pointer away
     // takes the panel with it.
     let showing = state.panel_is_showing();
-    let held = state.sidebar.read().pinned;
+    let held = state.sidebar.read().pinned && state.visible_chrome().panel;
 
     rsx! {
         div {
@@ -99,7 +99,7 @@ pub fn Rail(on_peek: EventHandler<Face>) -> Element {
 /// "already open" would close what the pointer had just asked for — and take
 /// two more clicks to bring it back.
 fn press(mut state: AppState, face: Face) {
-    let held = state.sidebar.read().pinned;
+    let held = state.sidebar.read().pinned && state.visible_chrome().panel;
     if held && state.sidebar.read().face == face {
         state.hide_panel();
     } else {

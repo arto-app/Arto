@@ -6,17 +6,25 @@ use crate::events::SET_SIDEBAR_ZOOM_IN_WINDOW;
 use crate::pinned_search::{PinnedSearch, PINNED_SEARCHES, PINNED_SEARCHES_CHANGED};
 use crate::state::AppState;
 
-/// Subscribe this window to what the preferences window changes about it.
-///
-/// The "Current Settings" sliders act on the window that opened preferences.
-/// That window is no longer the one drawing them — preferences has a window of
-/// its own and no `AppState` — so the value arrives as an event addressed to
-/// this window.
-pub(super) fn setup_preferences_listeners(mut state: AppState) {
+/// Subscribe this window to what other windows change about it.
+pub(super) fn setup_window_listeners(mut state: AppState) {
     let current_window_id = window().id();
+
+    // A saved preference has to reach the windows already open. The
+    // configuration is not a signal, so this is what makes anything derived
+    // from it — the layout thresholds, the margin trace — redraw.
+    use_future(move || async move {
+        let mut rx = crate::config::CONFIG_CHANGED_BROADCAST.subscribe();
+        while rx.recv().await.is_ok() {
+            let next = state.config_revision.read().wrapping_add(1);
+            state.config_revision.set(next);
+        }
+    });
 
     setup_pinned_highlights();
 
+    // The panel zoom slider in the preferences window, which acts on the
+    // window that opened it rather than on every window.
     use_future(move || async move {
         let mut rx = SET_SIDEBAR_ZOOM_IN_WINDOW.subscribe();
         while let Ok((target_window_id, zoom)) = rx.recv().await {

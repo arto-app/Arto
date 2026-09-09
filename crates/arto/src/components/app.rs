@@ -29,7 +29,7 @@ use crate::theme::Theme;
 use drag_drop_overlay::DragDropOverlay;
 use drop_handlers::handle_dropped_files;
 use keybinding_engine::setup_keybinding_engine;
-use listeners::setup_preferences_listeners;
+use listeners::setup_window_listeners;
 use shortcut_overlay::{
     build_shortcut_help_items, close_shortcut_overlay, split_shortcut_help_columns,
     ShortcutHelpOverlay, ShortcutOverlayVisibility,
@@ -180,7 +180,7 @@ pub fn App(
         }
     });
 
-    setup_preferences_listeners(state);
+    setup_window_listeners(state);
 
     // Keep the window title on the document being read
     use_effect(move || {
@@ -210,14 +210,12 @@ pub fn App(
     // Hover state for overlay sidebars is stored in AppState
     // so that dispatcher.rs (keybinding focus actions) can access it.
     let mut left_hover_active = state.left_hover_active;
-    // Generation counters for auto-hide timer cancellation
+    // Generation counter for auto-hide timer cancellation
     let mut left_hide_gen = use_signal(|| 0u32);
     // Track whether mouse is physically inside the overlay wrapper.
     // Used by on_resize_change to decide whether to start a hide timer:
     // if mouse is inside, onmouseleave will handle hiding naturally.
     let mut left_mouse_inside = use_signal(|| false);
-
-    let left_pinned = state.sidebar.read().pinned;
 
     /// Grace before a peeking panel retracts.
     ///
@@ -257,6 +255,14 @@ pub fn App(
             retract_after_grace(left_hide_gen, left_hover_active);
         }
     });
+
+    // The width has the last word on what is drawn beside the document. The
+    // panel's own choice is untouched by it, so widening the window brings a
+    // panel back exactly as it was left; a panel folded with Cmd+B stays
+    // folded, because that was intent rather than a consequence of width.
+    let chrome = use_memo(move || state.visible_chrome());
+    let rail_visible = use_memo(move || chrome().rail);
+    let left_pinned = state.sidebar.read().pinned && chrome().panel;
 
     let focused_panel = *state.focused_panel.read();
     let focused_context = focused_panel.key_context();
@@ -309,22 +315,25 @@ pub fn App(
                 });
             },
 
-            // The rail switches the panel's faces and, because it is visible
+            // The rail is here whenever the window can spare 40px for it. It
+            // is what switches the panel's faces and, because it is visible
             // and exists for the purpose, it is also what the pointer can
             // safely aim at to bring the panel back.
-            crate::components::sidebar::rail::Rail {
-                on_peek: move |face| {
-                    // Resting on a glyph brings that face over the document. A
-                    // panel that is being held stays as it was: what is held
-                    // was chosen, and a pointer passing over the rail is not a
-                    // choice — it would rewrite the reader's own with nothing
-                    // but a hover.
-                    if !left_pinned {
-                        state.sidebar.write().face = face;
-                        left_hover_active.set(true);
-                        left_hide_gen.set(left_hide_gen() + 1);
-                    }
-                },
+            if rail_visible() {
+                crate::components::sidebar::rail::Rail {
+                    on_peek: move |face| {
+                        // Resting on a glyph brings that face over the
+                        // document. A panel that is being held stays as it
+                        // was: what is held was chosen, and a pointer passing
+                        // over the rail is not a choice — it would rewrite the
+                        // reader's own with nothing but a hover.
+                        if !left_pinned {
+                            state.sidebar.write().face = face;
+                            left_hover_active.set(true);
+                            left_hide_gen.set(left_hide_gen() + 1);
+                        }
+                    },
+                }
             }
 
             // Left sidebar: pinned → flex layout, unpinned → overlay with animation
@@ -347,7 +356,7 @@ pub fn App(
                     // Stand beside the rail rather than over it: the marks
                     // that peeked the panel out are the ones that switch its
                     // faces and send it back, so they have to stay visible.
-                    class: "beside-rail",
+                    class: if rail_visible() { "beside-rail" },
                     class: if left_hover_active() { "visible" },
                     onmouseenter: move |_| {
                         left_mouse_inside.set(true);

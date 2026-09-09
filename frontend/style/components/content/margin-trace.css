@@ -1,0 +1,120 @@
+/* =================================
+   Margin trace
+   =================================
+
+   The documents read before this one, left at the edge of the page. It is
+   the one window on the history that is never asked for, so it stays at
+   rest-ink until the pointer is in its column, and it yields its space
+   before anything else does.
+
+   It sits level with the middle of the page and is set against the document
+   rather than against the window: right-aligned, so the names line up along
+   the page's own edge and the margin falls on the window's side. */
+
+.margin-trace {
+  /* Out of the flow, in the margin the page is not using. The page is centred
+     in the whole of what is left of the window and the trace takes what that
+     leaves over — not the other way round, which set the page off centre by
+     half a column and moved it every time the trace came and went.
+     The layout budget still reserves this width: it is what decides whether
+     there is a margin wide enough to put the trace in at all. */
+  position: absolute;
+  left: 0;
+  /* The whole of the reading area, which is what the band leaves of the
+     window. So centring in it is centring in the window — which is what the
+     trace does before anything has been measured, and what it goes on doing
+     for a document taller than the window. */
+  top: 0;
+  bottom: 0;
+  /* The layout budget reserves this much beside the document, so the box keeps
+     to it — but the names are not cut to fit. They are right-aligned, so what
+     does not fit grows leftwards into the window's own margin, which is empty
+     and has nothing to be pushed out of. */
+  width: 138px;
+  overflow: visible;
+  /* Level with the middle of what is being read: the page when the page is
+     shorter than the window, the window when it is not. A shorter page is the
+     only case that needs measuring, and `reading-position.ts` measures it,
+     because nothing in CSS can see how tall a sibling's contents are; without
+     it the box is the reading area itself. */
+  height: var(--trace-extent, auto);
+  /* Moved up against the document rather than left at the window's edge: a
+     note in the margin belongs beside the text it is a note on. The distance
+     is measured in `reading-position.ts`, because the column it has to reach
+     is centred in whatever is left of the window. */
+  transform: translateX(var(--trace-offset, 0px));
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  text-align: right;
+  gap: 7px;
+  box-sizing: border-box;
+  /* The trace fades, and only fades. Neither `width` nor `transform` is in
+     this list. The width is the document's margin, which the document has to
+     have back the moment the trace is gone. The transform is where the column
+     it annotates happens to be, and that is measured after the page has been
+     laid out — animated, it made the trace slide across the window on its way
+     in, from wherever the column had been when it was last hidden. */
+  transition: opacity var(--transition-normal) ease;
+}
+
+/* Not drawn until it has been measured — see `reading-position.ts`. It fades
+   in where it belongs instead of appearing where it does not and walking. */
+.content-area:not([data-trace-ready]) .margin-trace {
+  opacity: 0;
+  transition: none;
+}
+
+/* Out of the way, and seen to go: it fades, rather than closing like a door.
+   It can simply fade now that it holds no width of the page's — nothing moves
+   when it goes. */
+.margin-trace.away {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Smaller and fainter than the names it heads, and lettered rather than set:
+   it is the one word here that is not a document. */
+.margin-trace-label {
+  margin-bottom: 2px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: var(--opacity-muted);
+}
+
+.margin-trace-row {
+  padding: 0;
+  border: none;
+  background: transparent;
+  /* The document's own ink at rest ink: a name here is a document, and the
+     column is faint because of the density, not because of the colour. */
+  color: var(--text-color);
+  font-family: inherit;
+  /* Smaller than anything in the document, because it is beside one. */
+  font-size: 10.5px;
+  text-align: right;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: var(--opacity-rest);
+  transition: opacity var(--transition-quiet) ease;
+}
+
+/* The whole column wakes together, so a name is legible by the time it is
+   aimed at — but only part of the way, or the one under the pointer would
+   have nowhere left to go. */
+.margin-trace:hover .margin-trace-row {
+  opacity: 0.45;
+}
+
+/* The one being pointed at, said the way everything else here is said: in
+   density. A line under it would be a second device for a difference the ink
+   already carries. */
+.margin-trace:hover .margin-trace-row:hover,
+.margin-trace-row:hover {
+  opacity: 1;
+}

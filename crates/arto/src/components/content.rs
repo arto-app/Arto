@@ -5,6 +5,7 @@ mod file_viewer;
 mod gutter;
 mod preferences_view;
 mod search_handler;
+mod trace;
 mod welcome_view;
 
 use dioxus::prelude::*;
@@ -48,9 +49,28 @@ pub fn Content() -> Element {
 
     let headings = state.headings;
 
+    // The trace answers to the setting first and to the width last; the
+    // gutter only to the width. Both come from `AppState`, so narrowing the
+    // window folds them and widening brings them back as configured.
+    let trace_visible = use_memo(move || state.trace_visible());
+    let gutter_visible = use_memo(move || state.visible_chrome().gutter);
+    let trace_count = use_memo(move || state.trace_count());
+
+    // With nothing to read, the whole area is the welcome page — the trace and
+    // the gutter have nothing to say beside it.
+    let showing_welcome = use_memo(move || state.document.read().is_empty());
+
     rsx! {
         div {
             class: "content-area",
+
+        // The documents read before this one, at the edge of the page. Always
+        // mounted, so that it can be *seen* to arrive and leave: a column that
+        // is only rendered while it applies has no way to fade.
+        trace::MarginTrace {
+            count: trace_count(),
+            visible: trace_visible() && !showing_welcome(),
+        }
 
         div {
             class: "content",
@@ -81,7 +101,9 @@ pub fn Content() -> Element {
         // The contents live beside the document rather than in a panel of
         // their own: always there, 24px wide, and impossible to open by
         // accident because there is nothing to open.
-        ContentsGutter { headings: headings() }
+        if gutter_visible() && !showing_welcome() {
+            ContentsGutter { headings: headings() }
+        }
         }
     }
 }
