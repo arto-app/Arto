@@ -27,10 +27,14 @@ pub(super) fn panel_items(state: &AppState) -> Vec<crate::state::PanelRow> {
                 .grouped(chrono::Local::now())
                 .into_iter()
                 .filter(|(bucket, _)| !folded.contains(&bucket.heading()))
-                .flat_map(|(_, visits)| {
+                // Named by the day as well as by the path: a document read on
+                // two days is a row under each, and a cursor that knew only
+                // the path would find the first of them wherever it was and
+                // never walk past it.
+                .flat_map(|(bucket, visits)| {
                     visits
                         .into_iter()
-                        .map(|visit| (crate::state::Group::Flat, visit.path.clone()))
+                        .map(move |visit| (crate::state::Group::Day(bucket), visit.path.clone()))
                 })
                 .collect()
         }

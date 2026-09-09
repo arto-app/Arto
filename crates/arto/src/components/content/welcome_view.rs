@@ -199,7 +199,11 @@ pub fn WelcomeView() -> Element {
                             div { class: "welcome-group", "{bucket.heading()}" }
                             for visit in entries {
                                 WelcomeRow {
-                                    key: "{visit.path.display()}",
+                                    // The day is part of the key: a document
+                                    // read on two days is a row under each,
+                                    // and two siblings with one key are one
+                                    // row to the renderer.
+                                    key: "{visit.at}:{visit.path.display()}",
                                     path: visit.path.clone(),
                                     icon: IconName::File,
                                     when: crate::visits::short_when(visit.at, now),

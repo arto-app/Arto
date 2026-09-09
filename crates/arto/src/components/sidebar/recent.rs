@@ -5,7 +5,7 @@ use crate::components::document_name::DocumentName;
 use crate::components::icon::{Icon, IconName};
 use crate::components::sidebar::context_menu::{open_row_context_menu, SidebarItemKind};
 use crate::components::sidebar::row_actions::RowActions;
-use crate::state::{AppState, FocusedPanel};
+use crate::state::{AppState, FocusedPanel, Group};
 use crate::visits::{Bucket, Visit, VISITS, VISITS_CHANGED};
 
 /// The whole reading history, newest first.
@@ -103,7 +103,13 @@ pub fn RecentFace() -> Element {
                                         // is what makes the rest of the list
                                         // read as "before this one".
                                         class: if current.as_deref() == Some(visit.path.as_path()) { "active" },
-                                        class: if cursor.as_ref().is_some_and(|(_, at)| *at == visit.path) { "keyboard-focused" },
+                                        // The day as well as the path: the
+                                        // same document under two days is two
+                                        // rows, and the cursor is on one of
+                                        // them.
+                                        class: if cursor.as_ref().is_some_and(|(group, at)| {
+                                            *group == Group::Day(bucket) && *at == visit.path
+                                        }) { "keyboard-focused" },
                                         onclick: {
                                             let path = visit.path.clone();
                                             move |_| state.open_from_panel(&path)

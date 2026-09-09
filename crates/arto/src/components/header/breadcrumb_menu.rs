@@ -103,7 +103,11 @@ pub fn Breadcrumb(label: String) -> Element {
                         div { class: "breadcrumb-group", "{bucket.heading()}" }
                         for visit in entries {
                             div {
-                                key: "{visit.path.display()}",
+                                // The day is part of the key: a document read
+                                // on two days is a row under each, and two
+                                // siblings with one key are one row to the
+                                // renderer.
+                                key: "{visit.at}:{visit.path.display()}",
                                 class: "breadcrumb-row",
                                 title: "{visit.path.display()}",
                                 onclick: {

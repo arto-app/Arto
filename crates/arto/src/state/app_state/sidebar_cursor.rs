@@ -295,6 +295,34 @@ mod tests {
         assert!(items.is_empty());
     }
 
+    /// The history draws a document once under every day it was read on, so
+    /// two rows can name one path. The day is part of what names a row, and
+    /// this is why: keyed by the path alone the cursor found the first of them
+    /// wherever it stood, and everything below the second was unreachable.
+    #[test]
+    fn the_cursor_walks_past_a_document_listed_under_two_days() {
+        use crate::state::Group;
+        use crate::visits::Bucket;
+
+        let items = vec![
+            (Group::Day(Bucket::Today), PathBuf::from("/a.md")),
+            (Group::Day(Bucket::Today), PathBuf::from("/b.md")),
+            (Group::Day(Bucket::Yesterday), PathBuf::from("/a.md")),
+            (Group::Day(Bucket::Yesterday), PathBuf::from("/c.md")),
+        ];
+
+        let mut at = Some(items[0].clone());
+        for expected in &items[1..] {
+            at = move_down(&at, &items);
+            assert_eq!(at.as_ref(), Some(expected));
+        }
+
+        for expected in items[..items.len() - 1].iter().rev() {
+            at = move_up(&at, &items);
+            assert_eq!(at.as_ref(), Some(expected));
+        }
+    }
+
     #[test]
     fn move_down_from_none_selects_first() {
         let items = vec![PathBuf::from("/a"), PathBuf::from("/b")];
