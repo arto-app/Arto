@@ -479,6 +479,8 @@ function adjustMenuPosition(menu: HTMLElement): void {
 // Initialize the position adjuster
 setupMenuPositionAdjuster();
 let clearCursorOnClickInitialized = false;
+let pressWatchInitialized = false;
+let selectionWasTheReaders = false;
 
 /**
  * Setup context menu event listener on the markdown viewer
@@ -498,25 +500,65 @@ export function setup(sendToRust: (data: ContextMenuData) => void): void {
     clearCursorOnClickInitialized = true;
   }
 
+  // Whether the selection standing when the menu opens is one the reader
+  // made. WebKit selects the word under the pointer as part of the
+  // right-click itself, so by the time the menu is being built there is
+  // always "a selection" — and the menu would offer to copy a word nobody
+  // asked for. What was true a moment *before* the press is the answer, so
+  // it is taken then.
+  if (!pressWatchInitialized) {
+    document.addEventListener(
+      "mousedown",
+      (event) => {
+        if (event.button !== 2) {
+          return;
+        }
+        const target = event.target as HTMLElement | null;
+        const selection = window.getSelection();
+        selectionWasTheReaders = Boolean(
+          target?.closest(".markdown-viewer") &&
+          selection &&
+          !selection.isCollapsed &&
+          selection.containsNode(target, true),
+        );
+      },
+      true,
+    );
+    pressWatchInitialized = true;
+  }
+
   // Find the markdown body element
   const handler = (event: MouseEvent) => {
     const target = event.target as HTMLElement;
 
-    // Only handle right-clicks within markdown-body
-    const markdownBody = target.closest(".markdown-body");
-    if (!markdownBody) return;
+    // Anywhere in the page or the band above it. The margin is part of the
+    // document — it is where the page's own width is set from — and a
+    // right-click that lands an inch wide of a paragraph is a right-click on
+    // the page, not on nothing. The header is the same page's chrome, and it
+    // answers with the same menu rather than with one of its own.
+    const page = target.closest(".markdown-viewer, .header");
+    if (!page) return;
 
     // Prevent default browser context menu
     event.preventDefault();
 
-    // Keep content cursor aligned with the context-menu target so that
-    // context-menu actions and keyboard actions operate on the same element.
-    window.Arto?.contentCursor?.setFromContextTarget?.(target);
+    // A right-click with nothing selected is about the block it landed in, so
+    // the word the browser just selected is undone and the block is marked
+    // instead — the same block Ctrl+j would step to. With a selection the
+    // reader made, that selection is the subject and nothing is marked over
+    // it: a block highlight drawn across a few chosen words hides them.
+    if (!selectionWasTheReaders) {
+      window.getSelection()?.removeAllRanges();
+      if (target.closest(".markdown-body")) {
+        window.Arto?.contentCursor?.setFromContextTarget?.(target);
+      }
+    }
+
+    const { hasSelection, selectedText } = getTextSelection();
 
     // Detect context and send to Rust
     // Position adjustment is handled by MutationObserver after menu renders
     const { context, sourceLine: blockLine, sourceLineEnd: blockLineEnd } = detectContext(target);
-    const { hasSelection, selectedText } = getTextSelection();
     const tableData = detectTable(target);
 
     // Block elements override selection-based line detection

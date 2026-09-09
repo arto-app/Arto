@@ -174,9 +174,13 @@ describe("extractTableDelimited", () => {
 
 describe("setup", () => {
   test("preserves relative href for normal links", () => {
+    // The page as the app draws it: the viewer holds the body, and its own
+    // padding is the margin a right-click can also land in.
     document.body.innerHTML = `
-      <div class="markdown-body">
-        <p><a href="./guide/page.md">Guide</a></p>
+      <div class="markdown-viewer">
+        <div class="markdown-body">
+          <p><a href="./guide/page.md">Guide</a></p>
+        </div>
       </div>
     `;
     document.caretRangeFromPoint = () => null;
@@ -210,5 +214,27 @@ describe("setup", () => {
     expect(captured).toMatchObject({
       context: { type: "link", href: "./guide/page.md" },
     });
+  });
+
+  test("a right-click in the margin is a right-click on the page", () => {
+    document.body.innerHTML = `
+      <div class="markdown-viewer">
+        <div class="markdown-body"><p>Something to read</p></div>
+      </div>
+    `;
+    document.caretRangeFromPoint = () => null;
+
+    let captured: unknown = null;
+    setup((data) => {
+      captured = data;
+    });
+
+    document
+      .querySelector(".markdown-viewer")
+      ?.dispatchEvent(
+        new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 4, clientY: 4 }),
+      );
+
+    expect(captured).not.toBeNull();
   });
 });

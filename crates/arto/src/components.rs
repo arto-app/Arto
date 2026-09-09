@@ -1,4 +1,5 @@
 pub mod app;
+pub mod app_menu;
 pub mod bookmark_button;
 pub mod content;
 pub mod context_menu;
@@ -14,5 +15,3 @@ pub mod preferences_window;
 pub mod search_bar;
 pub mod sidebar;
 pub mod theme_selector;
-#[cfg(target_os = "windows")]
-pub mod win_hamburger;

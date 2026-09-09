@@ -96,15 +96,21 @@ pub fn ThemeSelector(current_theme: Signal<Theme>) -> Element {
                 class: "theme-selector-main",
                 "aria-expanded": if is_expanded() { "true" } else { "false" },
                 "aria-haspopup": "menu",
-                title: current_title,
+                // No `title`: it would land on the list this opens. See the
+                // app menu's glyph in `components::header`.
+                "aria-label": current_title,
                 onmousedown: move |evt| {
                     evt.stop_propagation();
                 },
+                // The glyph says which theme is on, and pressing it names all
+                // three. Stepping to the next one instead made the control
+                // answer a question nobody asked — "what is after this?" —
+                // and put the theme two presses away from the one wanted.
                 onclick: move |evt| {
                     evt.stop_propagation();
                     is_expanded.set(!is_expanded());
                 },
-                Icon { name: current_icon, size: 18 }
+                Icon { name: current_icon }
             }
 
             // Dropdown menu (remaining 2 themes)
@@ -130,7 +136,7 @@ pub fn ThemeSelector(current_theme: Signal<Theme>) -> Element {
                             current_theme.set(theme);
                             is_expanded.set(false);
                         },
-                        Icon { name: icon, size: 18 }
+                        Icon { name: icon }
                     }
                 }
             }
