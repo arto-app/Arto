@@ -1,7 +1,9 @@
 @import url("./content/frontmatter.css");
 @import url("./content/markdown-alert.css");
 @import url("./content/markdown-viewer.css");
+@import url("./content/highlights.css");
 @import url("./content/welcome.css");
+@import url("./content/margin-trace.css");
 
 .content {
   flex: 1;

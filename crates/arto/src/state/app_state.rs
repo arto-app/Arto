@@ -11,6 +11,7 @@ use crate::theme::Theme;
 
 mod document;
 mod focused_panel;
+mod layout;
 mod sidebar;
 pub(crate) mod sidebar_cursor;
 
@@ -98,6 +99,11 @@ pub struct AppState {
     pub reload_trigger: Signal<usize>,
     /// Which panel currently has keyboard focus (for context-aware keybindings).
     pub focused_panel: Signal<FocusedPanel>,
+    /// Bumped when the configuration changes, because the configuration is
+    /// not a signal and nothing subscribes to it. Anything derived from it
+    /// reads this instead, which is what makes a saved preference redraw the
+    /// window that is looking at it.
+    pub config_revision: Signal<u32>,
     /// Whether the command palette is open.
     pub palette_open: Signal<bool>,
     /// What is typed into the palette, and which row the keys act on.
@@ -161,6 +167,7 @@ impl AppState {
             current_scroll_anchor: Signal::new(ScrollAnchor::TOP),
             reload_trigger: Signal::new(0),
             focused_panel: Signal::new(FocusedPanel::Content),
+            config_revision: Signal::new(0),
             palette_open: Signal::new(false),
             palette_query: Signal::new(String::new()),
             palette_cursor: Signal::new(None),

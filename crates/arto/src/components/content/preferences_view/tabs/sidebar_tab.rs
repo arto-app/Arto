@@ -1,7 +1,7 @@
 use super::super::form_controls::{OptionCardItem, OptionCards, SliderInput};
 use crate::config::{
-    normalize_sidebar_zoom, Config, NewWindowBehavior, OpenFromPanel, StartupBehavior,
-    MAX_SIDEBAR_ZOOM, MIN_SIDEBAR_ZOOM, ZOOM_STEP,
+    normalize_sidebar_zoom, Config, NewWindowBehavior, OpenFromPanel, RecentTrace, StartupBehavior,
+    MAX_SIDEBAR_ZOOM, MIN_CONTENT_WIDTH_RANGE, MIN_SIDEBAR_ZOOM, ZOOM_STEP,
 };
 use crate::events::SET_SIDEBAR_ZOOM_IN_WINDOW;
 use dioxus::desktop::tao::window::WindowId;
@@ -41,7 +41,8 @@ pub fn SidebarTab(
                     decimals: 1,
                     on_change: move |new_zoom| {
                         // Normalize to 0.1 step and clamp to valid range
-                        let _ = SET_SIDEBAR_ZOOM_IN_WINDOW.send((window_id, normalize_sidebar_zoom(new_zoom)));
+                        let _ = SET_SIDEBAR_ZOOM_IN_WINDOW
+                            .send((window_id, normalize_sidebar_zoom(new_zoom)));
                     },
                     default_value: Some(sidebar_cfg.default_zoom_level),
                 }
@@ -149,6 +150,91 @@ pub fn SidebarTab(
                     selected: sidebar_cfg.default_show_all_files,
                     on_change: move |new_state| {
                         config.write().sidebar.default_show_all_files = new_state;
+                        has_changes.set(true);
+                    },
+                }
+            }
+
+            h3 { class: "preference-section-title", "Reading Width" }
+
+            div {
+                class: "preference-item",
+                div {
+                    class: "preference-item-header",
+                    label { "Minimum Content Width" }
+                    p {
+                        class: "preference-description",
+                        "The width the document keeps while anything else can give way instead. Everything around the page folds at this number plus its own width, from the outside in: the margin trace, then the panel, then the contents gutter, then the rail. Raise it and a wide window folds them sooner."
+                    }
+                }
+                SliderInput {
+                    value: sidebar_cfg.min_content_width,
+                    min: *MIN_CONTENT_WIDTH_RANGE.start(),
+                    max: *MIN_CONTENT_WIDTH_RANGE.end(),
+                    step: 10.0,
+                    unit: "px".to_string(),
+                    on_change: move |new_width| {
+                        config.write().sidebar.min_content_width = new_width;
+                        has_changes.set(true);
+                    },
+                }
+            }
+
+            div {
+                class: "preference-item",
+                div {
+                    class: "preference-item-header",
+                    label { "Margin Trace" }
+                    p {
+                        class: "preference-description",
+                        "The documents read before this one, left at the edge of the page. It is the one window on the history nobody asks for, so it is the one you can turn off. A window too narrow to keep the document readable hides it whatever is chosen here."
+                    }
+                }
+                OptionCards {
+                    name: "sidebar-recent-trace".to_string(),
+                    options: vec![
+                        OptionCardItem {
+                            icon: None,
+                            value: RecentTrace::Never,
+                            title: "Never".to_string(),
+                            description: Some("Keep the margin empty".to_string()),
+                        },
+                        OptionCardItem {
+                            icon: None,
+                            value: RecentTrace::HiddenWhenSidebar,
+                            title: "Not with the panel".to_string(),
+                            description: Some("Hidden while the panel is out".to_string()),
+                        },
+                        OptionCardItem {
+                            icon: None,
+                            value: RecentTrace::Always,
+                            title: "Always".to_string(),
+                            description: Some("Drawn whenever it fits".to_string()),
+                        },
+                    ],
+                    selected: sidebar_cfg.recent_trace,
+                    on_change: move |new_trace| {
+                        config.write().sidebar.recent_trace = new_trace;
+                        has_changes.set(true);
+                    },
+                }
+            }
+
+            div {
+                class: "preference-item",
+                div {
+                    class: "preference-item-header",
+                    label { "Documents in the Trace" }
+                    p { class: "preference-description", "How many documents the margin trace names." }
+                }
+                SliderInput {
+                    value: sidebar_cfg.recent_trace_count as f64,
+                    min: 1.0,
+                    max: 12.0,
+                    step: 1.0,
+                    unit: String::new(),
+                    on_change: move |new_count: f64| {
+                        config.write().sidebar.recent_trace_count = new_count.max(1.0) as usize;
                         has_changes.set(true);
                     },
                 }

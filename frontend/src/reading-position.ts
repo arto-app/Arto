@@ -1,11 +1,40 @@
 /**
  * Where the reader is in the document, for the chrome that answers to it: the
- * contents gutter's current tick and the marks a search left on it.
+ * contents gutter's current tick, the marks a search left on it, and the
+ * margin trace's place beside the page.
  *
  * All of it is the same question asked in different words — where in this
  * document are we, and what is around us — so it shares one passive scroll
  * listener and one frame's worth of work.
  */
+
+/**
+ * How much of the column the margin trace has to centre itself against.
+ *
+ * The trace is set level with the middle of what is being read, and what is
+ * being read is the document — until the document is taller than the window,
+ * when it is the window. So: the smaller of the two.
+ */
+const TRACE_EXTENT = "--trace-extent";
+
+/**
+ * How far the margin trace has to move to reach the document.
+ *
+ * The trace is laid out at the left edge of the content area, but the column
+ * it annotates is centred in what is left of the window, so at a wide window
+ * the two are half a screen apart. This closes that: the names sit in the
+ * document's own margin, which is the only place a marginal note means
+ * anything.
+ */
+const TRACE_OFFSET = "--trace-offset";
+
+/**
+ * How much air is left between the trace and the text it annotates.
+ *
+ * Kept here rather than as padding on the column, so that widening the gap
+ * moves the whole column instead of eating the room its names are set in.
+ */
+const TRACE_GAP = 56;
 
 /** The attribute that marks the heading the reader is inside. */
 const CURRENT = "data-current";
@@ -117,6 +146,33 @@ function scroller(): HTMLElement | null {
   return document.querySelector(".content");
 }
 
+/**
+ * The page whose height everything here is measured against.
+ *
+ * It does not arrive at its full height: code blocks are highlighted,
+ * diagrams and formulae are drawn, images load, and each of those makes the
+ * page taller after it was last measured. A scroll does not necessarily
+ * follow — the reader may still be looking at the first screen — so nothing
+ * else would ask for the measurement again, and the trace would sit level
+ * with the middle of a document that no longer exists.
+ */
+let measured: HTMLElement | null = null;
+let growth: ResizeObserver | null = null;
+
+function watchBody(body: HTMLElement | null): void {
+  if (body === measured) {
+    return;
+  }
+  growth ??= new ResizeObserver(() => refreshReadingPosition());
+  if (measured) {
+    growth.unobserve(measured);
+  }
+  measured = body;
+  if (body) {
+    growth.observe(body);
+  }
+}
+
 function update(): void {
   scheduled = false;
 
@@ -130,7 +186,28 @@ function update(): void {
     listening = content;
   }
 
+  const area = content.closest<HTMLElement>(".content-area");
   const body = content.querySelector<HTMLElement>(".markdown-body");
+  watchBody(body);
+  if (area) {
+    const document_ = body?.getBoundingClientRect().height ?? content.clientHeight;
+    const window_ = content.clientHeight;
+    area.style.setProperty(TRACE_EXTENT, `${Math.round(Math.min(document_, window_))}px`);
+
+    // Layout coordinates for the trace, so that the offset already applied to
+    // it does not feed back into the next measurement.
+    const trace = area.querySelector<HTMLElement>(".margin-trace");
+    if (trace && body) {
+      const traceRight = trace.offsetLeft + trace.offsetWidth;
+      const bodyLeft = body.getBoundingClientRect().left - area.getBoundingClientRect().left;
+      const offset = Math.max(0, Math.round(bodyLeft - traceRight - TRACE_GAP));
+      area.style.setProperty(TRACE_OFFSET, `${offset}px`);
+      // Until this has run once, the column is still at the window's edge
+      // rather than beside the text; drawn there and then moved, it reads as
+      // the page settling into place after the reader is already looking.
+      area.dataset.traceReady = "";
+    }
+  }
 
   // The ticks and the names they stand for are two views of one list, so the
   // current heading is marked on both.

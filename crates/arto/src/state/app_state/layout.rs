@@ -1,0 +1,54 @@
+//! What the window is wide enough to draw beside the document.
+//!
+//! The rule and its thresholds live in [`crate::hooks::layout_budget`], which
+//! is pure and tested against the specification's table. This is where the
+//! window's own numbers are collected and handed to it.
+
+use dioxus::prelude::*;
+
+use crate::config::{RecentTrace, CONFIG};
+use crate::hooks::layout_budget::{budget, Visible};
+use crate::state::AppState;
+
+impl AppState {
+    /// How many documents the margin trace names.
+    pub fn trace_count(&self) -> usize {
+        let _ = self.config_revision.read();
+        CONFIG.read().sidebar.recent_trace_count
+    }
+
+    /// What fits beside the document right now.
+    ///
+    /// The width is measured after zoom, because magnifying the page is the
+    /// same as narrowing the window.
+    pub fn visible_chrome(&self) -> Visible {
+        // Subscribes whoever is reading to configuration changes; the value
+        // itself says nothing.
+        let _ = self.config_revision.read();
+        let zoom = *self.zoom_level.read();
+        let width = self.size.read().width as f64;
+        let effective_width = if zoom > 0.0 { width / zoom } else { width };
+        let (min_content, panel_width) = {
+            let config = CONFIG.read();
+            (config.sidebar.min_content_width, self.sidebar.read().width)
+        };
+        budget(effective_width, min_content, panel_width)
+    }
+
+    /// Whether the margin trace is drawn.
+    ///
+    /// The setting decides first and the margin has the last word. There has
+    /// to be one: a window too narrow to keep the document readable has none
+    /// to spare, and a document set to the full width has none at all — the
+    /// trace would be drawn over the first inch of every line. Neither is a
+    /// change to what was chosen, so both are undone by undoing them.
+    pub fn trace_visible(&self) -> bool {
+        let _ = self.config_revision.read();
+        let chosen = match CONFIG.read().sidebar.recent_trace {
+            RecentTrace::Never => false,
+            RecentTrace::HiddenWhenSidebar => !self.sidebar.read().pinned,
+            RecentTrace::Always => true,
+        };
+        chosen && !*self.content_full_width.read() && self.visible_chrome().trace
+    }
+}

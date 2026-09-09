@@ -57,7 +57,8 @@
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
     monospace;
 
-  /* The rail's width. */
+  /* The rail's width. The layout budget measures the same band in Rust
+     (`hooks::layout_budget::RAIL_WIDTH`); keep the two in step. */
   --rail-width: 40px;
 
   /* The peeking panel's shadow. The offset and the negative spread keep it

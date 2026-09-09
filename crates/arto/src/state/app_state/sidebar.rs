@@ -159,10 +159,29 @@ impl AppState {
     /// Whether the panel is on screen, pinned beside the document or peeking
     /// over it.
     pub fn panel_is_showing(&self) -> bool {
-        self.sidebar.read().pinned || *self.left_hover_active.read()
+        (self.sidebar.read().pinned && self.visible_chrome().panel)
+            || *self.left_hover_active.read()
+    }
+
+    /// Open a document the reader picked out of the panel.
+    ///
+    /// Not quite the same act as opening a document: the panel is the other
+    /// half of it. Some readers work down the list, opening one document after
+    /// another; others go to it for one thing and want the page to themselves
+    /// once they have it. `sidebar.onOpen` says which.
+    pub fn open_from_panel(&mut self, path: impl AsRef<std::path::Path>) {
+        self.open_file(path.as_ref());
+        if crate::config::CONFIG.read().sidebar.on_open == crate::config::OpenFromPanel::ClosePanel
+        {
+            self.hide_panel();
+        }
     }
 
     /// Put the panel away, however it is showing.
+    ///
+    /// A keyboard cursor inside it goes with it: leaving the focus on rows
+    /// that are no longer drawn would send the next keystroke somewhere the
+    /// reader cannot see.
     pub fn hide_panel(&mut self) {
         self.sidebar.write().pinned = false;
         self.focus_content();
@@ -179,10 +198,19 @@ impl AppState {
         self.left_hover_active.set(false);
     }
 
-    /// Bring the panel out.
+    /// Bring the panel out, in whichever way the width allows.
+    ///
+    /// A window wide enough holds it beside the document; a narrower one
+    /// shows it over the document instead, so Cmd+B still opens something
+    /// when the layout has folded the panel away. The pinned choice is left
+    /// alone in that case, so widening the window restores it as configured.
     pub fn show_panel(&mut self) {
-        self.sidebar.write().pinned = true;
-        self.left_hover_active.set(false);
+        if self.visible_chrome().panel {
+            self.sidebar.write().pinned = true;
+            self.left_hover_active.set(false);
+        } else {
+            self.left_hover_active.set(true);
+        }
     }
 
     /// Toggle the panel, whichever way it is currently showing.
@@ -223,20 +251,6 @@ impl AppState {
     pub fn step_face(&mut self, forward: bool) {
         let next = self.sidebar.peek().face.step(forward);
         self.focus_face(next);
-    }
-
-    /// Open a document the reader picked out of the panel.
-    ///
-    /// Not quite the same act as opening a document: the panel is the other
-    /// half of it. Some readers work down the list, opening one document after
-    /// another; others go to it for one thing and want the page to themselves
-    /// once they have it. `sidebar.onOpen` says which.
-    pub fn open_from_panel(&mut self, path: impl AsRef<Path>) {
-        self.open_file(path.as_ref());
-        if crate::config::CONFIG.read().sidebar.on_open == crate::config::OpenFromPanel::ClosePanel
-        {
-            self.hide_panel();
-        }
     }
 
     /// Take in the current bookmarked directories as the tree's places.
@@ -391,8 +405,10 @@ mod tests {
         assert!(!sidebar.is_expanded(Group::Bookmark, both, both));
     }
 
-    /// The pinned flag on its own, which is what `AppState::toggle_sidebar`
-    /// writes.
+    /// The pinned flag on its own, which is what `AppState::show_panel` and
+    /// `AppState::hide_panel` write. Whether a pinned panel is actually drawn
+    /// also depends on the width, and that rule is tested in
+    /// `crate::hooks::layout_budget`.
     fn apply_toggle(sidebar: &mut Sidebar) {
         sidebar.pinned = !sidebar.pinned;
     }

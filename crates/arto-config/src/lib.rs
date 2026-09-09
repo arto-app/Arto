@@ -74,6 +74,14 @@ mod tests {
     }
 
     #[test]
+    fn the_old_name_for_always_still_parses() {
+        // `hidden_when_full_width` named a choice that is now simply what
+        // happens: a document at full width has no margin for the trace.
+        let parsed: RecentTrace = serde_json::from_str(r#""hidden_when_full_width""#).unwrap();
+        assert_eq!(parsed, RecentTrace::Always);
+    }
+
+    #[test]
     fn test_config_default() {
         let config = Config::default();
 
@@ -92,6 +100,9 @@ mod tests {
 
         // Sidebar defaults
         assert!(!config.sidebar.default_pinned); // Default is false (unpinned, overlay on hover)
+        assert_eq!(config.sidebar.min_content_width, 640.0);
+        assert_eq!(config.sidebar.recent_trace, RecentTrace::HiddenWhenSidebar);
+        assert_eq!(config.sidebar.recent_trace_count, 6);
         assert_eq!(config.sidebar.default_width, 280.0);
         assert!(!config.sidebar.default_show_all_files);
         assert_eq!(config.sidebar.default_zoom_level, 1.0);
@@ -168,6 +179,9 @@ mod tests {
                 default_width: 320.0,
                 default_show_all_files: true,
                 default_zoom_level: 1.2,
+                min_content_width: 800.0,
+                recent_trace: RecentTrace::Always,
+                recent_trace_count: 4,
                 on_open: OpenFromPanel::ClosePanel,
                 on_startup: StartupBehavior::LastClosed,
                 on_new_window: NewWindowBehavior::LastFocused,
@@ -232,6 +246,9 @@ mod tests {
         assert!(!parsed.sidebar.default_pinned);
         assert_eq!(parsed.sidebar.default_width, 320.0);
         assert_eq!(parsed.sidebar.default_zoom_level, 1.2);
+        assert_eq!(parsed.sidebar.min_content_width, 800.0);
+        assert_eq!(parsed.sidebar.recent_trace, RecentTrace::Always);
+        assert_eq!(parsed.sidebar.recent_trace_count, 4);
         assert_eq!(parsed.window_position.default_position.x.value, 10.0);
         assert_eq!(
             parsed.window_position.default_position.x.unit,
@@ -268,6 +285,9 @@ mod tests {
 
         // Sidebar zoom and layout defaults
         assert_eq!(parsed.sidebar.default_zoom_level, 1.0);
+        assert_eq!(parsed.sidebar.min_content_width, 640.0);
+        assert_eq!(parsed.sidebar.recent_trace, RecentTrace::HiddenWhenSidebar);
+        assert_eq!(parsed.sidebar.recent_trace_count, 6);
         assert_eq!(parsed.file_open, FileOpenBehavior::LastFocused);
     }
 
