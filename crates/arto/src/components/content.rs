@@ -46,6 +46,7 @@ pub fn Content() -> Element {
 
     // Set up scroll position tracking via JavaScript
     use_scroll_anchor_tracker(state);
+    use_measure_on_zoom(zoom_level);
 
     let headings = state.headings;
 
@@ -110,6 +111,20 @@ pub fn Content() -> Element {
         }
         }
     }
+}
+
+/// Ask the chrome set beside the page to measure itself again after a zoom.
+///
+/// The margin trace stands in the page's own margin, and that margin is what
+/// zoom takes: the column is magnified, the trace is not. Nothing in the page
+/// announces it — the window has not been resized, and the page's layout size
+/// is unchanged, only the scale it is drawn at — so the measurement is asked
+/// for from here, where the zoom is known. See `frontend/src/reading-position.ts`.
+fn use_measure_on_zoom(zoom_level: Signal<f64>) {
+    use_effect(move || {
+        let _ = zoom_level();
+        document::eval("window.Arto?.readingPosition?.refresh?.();");
+    });
 }
 
 /// Hook to track scroll position via JavaScript and update state.

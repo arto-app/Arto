@@ -67,6 +67,18 @@
   transition: none;
 }
 
+/* No margin left to be a note in. The width the layout budget reserves is
+   measured against the document's minimum, but the page is set to its own
+   width and centred in whatever is left of the window — so magnifying the
+   page closes the margin from the document's side while the budget still
+   allows the trace. `reading-position.ts` measures what is actually left and
+   says so here; the trace yields it, the way it yields to every other claim
+   on the space. */
+.content-area[data-trace-crowded] .margin-trace {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Out of the way, and seen to go: it fades, rather than closing like a door.
    It can simply fade now that it holds no width of the page's — nothing moves
    when it goes. */

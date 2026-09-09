@@ -34,7 +34,37 @@ const TRACE_OFFSET = "--trace-offset";
  * Kept here rather than as padding on the column, so that widening the gap
  * moves the whole column instead of eating the room its names are set in.
  */
-const TRACE_GAP = 56;
+export const TRACE_GAP = 56;
+
+/** The attribute that says the page has taken the margin the trace sits in. */
+const CROWDED = "data-trace-crowded";
+
+/**
+ * Where the trace's column goes, and whether there is a margin left for it.
+ *
+ * Both arguments are measured from the left edge of the reading area:
+ * `traceRight` is where the column ends where it is laid out, `bodyLeft`
+ * where the page begins. The column is moved right until it stands
+ * `TRACE_GAP` short of the page.
+ *
+ * The layout budget reserves the trace's width against the document's
+ * *minimum* width, but the page is set to its own width and centred in
+ * whatever is left of the window — so magnifying the page, or a wide panel
+ * beside it, closes the margin while the budget still allows the trace. When
+ * the margin can no longer hold the column at its distance from the text, the
+ * trace gives way, as it does to every other claim on the space; the
+ * alternative is a column of names written over the first inch of every line.
+ */
+export function traceColumn(
+  bodyLeft: number,
+  traceRight: number,
+): { offset: number; crowded: boolean } {
+  const room = bodyLeft - traceRight;
+  if (room < TRACE_GAP) {
+    return { offset: 0, crowded: true };
+  }
+  return { offset: Math.round(room - TRACE_GAP), crowded: false };
+}
 
 /** The attribute that marks the heading the reader is inside. */
 const CURRENT = "data-current";
@@ -157,20 +187,31 @@ function scroller(): HTMLElement | null {
  * with the middle of a document that no longer exists.
  */
 let measured: HTMLElement | null = null;
+
+/**
+ * The reading area the page is centred in.
+ *
+ * What the trace is placed against is the margin between the two, and the
+ * area is the side of it that the panel moves: widening a pinned panel takes
+ * the margin without touching the page, which keeps its own width and simply
+ * has less room to be centred in.
+ */
+let framed: HTMLElement | null = null;
 let growth: ResizeObserver | null = null;
 
-function watchBody(body: HTMLElement | null): void {
-  if (body === measured) {
-    return;
+/** Move the one observation kept in a slot from `current` to `next`. */
+function watch(current: HTMLElement | null, next: HTMLElement | null): HTMLElement | null {
+  if (current === next) {
+    return current;
   }
   growth ??= new ResizeObserver(() => refreshReadingPosition());
-  if (measured) {
-    growth.unobserve(measured);
+  if (current) {
+    growth.unobserve(current);
   }
-  measured = body;
-  if (body) {
-    growth.observe(body);
+  if (next) {
+    growth.observe(next);
   }
+  return next;
 }
 
 function update(): void {
@@ -188,7 +229,8 @@ function update(): void {
 
   const area = content.closest<HTMLElement>(".content-area");
   const body = content.querySelector<HTMLElement>(".markdown-body");
-  watchBody(body);
+  measured = watch(measured, body);
+  framed = watch(framed, content);
   if (area) {
     const document_ = body?.getBoundingClientRect().height ?? content.clientHeight;
     const window_ = content.clientHeight;
@@ -199,9 +241,14 @@ function update(): void {
     const trace = area.querySelector<HTMLElement>(".margin-trace");
     if (trace && body) {
       const traceRight = trace.offsetLeft + trace.offsetWidth;
+      // The page is measured where it is painted, because zoom is what closes
+      // the margin: the column is magnified with the document, the trace is
+      // not. `offsetLeft` reads the same space, the trace being outside the
+      // zoomed wrapper.
       const bodyLeft = body.getBoundingClientRect().left - area.getBoundingClientRect().left;
-      const offset = Math.max(0, Math.round(bodyLeft - traceRight - TRACE_GAP));
+      const { offset, crowded } = traceColumn(bodyLeft, traceRight);
       area.style.setProperty(TRACE_OFFSET, `${offset}px`);
+      area.toggleAttribute(CROWDED, crowded);
       // Until this has run once, the column is still at the window's edge
       // rather than beside the text; drawn there and then moved, it reads as
       // the page settling into place after the reader is already looking.
