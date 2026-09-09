@@ -1,4 +1,4 @@
-//! Reusable bookmark toggle button component for Quick Access feature.
+//! The control that stars a document, wherever a document is listed.
 
 use dioxus::prelude::*;
 use std::path::PathBuf;
@@ -48,10 +48,13 @@ pub fn BookmarkButton(
         IconName::Star
     };
 
+    // The panel's face is called Starred, and so is this: a control named
+    // after a screen that no longer carries that name is a control the reader
+    // has to translate.
     let title = if is_bookmarked {
-        "Remove from Quick Access"
+        "Remove from Starred"
     } else {
-        "Add to Quick Access"
+        "Add to Starred"
     };
 
     let bookmarked_class = if is_bookmarked { "bookmarked" } else { "" };

@@ -1,9 +1,44 @@
-use super::AppState;
+use super::{AppState, FocusedPanel};
 use crate::bookmarks::BOOKMARKS;
 use crate::roots::{Origin, Roots};
 use dioxus::prelude::*;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+
+/// Which face the panel is showing.
+///
+/// The rail switches between them; only one is drawn at a time, and the rail
+/// itself never goes away, so there is always something visible to switch
+/// back with.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Face {
+    /// The tree of roots — the places kept, and the folder this window is in.
+    #[default]
+    Places,
+    Recent,
+    Starred,
+}
+
+impl Face {
+    /// The faces in the order the rail draws them, which is the order the
+    /// keyboard steps through them.
+    pub const ORDER: [Face; 3] = [Face::Places, Face::Starred, Face::Recent];
+
+    /// The next face along, wrapping. `forward` is down the rail.
+    pub fn step(self, forward: bool) -> Face {
+        let at = Self::ORDER
+            .iter()
+            .position(|face| *face == self)
+            .unwrap_or(0);
+        let len = Self::ORDER.len();
+        let next = if forward {
+            (at + 1) % len
+        } else {
+            (at + len - 1) % len
+        };
+        Self::ORDER[next]
+    }
+}
 
 /// Which of the tree's two groups a row belongs to.
 ///
@@ -17,6 +52,8 @@ pub enum Group {
     Current,
     /// One of the folders kept, which every window has.
     Bookmark,
+    /// A face whose rows are one list with no groups in it: Recent and Starred.
+    Flat,
 }
 
 /// A row of the tree: which group it is drawn in, which root it descends
@@ -38,8 +75,16 @@ pub struct Sidebar {
     /// The directories the tree is rooted at: the bookmarked places, shared by
     /// every window, and this window's own temporaries.
     pub roots: Roots,
+    /// Which of the three faces the panel is showing.
+    pub face: Face,
     /// The directories opened, by the row that opened them — see [`TreeRow`].
     pub expanded_dirs: HashSet<TreeRow>,
+    /// The history groups the reader folded away, by heading.
+    ///
+    /// Beside `expanded_dirs` rather than inside the Recent face, for the same
+    /// reason: what is folded decides which rows are drawn, and the keyboard
+    /// cursor has to walk the rows that are drawn.
+    pub recent_collapsed: HashSet<String>,
     pub width: f64,
     pub show_all_files: bool,
     pub zoom_level: f64,
@@ -50,7 +95,9 @@ impl Default for Sidebar {
         Self {
             pinned: false,
             roots: Roots::default(),
+            face: Face::default(),
             expanded_dirs: HashSet::new(),
+            recent_collapsed: HashSet::new(),
             width: 280.0,
             show_all_files: false,
             zoom_level: 1.0,
@@ -59,6 +106,13 @@ impl Default for Sidebar {
 }
 
 impl Sidebar {
+    /// Fold a history group away, or open it again.
+    pub fn toggle_group(&mut self, heading: &str) {
+        if !self.recent_collapsed.remove(heading) {
+            self.recent_collapsed.insert(heading.to_string());
+        }
+    }
+
     /// Whether this row's directory is open.
     pub fn is_expanded(&self, group: Group, root: &Path, path: &Path) -> bool {
         self.expanded_dirs
@@ -102,10 +156,87 @@ impl Sidebar {
 }
 
 impl AppState {
-    /// Pin the panel beside the document, or unpin it.
+    /// Whether the panel is on screen, pinned beside the document or peeking
+    /// over it.
+    pub fn panel_is_showing(&self) -> bool {
+        self.sidebar.read().pinned || *self.left_hover_active.read()
+    }
+
+    /// Put the panel away, however it is showing.
+    pub fn hide_panel(&mut self) {
+        self.sidebar.write().pinned = false;
+        self.focus_content();
+    }
+
+    /// Give the keyboard back to the page, and let a peeking panel go with
+    /// it.
+    ///
+    /// A panel peeks because the pointer is in it or the keys are; saying the
+    /// keys have left without saying the peek is over leaves it on screen
+    /// with nothing holding it there.
+    pub fn focus_content(&mut self) {
+        self.focused_panel.set(FocusedPanel::Content);
+        self.left_hover_active.set(false);
+    }
+
+    /// Bring the panel out.
+    pub fn show_panel(&mut self) {
+        self.sidebar.write().pinned = true;
+        self.left_hover_active.set(false);
+    }
+
+    /// Toggle the panel, whichever way it is currently showing.
     pub fn toggle_sidebar(&mut self) {
-        let pinned = self.sidebar.read().pinned;
-        self.sidebar.write().pinned = !pinned;
+        if self.panel_is_showing() {
+            self.hide_panel();
+        } else {
+            self.show_panel();
+        }
+    }
+
+    /// Show one of the panel's three faces, bringing the panel out if it is
+    /// away.
+    ///
+    /// Asking for a face is asking to look at it, so it does not also require
+    /// opening the panel first.
+    pub fn show_face(&mut self, face: Face) {
+        // Each face is a different list, so a cursor left over from the last
+        // one would be pointing at a row that is not drawn any more.
+        if self.sidebar.peek().face != face {
+            self.panel_cursor.set(None);
+        }
+        self.sidebar.write().face = face;
+        self.show_panel();
+    }
+
+    /// Show a face and put the keyboard in it.
+    ///
+    /// Asking for a face by key is asking to use it, and a face that came out
+    /// without the keyboard would have to be reached for a second time.
+    pub fn focus_face(&mut self, face: Face) {
+        self.show_face(face);
+        self.focused_panel.set(FocusedPanel::Panel);
+    }
+
+    /// Step to the next face along the rail, keeping the keyboard in the
+    /// panel.
+    pub fn step_face(&mut self, forward: bool) {
+        let next = self.sidebar.peek().face.step(forward);
+        self.focus_face(next);
+    }
+
+    /// Open a document the reader picked out of the panel.
+    ///
+    /// Not quite the same act as opening a document: the panel is the other
+    /// half of it. Some readers work down the list, opening one document after
+    /// another; others go to it for one thing and want the page to themselves
+    /// once they have it. `sidebar.onOpen` says which.
+    pub fn open_from_panel(&mut self, path: impl AsRef<Path>) {
+        self.open_file(path.as_ref());
+        if crate::config::CONFIG.read().sidebar.on_open == crate::config::OpenFromPanel::ClosePanel
+        {
+            self.hide_panel();
+        }
     }
 
     /// Take in the current bookmarked directories as the tree's places.
@@ -123,6 +254,10 @@ impl AppState {
     /// Explicit: it joins even when an existing root already covers it, since
     /// pointing at it is the whole of the intent. Only an exact duplicate is
     /// refused, and then it is revealed instead.
+    ///
+    /// Pointing at a folder is asking to see it, so the tree comes to the
+    /// front — through [`Self::show_face`], which is what keeps the keyboard
+    /// cursor and the face in step.
     pub fn add_root(&mut self, path: impl AsRef<Path>) {
         let path = path.as_ref();
         {
@@ -130,6 +265,7 @@ impl AppState {
             let decision = sidebar.roots.decide(path, Origin::Explicit);
             sidebar.roots.apply(&decision);
         }
+        self.show_face(Face::Places);
     }
 
     /// Make room in the tree for a document that is about to be opened.
@@ -158,6 +294,31 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_faces_step_in_the_order_the_rail_draws_them() {
+        assert_eq!(Face::Places.step(true), Face::Starred);
+        assert_eq!(Face::Starred.step(true), Face::Recent);
+        assert_eq!(Face::Recent.step(true), Face::Places);
+    }
+
+    #[test]
+    fn stepping_back_is_stepping_the_other_way() {
+        for face in Face::ORDER {
+            assert_eq!(face.step(true).step(false), face);
+        }
+    }
+
+    #[test]
+    fn folding_a_history_group_is_a_toggle() {
+        let mut sidebar = Sidebar::default();
+
+        sidebar.toggle_group("Last week");
+        assert!(sidebar.recent_collapsed.contains("Last week"));
+
+        sidebar.toggle_group("Last week");
+        assert!(!sidebar.recent_collapsed.contains("Last week"));
+    }
 
     #[test]
     fn test_sidebar_default() {

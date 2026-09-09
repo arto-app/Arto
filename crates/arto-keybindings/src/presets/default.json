@@ -128,16 +128,28 @@
       "action": "scroll.bottom"
     },
     {
+      "key": "Escape",
+      "action": "cancel"
+    },
+    {
+      "key": "Cmd+1",
+      "action": "sidebar.face_places"
+    },
+    {
+      "key": "Cmd+2",
+      "action": "sidebar.face_recent"
+    },
+    {
+      "key": "Cmd+3",
+      "action": "sidebar.face_starred"
+    },
+    {
       "key": "Ctrl+ArrowLeft",
-      "action": "focus.left_sidebar"
+      "action": "focus.places"
     },
     {
       "key": "Ctrl+ArrowRight",
       "action": "focus.right_sidebar"
-    },
-    {
-      "key": "Escape",
-      "action": "cancel"
     }
   ],
   "content": [
@@ -163,7 +175,7 @@
     },
     {
       "key": "Ctrl+ArrowLeft",
-      "action": "focus.left_sidebar"
+      "action": "focus.places"
     },
     {
       "key": "Ctrl+ArrowRight",
@@ -214,16 +226,20 @@
       "action": "directory.parent"
     },
     {
-      "key": "Ctrl+ArrowLeft",
-      "action": "focus.left_sidebar"
-    },
-    {
       "key": "Ctrl+ArrowRight",
       "action": "focus.content"
     },
     {
       "key": "Ctrl+ArrowDown",
-      "action": "focus.quick_access"
+      "action": "sidebar.face_next"
+    },
+    {
+      "key": "Ctrl+ArrowUp",
+      "action": "sidebar.face_prev"
+    },
+    {
+      "key": "Ctrl+ArrowLeft",
+      "action": "focus.places"
     }
   ],
   "rightSidebar": [
@@ -253,36 +269,6 @@
     },
     {
       "key": "Ctrl+ArrowLeft",
-      "action": "focus.content"
-    }
-  ],
-  "quickAccess": [
-    {
-      "key": "ArrowDown",
-      "action": "cursor.down"
-    },
-    {
-      "key": "ArrowUp",
-      "action": "cursor.up"
-    },
-    {
-      "key": "ArrowRight",
-      "action": "cursor.open"
-    },
-    {
-      "key": "Enter",
-      "action": "cursor.open"
-    },
-    {
-      "key": "ArrowLeft",
-      "action": "cursor.collapse"
-    },
-    {
-      "key": "Ctrl+ArrowUp",
-      "action": "focus.left_sidebar"
-    },
-    {
-      "key": "Ctrl+ArrowRight",
       "action": "focus.content"
     }
   ]

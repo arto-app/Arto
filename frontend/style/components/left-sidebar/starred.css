@@ -1,0 +1,38 @@
+/* =================================
+   Starred face
+   =================================
+
+   A starred document is drawn by the tree's rules — same height, same
+   padding, same hover and same marks — because it is the same row seen in a
+   different list. What is left here is only what a starred row has that a
+   tree row does not: it can be dragged into an order, and the file behind it
+   can be gone. */
+
+.left-sidebar-starred-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.left-sidebar-starred-row {
+  /* Enable drag in webkit-based webviews */
+  -webkit-user-drag: element;
+}
+
+/* Children of a draggable row start their own drag otherwise, and the row
+   never moves. */
+.left-sidebar-starred-row > * {
+  -webkit-user-drag: none;
+}
+
+/* The file is gone. The row stays — a starred document is a note about where
+   something was, and taking it away silently would answer a question nobody
+   asked — but it does not pretend to open. */
+.left-sidebar-starred-row.missing {
+  opacity: var(--opacity-subtle);
+  cursor: not-allowed;
+}
+
+.left-sidebar-starred-row.missing:hover {
+  background-color: transparent;
+  opacity: 0.4;
+}

@@ -18,7 +18,7 @@ pub(crate) mod sidebar_cursor;
 pub use document::{Document, DocumentContent};
 pub use focused_panel::*;
 pub use right_sidebar::RightSidebar;
-pub use sidebar::{Group, PanelRow, Sidebar, TreeRow};
+pub use sidebar::{Face, Group, PanelRow, Sidebar, TreeRow};
 
 /// Information about a single search match for display in the Search tab.
 #[derive(Debug, Clone, PartialEq)]
@@ -100,6 +100,9 @@ pub struct AppState {
     pub reload_trigger: Signal<usize>,
     /// Which panel currently has keyboard focus (for context-aware keybindings).
     pub focused_panel: Signal<FocusedPanel>,
+    /// Bumped whenever this window records a visit, so its own lists redraw
+    /// without waiting for the broadcast to come back round.
+    pub visits_revision: Signal<u32>,
     /// Which row of the panel the keyboard is on — see [`PanelRow`].
     pub panel_cursor: Signal<Option<PanelRow>>,
     /// Keyboard cursor position in the right sidebar TOC (index into headings list).
@@ -153,6 +156,7 @@ impl AppState {
             current_scroll_anchor: Signal::new(ScrollAnchor::TOP),
             reload_trigger: Signal::new(0),
             focused_panel: Signal::new(FocusedPanel::Content),
+            visits_revision: Signal::new(0),
             panel_cursor: Signal::new(None),
             toc_cursor: Signal::new(None),
             quick_access_cursor: Signal::new(None),

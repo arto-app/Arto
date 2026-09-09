@@ -36,9 +36,10 @@ fn open_dropped_path(path: PathBuf, state: &mut AppState) {
 
     if resolved_path.is_dir() {
         tracing::info!("Setting dropped directory as root: {:?}", resolved_path);
-        state.add_root(resolved_path);
-        // Pin so the tree the drop just opened is actually visible
-        state.sidebar.write().pinned = true;
+        state.add_root(&resolved_path);
+        // Bring the tree out so the drop is actually visible; a window too
+        // narrow to hold the panel shows it over the document instead.
+        state.show_face(crate::state::Face::Places);
     } else {
         tracing::info!("Opening dropped file: {:?}", resolved_path);
         state.open_file(resolved_path);

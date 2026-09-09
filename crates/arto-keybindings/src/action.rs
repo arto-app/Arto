@@ -67,10 +67,12 @@ pub enum Action {
     // Reload (1)
     WindowReload,
 
-    // Focus (4) — keyboard-only
-    FocusLeftSidebar,
+    // Focus — keyboard-only. One per face: asking for a list is asking for
+    // that list, not for whichever the panel happened to be showing.
+    FocusPlaces,
+    FocusStarred,
+    FocusRecent,
     FocusRightSidebar,
-    FocusQuickAccess,
     FocusContent,
 
     // File (4) — MenuId: Open, OpenDirectory, Preferences, RevealInFinder
@@ -93,6 +95,11 @@ pub enum Action {
 
     // Sidebar (1)
     SidebarToggleShowAllFiles,
+    SidebarFacePlaces,
+    SidebarFaceRecent,
+    SidebarFaceStarred,
+    SidebarFaceNext,
+    SidebarFacePrev,
 
     // Right sidebar (2)
     RightSidebarShowContents,
@@ -192,9 +199,10 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
     (
         "Focus",
         &[
-            Action::FocusLeftSidebar,
+            Action::FocusPlaces,
+            Action::FocusStarred,
+            Action::FocusRecent,
             Action::FocusRightSidebar,
-            Action::FocusQuickAccess,
             Action::FocusContent,
         ],
     ),
@@ -222,7 +230,17 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::HelpShowKeyboardShortcuts,
         ],
     ),
-    ("Sidebar", &[Action::SidebarToggleShowAllFiles]),
+    (
+        "Sidebar",
+        &[
+            Action::SidebarToggleShowAllFiles,
+            Action::SidebarFacePlaces,
+            Action::SidebarFaceRecent,
+            Action::SidebarFaceStarred,
+            Action::SidebarFaceNext,
+            Action::SidebarFacePrev,
+        ],
+    ),
     (
         "Right Sidebar",
         &[
@@ -383,9 +401,10 @@ action_strings! {
     WindowToggleSidebar => "window.toggle_sidebar",
     WindowToggleRightSidebar => "window.toggle_right_sidebar",
     WindowReload => "window.reload",
-    FocusLeftSidebar => "focus.left_sidebar",
+    FocusPlaces => "focus.places",
+    FocusStarred => "focus.starred",
+    FocusRecent => "focus.recent",
     FocusRightSidebar => "focus.right_sidebar",
-    FocusQuickAccess => "focus.quick_access",
     FocusContent => "focus.content",
     FileOpen => "file.open",
     FileOpenDirectory => "file.open_directory",
@@ -402,6 +421,11 @@ action_strings! {
     AppGoToHomepage => "app.go_to_homepage",
     HelpShowKeyboardShortcuts => "help.show_keyboard_shortcuts",
     SidebarToggleShowAllFiles => "sidebar.toggle_show_all_files",
+    SidebarFacePlaces => "sidebar.face_places",
+    SidebarFaceRecent => "sidebar.face_recent",
+    SidebarFaceStarred => "sidebar.face_starred",
+    SidebarFaceNext => "sidebar.face_next",
+    SidebarFacePrev => "sidebar.face_prev",
     RightSidebarShowContents => "right_sidebar.show_contents",
     RightSidebarShowSearch => "right_sidebar.show_search",
     ThemeSetLight => "theme.set_light",
@@ -435,7 +459,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 77);
+        assert_eq!(all_actions().len(), 83);
     }
 
     #[test]
@@ -455,7 +479,7 @@ mod tests {
         assert_eq!(Action::WindowNew.to_string(), "window.new");
         assert_eq!(Action::CopyFilePath.to_string(), "clipboard.copy_file_path");
         assert_eq!(Action::Cancel.to_string(), "cancel");
-        assert_eq!(Action::FocusLeftSidebar.to_string(), "focus.left_sidebar");
+        assert_eq!(Action::FocusPlaces.to_string(), "focus.places");
     }
 
     #[test]

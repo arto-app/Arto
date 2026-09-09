@@ -1,0 +1,13 @@
+/* =================================
+   Document name
+   =================================
+
+   A document is named `<folder>/<file>` wherever it is listed. The folder is
+   there to tell two documents of one name apart, so it is drawn a step
+   quieter: at the same weight it reads as part of the name, and the eye has
+   to take the string apart to find what it came for. */
+
+.document-folder {
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}

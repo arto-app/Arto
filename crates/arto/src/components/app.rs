@@ -68,6 +68,12 @@ pub fn App(
                 .pending_scroll_anchor
                 .set(Some(entry.scroll_anchor));
         }
+        // A document a window is born with — from the command line, from the
+        // Finder, from "Open in New Window" — was read just as much as one
+        // opened later, and the history is the list of what has been read.
+        if let Some(file) = document.file() {
+            crate::visits::record_visit(file);
+        }
         app_state.document.set(document);
         app_state.content_full_width.set(content_full_width);
 
@@ -231,10 +237,44 @@ pub fn App(
     let left_pinned = state.sidebar.read().pinned;
     let right_pinned = state.right_sidebar.read().pinned;
 
-    // Delay in milliseconds before auto-hiding the overlay sidebar.
-    // 300ms is the standard "Hover Intent" delay (Nielsen Norman Group),
-    // balancing responsiveness with prevention of flickering at boundaries.
-    const OVERLAY_HIDE_DELAY_MS: u64 = 300;
+    /// Grace before a peeking panel retracts.
+    ///
+    /// Long enough for two things, not one. The specification's 240ms covers
+    /// the gap between the rail and the panel, which the pointer crosses in a
+    /// moment; leaving the panel is not that — the pointer goes to the
+    /// document, or off the window, or back again a second later, and a panel
+    /// that closed the instant it was left would have to be asked for again
+    /// every time. It shuts when the reader has plainly moved on.
+    const OVERLAY_HIDE_DELAY_MS: u64 = 700;
+
+    /// Put the peeking panel away once the grace has passed, unless something
+    /// asks for it again first.
+    ///
+    /// Every read here peeks. This is called from an effect, and a signal read
+    /// inside one subscribes the effect to it — reading the generation and then
+    /// writing it would wake the effect with its own write, forever, spawning a
+    /// timer each time round.
+    fn retract_after_grace(mut hide_gen: Signal<u32>, mut hover_active: Signal<bool>) {
+        let generation = *hide_gen.peek() + 1;
+        hide_gen.set(generation);
+        spawn(async move {
+            tokio::time::sleep(tokio::time::Duration::from_millis(OVERLAY_HIDE_DELAY_MS)).await;
+            if *hide_gen.peek() == generation {
+                hover_active.set(false);
+            }
+        });
+    }
+
+    // A menu the panel opened holds the peek open while it is up, because the
+    // pointer has to leave the panel to use it. When it closes somewhere else
+    // entirely, no further mouse event is coming to send the panel back, so
+    // its closing is what does.
+    let menu_open = use_memo(move || state.sidebar_context_menu.read().is_some());
+    use_effect(move || {
+        if !menu_open() && !*left_mouse_inside.peek() {
+            retract_after_grace(left_hide_gen, left_hover_active);
+        }
+    });
 
     let focused_panel = *state.focused_panel.read();
     let focused_context = focused_panel.key_context();
@@ -262,6 +302,22 @@ pub fn App(
                 evt.prevent_default();
                 is_dragging.set(false);
             },
+            // The pointer leaving the window is the reader leaving, and a
+            // peeking panel has to go with them. Nothing else can say so: the
+            // panel's own `onmouseleave` never fires for a pointer that left
+            // by way of the rail, and a window that is not focused gets no
+            // mouse events at all — so the panel would still be out when the
+            // reader came back to a window they had put away.
+            onmouseleave: move |evt: Event<MouseData>| {
+                if evt.data().held_buttons().contains(dioxus::html::input_data::MouseButton::Primary) {
+                    return;
+                }
+                if state.sidebar_context_menu.read().is_some() {
+                    return;
+                }
+                left_mouse_inside.set(false);
+                retract_after_grace(left_hide_gen, left_hover_active);
+            },
             ondrop: move |evt| {
                 evt.prevent_default();
                 is_dragging.set(false);
@@ -271,14 +327,29 @@ pub fn App(
                 });
             },
 
+            // The rail switches the panel's faces and, because it is visible
+            // and exists for the purpose, it is also what the pointer can
+            // safely aim at to bring the panel back.
+            crate::components::sidebar::rail::Rail {
+                on_peek: move |face| {
+                    // Resting on a glyph brings that face over the document. A
+                    // panel that is being held stays as it was: what is held
+                    // was chosen, and a pointer passing over the rail is not a
+                    // choice — it would rewrite the reader's own with nothing
+                    // but a hover.
+                    if !left_pinned {
+                        state.sidebar.write().face = face;
+                        left_hover_active.set(true);
+                        left_hide_gen.set(left_hide_gen() + 1);
+                    }
+                },
+            }
+
             // Left sidebar: pinned → flex layout, unpinned → overlay with animation
             if left_pinned {
-                Sidebar {
-                    on_pin_toggle: move |_| {
-                        state.sidebar.write().pinned = false;
-                        left_hover_active.set(true);
-                    },
-                }
+                // Pinned: the panel stands beside the document. The rail is
+                // what pins and unpins it, so there is no control inside.
+                Sidebar {}
             }
 
             div {
@@ -300,16 +371,6 @@ pub fn App(
             }
 
             // Hover triggers and overlays (only when unpinned)
-            if !left_pinned {
-                div {
-                    class: "sidebar-hover-trigger left",
-                    onmouseenter: move |_| {
-                        left_hover_active.set(true);
-                        left_hide_gen.set(left_hide_gen() + 1);
-                    },
-                }
-            }
-
             if !right_pinned {
                 div {
                     class: "sidebar-hover-trigger right",
@@ -324,6 +385,10 @@ pub fn App(
             if !left_pinned {
                 div {
                     class: "sidebar-overlay-wrapper left",
+                    // Stand beside the rail rather than over it: the marks
+                    // that peeked the panel out are the ones that switch its
+                    // faces and send it back, so they have to stay visible.
+                    class: "beside-rail",
                     class: if left_hover_active() { "visible" },
                     onmouseenter: move |_| {
                         left_mouse_inside.set(true);
@@ -335,34 +400,24 @@ pub fn App(
                         if evt.data().held_buttons().contains(dioxus::html::input_data::MouseButton::Primary) {
                             return;
                         }
-                        let gen = left_hide_gen() + 1;
-                        left_hide_gen.set(gen);
-                        spawn(async move {
-                            tokio::time::sleep(tokio::time::Duration::from_millis(OVERLAY_HIDE_DELAY_MS)).await;
-                            if left_hide_gen() == gen {
-                                left_hover_active.set(false);
-                            }
-                        });
+                        // A menu opened from a row is drawn at the window's
+                        // root rather than inside the panel, so the pointer
+                        // moving onto it leaves the panel. It is still the
+                        // panel being used: retracting it here would take the
+                        // menu's subject away mid-click.
+                        if state.sidebar_context_menu.read().is_some() {
+                            return;
+                        }
+                        retract_after_grace(left_hide_gen, left_hover_active);
                     },
                     Sidebar {
-                        on_pin_toggle: move |_| {
-                            state.sidebar.write().pinned = true;
-                            left_hover_active.set(false);
-                        },
                         on_resize_change: move |resizing: bool| {
                             if resizing {
                                 // Cancel any pending hide timer
                                 left_hide_gen.set(left_hide_gen() + 1);
                             } else if !left_mouse_inside() {
                                 // Resize ended with mouse outside: start hide timer
-                                let gen = left_hide_gen() + 1;
-                                left_hide_gen.set(gen);
-                                spawn(async move {
-                                    tokio::time::sleep(tokio::time::Duration::from_millis(OVERLAY_HIDE_DELAY_MS)).await;
-                                    if left_hide_gen() == gen {
-                                        left_hover_active.set(false);
-                                    }
-                                });
+                                retract_after_grace(left_hide_gen, left_hover_active);
                             }
                             // Resize ended with mouse inside: do nothing,
                             // onmouseleave will handle hiding when mouse leaves.
@@ -385,14 +440,7 @@ pub fn App(
                         if evt.data().held_buttons().contains(dioxus::html::input_data::MouseButton::Primary) {
                             return;
                         }
-                        let gen = right_hide_gen() + 1;
-                        right_hide_gen.set(gen);
-                        spawn(async move {
-                            tokio::time::sleep(tokio::time::Duration::from_millis(OVERLAY_HIDE_DELAY_MS)).await;
-                            if right_hide_gen() == gen {
-                                right_hover_active.set(false);
-                            }
-                        });
+                        retract_after_grace(right_hide_gen, right_hover_active);
                     },
                     RightSidebar {
                         headings: state.right_sidebar_headings.read().clone(),
@@ -406,14 +454,7 @@ pub fn App(
                                 right_hide_gen.set(right_hide_gen() + 1);
                             } else if !right_mouse_inside() {
                                 // Resize ended with mouse outside: start hide timer
-                                let gen = right_hide_gen() + 1;
-                                right_hide_gen.set(gen);
-                                spawn(async move {
-                                    tokio::time::sleep(tokio::time::Duration::from_millis(OVERLAY_HIDE_DELAY_MS)).await;
-                                    if right_hide_gen() == gen {
-                                        right_hover_active.set(false);
-                                    }
-                                });
+                                retract_after_grace(right_hide_gen, right_hover_active);
                             }
                             // Resize ended with mouse inside: do nothing,
                             // onmouseleave will handle hiding when mouse leaves.

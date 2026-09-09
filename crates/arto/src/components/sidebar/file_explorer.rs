@@ -7,7 +7,6 @@ use tokio::sync::oneshot;
 use super::context_menu::{
     context_action_should_proceed, open_row_context_menu, SidebarContextMenu, SidebarItemKind,
 };
-use super::quick_access::QuickAccess;
 use crate::components::icon::{Icon, IconName};
 use crate::components::sidebar::reorder::{drop_class, drop_side, DragRow};
 use crate::components::sidebar::row_actions::RowActions;
@@ -142,9 +141,6 @@ pub fn FileExplorer() -> Element {
                 Icon { name: IconName::FolderPlus, size: 12 }
                 span { "Add folder…" }
             }
-
-            // The documents that are starred, at the foot of the panel.
-            QuickAccess {}
         }
     }
 }
@@ -154,7 +150,7 @@ pub fn FileExplorer() -> Element {
 /// Both halves matter: a cursor left behind in a face nobody is looking at
 /// would mark a row the keyboard cannot move.
 fn panel_cursor_on(state: &AppState, group: Group, path: &std::path::Path) -> bool {
-    *state.focused_panel.read() == FocusedPanel::LeftSidebar
+    *state.focused_panel.read() == FocusedPanel::Panel
         && state
             .panel_cursor
             .read()
@@ -350,6 +346,18 @@ fn RootSubtree(
                 span { class: "left-sidebar-tree-label", "{name}" }
             }
 
+            // When something under it was last read, in the column every
+            // other list keeps for it. Not on the window's own folder: that
+            // one is answering "where am I", and it is being read in now.
+            if group == Group::Bookmark {
+                if let Some(at) = crate::visits::last_read_under(&root) {
+                    span {
+                        class: "left-sidebar-row-when",
+                        "{crate::visits::short_when(at, chrono::Local::now())}"
+                    }
+                }
+            }
+
             // A root is a folder like the ones under it, so it answers to the
             // same controls. The window's own folder is already the folder the
             // window is in, so there is nowhere for it to be moved to, and it
@@ -517,7 +525,7 @@ fn FileTreeNode(
                         if is_dir {
                             state.toggle_directory_expansion(group, &root, &path);
                         } else {
-                            state.open_file(&path);
+                            state.open_from_panel(&path);
                         }
                     }
                 },
@@ -576,7 +584,7 @@ fn FileTreeNode(
                             let path = path.clone();
                             move |evt| {
                                 evt.stop_propagation();
-                                state.open_file(&path);
+                                state.open_from_panel(&path);
                             }
                         },
                         Icon {
@@ -647,7 +655,7 @@ pub fn SidebarContextMenuHost() -> Element {
             if is_dir {
                 state.add_root(&path);
             } else {
-                state.open_file(&path);
+                state.open_from_panel(&path);
             }
             state.close_sidebar_context_menu();
         }

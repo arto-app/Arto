@@ -244,12 +244,44 @@
       "action": "zoom.reset"
     },
     {
+      "key": "Escape",
+      "action": "cancel"
+    },
+    {
+      "key": "m m",
+      "action": "file.toggle_bookmark"
+    },
+    {
+      "key": "Cmd+1",
+      "action": "sidebar.face_places"
+    },
+    {
+      "key": "Cmd+2",
+      "action": "sidebar.face_recent"
+    },
+    {
+      "key": "Cmd+3",
+      "action": "sidebar.face_starred"
+    },
+    {
       "key": "Ctrl+w h",
-      "action": "focus.left_sidebar"
+      "action": "focus.places"
     },
     {
       "key": "Ctrl+w Ctrl+h",
-      "action": "focus.left_sidebar"
+      "action": "focus.places"
+    },
+    {
+      "key": "Backslash p",
+      "action": "focus.places"
+    },
+    {
+      "key": "Backslash s",
+      "action": "focus.starred"
+    },
+    {
+      "key": "Backslash r",
+      "action": "focus.recent"
     },
     {
       "key": "Ctrl+w l",
@@ -258,18 +290,6 @@
     {
       "key": "Ctrl+w Ctrl+l",
       "action": "focus.right_sidebar"
-    },
-    {
-      "key": "Backslash q",
-      "action": "focus.quick_access"
-    },
-    {
-      "key": "Escape",
-      "action": "cancel"
-    },
-    {
-      "key": "m m",
-      "action": "file.toggle_bookmark"
     }
   ],
   "content": [
@@ -350,14 +370,6 @@
       "action": "sidebar.toggle_show_all_files"
     },
     {
-      "key": "Ctrl+w h",
-      "action": "focus.left_sidebar"
-    },
-    {
-      "key": "Ctrl+w Ctrl+h",
-      "action": "focus.left_sidebar"
-    },
-    {
       "key": "Ctrl+w l",
       "action": "focus.content"
     },
@@ -367,11 +379,27 @@
     },
     {
       "key": "Ctrl+w j",
-      "action": "focus.quick_access"
+      "action": "sidebar.face_next"
     },
     {
       "key": "Ctrl+w Ctrl+j",
-      "action": "focus.quick_access"
+      "action": "sidebar.face_next"
+    },
+    {
+      "key": "Ctrl+w k",
+      "action": "sidebar.face_prev"
+    },
+    {
+      "key": "Ctrl+w Ctrl+k",
+      "action": "sidebar.face_prev"
+    },
+    {
+      "key": "Ctrl+w h",
+      "action": "focus.places"
+    },
+    {
+      "key": "Ctrl+w Ctrl+h",
+      "action": "focus.places"
     }
   ],
   "rightSidebar": [
@@ -404,74 +432,20 @@
       "action": "cursor.collapse"
     },
     {
-      "key": "Ctrl+w h",
-      "action": "focus.content"
-    },
-    {
-      "key": "Ctrl+w Ctrl+h",
-      "action": "focus.content"
-    },
-    {
       "key": "Ctrl+w l",
       "action": "focus.right_sidebar"
     },
     {
       "key": "Ctrl+w Ctrl+l",
       "action": "focus.right_sidebar"
-    }
-  ],
-  "quickAccess": [
-    {
-      "key": "j",
-      "action": "cursor.down"
-    },
-    {
-      "key": "k",
-      "action": "cursor.up"
-    },
-    {
-      "key": "Ctrl+n",
-      "action": "cursor.down"
-    },
-    {
-      "key": "Ctrl+p",
-      "action": "cursor.up"
-    },
-    {
-      "key": "l",
-      "action": "cursor.open"
-    },
-    {
-      "key": "Enter",
-      "action": "cursor.open"
-    },
-    {
-      "key": "h",
-      "action": "cursor.collapse"
     },
     {
       "key": "Ctrl+w h",
-      "action": "focus.left_sidebar"
+      "action": "focus.content"
     },
     {
       "key": "Ctrl+w Ctrl+h",
-      "action": "focus.left_sidebar"
-    },
-    {
-      "key": "Ctrl+w l",
       "action": "focus.content"
-    },
-    {
-      "key": "Ctrl+w Ctrl+l",
-      "action": "focus.content"
-    },
-    {
-      "key": "Ctrl+w k",
-      "action": "focus.left_sidebar"
-    },
-    {
-      "key": "Ctrl+w Ctrl+k",
-      "action": "focus.left_sidebar"
     }
   ]
 }

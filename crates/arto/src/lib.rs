@@ -19,6 +19,7 @@ mod scroll_anchor;
 mod state;
 mod theme;
 pub mod utils;
+mod visits;
 mod watcher;
 mod window;
 

@@ -91,7 +91,8 @@ Broadcast channels fit because several windows receive the same event,
 subscribers come and go at runtime, and there is no network latency to
 design around.
 
-What a window does to *itself* does not travel this way. The bookmarks
-announce their own changes over a channel of their own, and every window
-listens; a document is opened by calling `AppState::open_file` on the window
-that should read it, which is the window the command came from.
+What a window does to *itself* does not travel this way. The reading history
+(`crate::visits`) and the bookmarks announce their own changes over channels
+of their own, and every window listens; a document is opened by calling
+`AppState::open_file` on the window that should read it, which is the window
+the command came from.

@@ -1,148 +1,130 @@
-//! Quick Access section component for the sidebar.
+//! The Starred face of the sidebar panel.
 //!
-//! Displays the bookmarked *files*. A bookmarked folder is one of the tree's
-//! places, so listing it here as well would be the same folder twice.
-//! Supports drag-and-drop reordering of bookmarks.
+//! The bookmarked *files*, in the order they were arranged. A bookmarked
+//! folder is a place — the Files face heads a tree with it — so listing it
+//! here as well would be the same folder twice, once in each face.
+//!
+//! A file name alone does not say which of three `README.md`s it is, so each
+//! row carries the folder it sits in.
 
 use dioxus::prelude::*;
+use std::path::PathBuf;
 
-use crate::bookmarks::{move_bookmark, Bookmark, BOOKMARKS, BOOKMARKS_CHANGED};
-use crate::components::bookmark_button::BookmarkButton;
+use crate::bookmarks::{move_bookmark, BOOKMARKS, BOOKMARKS_CHANGED};
+use crate::components::document_name::DocumentName;
 use crate::components::icon::{Icon, IconName};
+use crate::components::sidebar::context_menu::{open_row_context_menu, SidebarItemKind};
+use crate::components::sidebar::reorder::{drop_class, drop_side, DragRow};
+use crate::components::sidebar::row_actions::RowActions;
 use crate::state::{AppState, FocusedPanel};
 
-/// Bookmark with cached filesystem status to avoid filesystem calls during render
+/// One starred document, with what the row needs that the filesystem would
+/// otherwise be asked for on every render.
 #[derive(Clone)]
-struct CachedBookmark {
-    bookmark: Bookmark,
+struct StarredDocument {
+    /// Where it sits in the whole bookmark list, folders included: the order a
+    /// drag rearranges is that list's, not this face's view of it.
+    index: usize,
+    path: PathBuf,
     exists: bool,
-    is_dir: bool,
 }
 
-impl CachedBookmark {
-    fn from_bookmark(bookmark: Bookmark) -> Self {
-        let exists = bookmark.exists();
-        let is_dir = bookmark.is_dir();
-        Self {
-            bookmark,
-            exists,
-            is_dir,
-        }
-    }
-}
-
-/// Load the bookmarked documents with cached exists status.
-///
-/// The index is the bookmark's position in the whole list, folders included:
-/// the order a drag rearranges is that list's, not this view of it.
-fn load_cached_bookmarks() -> Vec<(usize, CachedBookmark)> {
+/// The starred documents, read once per change rather than once per render.
+fn load_starred() -> Vec<StarredDocument> {
     BOOKMARKS
         .read()
         .items
         .iter()
         .enumerate()
         .filter(|(_, bookmark)| !bookmark.is_dir())
-        .map(|(index, bookmark)| (index, CachedBookmark::from_bookmark(bookmark.clone())))
+        .map(|(index, bookmark)| StarredDocument {
+            index,
+            path: bookmark.path.clone(),
+            exists: bookmark.exists(),
+        })
         .collect()
 }
 
-/// Quick Access section in the sidebar
+/// The Starred face: the documents that are bookmarked.
+///
+/// The folders are bookmarked too, and they are the tree's places — one list,
+/// seen as two, with nothing in both.
 #[component]
-pub fn QuickAccess() -> Element {
+pub fn StarredFace() -> Element {
     let mut state = use_context::<AppState>();
 
-    // Local signal to track bookmark items with cached exists status
-    let mut bookmarks = use_signal(load_cached_bookmarks);
+    let mut starred = use_signal(load_starred);
+    // What is being dragged, and the row it is resting on. Both carry the
+    // position they were drawn at as well as the path: the position says which
+    // way the row is travelling, and that is what decides which side of the
+    // row it lands on.
+    let mut dragging = use_signal(|| None::<DragRow>);
+    let mut drop_target = use_signal(|| None::<DragRow>);
 
-    // Drag state
-    let mut dragging_index = use_signal(|| None::<usize>);
-    let mut drop_target_index = use_signal(|| None::<usize>);
-
-    // Subscribe to bookmark changes and refresh exists status
     use_future(move || async move {
         let mut rx = BOOKMARKS_CHANGED.subscribe();
         while rx.recv().await.is_ok() {
-            bookmarks.set(load_cached_bookmarks());
+            starred.set(load_starred());
         }
     });
 
-    let is_qa_focused = *state.focused_panel.read() == FocusedPanel::QuickAccess;
-    let quick_access_cursor = *state.quick_access_cursor.read();
-    let items = bookmarks.read();
-
-    // Don't render if no bookmarks
-    if items.is_empty() {
-        return rsx! {};
-    }
+    let current = state.current_file();
+    let focused = *state.focused_panel.read() == FocusedPanel::Panel;
+    let cursor = state.panel_cursor.read().clone();
+    let rows = starred.read().clone();
 
     rsx! {
         div {
-            class: "left-sidebar-quick-access",
+            class: "left-sidebar-face",
 
-            // Header
             div {
-                class: "left-sidebar-quick-access-header",
-                Icon {
-                    name: IconName::StarFilled,
-                    size: 14,
-                    class: "left-sidebar-quick-access-header-icon",
+                class: "left-sidebar-face-list",
+
+                // The same word-on-a-hairline the other faces head their rows
+                // with. It names the list and, as much to the point, gives the
+                // first row the same air every other face gives its first row.
+                div {
+                    class: "left-sidebar-root-group-label",
+                    span { "Starred" }
                 }
-                span { class: "left-sidebar-quick-access-title", "QUICK ACCESS" }
-            }
 
-            // Bookmark items
-            div {
-                class: "left-sidebar-quick-access-list",
-                ondragover: move |evt| {
-                    evt.stop_propagation();
-                    evt.prevent_default();
-                },
-                for (index, cached) in items.iter().cloned() {
-                    QuickAccessItem {
-                        key: "{cached.bookmark.path.display()}",
-                        index,
-                        bookmark: cached.bookmark.clone(),
-                        exists: cached.exists,
-                        item_is_directory: cached.is_dir,
-                        is_dragging: *dragging_index.read() == Some(index),
-                        is_drop_target: *drop_target_index.read() == Some(index),
-                        is_keyboard_focused: is_qa_focused && quick_access_cursor == Some(index),
-                        on_click: move |(bookmark, _): (Bookmark, bool)| {
-                            state.open_file(&bookmark.path);
-                        },
-                        on_drag_start: move |idx| {
-                            dragging_index.set(Some(idx));
-                        },
-                        on_drag_over: move |idx| {
-                            if dragging_index.read().is_some() {
-                                drop_target_index.set(Some(idx));
-                            }
-                        },
-                        on_drag_leave: move |_| {
-                            drop_target_index.set(None);
-                        },
-                        on_drag_end: move |_| {
-                            // Rearranged by path rather than by position: what
-                            // is drawn here is the documents alone, so a
-                            // position in it is not a position in the list the
-                            // order belongs to.
-                            if let (Some(from), Some(to)) = (*dragging_index.read(), *drop_target_index.read()) {
-                                if from != to {
-                                    let paths = {
-                                        let all = BOOKMARKS.read();
-                                        (
-                                            all.items.get(from).map(|b| b.path.clone()),
-                                            all.items.get(to).map(|b| b.path.clone()),
-                                        )
-                                    };
-                                    if let (Some(moved), Some(target)) = paths {
-                                        move_bookmark(&moved, &target, from < to);
-                                    }
+                if rows.is_empty() {
+                    div { class: "left-sidebar-explorer-empty", "Nothing starred yet" }
+                }
+
+                div {
+                    class: "left-sidebar-starred-list",
+                    ondragover: move |evt| {
+                        evt.stop_propagation();
+                        evt.prevent_default();
+                    },
+                    for row in rows.iter() {
+                        StarredRow {
+                            key: "{row.path.display()}",
+                            index: row.index,
+                            path: row.path.clone(),
+                            exists: row.exists,
+                            is_dragging: dragging.read().as_ref().map(|(index, _)| *index) == Some(row.index),
+                            drop_side: drop_side(&dragging.read(), &drop_target.read(), row.index),
+                            is_keyboard_focused: focused
+                                && cursor.as_ref().is_some_and(|(_, at)| *at == row.path),
+                            is_current: current.as_deref() == Some(row.path.as_path()),
+                            on_click: move |path: PathBuf| state.open_from_panel(&path),
+                            on_drag_start: move |row| dragging.set(Some(row)),
+                            on_drag_over: move |row| {
+                                if dragging.read().is_some() {
+                                    drop_target.set(Some(row));
                                 }
-                            }
-                            dragging_index.set(None);
-                            drop_target_index.set(None);
-                        },
+                            },
+                            on_drag_leave: move |_| drop_target.set(None),
+                            on_drag_end: move |_| {
+                                if let (Some((from, moved)), Some((to, target))) =
+                                    (dragging.take(), drop_target.take())
+                                {
+                                    move_bookmark(&moved, &target, from < to);
+                                }
+                            },
+                        }
                     }
                 }
             }
@@ -150,110 +132,93 @@ pub fn QuickAccess() -> Element {
     }
 }
 
-/// A single bookmark item in the Quick Access list
+/// One starred document, drawn by the same rules as a row of the tree.
 #[component]
-fn QuickAccessItem(
+fn StarredRow(
     index: usize,
-    bookmark: Bookmark,
-    /// Cached exists status (computed when bookmarks change, not on every render)
+    path: PathBuf,
+    /// Whether the file is still there, read when the bookmarks changed rather
+    /// than on every render.
     exists: bool,
-    /// Cached directory status (computed when bookmarks change, not on every render)
-    item_is_directory: bool,
     is_dragging: bool,
-    is_drop_target: bool,
+    /// Which side of this row the dragged one would land on, when it is the
+    /// row being rested on: `Some(true)` after it, `Some(false)` before it.
+    drop_side: Option<bool>,
     is_keyboard_focused: bool,
-    on_click: EventHandler<(Bookmark, bool)>,
-    on_drag_start: EventHandler<usize>,
-    on_drag_over: EventHandler<usize>,
+    /// Whether this is the document the window is reading.
+    is_current: bool,
+    on_click: EventHandler<PathBuf>,
+    on_drag_start: EventHandler<DragRow>,
+    on_drag_over: EventHandler<DragRow>,
     on_drag_leave: EventHandler<()>,
     on_drag_end: EventHandler<()>,
 ) -> Element {
-    let path = bookmark.path.clone();
-    let display_name = crate::utils::paths::short_name(&bookmark.path);
-
-    let icon_name = if item_is_directory {
-        IconName::Folder
-    } else {
-        IconName::File
-    };
-
-    let mut classes = vec!["left-sidebar-quick-access-item"];
-    if !exists {
-        classes.push("missing");
-    }
-    if is_dragging {
-        classes.push("dragging");
-    }
-    if is_drop_target && !is_dragging {
-        classes.push("drop-target");
-    }
-    if is_keyboard_focused {
-        classes.push("keyboard-focused");
-    }
-    let class_str = classes.join(" ");
-
-    let title = if exists {
-        path.to_string_lossy().to_string()
-    } else {
-        format!("{} (not found)", path.to_string_lossy())
-    };
+    let state = use_context::<AppState>();
+    let last_read = crate::visits::last_read(&path)
+        .map(|at| crate::visits::short_when(at, chrono::Local::now()))
+        .unwrap_or_default();
 
     rsx! {
         div {
-            class: "{class_str}",
-            title: "{title}",
+            class: "left-sidebar-tree-node-content left-sidebar-starred-row",
+            class: if !exists { "missing" },
+            class: if is_dragging { "dragging" },
+            class: "{drop_class(drop_side)}",
+            class: if is_keyboard_focused { "keyboard-focused" },
+            class: if is_current { "active" },
             draggable: "true",
-            ondragstart: move |evt| {
-                evt.stop_propagation();
-                on_drag_start.call(index);
+            ondragstart: {
+                let path = path.clone();
+                move |evt: Event<DragData>| {
+                    evt.stop_propagation();
+                    on_drag_start.call((index, path.clone()));
+                }
             },
-            ondragover: move |evt| {
-                evt.stop_propagation();
-                evt.prevent_default();
-                on_drag_over.call(index);
+            ondragover: {
+                let path = path.clone();
+                move |evt: Event<DragData>| {
+                    evt.stop_propagation();
+                    evt.prevent_default();
+                    on_drag_over.call((index, path.clone()));
+                }
             },
-            ondragleave: move |evt| {
+            ondragleave: move |evt: Event<DragData>| {
                 evt.stop_propagation();
                 on_drag_leave.call(());
             },
-            ondragend: move |evt| {
+            ondragend: move |evt: Event<DragData>| {
                 evt.stop_propagation();
                 on_drag_end.call(());
             },
             onclick: {
-                let bookmark = bookmark.clone();
+                let path = path.clone();
                 move |_| {
                     if exists {
-                        on_click.call((bookmark.clone(), item_is_directory));
+                        on_click.call(path.clone());
                     }
                 }
             },
-
-            // Drag handle indicator (visual only, drag is on parent)
-            span {
-                class: "left-sidebar-quick-access-item-drag-handle",
-                draggable: false,
-                Icon {
-                    name: IconName::ArrowsMove,
-                    size: 12,
+            oncontextmenu: {
+                let path = path.clone();
+                move |evt: Event<MouseData>| {
+                    open_row_context_menu(state, &path, SidebarItemKind::File, &evt);
                 }
-            }
+            },
 
-            // Icon
-            Icon {
-                name: icon_name,
-                size: 14,
-                class: "left-sidebar-quick-access-item-icon",
-            }
+            Icon { name: IconName::File, size: 16, class: "left-sidebar-tree-icon" }
 
-            // Name
             span {
-                class: "left-sidebar-quick-access-item-name",
-                "{display_name}"
+                class: "left-sidebar-tree-label",
+                DocumentName { path: path.clone() }
             }
 
-            // Remove button
-            BookmarkButton { path: path.clone(), size: 12 }
+            // When it was last read. The first thing to go when the panel is
+            // narrowed: it qualifies the row, it is not the row.
+            if !last_read.is_empty() {
+                span { class: "left-sidebar-row-when", "{last_read}" }
+            }
+
+            RowActions { path: path.clone(), starred: true }
         }
     }
 }

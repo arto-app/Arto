@@ -19,6 +19,12 @@ use crate::state::{AppState, Group};
 #[component]
 pub fn RowActions(
     path: PathBuf,
+    /// Whether this row can be forgotten.
+    ///
+    /// Forgetting drops a document from the reading history, so it is offered
+    /// on rows that *are* history.
+    #[props(default = false)]
+    forgettable: bool,
     /// Whether every row of this list is bookmarked — the Starred face, and
     /// the places, which are the same list seen twice.
     ///
@@ -115,6 +121,23 @@ pub fn RowActions(
                 Icon {
                     name: if copied() { IconName::Check } else { IconName::Copy },
                     size: 12,
+                }
+            }
+
+            // Nothing is lost by forgetting a row — reading the document
+            // again brings it back — so it is no louder than the rest.
+            if forgettable {
+                button {
+                    class: "left-sidebar-row-action",
+                    title: "Forget",
+                    onclick: {
+                        let path = path.clone();
+                        move |evt: Event<MouseData>| {
+                            evt.stop_propagation();
+                            crate::visits::forget_visit(&path);
+                        }
+                    },
+                    Icon { name: IconName::Trash, size: 12 }
                 }
             }
 
