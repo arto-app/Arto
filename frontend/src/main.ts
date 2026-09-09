@@ -1,5 +1,6 @@
 import "../style/main.css";
 
+import { applyPictureTheme } from "./picture-theme";
 import { refreshReadingPosition, setupReadingPosition } from "./reading-position";
 import { setupRowHover } from "./row-hover";
 import { type Theme, currentTheme, isDarkTheme, themedElement } from "./theme";
@@ -149,9 +150,12 @@ declare global {
  */
 export function setCurrentTheme(theme: Theme): Promise<void> {
   themedElement().setAttribute("data-theme", theme);
-  // The stylesheet repaints on the attribute alone; only Mermaid has to be
-  // told, because its colours are baked into the SVG it already drew.
+  // The stylesheet repaints on the attribute alone. Mermaid has to be told,
+  // because its colours are baked into the SVG it already drew, and so do
+  // theme-aware pictures, whose media query answers for the system rather
+  // than for the theme the reader chose here.
   mermaidRenderer.setTheme(theme);
+  applyPictureTheme();
   return renderCoordinator.forceRenderMermaid();
 }
 

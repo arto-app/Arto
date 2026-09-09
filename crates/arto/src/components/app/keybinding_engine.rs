@@ -37,7 +37,7 @@ const JS_KEYBOARD_READY_MAX_RETRIES: u32 = if cfg!(target_os = "windows") { 200 
 /// skips them (the OS menu dispatches those; forwarding would double-fire).
 ///
 /// Must be called within the Dioxus runtime (component task / spawn).
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
 fn push_menu_accelerators_to_js() {
     use crate::config::CONFIG;
 
@@ -57,9 +57,10 @@ fn push_menu_accelerators_to_js() {
     ));
 }
 
-/// Windows has no native menu, so menu shortcuts are dispatched by the engine
-/// (see `BindingSet::into_resolved_bindings`) — there is nothing to skip.
-#[cfg(target_os = "windows")]
+/// Off macOS there is no native menu — the same commands hang off the glyph in
+/// the header and are dispatched by the engine (see
+/// `BindingSet::into_resolved_bindings`), so there is nothing to skip.
+#[cfg(not(target_os = "macos"))]
 fn push_menu_accelerators_to_js() {}
 
 /// Tell the JS interceptor which primary-modifier + single-letter chords the

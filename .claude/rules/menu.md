@@ -30,17 +30,18 @@ The closure parameter is already a `&MenuEvent`, so it is passed as is:
 
 ```rust
 // main_app.rs
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
 use_muda_event_handler(move |event| {
     crate::menu::handle_menu_event_global(event);
 });
 
 // app.rs
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
 use_muda_event_handler(move |event| {
     menu::handle_menu_event_with_state(event, &mut state);
 });
 ```
 
-Both return `bool` (handled or not). On Windows the native menu is built
-differently; check the `cfg` guards before touching registration.
+Both return `bool` (handled or not). The native menu bar is macOS only —
+everywhere else the same commands hang off the glyph at the head of the
+header — so check the `cfg` guards before touching registration.

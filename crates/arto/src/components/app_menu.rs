@@ -1,5 +1,3 @@
-#![cfg(target_os = "windows")]
-
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSeparator, ContextMenuSubmenu};
 use crate::components::icon::IconName;
 use crate::state::AppState;
@@ -7,7 +5,7 @@ use crate::utils::task::spawn_detached;
 use dioxus::prelude::*;
 
 #[component]
-pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
+pub fn AppMenu(on_close: EventHandler<()>) -> Element {
     let mut state = use_context::<AppState>();
 
     // Helper to get keyboard shortcut hints
@@ -16,6 +14,10 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
     // Get information on the currently open file (for invalidation determination)
     let current_file = state.current_file();
     let has_file = current_file.is_some();
+
+    let history = state.document().history;
+    let can_go_back = history.can_go_back();
+    let can_go_forward = history.can_go_forward();
 
     let close = move || on_close.call(());
 
@@ -30,11 +32,11 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
         // Menu body
         div {
             class: "context-menu",
-            style: "position: absolute; left: 12px; top: 40px; z-index: 999;",
+            style: "position: absolute; left: 12px; top: var(--header-height); z-index: 999;",
             onclick: move |evt| evt.stop_propagation(),
 
             // === Arto (App) ===
-            ContextMenuItem { label: "About Arto", shortcut: shortcut("app.about"), on_click: move |_| {
+            ContextMenuItem { label: "About Arto", shortcut: shortcut("app.about"), icon: Some(IconName::InfoCircle), on_click: move |_| {
                 crate::components::content::set_preferences_tab_to_about();
                 state.open_preferences();
                 close();
@@ -83,7 +85,7 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
                     close();
                 } } }
                 ContextMenuSeparator {}
-                ContextMenuItem { label: "Close Window", shortcut: shortcut("window.close"), on_click: move |_| {
+                ContextMenuItem { label: "Close Window", shortcut: shortcut("window.close"), icon: Some(IconName::Close), on_click: move |_| {
                     dioxus::desktop::window().close();
                 } }
                 ContextMenuSeparator {}
@@ -99,11 +101,11 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
                     state.open_search_with_text(None);
                     close();
                 } }
-                ContextMenuItem { label: "Find Next", shortcut: shortcut("search.next"), on_click: move |_| {
+                ContextMenuItem { label: "Find Next", shortcut: shortcut("search.next"), icon: Some(IconName::ChevronDown), on_click: move |_| {
                     spawn_detached(async move { let _ = document::eval("window.Arto.search.navigate('next')").await; });
                     close();
                 } }
-                ContextMenuItem { label: "Find Previous", shortcut: shortcut("search.prev"), on_click: move |_| {
+                ContextMenuItem { label: "Find Previous", shortcut: shortcut("search.prev"), icon: Some(IconName::ChevronUp), on_click: move |_| {
                     spawn_detached(async move { let _ = document::eval("window.Arto.search.navigate('prev')").await; });
                     close();
                 } }
@@ -120,7 +122,7 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
                     state.zoom_reset();
                     close();
                 } }
-                ContextMenuItem { label: "Zoom In", shortcut: shortcut("zoom.in"), icon: Some(IconName::Add), on_click: move |_| {
+                ContextMenuItem { label: "Zoom In", shortcut: shortcut("zoom.in"), on_click: move |_| {
                     state.zoom_in();
                     close();
                 } }
@@ -131,24 +133,34 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
             }
 
             // === History ===
-            ContextMenuSubmenu { label: "History",
-                ContextMenuItem { label: "Go Back", shortcut: shortcut("history.back"), icon: Some(IconName::ChevronLeft), on_click: move |_| {
-                    state.save_scroll_and_go_back();
-                    close();
-                } }
-                ContextMenuItem { label: "Go Forward", shortcut: shortcut("history.forward"), icon: Some(IconName::ChevronRight), on_click: move |_| {
-                    state.save_scroll_and_go_forward();
-                    close();
-                } }
+            // Only where there is a history to move through: the header no
+            // longer carries back and forward, so this is where they are, and
+            // an item that cannot act reads as the feature being broken
+            // rather than as the reader being at the start.
+            if can_go_back || can_go_forward {
+                ContextMenuSubmenu { label: "History",
+                    if can_go_back {
+                        ContextMenuItem { label: "Go Back", shortcut: shortcut("history.back"), icon: Some(IconName::ChevronLeft), on_click: move |_| {
+                            state.save_scroll_and_go_back();
+                            close();
+                        } }
+                    }
+                    if can_go_forward {
+                        ContextMenuItem { label: "Go Forward", shortcut: shortcut("history.forward"), icon: Some(IconName::ChevronRight), on_click: move |_| {
+                            state.save_scroll_and_go_forward();
+                            close();
+                        } }
+                    }
+                }
             }
 
             // === Window ===
             ContextMenuSubmenu { label: "Window",
-                ContextMenuItem { label: "Close All Child Windows", shortcut: shortcut("window.close_all_child_windows"), on_click: move |_| {
+                ContextMenuItem { label: "Close All Child Windows", shortcut: shortcut("window.close_all_child_windows"), icon: Some(IconName::Close), on_click: move |_| {
                     crate::window::close_child_windows_for_last_focused();
                     close();
                 } }
-                ContextMenuItem { label: "Close All Windows", shortcut: shortcut("window.close_all_windows"), on_click: move |_| {
+                ContextMenuItem { label: "Close All Windows", shortcut: shortcut("window.close_all_windows"), icon: Some(IconName::Close), on_click: move |_| {
                     crate::window::close_all_main_windows();
                     close();
                 } }
@@ -165,7 +177,7 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
             ContextMenuSeparator {}
 
             // === Quit ===
-            ContextMenuItem { label: "Quit", icon: Some(IconName::Close), on_click: move |_| {
+            ContextMenuItem { label: "Quit", on_click: move |_| {
                 crate::window::shutdown_all_windows();
             } }
         }

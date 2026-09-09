@@ -6,7 +6,7 @@ mod shortcut_overlay;
 
 use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
 use dioxus::desktop::tao::event::{Event as TaoEvent, WindowEvent};
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
 use dioxus::desktop::use_muda_event_handler;
 use dioxus::desktop::{use_wry_event_handler, window};
 use dioxus::document;
@@ -22,7 +22,7 @@ use super::search_bar::SearchBar;
 use super::sidebar::file_explorer::SidebarContextMenuHost;
 use super::sidebar::Sidebar;
 use crate::assets::main_script_url;
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
 use crate::menu;
 use crate::state::{AppState, Document, PersistedState};
 use crate::theme::Theme;
@@ -53,6 +53,10 @@ pub fn App(
     zoom_level: f64,
 ) -> Element {
     // Initialize application state with the provided document
+    // Taken mutably only by the native menu handler, which is built on macOS
+    // alone — the other platforms draw their menu in the header, so nothing
+    // there needs `mut`.
+    #[cfg_attr(not(target_os = "macos"), allow(unused_mut))]
     let mut state = use_context_provider(|| {
         let mut app_state = AppState::new(theme);
         // A duplicated window arrives with the place its original had reached
@@ -134,7 +138,7 @@ pub fn App(
     setup_keybinding_engine(state, shortcut_overlay_visibility);
 
     // Handle menu events (only state-dependent events, not global ones)
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
     use_muda_event_handler(move |event| {
         // Only handle state-dependent events
         menu::handle_menu_event_with_state(event, &mut state);

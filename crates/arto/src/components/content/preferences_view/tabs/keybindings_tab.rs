@@ -13,9 +13,11 @@ use crate::keybindings::{KeyChord, ShortcutSequence};
 
 /// Which shortcut table a section edits.
 ///
-/// Menu shortcuts become native OS menu accelerators (single chord, shown in the
-/// menu bar); engine bindings are handled in-window and support chord sequences
-/// and per-context behavior.
+/// Menu shortcuts are single chords, the ones a menu item can carry. On macOS
+/// they become native accelerators and the OS dispatches them; everywhere else
+/// the engine does, since the menu is drawn in the header and has no
+/// accelerator table behind it. Engine bindings are always handled in-window
+/// and support chord sequences and per-context behavior.
 #[derive(Clone, Copy, PartialEq)]
 enum BindingScope {
     Menu,

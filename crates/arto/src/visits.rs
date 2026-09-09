@@ -3,7 +3,8 @@
 //! A reader loses nothing by closing a document, so "open" was never a state
 //! worth keeping — the only thing that turns out to matter is what was read
 //! and how recently. That is this list, and it is the one behind every way
-//! the interface offers to go back, starting with the panel's history face.
+//! the interface offers to go back: the list dropped from the breadcrumb and
+//! the panel's history face.
 //!
 //! Grouping coarsens with age. The last few days are worth separating by day;
 //! a year ago, the month is as fine as anyone needs, and a year before that,

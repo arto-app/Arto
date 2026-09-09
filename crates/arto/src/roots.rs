@@ -88,6 +88,11 @@ impl Roots {
         &self.temps
     }
 
+    /// Every root, places first, in the order the tree draws them.
+    pub fn all(&self) -> impl Iterator<Item = &PathBuf> {
+        self.places.iter().chain(self.temps.iter())
+    }
+
     /// Replace the places.
     ///
     /// The window's own folder is left alone, even when a place now covers it.
@@ -103,6 +108,15 @@ impl Roots {
         let mut seen = std::collections::HashSet::new();
         places.retain(|place| seen.insert(place.clone()));
         self.places = places;
+    }
+
+    /// The deepest root covering `target`, if any.
+    ///
+    /// Deepest rather than first: with both a repository and one of its
+    /// subdirectories open, a document inside the subdirectory belongs to the
+    /// narrower of the two.
+    pub fn covering(&self, target: &Path) -> Option<&PathBuf> {
+        deepest(self.all(), target)
     }
 
     /// The window's own folder, if it holds `target`.

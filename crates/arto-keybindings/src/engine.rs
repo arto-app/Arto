@@ -140,7 +140,7 @@ impl KeybindingEngine {
     }
 
     /// Build an engine with the menu-shortcut folding decision forced, so tests
-    /// can exercise both the native-menu (macOS/Linux) and folded (Windows)
+    /// can exercise both the native-menu (macOS) and folded (everywhere else)
     /// branches regardless of the host platform.
     #[cfg(test)]
     fn new_with_menu_folding(bindings: &BindingSet, fold_menu_shortcuts: bool) -> Self {
@@ -307,9 +307,10 @@ mod tests {
     fn menu_shortcut_reachable_only_when_folded() {
         // The menu-shortcut folding decision, tested on both branches from any
         // host. Cmd+o (file.open) is a menu shortcut in the default preset.
-        // - Native-menu platforms (macOS/Linux): the OS dispatches it, so the
-        //   engine must NOT resolve it.
-        // - Windows: no native menu, so it is folded into the engine and matches.
+        // - macOS: the native menu bar carries the accelerator and the OS
+        //   dispatches it, so the engine must NOT resolve it.
+        // - Everywhere else: the menu is drawn in the header and has no
+        //   accelerator table, so it is folded into the engine and matches.
         // Using `chord("Cmd+o")` keeps the probe in the host's own parse space,
         // so it lines up with the folded binding regardless of platform.
         let config = default_bindings();

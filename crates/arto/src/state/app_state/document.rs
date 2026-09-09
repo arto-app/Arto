@@ -70,6 +70,25 @@ impl Document {
         }
     }
 
+    /// Whether there is no document to show.
+    pub fn is_empty(&self) -> bool {
+        matches!(
+            self.content,
+            DocumentContent::None | DocumentContent::Inline(_) | DocumentContent::FileError(_, _)
+        )
+    }
+
+    /// The name to put in the header and the window title.
+    pub fn display_name(&self) -> String {
+        match &self.content {
+            DocumentContent::File(path) | DocumentContent::FileError(path, _) => path
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "Unnamed".to_string()),
+            DocumentContent::Inline(_) | DocumentContent::None => "Welcome".to_string(),
+        }
+    }
+
     /// Follow a link to another file, remembering where it came from.
     pub fn navigate_to(&mut self, file: impl Into<PathBuf>) {
         let file = file.into();
@@ -97,6 +116,34 @@ mod tests {
         assert_eq!(document.content, DocumentContent::File(path.clone()));
         assert_eq!(document.file(), Some(path.as_path()));
         assert_eq!(document.history.current_path(), Some(path.as_path()));
+    }
+
+    #[test]
+    fn the_name_is_the_file_name_whatever_is_in_it() {
+        assert_eq!(Document::new("/path/to/README").display_name(), "README");
+        assert_eq!(
+            Document::new("/path/to/日本語ファイル.md").display_name(),
+            "日本語ファイル.md"
+        );
+        assert_eq!(
+            Document::new("/path/to/.hidden.md").display_name(),
+            ".hidden.md"
+        );
+    }
+
+    #[test]
+    fn a_path_with_no_name_is_unnamed() {
+        let document = Document {
+            content: DocumentContent::File(PathBuf::from("/")),
+            ..Default::default()
+        };
+        assert_eq!(document.display_name(), "Unnamed");
+    }
+
+    #[test]
+    fn a_window_with_nothing_open_is_empty() {
+        assert!(Document::default().is_empty());
+        assert!(!Document::new("/test/file.md").is_empty());
     }
 
     #[test]
