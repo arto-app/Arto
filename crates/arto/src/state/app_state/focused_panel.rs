@@ -1,21 +1,16 @@
 use crate::keybindings::KeyContext;
 
-/// Which panel currently has keyboard focus.
+/// What the keyboard is in.
 ///
-/// When a panel is focused, the keybinding engine uses the associated
-/// `KeyContext` to match context-specific bindings (e.g., `j` → `cursor.down`
-/// in the panel vs `j` → `scroll.down` globally in Content).
-///
-/// The panel is one entry however many faces it has: the keys that walk a
-/// list of documents are the same keys whether the list is a tree, a history
-/// or a set of stars, and having one per face was three chances to bind them
-/// differently.
+/// The panel is one place, whichever of its faces is showing: the keys that
+/// walk a list of documents are the same keys whether the list is a tree, a
+/// history or a set of stars, so they are bound once and the face decides what
+/// they walk.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FocusedPanel {
     #[default]
     Content,
     Panel,
-    RightSidebar,
 }
 
 impl FocusedPanel {
@@ -24,7 +19,6 @@ impl FocusedPanel {
         match self {
             Self::Content => KeyContext::Content,
             Self::Panel => KeyContext::Sidebar,
-            Self::RightSidebar => KeyContext::RightSidebar,
         }
     }
 }
@@ -46,13 +40,5 @@ mod tests {
     #[test]
     fn the_panel_maps_to_the_sidebar_context() {
         assert_eq!(FocusedPanel::Panel.key_context(), KeyContext::Sidebar);
-    }
-
-    #[test]
-    fn right_sidebar_maps_to_right_sidebar_context() {
-        assert_eq!(
-            FocusedPanel::RightSidebar.key_context(),
-            KeyContext::RightSidebar
-        );
     }
 }

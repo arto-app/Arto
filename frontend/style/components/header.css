@@ -177,36 +177,6 @@
   }
 }
 
-/* TOC toggle button - matches sidebar toggle style */
-.header-right .right-sidebar-toggle-button {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  transition: all var(--transition-normal);
-  width: 28px;
-  height: 28px;
-
-  &:hover {
-    border-color: var(--border-color);
-    background: var(--bg-secondary);
-    color: var(--text-color);
-  }
-
-  .icon {
-    opacity: var(--opacity-muted);
-  }
-
-  &.active .icon {
-    opacity: 1;
-  }
-}
-
 /* ========================================
    Header Bookmark Button Context Styles
    ======================================== */

@@ -40,8 +40,6 @@ pub struct PreferencesSnapshot {
     pub window_id: WindowId,
     pub sidebar_width: f64,
     pub sidebar_zoom_level: f64,
-    pub right_sidebar_width: f64,
-    pub right_sidebar_zoom_level: f64,
     pub directory: Option<PathBuf>,
 }
 

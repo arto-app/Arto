@@ -1,0 +1,373 @@
+/* =================================
+   Contents gutter
+   =================================
+
+   The document's headings as a ruler down its edge. Tick length is heading
+   depth, so the shape of the document reads at a glance; the current position
+   is the densest tick rather than a coloured one. */
+
+.content-area {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  /* The contents float above the document from here. */
+  position: relative;
+}
+
+.contents-gutter {
+  flex-shrink: 0;
+  width: 24px;
+  padding: 28px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+}
+
+.contents-gutter-tick {
+  flex-shrink: 0;
+  height: 2px;
+  padding: 0;
+  border: none;
+  border-radius: 1px;
+  background: var(--text-color);
+  opacity: var(--opacity-rest);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-quiet) ease,
+    opacity var(--transition-quiet) ease;
+}
+
+.contents-gutter-tick[data-level="1"] {
+  width: 15px;
+}
+
+.contents-gutter-tick[data-level="2"] {
+  width: 10px;
+}
+
+.contents-gutter-tick[data-level="3"] {
+  width: 7px;
+}
+
+.contents-gutter-tick[data-level="4"],
+.contents-gutter-tick[data-level="5"],
+.contents-gutter-tick[data-level="6"] {
+  width: 5px;
+}
+
+/* Waking the column must not close the gap between the current tick and the
+   rest: they wake to half, the current one to all of it, so where the reader
+   is stays the densest mark in the column at every step. */
+.contents-gutter:hover .contents-gutter-tick {
+  opacity: 0.5;
+}
+
+/* Where the reader is, in the one currency this column has. A colour would
+   say it too, and the chrome has none left to spend. */
+.contents-gutter-tick[data-current] {
+  opacity: 0.8;
+}
+
+.contents-gutter:hover .contents-gutter-tick[data-current],
+.contents-gutter-tick:hover,
+.contents-gutter:hover .contents-gutter-tick:hover {
+  opacity: 1;
+}
+
+/* A heading a search found something under. The ruler is already a map of the
+   document, so this is where a search says *where* its hits are — in the
+   colour the pinned search carries, which is the one colour left in the
+   interface and the only one that means anything. */
+.contents-gutter-tick[data-hit],
+.contents-gutter:hover .contents-gutter-tick[data-hit] {
+  background: var(--hit-colour);
+  opacity: 1;
+  /* Enough of it to be a colour. A 2px sliver of a mid-tone reads as grey on
+     a light ground however saturated it is, so a marked tick takes the length
+     of a top-level heading and twice the weight — which is also what makes it
+     findable in a column of thirty. */
+  height: 4px;
+  min-width: 15px;
+  border-radius: 2px;
+}
+
+/* ---------------------------------------------------------------------- *
+ * The names, for as long as the pointer is in the column.
+ * ---------------------------------------------------------------------- */
+
+/* Floating over the document, never pushing it: a line the reader is on does
+   not move because the contents came out. The shadow falls to the left, over
+   the page it is above — the ticks on its right are not underneath it. */
+.contents-toc {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: var(--z-dropdown);
+  min-width: 260px;
+  /* Wide enough for a heading to be read rather than guessed at — most fit
+     whole at this width — and never more than half of what it is floating
+     over, because it is a list about the page and not a second page. */
+  max-width: min(440px, 50%);
+  /* Against the window rather than against a percentage of a box whose height
+     an engine may or may not treat as definite: this list can be longer than
+     the document is tall, and it has to be the window that stops it.
+     24px above it and 48px below: a list that ends level with the foot of the
+     window reads as having been cut off there rather than as ending. */
+  max-height: calc(100vh - var(--header-height) - 72px);
+  overflow-y: auto;
+  /* A name too long for the panel is cut, not scrolled to. `overflow-y: auto`
+     alone makes this axis `auto` as well, which is where the sideways bar
+     came from. */
+  overflow-x: hidden;
+  padding: 16px 20px 18px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-color);
+  box-shadow: -8px 0 16px -4px rgb(1 4 9 / 25%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-quiet) ease;
+}
+
+/* The rail's rule, on the other edge: a moment's rest opens it, and crossing
+   the column on the way somewhere else does not. */
+.contents-gutter:hover ~ .contents-toc,
+.contents-toc:hover {
+  opacity: 1;
+  pointer-events: auto;
+  transition-delay: 0.12s;
+}
+
+/* Asked for by name rather than found with the pointer: it stays until it is
+   dismissed, and it does not wait to appear — the reader is already looking
+   at where it will be. */
+.contents-toc.open {
+  opacity: 1;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+
+/* Where the keys are, as against where the reader is: the bar the panel's
+   rows use for the same thing, and for the same reason — `data-current` is
+   already spending the ground on the heading being read, and a cursor that
+   also filled the row would take that mark away as it passed over it. */
+.contents-toc-row.keyboard-focused {
+  color: var(--text-color);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, currentcolor 55%, transparent);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.contents-toc-empty {
+  padding: 4px 10px 2px;
+  font-size: var(--font-size-base);
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+.contents-toc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  /* Or the padding is added to the width and every row is 16px wider than the
+     panel that holds them. */
+  box-sizing: border-box;
+  padding: 5px 10px;
+  min-height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  /* Written in the secondary ink rather than the document's own at half
+     strength: at 11px a colour thinned by opacity is legible on a dark ground
+     and not on a light one, and this list is read, not glanced at. */
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-quiet) ease,
+    color var(--transition-quiet) ease;
+}
+
+.contents-toc-row[data-level="2"] {
+  padding-left: 26px;
+}
+
+.contents-toc-row[data-level="3"] {
+  padding-left: 40px;
+}
+
+.contents-toc-row[data-level="4"],
+.contents-toc-row[data-level="5"],
+.contents-toc-row[data-level="6"] {
+  padding-left: 54px;
+}
+
+/* The same two devices the panel's rows use: the ground steps, the name
+   thickens. */
+.contents-toc-row[data-current] {
+  background: var(--bg-row-active);
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.contents-toc-row:hover {
+  background: var(--bg-row-hover);
+  color: var(--text-color);
+}
+
+/* The name takes the room and gives it up first, so the dot beside it is
+   never the thing pushed out of the row. */
+.contents-toc-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The same hit, named. The dot is at the end of the row, where the tick it
+   answers to is. */
+.contents-toc-row[data-hit] {
+  color: var(--text-color);
+}
+
+/* One dot per mark under the heading, side by side with air between them:
+   two colours read as two only when they are two shapes. */
+.contents-toc-hits {
+  flex: none;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.contents-toc-hits i {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+}
+
+/* =================================
+   The marks a search pinned
+   =================================
+
+   Listed above the headings, because the ticks beside them already carry
+   their colour: the mark and the way to change it are one place. */
+/* A word on a hairline — the same device the panel heads its groups with, so
+   two lists of the same kind are headed the same way. It is also the boundary
+   between the marks and the headings, so no second rule is needed. */
+.contents-toc-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 10px 8px;
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
+.contents-toc-label:first-child {
+  margin-top: 0;
+}
+
+.contents-toc-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+
+.contents-toc-pin {
+  position: relative;
+}
+
+.contents-toc-pin.disabled .contents-toc-name {
+  text-decoration: line-through;
+  opacity: var(--opacity-secondary);
+}
+
+/* The colour is the control: what can be done to a mark is mostly a choice of
+   which colour it is. */
+.contents-toc-pin-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  /* The mark's own colour, at the strength it has on the page: the dot and
+     the words it highlights are the same mark, so they are the same colour. */
+  background: var(--pin-colour, var(--border-color));
+  transition: box-shadow var(--transition-quiet) ease;
+}
+
+.contents-toc-pin-dot:hover {
+  box-shadow: 0 0 0 2px var(--bg-row-hover);
+}
+
+.contents-toc-pin-dot.highlight-green {
+  --pin-colour: var(--pinned-green);
+}
+.contents-toc-pin-dot.highlight-blue {
+  --pin-colour: var(--pinned-blue);
+}
+.contents-toc-pin-dot.highlight-pink {
+  --pin-colour: var(--pinned-pink);
+}
+.contents-toc-pin-dot.highlight-orange {
+  --pin-colour: var(--pinned-orange);
+}
+.contents-toc-pin-dot.highlight-purple {
+  --pin-colour: var(--pinned-purple);
+}
+
+/* How many there are of it, in the column the headings keep for their own
+   hit dot. */
+.contents-toc-pin-count {
+  flex: none;
+  margin-left: auto;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+/* Drawn at rest, not on hover: taking a mark off is the one thing a reader
+   comes to this list to do, and a control that appears under the pointer is
+   one that has to be looked for first. */
+.contents-toc-pin-remove {
+  flex: none;
+  display: flex;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  cursor: pointer;
+  opacity: var(--opacity-rest);
+  transition: opacity var(--transition-quiet) ease;
+}
+
+.contents-toc-pin:hover .contents-toc-pin-remove {
+  opacity: var(--opacity-secondary);
+}
+
+.contents-toc-pin-remove:hover {
+  opacity: 1;
+}
+
+/* With no headings there is no ruler to rest on, so the marks put one mark in
+   the column for the pointer to find. */
+.contents-gutter-marks {
+  display: flex;
+  justify-content: center;
+  color: var(--text-secondary);
+  opacity: var(--opacity-rest);
+}

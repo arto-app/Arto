@@ -29,7 +29,6 @@ enum MenuId {
     FindNext,
     FindPrevious,
     ToggleLeftSidebar,
-    ToggleRightSidebar,
     ActualSize,
     ZoomIn,
     ZoomOut,
@@ -59,7 +58,6 @@ impl MenuId {
             "edit.find_next" => Some(Self::FindNext),
             "edit.find_previous" => Some(Self::FindPrevious),
             "view.toggle_left_sidebar" => Some(Self::ToggleLeftSidebar),
-            "view.toggle_right_sidebar" => Some(Self::ToggleRightSidebar),
             "view.actual_size" => Some(Self::ActualSize),
             "view.zoom_in" => Some(Self::ZoomIn),
             "view.zoom_out" => Some(Self::ZoomOut),
@@ -90,7 +88,6 @@ impl MenuId {
             Self::FindNext => "edit.find_next",
             Self::FindPrevious => "edit.find_previous",
             Self::ToggleLeftSidebar => "view.toggle_left_sidebar",
-            Self::ToggleRightSidebar => "view.toggle_right_sidebar",
             Self::ActualSize => "view.actual_size",
             Self::ZoomIn => "view.zoom_in",
             Self::ZoomOut => "view.zoom_out",
@@ -197,7 +194,6 @@ fn menu_action_for_id(id: MenuId) -> Option<&'static str> {
         MenuId::FindNext => "search.next",
         MenuId::FindPrevious => "search.prev",
         MenuId::ToggleLeftSidebar => "window.toggle_sidebar",
-        MenuId::ToggleRightSidebar => "window.toggle_right_sidebar",
         MenuId::ActualSize => "zoom.reset",
         MenuId::ZoomIn => "zoom.in",
         MenuId::ZoomOut => "zoom.out",
@@ -294,7 +290,6 @@ fn add_view_menu(menu: &Menu) {
     view_menu
         .append_items(&[
             &create_menu_item(MenuId::ToggleLeftSidebar, "Toggle Left Sidebar"),
-            &create_menu_item(MenuId::ToggleRightSidebar, "Toggle Right Sidebar"),
             &PredefinedMenuItem::separator(),
             &create_menu_item(MenuId::ActualSize, "Actual Size"),
             &create_menu_item(MenuId::ZoomIn, "Zoom In"),
@@ -378,8 +373,6 @@ pub fn handle_menu_event_global(event: &MenuEvent) -> bool {
             );
         }
         MenuId::NewDocument => {
-            // Nothing to put down when there is no window: make one, showing
-            // what a window with no document shows.
             if !window::has_any_main_windows() {
                 window::create_main_window_sync(
                     &window(),
@@ -416,12 +409,11 @@ pub fn handle_menu_event_global(event: &MenuEvent) -> bool {
 /// # Handled events
 /// - `About`: Opens preferences page on About tab
 /// - `Preferences`: Opens preferences page
-/// - `NewDocument`: Puts the document down, leaving the window empty
+/// - `NewDocument`: Puts the document down, showing the welcome page
 /// - `Open`: Opens file picker for markdown files
 /// - `OpenDirectory`: Opens directory picker
 /// - `CloseWindow`: Window management
 /// - `ToggleLeftSidebar`: Toggles left sidebar pin state
-/// - `ToggleRightSidebar`: Toggles right sidebar pin state
 /// - `ActualSize` / `ZoomIn` / `ZoomOut`: Zoom controls
 /// - `GoBack` / `GoForward`: Navigation history
 /// - `RevealInFinder` / `CopyFilePath`: File operations
@@ -445,19 +437,18 @@ pub fn handle_menu_event_with_state(event: &MenuEvent, state: &mut AppState) -> 
 
     // Map the menu item to its action and dispatch through the shared
     // dispatcher, so a menu click and its keyboard shortcut run the exact same
-    // effect (single source of truth). GoBack/GoForward are context-polymorphic:
-    // the single "Back"/"Forward" item resolves to directory or document history
-    // depending on the focused panel.
+    // effect (single source of truth).
     let action = match id {
         MenuId::About => Action::AppAbout,
         MenuId::Preferences => Action::FilePreferences,
         MenuId::NewDocument => Action::WindowNewDocument,
+        // Duplicating needs this window's document and roots, so it is state-
+        // dependent rather than global like New Window.
         MenuId::DuplicateWindow => Action::WindowDuplicate,
         MenuId::Open => Action::FileOpen,
         MenuId::OpenDirectory => Action::FileOpenDirectory,
         MenuId::CloseWindow => Action::WindowClose,
         MenuId::ToggleLeftSidebar => Action::WindowToggleSidebar,
-        MenuId::ToggleRightSidebar => Action::WindowToggleRightSidebar,
         MenuId::ActualSize => Action::ZoomReset,
         MenuId::ZoomIn => Action::ZoomIn,
         MenuId::ZoomOut => Action::ZoomOut,
@@ -510,7 +501,6 @@ mod tests {
             "edit.find_next",
             "edit.find_previous",
             "view.toggle_left_sidebar",
-            "view.toggle_right_sidebar",
             "view.actual_size",
             "view.zoom_in",
             "view.zoom_out",
@@ -554,7 +544,6 @@ mod tests {
             MenuId::FindNext,
             MenuId::FindPrevious,
             MenuId::ToggleLeftSidebar,
-            MenuId::ToggleRightSidebar,
             MenuId::ActualSize,
             MenuId::ZoomIn,
             MenuId::ZoomOut,

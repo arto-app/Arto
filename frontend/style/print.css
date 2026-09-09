@@ -4,9 +4,9 @@
 
    Turns the single-window app layout into a paginated document so the
    native print dialog (and its "Save as PDF" option) produces clean
-   A4 pages: only the active tab's content is printed, application
-   chrome is hidden, and oversized media (Mermaid diagrams, images) is
-   scaled down to fit within one page. */
+   A4 pages: only the document is printed, application chrome is hidden,
+   and oversized media (Mermaid diagrams, images) is scaled down to fit
+   within one page. */
 
 @media print {
   /* ----------------------------------------
@@ -16,8 +16,8 @@
   /* Sidebars, hover triggers, overlays, context menus, drag/shortcut
      overlays — everything that is a sibling of the main area */
   .app-container > :not(.main-area),
-  /* Header, search bar, tab bar — everything in the main area except
-     the document itself */
+  /* Header and search bar — everything in the main area except the
+     document itself */
   .main-area > :not(.content),
   /* Floating helpers rendered outside the app container */
   .action-feedback,

@@ -79,25 +79,8 @@
 }
 
 /* ========================================
-   Sidebar Hover Trigger & Overlay
+   Sidebar Overlay
    ======================================== */
-
-/* Transparent hover zones at window edges (unpinned sidebars) */
-.sidebar-hover-trigger {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 8px;
-  z-index: var(--z-dropdown);
-}
-
-.sidebar-hover-trigger.left {
-  left: 0;
-}
-
-.sidebar-hover-trigger.right {
-  right: 0;
-}
 
 /* Overlay wrapper for unpinned sidebars */
 .sidebar-overlay-wrapper {
@@ -112,30 +95,30 @@
   pointer-events: auto;
 }
 
+/* A peeking panel starts where the rail ends. The rail is what opened it and
+   what switches its faces, so covering it would take away the controls the
+   moment they were used; the offset is 0 only when the window is too narrow
+   for a rail to be drawn at all.
+
+   The clip is what makes it come out *from behind the rail*: the panel slides
+   inside this box, so the rail's edge is the edge it appears from rather than
+   a strip it sweeps across. Only the left side is clipped — the right is left
+   open by the width of the shadow, which has to fall on the document. */
 .sidebar-overlay-wrapper.left {
   left: 0;
+  clip-path: inset(0 -24px 0 0);
 }
 
-.sidebar-overlay-wrapper.right {
-  right: 0;
+.sidebar-overlay-wrapper.left.beside-rail {
+  left: var(--rail-width);
 }
 
-/* Slide animation for overlay sidebars */
+/* Slide animation for overlay sidebars. */
 .sidebar-overlay-wrapper.left .left-sidebar {
   transform: translateX(-100%);
-  transition: transform var(--transition-normal) ease;
 }
 
 .sidebar-overlay-wrapper.left.visible .left-sidebar {
-  transform: translateX(0);
-}
-
-.sidebar-overlay-wrapper.right .right-sidebar {
-  transform: translateX(100%);
-  transition: transform var(--transition-normal) ease;
-}
-
-.sidebar-overlay-wrapper.right.visible .right-sidebar {
   transform: translateX(0);
 }
 

@@ -29,3 +29,32 @@
     scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
   }
 }
+
+/* =================================
+   The document's own scrollbar
+   =================================
+
+   The page has a better position indicator than a scrollbar: the contents
+   gutter beside it, which says *where in the document* rather than what
+   fraction of it. Two marks down one edge, 24px apart, is one device too
+   many.
+
+   So it is not drawn at rest. It is still there — a document with no headings
+   has no gutter, and a scrollbar is also the way to drag a long page about —
+   and it appears as soon as the pointer is in the page. */
+.content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.content:hover::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+}
+
+.content:hover::-webkit-scrollbar-thumb:hover,
+.content::-webkit-scrollbar-thumb:active {
+  background: var(--scrollbar-thumb-hover);
+}

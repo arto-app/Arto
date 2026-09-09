@@ -115,10 +115,6 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
                     state.toggle_sidebar();
                     close();
                 } }
-                ContextMenuItem { label: "Toggle Right Sidebar", shortcut: shortcut("window.toggle_right_sidebar"), icon: Some(IconName::List), on_click: move |_| {
-                    state.toggle_right_sidebar();
-                    close();
-                } }
                 ContextMenuSeparator {}
                 ContextMenuItem { label: "Actual Size", shortcut: shortcut("zoom.reset"), on_click: move |_| {
                     state.zoom_reset();

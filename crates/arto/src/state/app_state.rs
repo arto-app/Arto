@@ -11,13 +11,11 @@ use crate::theme::Theme;
 
 mod document;
 mod focused_panel;
-mod right_sidebar;
 mod sidebar;
 pub(crate) mod sidebar_cursor;
 
 pub use document::{Document, DocumentContent};
 pub use focused_panel::*;
-pub use right_sidebar::RightSidebar;
 pub use sidebar::{Face, Group, PanelRow, Sidebar, TreeRow};
 
 /// Information about a single search match for display in the Search tab.
@@ -65,8 +63,8 @@ pub struct AppState {
     /// Whether the content area ignores the markdown body's max-width and fills the pane.
     pub content_full_width: Signal<bool>,
     pub sidebar: Signal<Sidebar>,
-    pub right_sidebar: Signal<RightSidebar>,
-    pub right_sidebar_headings: Signal<Vec<HeadingInfo>>,
+    /// The headings of the document on screen, for the contents beside it.
+    pub headings: Signal<Vec<HeadingInfo>>,
     pub position: Signal<LogicalPosition<i32>>,
     pub size: Signal<LogicalSize<u32>>,
     // Search state (not persisted, managed via JavaScript for IME compatibility)
@@ -105,16 +103,11 @@ pub struct AppState {
     pub visits_revision: Signal<u32>,
     /// Which row of the panel the keyboard is on — see [`PanelRow`].
     pub panel_cursor: Signal<Option<PanelRow>>,
-    /// Keyboard cursor position in the right sidebar TOC (index into headings list).
-    pub toc_cursor: Signal<Option<usize>>,
     /// Keyboard cursor position in the Quick Access list (index into bookmarks).
     pub quick_access_cursor: Signal<Option<usize>>,
     /// Whether the left sidebar overlay is currently shown (hover/focus triggered).
     /// Transient UI state — not persisted.
     pub left_hover_active: Signal<bool>,
-    /// Whether the right sidebar overlay is currently shown (hover/focus triggered).
-    /// Transient UI state — not persisted.
-    pub right_hover_active: Signal<bool>,
     /// Left-sidebar file-tree context menu state (position, target, window list).
     ///
     /// Held here — not in a tree node — so watcher-driven remounts of the file
@@ -138,8 +131,7 @@ impl AppState {
             zoom_level: Signal::new(DEFAULT_ZOOM_LEVEL),
             content_full_width: Signal::new(false),
             sidebar: Signal::new(Sidebar::default()),
-            right_sidebar: Signal::new(RightSidebar::default()),
-            right_sidebar_headings: Signal::new(Vec::new()),
+            headings: Signal::new(Vec::new()),
             position: Signal::new(Default::default()),
             size: Signal::new(Default::default()),
             // Search state
@@ -158,10 +150,8 @@ impl AppState {
             focused_panel: Signal::new(FocusedPanel::Content),
             visits_revision: Signal::new(0),
             panel_cursor: Signal::new(None),
-            toc_cursor: Signal::new(None),
             quick_access_cursor: Signal::new(None),
             left_hover_active: Signal::new(false),
-            right_hover_active: Signal::new(false),
             sidebar_context_menu: Signal::new(None),
             sidebar_refresh_counter: Signal::new(0),
         }

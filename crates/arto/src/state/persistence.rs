@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-use crate::components::right_sidebar::RightSidebarTab;
-use crate::config::DEFAULT_RIGHT_SIDEBAR_WIDTH;
 use crate::state::AppState;
 use crate::theme::Theme;
 
@@ -66,11 +64,6 @@ pub struct PersistedState {
     pub sidebar_show_all_files: bool,
     #[serde(default = "default_zoom_level")]
     pub sidebar_zoom_level: f64,
-    pub right_sidebar_pinned: bool,
-    pub right_sidebar_width: f64,
-    pub right_sidebar_tab: RightSidebarTab,
-    #[serde(default = "default_zoom_level")]
-    pub right_sidebar_zoom_level: f64,
     pub window_position: Position,
     pub window_size: Size,
     #[serde(default = "default_zoom_level")]
@@ -92,10 +85,6 @@ impl Default for PersistedState {
             sidebar_width: 280.0,
             sidebar_show_all_files: false,
             sidebar_zoom_level: 1.0,
-            right_sidebar_pinned: false,
-            right_sidebar_width: DEFAULT_RIGHT_SIDEBAR_WIDTH,
-            right_sidebar_tab: RightSidebarTab::default(),
-            right_sidebar_zoom_level: 1.0,
             window_position: Position::default(),
             window_size: Size::default(),
             zoom_level: 1.0,
@@ -106,7 +95,6 @@ impl Default for PersistedState {
 impl From<&AppState> for PersistedState {
     fn from(state: &AppState) -> Self {
         let sidebar = state.sidebar.read();
-        let right_sidebar = state.right_sidebar.read();
         Self {
             directory: sidebar.primary_root().cloned(),
             temps: sidebar.roots.temps().to_vec(),
@@ -116,10 +104,6 @@ impl From<&AppState> for PersistedState {
             sidebar_width: sidebar.width,
             sidebar_show_all_files: sidebar.show_all_files,
             sidebar_zoom_level: sidebar.zoom_level,
-            right_sidebar_pinned: right_sidebar.pinned,
-            right_sidebar_width: right_sidebar.width,
-            right_sidebar_tab: right_sidebar.tab,
-            right_sidebar_zoom_level: right_sidebar.zoom_level,
             window_position: (*state.position.read()).into(),
             window_size: (*state.size.read()).into(),
             zoom_level: *state.zoom_level.read(),
@@ -128,7 +112,6 @@ impl From<&AppState> for PersistedState {
 }
 
 impl PersistedState {
-    /// Get the state file path (state.json in local data directory)
     /// The temporary roots to restore, older files included.
     ///
     /// A state file from before this field existed carries a single
@@ -188,10 +171,6 @@ impl PersistedState {
             sidebar_width = self.sidebar_width,
             sidebar_show_all_files = self.sidebar_show_all_files,
             sidebar_zoom_level = self.sidebar_zoom_level,
-            right_sidebar_pinned = self.right_sidebar_pinned,
-            right_sidebar_width = self.right_sidebar_width,
-            right_sidebar_tab = ?self.right_sidebar_tab,
-            right_sidebar_zoom_level = self.right_sidebar_zoom_level,
             zoom_level = self.zoom_level,
             "Saving persisted state"
         );
@@ -219,9 +198,6 @@ impl PersistedState {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use indoc::indoc;
-
     #[test]
     fn a_state_file_from_before_roots_were_a_list_still_restores() {
         // Only `directory` was written then, so it is the one root to bring back.
@@ -250,20 +226,21 @@ mod tests {
         assert!(PersistedState::default().temporary_roots().is_empty());
     }
 
+    use super::*;
+    use indoc::indoc;
+
     #[test]
     fn test_default_sidebar_state() {
         let state = PersistedState::default();
 
-        // Sidebars default to unpinned (overlay/hover mode)
+        // The panel defaults to unpinned (peek mode)
         assert!(!state.sidebar_pinned);
-        assert!(!state.right_sidebar_pinned);
     }
 
     #[test]
     fn test_serialization_roundtrip() {
         let state = PersistedState {
             sidebar_pinned: false,
-            right_sidebar_pinned: true,
             ..Default::default()
         };
 
@@ -271,7 +248,6 @@ mod tests {
         let parsed: PersistedState = serde_json::from_str(&json).unwrap();
 
         assert!(!parsed.sidebar_pinned);
-        assert!(parsed.right_sidebar_pinned);
     }
 
     #[test]
@@ -288,13 +264,11 @@ mod tests {
         let parsed: PersistedState = serde_json::from_str(json).unwrap();
 
         assert!(!parsed.sidebar_pinned);
-        assert!(!parsed.right_sidebar_pinned);
         assert_eq!(parsed.sidebar_width, 300.0);
     }
 
     #[test]
-    fn test_deserialize_only_left_pinned() {
-        // Only left sidebar pinned; right sidebar fields missing → defaults
+    fn test_deserialize_only_pinned() {
         let json = indoc! {r#"
             {
                 "sidebarPinned": true
@@ -304,15 +278,12 @@ mod tests {
         let parsed: PersistedState = serde_json::from_str(json).unwrap();
 
         assert!(parsed.sidebar_pinned);
-        // Right sidebar: defaults (pinned=false)
-        assert!(!parsed.right_sidebar_pinned);
     }
 
     #[test]
     fn test_serialization_roundtrip_pinned_true() {
         let state = PersistedState {
             sidebar_pinned: true,
-            right_sidebar_pinned: true,
             ..Default::default()
         };
 
@@ -320,7 +291,6 @@ mod tests {
         let parsed: PersistedState = serde_json::from_str(&json).unwrap();
 
         assert!(parsed.sidebar_pinned);
-        assert!(parsed.right_sidebar_pinned);
     }
 
     #[test]
@@ -338,7 +308,9 @@ mod tests {
 
     #[test]
     fn test_deserialize_explicit_false_preserved() {
-        // User unpinned sidebar via Cmd+B → sidebarPinned: false persisted
+        // User unpinned the panel via Cmd+B → sidebarPinned: false persisted.
+        // `rightSidebarPinned` is what a state.json written before the right
+        // sidebar was removed still carries; it is ignored, not an error.
         let json = indoc! {r#"
             {
                 "sidebarPinned": false,
@@ -349,6 +321,5 @@ mod tests {
         let parsed: PersistedState = serde_json::from_str(json).unwrap();
 
         assert!(!parsed.sidebar_pinned);
-        assert!(!parsed.right_sidebar_pinned);
     }
 }

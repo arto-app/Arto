@@ -1,5 +1,6 @@
 import "../style/main.css";
 
+import { refreshReadingPosition, setupReadingPosition } from "./reading-position";
 import { setupRowHover } from "./row-hover";
 import { type Theme, currentTheme, isDarkTheme, themedElement } from "./theme";
 import * as mermaidRenderer from "./mermaid-renderer";
@@ -207,9 +208,18 @@ export function init(): void {
   mermaidRenderer.init();
   renderCoordinator.init();
 
+  // The header's line and the gutter's current tick both answer to where the
+  // reader is, and a new document moves them without a scroll happening. The
+  // callback fires once, so it re-arms itself for the render after this one.
+  setupReadingPosition();
   // The full name of a row the panel had to cut, floating clear of the box
   // that scrolls it.
   setupRowHover();
+  const trackAfterRender = (): void => {
+    refreshReadingPosition();
+    renderCoordinator.onRenderComplete(trackAfterRender);
+  };
+  renderCoordinator.onRenderComplete(trackAfterRender);
 
   // A page with no `.content` is one `arto page` wrote: a whole document,
   // which its reader can print with the browser's own command. Nothing can

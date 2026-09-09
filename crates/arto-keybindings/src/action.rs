@@ -62,7 +62,6 @@ pub enum Action {
     WindowCloseAllChildWindows,
     WindowCloseAllWindows,
     WindowToggleSidebar,
-    WindowToggleRightSidebar,
 
     // Reload (1)
     WindowReload,
@@ -72,7 +71,6 @@ pub enum Action {
     FocusPlaces,
     FocusStarred,
     FocusRecent,
-    FocusRightSidebar,
     FocusContent,
 
     // File (4) — MenuId: Open, OpenDirectory, Preferences, RevealInFinder
@@ -100,10 +98,6 @@ pub enum Action {
     SidebarFaceStarred,
     SidebarFaceNext,
     SidebarFacePrev,
-
-    // Right sidebar (2)
-    RightSidebarShowContents,
-    RightSidebarShowSearch,
 
     // Theme (3)
     ThemeSetLight,
@@ -192,7 +186,6 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::WindowCloseAllChildWindows,
             Action::WindowCloseAllWindows,
             Action::WindowToggleSidebar,
-            Action::WindowToggleRightSidebar,
             Action::WindowReload,
         ],
     ),
@@ -202,7 +195,6 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::FocusPlaces,
             Action::FocusStarred,
             Action::FocusRecent,
-            Action::FocusRightSidebar,
             Action::FocusContent,
         ],
     ),
@@ -239,13 +231,6 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::SidebarFaceStarred,
             Action::SidebarFaceNext,
             Action::SidebarFacePrev,
-        ],
-    ),
-    (
-        "Right Sidebar",
-        &[
-            Action::RightSidebarShowContents,
-            Action::RightSidebarShowSearch,
         ],
     ),
     (
@@ -302,7 +287,6 @@ pub const MENU_ACTIONS: &[Action] = &[
     Action::SearchNext,
     Action::SearchPrev,
     Action::WindowToggleSidebar,
-    Action::WindowToggleRightSidebar,
     Action::ZoomReset,
     Action::ZoomIn,
     Action::ZoomOut,
@@ -399,12 +383,10 @@ action_strings! {
     WindowCloseAllChildWindows => "window.close_all_child_windows",
     WindowCloseAllWindows => "window.close_all_windows",
     WindowToggleSidebar => "window.toggle_sidebar",
-    WindowToggleRightSidebar => "window.toggle_right_sidebar",
     WindowReload => "window.reload",
     FocusPlaces => "focus.places",
     FocusStarred => "focus.starred",
     FocusRecent => "focus.recent",
-    FocusRightSidebar => "focus.right_sidebar",
     FocusContent => "focus.content",
     FileOpen => "file.open",
     FileOpenDirectory => "file.open_directory",
@@ -426,8 +408,6 @@ action_strings! {
     SidebarFaceStarred => "sidebar.face_starred",
     SidebarFaceNext => "sidebar.face_next",
     SidebarFacePrev => "sidebar.face_prev",
-    RightSidebarShowContents => "right_sidebar.show_contents",
-    RightSidebarShowSearch => "right_sidebar.show_search",
     ThemeSetLight => "theme.set_light",
     ThemeSetDark => "theme.set_dark",
     ThemeSetAuto => "theme.set_auto",
@@ -459,7 +439,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 83);
+        assert_eq!(all_actions().len(), 79);
     }
 
     #[test]

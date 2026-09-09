@@ -50,7 +50,7 @@ Arto uses a comprehensive design token system defined in `variables.css` for con
 --z-resize-handle: 10;
 --z-search-bar: 50;
 --z-header: 60;
---z-pinned-chips: 99;
+--z-pin-popover: 99;
 --z-dropdown: 200;
 --z-modal-backdrop: 10000;
 --z-context-menu-backdrop: 10001;
