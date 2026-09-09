@@ -22,7 +22,6 @@
 /* Layout */
 @import url("./components/app.css");
 @import url("./components/header.css");
-@import url("./components/search-bar.css");
 @import url("./components/pinned-marks.css");
 @import url("./components/action-feedback.css");
 

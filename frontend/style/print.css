@@ -16,8 +16,7 @@
   /* Sidebars, hover triggers, overlays, context menus, drag/shortcut
      overlays — everything that is a sibling of the main area */
   .app-container > :not(.main-area),
-  /* Header and search bar — everything in the main area except the
-     document itself */
+  /* The header — everything in the main area except the document itself */
   .main-area > :not(.content),
   /* Floating helpers rendered outside the app container */
   .action-feedback,

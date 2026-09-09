@@ -1,3 +1,4 @@
+import { refreshReadingPosition } from "./reading-position";
 import { toElement } from "./scroll-controller";
 
 /**
@@ -185,6 +186,8 @@ function highlightMatches(container: HTMLElement, query: string): number {
   clearSearchHighlights();
 
   state.highlightElements = applyHighlights(container, query, false, "search-highlight");
+  // The contents mark which headings the hits fell under.
+  refreshReadingPosition();
 
   return state.highlightElements.length;
 }
@@ -203,6 +206,8 @@ function clearSearchHighlights(): void {
   }
   state.highlightElements = [];
   state.currentIndex = 0;
+
+  refreshReadingPosition();
 }
 
 function clearPinnedHighlights(): void {
@@ -220,7 +225,24 @@ function clearPinnedHighlights(): void {
   state.pinnedHighlights.clear();
 }
 
+/**
+ * What the next/previous keys walk.
+ *
+ * What is being typed, while something is. With nothing typed they walk the
+ * newest pinned mark instead — pressing Return keeps a mark and empties the
+ * field, so this is what "and now show me where they are" means a keystroke
+ * later.
+ */
+function walkable(): HTMLElement[] {
+  if (state.highlightElements.length > 0) {
+    return state.highlightElements;
+  }
+  const pinned = Array.from(state.pinnedHighlights.values()).filter((els) => els.length > 0);
+  return pinned.length > 0 ? pinned[pinned.length - 1] : [];
+}
+
 function navigateToMatch(direction: "next" | "prev"): number {
+  state.highlightElements = walkable();
   if (state.highlightElements.length === 0) return 0;
 
   // Remove active class from current
@@ -270,6 +292,8 @@ function applyPinnedHighlights(): void {
     );
     state.pinnedHighlights.set(pinned.id, elements);
   }
+
+  refreshReadingPosition();
 }
 
 export function find(query: string): void {

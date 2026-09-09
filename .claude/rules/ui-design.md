@@ -48,7 +48,6 @@ Arto uses a comprehensive design token system defined in `variables.css` for con
 **Z-Index Semantic Scale:**
 ```css
 --z-resize-handle: 10;
---z-search-bar: 50;
 --z-header: 60;
 --z-pin-popover: 99;
 --z-dropdown: 200;

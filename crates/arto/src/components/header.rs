@@ -4,6 +4,7 @@ use dioxus::prelude::*;
 
 use crate::components::app_menu::AppMenu;
 use crate::components::bookmark_button::BookmarkButton;
+use crate::components::find::HeaderFind;
 use crate::components::header::breadcrumb_menu::Breadcrumb;
 use crate::components::icon::{Icon, IconName};
 use crate::components::theme_selector::ThemeSelector;
@@ -18,6 +19,10 @@ pub fn Header() -> Element {
     let document = state.document();
     let file_path = document.file().map(|file| file.to_path_buf());
     let file = document.display_name();
+    // A search takes the breadcrumb's room rather than a row of its own: one
+    // row is all it needs once the pinned marks live in the contents, and a
+    // row of its own is a row over the top of the document.
+    let finding = *state.search_open.read();
     // Both of the right-hand controls act on a document: one searches it, the
     // other decides how wide it is set. With no document they can do neither,
     // and a control that cannot act is not drawn.
@@ -71,12 +76,19 @@ pub fn Header() -> Element {
                     Icon { name: IconName::Menu2 }
                 }
 
+                if finding {
+                    HeaderFind {}
+                }
+
                 // The name of what is being read is also the way back to
                 // what was read before it.
-                Breadcrumb { label: file }
+                if !finding {
+                    Breadcrumb { label: file }
+                }
 
                 div {
                     class: "file-action-buttons",
+                    hidden: finding,
 
                     // Bookmark, copy path, and reload buttons (shown on hover)
                     if let Some(path) = file_path {
