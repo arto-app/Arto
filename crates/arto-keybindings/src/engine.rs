@@ -173,16 +173,16 @@ impl KeybindingEngine {
     /// 2. Global match (context=None) → fallback
     /// 3. Different context → invisible (ignored)
     fn find_match(&self, keys: &[KeyChord], context: KeyContext) -> (Option<Action>, bool) {
+        let mut exact_context_match: Option<Action> = None;
+        let mut exact_global_match: Option<Action> = None;
+        let mut has_prefix = false;
+
         // A bare key inside a field is what is being typed, so the global set
         // — where a letter can mean "scroll" — does not answer for it. A chord
         // with a modifier is not typing, and still does: Cmd+W closes the
         // window from inside a search.
         let typing =
             context.owns_input() && keys.first().is_some_and(|chord| chord.modifiers.is_empty());
-
-        let mut exact_context_match: Option<Action> = None;
-        let mut exact_global_match: Option<Action> = None;
-        let mut has_prefix = false;
 
         for binding in &self.bindings {
             // Check context visibility
@@ -433,6 +433,67 @@ mod tests {
     }
 
     #[test]
+    fn a_bare_key_in_a_field_is_typing() {
+        // `j` scrolls the document; typed into the palette it is a letter.
+        let bindings = BindingSet {
+            global: vec![KeyAction {
+                key: "j".to_string(),
+                action: "scroll.down".to_string(),
+            }],
+            ..Default::default()
+        };
+        let mut engine = KeybindingEngine::new(&bindings);
+
+        assert_eq!(
+            engine.process_key(&chord("j"), false, KeyContext::Content),
+            KeyMatchResult::Matched(Action::ScrollDown)
+        );
+        assert_eq!(
+            engine.process_key(&chord("j"), false, KeyContext::Palette),
+            KeyMatchResult::NoMatch
+        );
+    }
+
+    #[test]
+    fn a_chord_in_a_field_is_still_a_shortcut() {
+        // Nobody types Cmd+W into a search box, so it still closes the window.
+        let bindings = BindingSet {
+            global: vec![KeyAction {
+                key: "Cmd+w".to_string(),
+                action: "window.close".to_string(),
+            }],
+            ..Default::default()
+        };
+        let mut engine = KeybindingEngine::new(&bindings);
+
+        assert_eq!(
+            engine.process_key(&chord("Cmd+w"), false, KeyContext::Search),
+            KeyMatchResult::Matched(Action::WindowClose)
+        );
+    }
+
+    #[test]
+    fn a_field_answers_a_bare_key_with_its_own_binding() {
+        let bindings = BindingSet {
+            global: vec![KeyAction {
+                key: "Enter".to_string(),
+                action: "scroll.down".to_string(),
+            }],
+            palette: vec![KeyAction {
+                key: "Enter".to_string(),
+                action: "palette.confirm".to_string(),
+            }],
+            ..Default::default()
+        };
+        let mut engine = KeybindingEngine::new(&bindings);
+
+        assert_eq!(
+            engine.process_key(&chord("Enter"), false, KeyContext::Palette),
+            KeyMatchResult::Matched(Action::PaletteConfirm)
+        );
+    }
+
+    #[test]
     fn different_context_binding_invisible() {
         let bindings = BindingSet {
             sidebar: vec![KeyAction {
@@ -443,8 +504,8 @@ mod tests {
         };
         let mut engine = KeybindingEngine::new(&bindings);
 
-        // In QuickAccess context: sidebar-specific "j" should be invisible
-        let result = engine.process_key(&chord("j"), false, KeyContext::QuickAccess);
+        // In the content: the panel's own "j" should be invisible
+        let result = engine.process_key(&chord("j"), false, KeyContext::Content);
         assert_eq!(result, KeyMatchResult::NoMatch);
     }
 
@@ -458,14 +519,15 @@ mod tests {
 
     #[test]
     fn user_overrides_default_global_binding() {
-        // User edits Cmd+r from window.reload to window.new in their global config.
+        // User edits Cmd+r from window.reload to window.new_document in their
+        // global config.
         let mut custom = crate::presets::default_bindings();
         let cmd_r = custom.global.iter_mut().find(|b| b.key == "Cmd+r").unwrap();
-        cmd_r.action = "window.new".to_string();
+        cmd_r.action = "window.new_document".to_string();
 
         let mut engine = KeybindingEngine::new(&custom);
         let result = engine.process_key(&chord("Cmd+r"), false, KeyContext::Content);
-        assert_eq!(result, KeyMatchResult::Matched(Action::WindowNew));
+        assert_eq!(result, KeyMatchResult::Matched(Action::WindowNewDocument));
     }
 
     #[test]
@@ -491,27 +553,5 @@ mod tests {
         // In sidebar: content-only Ctrl+j binding is not visible.
         let result = engine.process_key(&chord("Ctrl+j"), false, KeyContext::Sidebar);
         assert_eq!(result, KeyMatchResult::NoMatch);
-    }
-
-    #[test]
-    fn a_bare_key_in_a_field_is_typing() {
-        // `j` scrolls the document; typed into the palette it is a letter.
-        let bindings = BindingSet {
-            global: vec![KeyAction {
-                key: "j".to_string(),
-                action: "scroll.down".to_string(),
-            }],
-            ..Default::default()
-        };
-        let mut engine = KeybindingEngine::new(&bindings);
-
-        assert_eq!(
-            engine.process_key(&chord("j"), false, KeyContext::Content),
-            KeyMatchResult::Matched(Action::ScrollDown)
-        );
-        assert_eq!(
-            engine.process_key(&chord("j"), false, KeyContext::Palette),
-            KeyMatchResult::NoMatch
-        );
     }
 }

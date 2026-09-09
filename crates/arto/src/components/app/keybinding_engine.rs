@@ -15,14 +15,10 @@ pub(super) struct KeyEventData {
     pub(super) key: String,
     pub(super) modifiers: u32,
     pub(super) repeat: bool,
+    /// Which of the app's own fields the key was typed into, if any. A field
+    /// answers a bare key out of its own bindings alone.
     #[serde(default)]
-    pub(super) search_focused: bool,
-}
-
-fn should_skip_keybinding(data: &KeyEventData) -> bool {
-    // In search input, plain Escape is handled by SearchBar (blur input).
-    // Skip keybinding processing so it does not trigger search.clear.
-    data.search_focused && data.modifiers == 0 && data.key == "Escape"
+    pub(super) field: Option<String>,
 }
 
 /// Maximum readiness-poll attempts for the JS keyboard API before giving up.
@@ -57,9 +53,9 @@ fn push_menu_accelerators_to_js() {
     ));
 }
 
-/// Off macOS there is no native menu — the same commands hang off the glyph in
-/// the header and are dispatched by the engine (see
-/// `BindingSet::into_resolved_bindings`), so there is nothing to skip.
+/// Only macOS has a native menu. Everywhere else menu shortcuts are dispatched
+/// by the engine (see `BindingSet::into_resolved_bindings`) — there is nothing
+/// to skip.
 #[cfg(not(target_os = "macos"))]
 fn push_menu_accelerators_to_js() {}
 
@@ -157,9 +153,6 @@ pub(super) fn setup_keybinding_engine(
                 if chord.is_modifier_only() {
                     continue;
                 }
-                if should_skip_keybinding(&data) {
-                    continue;
-                }
                 let overlay_visible = is_shortcut_overlay_visible(shortcut_overlay_visibility);
                 if overlay_visible
                     && handle_shortcut_overlay_close_key(&data, shortcut_overlay_visibility)
@@ -171,10 +164,14 @@ pub(super) fn setup_keybinding_engine(
                     continue;
                 }
 
-                let context = if data.search_focused {
-                    KeyContext::Search
-                } else {
-                    state.focused_panel.read().key_context()
+                let context = match data.field.as_deref() {
+                    Some("search") => KeyContext::Search,
+                    Some("palette") => KeyContext::Palette,
+                    // A list held open over the document is what the keys are
+                    // for as long as it is there, whichever half of the window
+                    // the focus was in when it was asked for.
+                    _ if *state.contents_open.read() => KeyContext::Contents,
+                    _ => state.focused_panel.read().key_context(),
                 };
                 let result = engine
                     .read()
@@ -193,13 +190,11 @@ pub(super) fn setup_keybinding_engine(
                             continue;
                         }
                         if action == Action::Cancel {
-                            // Cancel chain: reset engine state + return focus to content + close overlays + close search + clear content cursor
+                            // Half-typed chord, everything over the document,
+                            // and the cursor in the page itself: Escape drops
+                            // all three.
                             engine.read().borrow_mut().reset();
-                            state.focused_panel.set(crate::state::FocusedPanel::Content);
-                            state.left_hover_active.set(false);
-                            if *state.search_open.read() {
-                                state.toggle_search();
-                            }
+                            state.dismiss_overlays();
                             crate::keybindings::dispatcher::content_cursor_eval("clearCursor");
                             close_shortcut_overlay(shortcut_overlay_visibility);
                         } else if action == Action::HelpShowKeyboardShortcuts {
@@ -235,57 +230,4 @@ pub(super) fn setup_keybinding_engine(
             tracing::debug!("Keybinding engine rebuilt after config change");
         }
     });
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn skips_plain_escape_when_search_input_is_focused() {
-        let data = KeyEventData {
-            key: "Escape".to_string(),
-            modifiers: 0,
-            repeat: false,
-            search_focused: true,
-        };
-
-        assert!(should_skip_keybinding(&data));
-    }
-
-    #[test]
-    fn does_not_skip_non_escape_in_search_input() {
-        let data = KeyEventData {
-            key: "Enter".to_string(),
-            modifiers: 0,
-            repeat: false,
-            search_focused: true,
-        };
-
-        assert!(!should_skip_keybinding(&data));
-    }
-
-    #[test]
-    fn does_not_skip_escape_when_search_input_is_not_focused() {
-        let data = KeyEventData {
-            key: "Escape".to_string(),
-            modifiers: 0,
-            repeat: false,
-            search_focused: false,
-        };
-
-        assert!(!should_skip_keybinding(&data));
-    }
-
-    #[test]
-    fn does_not_skip_modified_escape_in_search_input() {
-        let data = KeyEventData {
-            key: "Escape".to_string(),
-            modifiers: 8,
-            repeat: false,
-            search_focused: true,
-        };
-
-        assert!(!should_skip_keybinding(&data));
-    }
 }

@@ -14,10 +14,6 @@
       "action": "window.new_document"
     },
     {
-      "key": "Cmd+w",
-      "action": "window.close"
-    },
-    {
       "key": "Cmd+o",
       "action": "file.open"
     },
@@ -28,6 +24,10 @@
     {
       "key": "Cmd+Shift+r",
       "action": "file.reveal_in_finder"
+    },
+    {
+      "key": "Cmd+w",
+      "action": "window.close"
     },
     {
       "key": "Cmd+f",
@@ -260,6 +260,14 @@
       "action": "sidebar.face_starred"
     },
     {
+      "key": "Cmd+k",
+      "action": "palette.open"
+    },
+    {
+      "key": "g o",
+      "action": "contents.toggle"
+    },
+    {
       "key": "Ctrl+w h",
       "action": "focus.places"
     },
@@ -278,10 +286,6 @@
     {
       "key": "Backslash r",
       "action": "focus.recent"
-    },
-    {
-      "key": "Cmd+k",
-      "action": "palette.open"
     }
   ],
   "content": [
@@ -304,24 +308,6 @@
     {
       "key": "[ [",
       "action": "content.prev_heading"
-    }
-  ],
-  "search": [
-    {
-      "key": "Enter",
-      "action": "search.next"
-    },
-    {
-      "key": "Shift+Enter",
-      "action": "search.prev"
-    },
-    {
-      "key": "Escape",
-      "action": "search.clear"
-    },
-    {
-      "key": "Ctrl+Enter",
-      "action": "search.pin_current"
     }
   ],
   "sidebar": [
@@ -394,6 +380,36 @@
       "action": "focus.places"
     }
   ],
+  "search": [
+    {
+      "key": "Tab",
+      "action": "search.next"
+    },
+    {
+      "key": "Shift+Tab",
+      "action": "search.prev"
+    },
+    {
+      "key": "Ctrl+n",
+      "action": "search.next"
+    },
+    {
+      "key": "Ctrl+p",
+      "action": "search.prev"
+    },
+    {
+      "key": "Enter",
+      "action": "search.pin_current"
+    },
+    {
+      "key": "Escape",
+      "action": "search.clear"
+    },
+    {
+      "key": "Ctrl+c",
+      "action": "search.clear"
+    }
+  ],
   "palette": [
     {
       "key": "Ctrl+n",
@@ -438,6 +454,52 @@
     {
       "key": "Ctrl+c",
       "action": "palette.close"
+    }
+  ],
+  "contents": [
+    {
+      "key": "j",
+      "action": "contents.next"
+    },
+    {
+      "key": "k",
+      "action": "contents.prev"
+    },
+    {
+      "key": "Ctrl+n",
+      "action": "contents.next"
+    },
+    {
+      "key": "Ctrl+p",
+      "action": "contents.prev"
+    },
+    {
+      "key": "ArrowDown",
+      "action": "contents.next"
+    },
+    {
+      "key": "ArrowUp",
+      "action": "contents.prev"
+    },
+    {
+      "key": "Enter",
+      "action": "contents.confirm"
+    },
+    {
+      "key": "l",
+      "action": "contents.confirm"
+    },
+    {
+      "key": "Escape",
+      "action": "contents.close"
+    },
+    {
+      "key": "q",
+      "action": "contents.close"
+    },
+    {
+      "key": "Ctrl+c",
+      "action": "contents.close"
     }
   ]
 }

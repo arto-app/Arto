@@ -56,8 +56,8 @@ pub fn Content() -> Element {
     let gutter_visible = use_memo(move || state.visible_chrome().gutter);
     let trace_count = use_memo(move || state.trace_count());
 
-    // With nothing to read, the whole area is the welcome page — the trace and
-    // the gutter have nothing to say beside it.
+    // With nothing to read, the whole area is the welcome page — the trace and the
+    // gutter have nothing to say beside it.
     let showing_welcome = use_memo(move || state.document.read().is_empty());
 
     rsx! {
@@ -101,8 +101,12 @@ pub fn Content() -> Element {
         // The contents live beside the document rather than in a panel of
         // their own: always there, 24px wide, and impossible to open by
         // accident because there is nothing to open.
-        if gutter_visible() && !showing_welcome() {
-            ContentsGutter { headings: headings() }
+        //
+        // Held open by name, the same list stays out without the ruler — which
+        // is what makes `contents.toggle` reach the headings at a width that
+        // folded the ruler away.
+        if !showing_welcome() && (gutter_visible() || *state.contents_open.read()) {
+            ContentsGutter { headings: headings(), ruler: gutter_visible() }
         }
         }
     }

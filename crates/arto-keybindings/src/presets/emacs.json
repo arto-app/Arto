@@ -14,10 +14,6 @@
       "action": "window.new_document"
     },
     {
-      "key": "Cmd+w",
-      "action": "window.close"
-    },
-    {
       "key": "Cmd+o",
       "action": "file.open"
     },
@@ -28,6 +24,10 @@
     {
       "key": "Cmd+Shift+r",
       "action": "file.reveal_in_finder"
+    },
+    {
+      "key": "Cmd+w",
+      "action": "window.close"
     },
     {
       "key": "Cmd+f",
@@ -160,6 +160,14 @@
       "action": "sidebar.face_starred"
     },
     {
+      "key": "Cmd+k",
+      "action": "palette.open"
+    },
+    {
+      "key": "Ctrl+x t",
+      "action": "contents.toggle"
+    },
+    {
       "key": "Ctrl+x p",
       "action": "focus.places"
     },
@@ -170,10 +178,6 @@
     {
       "key": "Ctrl+x r",
       "action": "focus.recent"
-    },
-    {
-      "key": "Cmd+k",
-      "action": "palette.open"
     }
   ],
   "content": [
@@ -200,36 +204,6 @@
     {
       "key": "Ctrl+x o",
       "action": "focus.places"
-    }
-  ],
-  "search": [
-    {
-      "key": "Enter",
-      "action": "search.next"
-    },
-    {
-      "key": "Shift+Enter",
-      "action": "search.prev"
-    },
-    {
-      "key": "Ctrl+s",
-      "action": "search.next"
-    },
-    {
-      "key": "Ctrl+r",
-      "action": "search.prev"
-    },
-    {
-      "key": "Ctrl+g",
-      "action": "search.clear"
-    },
-    {
-      "key": "Escape",
-      "action": "search.clear"
-    },
-    {
-      "key": "Ctrl+Enter",
-      "action": "search.pin_current"
     }
   ],
   "sidebar": [
@@ -270,6 +244,36 @@
       "action": "focus.places"
     }
   ],
+  "search": [
+    {
+      "key": "Ctrl+s",
+      "action": "search.next"
+    },
+    {
+      "key": "Ctrl+r",
+      "action": "search.prev"
+    },
+    {
+      "key": "Tab",
+      "action": "search.next"
+    },
+    {
+      "key": "Shift+Tab",
+      "action": "search.prev"
+    },
+    {
+      "key": "Enter",
+      "action": "search.pin_current"
+    },
+    {
+      "key": "Ctrl+g",
+      "action": "search.clear"
+    },
+    {
+      "key": "Escape",
+      "action": "search.clear"
+    }
+  ],
   "palette": [
     {
       "key": "Ctrl+n",
@@ -298,6 +302,36 @@
     {
       "key": "Escape",
       "action": "palette.close"
+    }
+  ],
+  "contents": [
+    {
+      "key": "Ctrl+n",
+      "action": "contents.next"
+    },
+    {
+      "key": "Ctrl+p",
+      "action": "contents.prev"
+    },
+    {
+      "key": "ArrowDown",
+      "action": "contents.next"
+    },
+    {
+      "key": "ArrowUp",
+      "action": "contents.prev"
+    },
+    {
+      "key": "Enter",
+      "action": "contents.confirm"
+    },
+    {
+      "key": "Ctrl+g",
+      "action": "contents.close"
+    },
+    {
+      "key": "Escape",
+      "action": "contents.close"
     }
   ]
 }

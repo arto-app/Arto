@@ -10,6 +10,26 @@ use crate::utils::task::spawn_detached;
 
 use super::Action;
 
+mod clipboard;
+mod contents;
+mod palette;
+mod panel;
+mod reveal;
+mod search;
+
+use clipboard::*;
+use contents::*;
+use palette::*;
+use panel::*;
+use reveal::*;
+use search::*;
+
+// What the rest of the app reaches for by name, which is what the menus and
+// the content's own context menu need.
+pub(crate) use clipboard::{copy_image_from_src, copy_rasterized_image};
+pub(crate) use palette::activate_palette_row;
+pub(crate) use reveal::content_cursor_eval;
+
 /// Execute an action by dispatching to the appropriate handler.
 ///
 /// This is the main entry point for action execution after the engine
@@ -44,7 +64,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::SearchOpen => search_open(&mut state),
         Action::SearchNext => search_navigate_eval("next"),
         Action::SearchPrev => search_navigate_eval("prev"),
-        Action::SearchClear => search_clear_eval(),
+        Action::SearchClear => state.close_search(),
         Action::SearchPinCurrent => search_pin_current(&mut state),
 
         // --- Zoom ---
@@ -52,19 +72,9 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::ZoomOut => state.zoom_out(),
         Action::ZoomReset => state.zoom_reset(),
 
-        // --- Palette ---
-        Action::PaletteOpen => state.toggle_palette(),
-        Action::PaletteNext => step_palette(&mut state, true),
-        Action::PalettePrev => step_palette(&mut state, false),
-        Action::PaletteConfirm => {
-            let at = crate::components::palette::cursor_row(&state, *state.palette_rows.read());
-            activate_palette_row(state, at);
-        }
-        Action::PaletteClose => state.close_palette(),
-
         // --- Window ---
-        // A new window is a fresh start: nothing this one happened to have
-        // wandered into.
+        // A new window is a fresh start: the places, the welcome page, and nothing
+        // this window happened to have wandered into.
         Action::WindowNew => {
             crate::window::create_main_window_sync(
                 &dioxus::desktop::window(),
@@ -74,7 +84,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         }
         Action::WindowDuplicate => duplicate_window(&mut state),
         // Putting the document down is what "new" means for a window that
-        // reads one: the empty page takes its place, offering the next.
+        // reads one: the welcome page takes its place, offering the next.
         Action::WindowNewDocument => {
             state.update_document(|document| *document = crate::state::Document::default());
         }
@@ -130,11 +140,9 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         // One per face: the keyboard goes to the list that was asked for,
         // rather than to whichever the panel happened to be showing.
         Action::FocusPlaces => face_to(&mut state, crate::state::Face::Places),
-        Action::FocusStarred => face_to(&mut state, crate::state::Face::Starred),
         Action::FocusRecent => face_to(&mut state, crate::state::Face::Recent),
-        Action::FocusContent => {
-            state.focus_content();
-        }
+        Action::FocusStarred => face_to(&mut state, crate::state::Face::Starred),
+        Action::FocusContent => state.focus_content(),
 
         // --- Cursor ---
         Action::CursorDown => dispatch_cursor_move(&mut state, CursorDirection::Down),
@@ -151,9 +159,36 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::ContentOpenViewer => open_content_viewer_from_cursor(&state),
 
         // --- Directory ---
+        // Walking the root itself is gone: a root's parent is added alongside
+        // it now rather than replacing it, and the tree holds several roots at
+        // once, so there is no single "current directory" to step through.
         Action::DirectoryParent => {
-            state.go_to_parent_directory();
+            let parent = state
+                .sidebar
+                .read()
+                .primary_root()
+                .and_then(|root| root.parent().map(|p| p.to_path_buf()));
+            if let Some(parent) = parent {
+                state.add_root(parent);
+            }
         }
+
+        // --- Palette ---
+        Action::PaletteOpen => state.toggle_palette(),
+        Action::PaletteNext => step_palette(&mut state, true),
+        Action::PalettePrev => step_palette(&mut state, false),
+        Action::PaletteConfirm => {
+            let at = crate::components::palette::cursor_row(&state, *state.palette_rows.read());
+            activate_palette_row(state, at);
+        }
+        Action::PaletteClose => state.close_palette(),
+
+        // --- Contents ---
+        Action::ContentsToggle => state.toggle_contents(),
+        Action::ContentsNext => step_contents(&mut state, true),
+        Action::ContentsPrev => step_contents(&mut state, false),
+        Action::ContentsConfirm => confirm_contents(&mut state),
+        Action::ContentsClose => state.close_contents(),
 
         // --- File ---
         Action::FileOpen => {
@@ -194,6 +229,9 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::AppGoToHomepage => {
             let _ = open::that("https://github.com/arto-app/Arto");
         }
+        // Both are answered before dispatch, in `keybinding_engine`: they act
+        // on the overlay, which is the window's own state and not the
+        // document's.
         Action::HelpShowKeyboardShortcuts => {}
 
         // --- Sidebar ---
@@ -207,644 +245,13 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
             state.sidebar.write().show_all_files = !current;
         }
 
-        // --- Right sidebar ---
         // --- Theme ---
         Action::ThemeSetLight => state.current_theme.set(Theme::Light),
         Action::ThemeSetDark => state.current_theme.set(Theme::Dark),
         Action::ThemeSetAuto => state.current_theme.set(Theme::Auto),
 
-        // Cancel is handled in app.rs before dispatch
         Action::Cancel => {}
     }
-}
-
-/// What the tree is drawing, as the cursor needs to see it.
-struct TreeShape {
-    /// Every root the tree draws, in the order it draws them, each with the
-    /// group it is drawn in.
-    roots: Vec<(crate::state::Group, std::path::PathBuf)>,
-    /// The rows that are open — see [`crate::state::TreeRow`].
-    expanded: std::collections::HashSet<crate::state::TreeRow>,
-    show_all_files: bool,
-}
-
-/// The tree's shape, if it has any root at all.
-fn extract_sidebar_data(state: &AppState) -> Option<TreeShape> {
-    use crate::state::Group;
-
-    let sidebar = state.sidebar.read();
-    // The window's own folder first, which is the order the tree draws them.
-    let roots: Vec<_> = sidebar
-        .roots
-        .temps()
-        .iter()
-        .map(|root| (Group::Current, root.clone()))
-        .chain(
-            sidebar
-                .roots
-                .places()
-                .iter()
-                .map(|root| (Group::Bookmark, root.clone())),
-        )
-        .collect();
-    (!roots.is_empty()).then(|| TreeShape {
-        roots,
-        expanded: sidebar.expanded_dirs.clone(),
-        show_all_files: sidebar.show_all_files,
-    })
-}
-
-/// The rows the panel is drawing, in the order it draws them.
-///
-/// One list per face, and the cursor walks whichever is on screen — the same
-/// keys, over a tree, a history or a set of stars. What is folded away counts:
-/// a cursor on a row nobody can see is a cursor nobody can follow.
-fn panel_items(state: &AppState) -> Vec<crate::state::PanelRow> {
-    match state.sidebar.peek().face {
-        crate::state::Face::Places => match extract_sidebar_data(state) {
-            Some(tree) => sidebar_cursor::visible_items_in_roots(
-                &tree.roots,
-                &tree.expanded,
-                tree.show_all_files,
-            ),
-            None => Vec::new(),
-        },
-        crate::state::Face::Recent => {
-            let folded = state.sidebar.peek().recent_collapsed.clone();
-            crate::visits::VISITS
-                .read()
-                .grouped(chrono::Local::now())
-                .into_iter()
-                .filter(|(bucket, _)| !folded.contains(&bucket.heading()))
-                .flat_map(|(_, visits)| {
-                    visits
-                        .into_iter()
-                        .map(|visit| (crate::state::Group::Flat, visit.path.clone()))
-                })
-                .collect()
-        }
-        crate::state::Face::Starred => crate::bookmarks::BOOKMARKS
-            .read()
-            .items
-            .iter()
-            .filter(|bookmark| !bookmark.is_dir())
-            .map(|bookmark| (crate::state::Group::Flat, bookmark.path.clone()))
-            .collect(),
-    }
-}
-
-/// Put the cursor on the first row, if it is not on one already.
-fn rest_cursor(state: &mut AppState) {
-    let items = panel_items(state);
-    let resting = state
-        .panel_cursor
-        .peek()
-        .as_ref()
-        .is_some_and(|at| items.contains(at));
-    if !resting {
-        state.panel_cursor.set(items.first().cloned());
-    }
-}
-
-/// Show a face and take the keyboard to it, cursor and all.
-fn face_to(state: &mut AppState, face: crate::state::Face) {
-    state.focus_face(face);
-    rest_cursor(state);
-    scroll_cursor_into_view();
-}
-
-/// Step along the rail to the next face.
-fn step_face(state: &mut AppState, forward: bool) {
-    state.step_face(forward);
-    rest_cursor(state);
-    scroll_cursor_into_view();
-}
-
-enum CursorDirection {
-    Down,
-    Up,
-}
-
-fn dispatch_cursor_move(state: &mut AppState, direction: CursorDirection) {
-    let panel = *state.focused_panel.read();
-    match panel {
-        FocusedPanel::Panel => {
-            let items = panel_items(state);
-            if !items.is_empty() {
-                let current = state.panel_cursor.read().clone();
-                let next = match direction {
-                    CursorDirection::Down => sidebar_cursor::move_down(&current, &items),
-                    CursorDirection::Up => sidebar_cursor::move_up(&current, &items),
-                };
-                state.panel_cursor.set(next);
-                scroll_cursor_into_view();
-            }
-        }
-        FocusedPanel::Content => {}
-    }
-}
-
-/// cursor.enter — "Enter into": directory → set as root, file → open, heading → scroll to.
-fn dispatch_cursor_enter(state: &mut AppState) {
-    let panel = *state.focused_panel.read();
-    match panel {
-        FocusedPanel::Panel => {
-            let Some((_, path)) = state.panel_cursor.read().clone() else {
-                return;
-            };
-            if path.is_dir() {
-                state.add_root(&path);
-            } else if path.exists() {
-                state.open_file(&path);
-            }
-        }
-        // Right sidebar & quick access: same as cursor.open (scroll to heading / open bookmark)
-        FocusedPanel::Content => {}
-    }
-}
-
-/// cursor.open — "Open/expand": directory → expand tree, file → open, heading → scroll to.
-fn dispatch_cursor_open(state: &mut AppState) {
-    let panel = *state.focused_panel.read();
-    match panel {
-        FocusedPanel::Panel => open_sidebar(state),
-        FocusedPanel::Content => {}
-    }
-}
-
-/// Open what the cursor is on: a document is read, a folder opens onto its
-/// contents with the cursor on the first of them.
-fn open_sidebar(state: &mut AppState) {
-    let Some(row) = state.panel_cursor.read().clone() else {
-        return;
-    };
-    let (group, path) = row.clone();
-
-    if !path.is_dir() {
-        if path.exists() {
-            state.open_file(&path);
-        }
-        return;
-    }
-
-    let root = root_of(state, &row);
-    if !state.sidebar.peek().is_expanded(group, &root, &path) {
-        state.toggle_directory_expansion(group, &root, &path);
-    }
-    let items = panel_items(state);
-    let next = items
-        .iter()
-        .position(|item| item == &row)
-        .and_then(|at| items.get(at + 1).cloned());
-    if let Some(next) = next {
-        state.panel_cursor.set(Some(next));
-        scroll_cursor_into_view();
-    }
-}
-
-/// Which root of its own group the cursor's row descends from.
-fn root_of(state: &AppState, row: &crate::state::PanelRow) -> std::path::PathBuf {
-    let (group, path) = row;
-    let roots = extract_sidebar_data(state)
-        .map(|tree| tree.roots)
-        .unwrap_or_default();
-    roots
-        .into_iter()
-        .find(|(row_group, root)| row_group == group && path.starts_with(root))
-        .map(|(_, root)| root)
-        .unwrap_or_else(|| path.to_path_buf())
-}
-
-fn dispatch_cursor_collapse(state: &mut AppState) {
-    let panel = *state.focused_panel.read();
-    match panel {
-        FocusedPanel::Panel => {
-            let Some(row) = state.panel_cursor.read().clone() else {
-                return;
-            };
-            let (group, path) = row.clone();
-            let root = root_of(state, &row);
-            if path.is_dir() && state.sidebar.peek().is_expanded(group, &root, &path) {
-                state.toggle_directory_expansion(group, &root, &path);
-                return;
-            }
-            // Out of a folder is up to the one holding it, where the list has
-            // one.
-            let items = panel_items(state);
-            if let Some(parent) = sidebar_cursor::find_parent_dir(&row, &items) {
-                state.panel_cursor.set(Some(parent));
-                scroll_cursor_into_view();
-            }
-        }
-        // No-op for other panels
-        FocusedPanel::Content => {}
-    }
-}
-
-/// Scroll the keyboard-focused element into view using JS.
-fn scroll_cursor_into_view() {
-    scroll_into_view(".keyboard-focused");
-}
-
-/// Bring the row a cursor just moved to into view, with room around it.
-///
-/// On the next frame, because the row it is looking for is the one the move
-/// has yet to draw.
-///
-/// Not `scrollIntoView({ block: 'nearest' })`: that is satisfied by a row
-/// with one pixel showing, so the cursor spends the whole list pinned to an
-/// edge with nothing ahead of it. The row is kept a couple of rows clear of
-/// both ends instead — what is coming next is as much of an answer as where
-/// the cursor is.
-fn scroll_into_view(selector: &'static str) {
-    spawn_detached(async move {
-        let js = format!(
-            r#"
-            requestAnimationFrame(() => {{
-                const row = document.querySelector({selector:?});
-                if (!row) return;
-                let box = row.parentElement;
-                while (box && box.scrollHeight <= box.clientHeight) {{
-                    box = box.parentElement;
-                }}
-                if (!box) {{
-                    row.scrollIntoView({{ block: 'nearest' }});
-                    return;
-                }}
-                const rowBox = row.getBoundingClientRect();
-                const view = box.getBoundingClientRect();
-                // Two rows of room, or a third of the list where two rows is
-                // most of it.
-                const margin = Math.min(rowBox.height * 2, view.height / 3);
-                const above = rowBox.top - view.top;
-                const below = view.bottom - rowBox.bottom;
-                if (above < margin) {{
-                    box.scrollTop += above - margin;
-                }} else if (below < margin) {{
-                    box.scrollTop -= below - margin;
-                }}
-            }});
-            "#
-        );
-        if let Err(e) = document::eval(&js).await {
-            tracing::debug!(selector, "Failed to scroll cursor into view: {e}");
-        }
-    });
-}
-
-fn search_navigate_eval(direction: &'static str) {
-    spawn_detached(async move {
-        let js = format!("window.Arto.search.navigate('{direction}')");
-        if let Err(e) = document::eval(&js).await {
-            tracing::debug!(%direction, "Search navigate failed: {e}");
-        }
-    });
-}
-
-fn search_open(state: &mut AppState) {
-    let mut app_state = *state;
-    spawn_detached(async move {
-        let js = r#"
-            (() => {
-                const s = window.getSelection();
-                dioxus.send(s ? s.toString() : "");
-            })()
-        "#;
-        let mut eval = document::eval(js);
-        match eval.recv::<String>().await {
-            Ok(text) if !text.trim().is_empty() => {
-                app_state.open_search_with_text(Some(text));
-            }
-            Ok(_) | Err(_) => {
-                app_state.open_search_with_text(None);
-            }
-        }
-    });
-}
-
-fn search_clear_eval() {
-    spawn_detached(async move {
-        if let Err(e) = document::eval("window.Arto.search.clear();").await {
-            tracing::debug!("Search clear failed: {e}");
-        }
-    });
-}
-
-fn search_pin_current(state: &mut AppState) {
-    let mut app_state = *state;
-    spawn_detached(async move {
-        #[derive(serde::Deserialize)]
-        struct QueryValue {
-            value: String,
-        }
-
-        let mut eval = document::eval(
-            r#"
-            (() => {
-                const input = document.querySelector('.search-input');
-                dioxus.send({ value: input?.value || '' });
-            })()
-            "#,
-        );
-        match eval.recv::<QueryValue>().await {
-            Ok(result) if !result.value.is_empty() => {
-                let _ = add_pinned_search(result.value);
-                app_state.update_search_results(0, 0);
-                let _ = document::eval(
-                    r#"
-                    (() => {
-                        const input = document.querySelector('.search-input');
-                        if (input) {
-                            input.value = '';
-                            input.focus();
-                        }
-                        window.Arto.search.clear();
-                    })()
-                    "#,
-                )
-                .await;
-            }
-            Ok(_) => {}
-            Err(e) => tracing::debug!("Search pin current failed: {e}"),
-        }
-    });
-}
-
-fn scroll_eval(method: &'static str) {
-    spawn_detached(async move {
-        let js = format!("window.Arto.scroll.{method}();");
-        if let Err(e) = document::eval(&js).await {
-            tracing::debug!(%method, "Scroll eval failed: {e}");
-        }
-    });
-}
-
-pub(crate) fn content_cursor_eval(method: &'static str) {
-    spawn_detached(async move {
-        let js = format!("window.Arto.contentCursor.{method}()");
-        if let Err(e) = document::eval(&js).await {
-            tracing::debug!(%method, "Content cursor eval failed: {e}");
-        }
-    });
-}
-
-fn copy_content_cursor_text(js_getter: &'static str) {
-    spawn_detached(async move {
-        let js = format!(
-            "(() => {{ const t = window.Arto?.contentCursor?.{js_getter}() ?? ''; dioxus.send(t); }})()"
-        );
-        let mut eval = document::eval(&js);
-        match eval.recv::<String>().await {
-            Ok(text) if !text.is_empty() => {
-                // What the document shows for an image is a URL only this app
-                // can resolve, so anything leaving it says where the file is.
-                let text = crate::assets::images::with_paths_for_urls(&text);
-                crate::utils::clipboard::copy_text(&text);
-                show_action_feedback("Copied");
-            }
-            Ok(_) => {}
-            Err(e) => tracing::debug!(js_getter, "Content cursor copy failed: {e}"),
-        }
-    });
-}
-
-fn copy_image_from_cursor(opaque: bool) {
-    spawn_detached(async move {
-        #[derive(serde::Deserialize)]
-        #[serde(tag = "kind", rename_all = "snake_case")]
-        enum CopyImageTarget {
-            Image { src: String },
-            Math,
-            Mermaid,
-            None,
-        }
-
-        let js = r#"
-            (() => {
-                const cursor = window.Arto?.contentCursor;
-                const el = cursor?.getCurrentElement?.();
-                if (!el) { dioxus.send({ kind: 'none' }); return; }
-
-                if (el.tagName === 'IMG') {
-                    const src = cursor?.getImageSrc?.() ?? '';
-                    if (!src) { dioxus.send({ kind: 'none' }); return; }
-                    dioxus.send({ kind: 'image', src });
-                    return;
-                }
-
-                if (
-                    el instanceof HTMLElement &&
-                    (
-                        el.classList.contains('preprocessed-math-display') ||
-                        el.classList.contains('preprocessed-math')
-                    )
-                ) {
-                    dioxus.send({ kind: 'math' });
-                    return;
-                }
-
-                if (el instanceof HTMLElement && el.classList.contains('preprocessed-mermaid')) {
-                    dioxus.send({ kind: 'mermaid' });
-                    return;
-                }
-
-                dioxus.send({ kind: 'none' });
-            })();
-        "#;
-        let mut eval = document::eval(js);
-        let Ok(target) = eval.recv::<CopyImageTarget>().await else {
-            return;
-        };
-
-        match target {
-            CopyImageTarget::Image { src } => {
-                copy_image_from_src(src, opaque).await;
-            }
-            CopyImageTarget::Math => {
-                copy_special_block_from_cursor("mathElement", opaque).await;
-            }
-            CopyImageTarget::Mermaid => {
-                copy_special_block_from_cursor("mermaidElement", opaque).await;
-            }
-            CopyImageTarget::None => {}
-        }
-    });
-}
-
-/// Put the PNG a rasterization returns on the clipboard, and say so when
-/// there is none.
-///
-/// `subject` names what was being rasterized, for the log line. Every way
-/// this can fail is reported: silence is what let a Copy Image that copied
-/// nothing look like a menu item nobody had clicked.
-pub(crate) async fn copy_rasterized_image(mut eval: document::Eval, subject: &str) {
-    match eval.recv::<Option<String>>().await {
-        Ok(Some(data_url)) => {
-            crate::utils::clipboard::copy_image_from_data_url(&data_url);
-            show_action_feedback("Copied");
-        }
-        Ok(None) => {
-            tracing::warn!(%subject, "Rasterizing for clipboard copy produced no image")
-        }
-        Err(e) => {
-            tracing::warn!(%e, %subject, "Rasterizing for clipboard copy failed")
-        }
-    }
-}
-
-async fn copy_special_block_from_cursor(kind: &str, opaque: bool) {
-    let opaque_str = if opaque { "true" } else { "false" };
-    let js = format!(
-        r#"
-        (async () => {{
-            const cursor = window.Arto?.contentCursor;
-            const el = cursor?.getCurrentElement?.();
-            if (!(el instanceof HTMLElement)) {{ dioxus.send(null); return; }}
-            dioxus.send(await window.Arto.rasterize.{kind}(el, {opaque_str}));
-        }})();
-        "#,
-    );
-    copy_rasterized_image(document::eval(&js), kind).await;
-}
-
-pub(crate) async fn copy_image_from_src(src: String, opaque: bool) {
-    // An image the app serves for the document is read here rather than in the
-    // WebView. Drawing it to a canvas there would taint the canvas — it comes
-    // from the app's own origin, not the document's — and asking for it as a
-    // CORS request is worse still, because a custom scheme does not take part
-    // in CORS and the load simply fails. Reading it costs one encode of an
-    // image somebody deliberately asked to copy.
-    let rasterize_src = if let Some(data_url) = crate::assets::images::data_url_for(&src) {
-        data_url
-    } else if src.starts_with("http://") || src.starts_with("https://") {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        std::thread::spawn({
-            let src = src.clone();
-            move || {
-                let _ = tx.send(crate::utils::image::download_image_as_data_url(&src));
-            }
-        });
-        match rx.await {
-            Ok(Ok(data_url)) => data_url,
-            Ok(Err(e)) => {
-                tracing::error!(%e, "Failed to download image for clipboard copy");
-                return;
-            }
-            Err(_) => {
-                tracing::error!("Image download thread was cancelled");
-                return;
-            }
-        }
-    } else {
-        src
-    };
-
-    let Ok(src_json) = serde_json::to_string(&rasterize_src) else {
-        tracing::error!("Failed to serialize image src as JSON");
-        return;
-    };
-    let opaque_str = if opaque { "true" } else { "false" };
-    let js = format!(
-        "(async () => {{ dioxus.send(await window.Arto.rasterize.image({}, {})); }})();",
-        src_json, opaque_str
-    );
-    copy_rasterized_image(document::eval(&js), "image").await;
-}
-
-fn copy_image_path_from_cursor() {
-    spawn_detached(async move {
-        let js =
-            "(() => { const src = window.Arto?.contentCursor?.getImageSrc?.() ?? ''; dioxus.send(src); })()";
-        let mut eval = document::eval(js);
-        match eval.recv::<String>().await {
-            Ok(src) if !src.is_empty() => {
-                // The path the reader means, not the URL the WebView was given.
-                let src = crate::assets::images::with_paths_for_urls(&src);
-                crate::utils::clipboard::copy_text(&src);
-                show_action_feedback("Copied");
-            }
-            Ok(_) => {}
-            Err(e) => tracing::debug!("Copy image path failed: {e}"),
-        }
-    });
-}
-
-fn copy_link_path_from_cursor() {
-    spawn_detached(async move {
-        let js =
-            "(() => { const href = window.Arto?.contentCursor?.getLinkHref?.() ?? ''; dioxus.send(href); })()";
-        let mut eval = document::eval(js);
-        match eval.recv::<String>().await {
-            Ok(href) if !href.is_empty() => {
-                crate::utils::clipboard::copy_text(href);
-                show_action_feedback("Copied");
-            }
-            Ok(_) => {}
-            Err(e) => tracing::debug!("Copy link path failed: {e}"),
-        }
-    });
-}
-
-fn copy_file_path_with_line(file: std::path::PathBuf, is_range: bool) {
-    spawn_detached(async move {
-        let js =
-            "(() => { dioxus.send(window.Arto?.contentCursor?.getSourceLineRange() ?? null); })()";
-        let mut eval = document::eval(js);
-        if let Ok(Some((start, end))) = eval.recv::<Option<(u32, u32)>>().await {
-            let path_str = file.display().to_string();
-            let text = if is_range && start != end {
-                format!("{path_str}:{start}-{end}")
-            } else {
-                format!("{path_str}:{start}")
-            };
-            crate::utils::clipboard::copy_text(&text);
-            show_action_feedback("Copied");
-        }
-    });
-}
-
-fn copy_markdown_source(file: std::path::PathBuf) {
-    spawn_detached(async move {
-        #[derive(serde::Deserialize)]
-        struct MarkdownSourceRequest {
-            range: Option<(u32, u32)>,
-            selected_text: String,
-        }
-
-        let js = r#"
-            (() => {
-                const range = window.Arto?.contentCursor?.getSourceLineRange?.() ?? null;
-                const selection = window.getSelection();
-                const selected_text = selection ? selection.toString() : "";
-                dioxus.send({ range, selected_text });
-            })()
-        "#;
-        let mut eval = document::eval(js);
-        if let Ok(MarkdownSourceRequest {
-            range: Some((start, end)),
-            selected_text,
-        }) = eval.recv::<MarkdownSourceRequest>().await
-        {
-            let handle = std::thread::spawn(move || {
-                let source = crate::utils::source_lines::extract_source_lines(&file, start, end)?;
-                if selected_text.trim().is_empty() {
-                    return Some(source);
-                }
-                Some(
-                    crate::markdown::extract_source_selection(&source, &selected_text)
-                        .unwrap_or(source),
-                )
-            });
-            match handle.join() {
-                Ok(Some(md)) => {
-                    crate::utils::clipboard::copy_text(&md);
-                    show_action_feedback("Copied");
-                }
-                Ok(None) => tracing::debug!(%start, %end, "No source lines extracted"),
-                Err(_) => tracing::debug!("Source extraction thread panicked"),
-            }
-        }
-    });
 }
 
 pub(crate) fn show_action_feedback(message: &str) {
@@ -855,8 +262,48 @@ pub(crate) fn show_action_feedback(message: &str) {
     });
 }
 
+/// Open a copy of this window beside it.
+///
+/// A duplicate is for reading the same thing two ways — the document, the
+/// place in it, and the folders that were open to reach it — so it carries
+/// all three, and the window's own look with them. Its own scroll position
+/// is saved into the history first, which is what the copy then restores.
+fn duplicate_window(state: &mut AppState) {
+    let anchor = *state.current_scroll_anchor.read();
+    state.save_current_scroll_anchor(anchor);
+
+    let document = state.document();
+    let (temps, sidebar_pinned, sidebar_width, sidebar_show_all_files, sidebar_zoom_level) = {
+        let sidebar = state.sidebar.read();
+        (
+            sidebar.roots.temps().to_vec(),
+            sidebar.pinned,
+            sidebar.width,
+            sidebar.show_all_files,
+            sidebar.zoom_level,
+        )
+    };
+
+    let params = crate::window::CreateMainWindowConfigParams {
+        directory: None,
+        temps,
+        theme: *state.current_theme.read(),
+        content_full_width: *state.content_full_width.read(),
+        sidebar_pinned,
+        sidebar_width,
+        sidebar_show_all_files,
+        sidebar_zoom_level,
+        zoom_level: *state.zoom_level.read(),
+        ..crate::window::CreateMainWindowConfigParams::default()
+    };
+    crate::window::create_main_window_sync(&dioxus::desktop::window(), document, params);
+}
+
 fn get_current_file(state: &AppState) -> Option<std::path::PathBuf> {
-    state.current_file()
+    match &state.document.read().content {
+        crate::state::DocumentContent::File(path) => Some(path.clone()),
+        _ => None,
+    }
 }
 
 fn pick_markdown_file() -> Option<std::path::PathBuf> {
@@ -872,25 +319,6 @@ fn pick_directory() -> Option<std::path::PathBuf> {
     FileDialog::new()
         .set_directory(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/")))
         .pick_folder()
-}
-
-fn toggle_bookmark_on_cursor_or_current(state: &mut AppState) {
-    let target_path = get_bookmark_target_path(state).or_else(|| get_current_file(state));
-    let Some(path) = target_path else { return };
-
-    let is_bookmarked = crate::bookmarks::toggle_bookmark(&path);
-    if is_bookmarked {
-        show_action_feedback("Bookmarked");
-    } else {
-        show_action_feedback("Bookmark removed");
-    }
-}
-
-fn get_bookmark_target_path(state: &AppState) -> Option<std::path::PathBuf> {
-    match *state.focused_panel.read() {
-        FocusedPanel::Panel => state.panel_cursor.read().clone().map(|(_, path)| path),
-        FocusedPanel::Content => None,
-    }
 }
 
 fn open_content_viewer_from_cursor(state: &AppState) {
@@ -993,182 +421,4 @@ fn open_link_from_cursor(state: &mut AppState, open_in_new_window: bool) {
         };
         open_document_link(&mut app_state, &current_file, &href, how);
     });
-}
-
-fn save_image_from_cursor() {
-    spawn_detached(async move {
-        #[derive(serde::Deserialize)]
-        #[serde(tag = "kind", rename_all = "snake_case")]
-        enum SaveImageTarget {
-            Image { src: String },
-            Math,
-            Mermaid,
-            None,
-        }
-
-        let js = r#"
-            (() => {
-                const cursor = window.Arto?.contentCursor;
-                const el = cursor?.getCurrentElement?.();
-                if (!el) { dioxus.send({ kind: 'none' }); return; }
-
-                if (el.tagName === 'IMG') {
-                    const src = cursor?.getImageSrc?.() ?? '';
-                    if (!src) { dioxus.send({ kind: 'none' }); return; }
-                    dioxus.send({ kind: 'image', src });
-                    return;
-                }
-
-                if (
-                    el instanceof HTMLElement &&
-                    (
-                        el.classList.contains('preprocessed-math-display') ||
-                        el.classList.contains('preprocessed-math')
-                    )
-                ) {
-                    dioxus.send({ kind: 'math' });
-                    return;
-                }
-
-                if (el instanceof HTMLElement && el.classList.contains('preprocessed-mermaid')) {
-                    dioxus.send({ kind: 'mermaid' });
-                    return;
-                }
-
-                dioxus.send({ kind: 'none' });
-            })()
-        "#;
-        let mut eval = document::eval(js);
-        let Ok(target) = eval.recv::<SaveImageTarget>().await else {
-            return;
-        };
-
-        match target {
-            SaveImageTarget::Image { src } => {
-                std::thread::spawn(move || {
-                    // `save_image` knows `data:` and `http(s)`; the app's own
-                    // protocol resolves nowhere outside a WebView, so an image
-                    // the app serves is read here and handed over as bytes.
-                    let src = crate::assets::images::data_url_for(&src).unwrap_or(src);
-                    crate::utils::image::save_image(&src);
-                });
-            }
-            SaveImageTarget::Math => {
-                save_special_block_from_cursor("mathElement").await;
-            }
-            SaveImageTarget::Mermaid => {
-                save_special_block_from_cursor("mermaidElement").await;
-            }
-            SaveImageTarget::None => {}
-        }
-    });
-}
-
-async fn save_special_block_from_cursor(kind: &str) {
-    let js = format!(
-        r#"
-        (async () => {{
-            const cursor = window.Arto?.contentCursor;
-            const el = cursor?.getCurrentElement?.();
-            if (!(el instanceof HTMLElement)) {{ dioxus.send(null); return; }}
-            dioxus.send(await window.Arto.rasterize.{kind}(el, true));
-        }})();
-        "#,
-    );
-    let mut eval = document::eval(&js);
-    match eval.recv::<Option<String>>().await {
-        Ok(Some(data_url)) => {
-            std::thread::spawn(move || {
-                crate::utils::image::save_image(&data_url);
-            });
-        }
-        Ok(None) => tracing::warn!(%kind, "Rasterizing for save produced no image"),
-        Err(e) => tracing::warn!(%e, %kind, "Rasterizing for save failed"),
-    }
-}
-
-fn set_parent_of_current_file_as_root(state: &mut AppState) {
-    let Some(file) = get_current_file(state) else {
-        return;
-    };
-    let Some(parent) = file.parent() else {
-        return;
-    };
-    state.add_root(parent);
-}
-
-/// Open a second window on the same document, at the same place in it.
-///
-/// What a window is made of is what gets copied: the document and where the
-/// reader had reached in it, the panel's shape, and the zoom. The new window
-/// is otherwise its own.
-fn duplicate_window(state: &mut AppState) {
-    let anchor = *state.current_scroll_anchor.read();
-    state.save_current_scroll_anchor(anchor);
-
-    let document = state.document();
-    let (directory, sidebar_pinned, sidebar_width, sidebar_show_all_files, sidebar_zoom_level) = {
-        let sidebar = state.sidebar.read();
-        (
-            sidebar.primary_root().cloned(),
-            sidebar.pinned,
-            sidebar.width,
-            sidebar.show_all_files,
-            sidebar.zoom_level,
-        )
-    };
-
-    let params = crate::window::CreateMainWindowConfigParams {
-        directory,
-        theme: *state.current_theme.read(),
-        content_full_width: *state.content_full_width.read(),
-        sidebar_pinned,
-        sidebar_width,
-        sidebar_show_all_files,
-        sidebar_zoom_level,
-        zoom_level: *state.zoom_level.read(),
-        ..crate::window::CreateMainWindowConfigParams::default()
-    };
-    crate::window::create_main_window_sync(&dioxus::desktop::window(), document, params);
-}
-
-/// Move the palette's cursor by one row.
-fn step_palette(state: &mut AppState, forward: bool) {
-    let len = *state.palette_rows.read();
-    let at = crate::components::palette::cursor_row(state, len);
-    state
-        .palette_cursor
-        .set(Some(crate::components::palette::step_cursor(
-            at, len, forward,
-        )));
-    scroll_into_view(".palette-row.keyboard-focused");
-}
-
-/// Take the row the palette is on: read the document, work in the folder, or
-/// do the thing.
-///
-/// The palette closes first. A command can put a modal file dialog or a new
-/// window on screen, and the list it was picked from has no business still
-/// floating over that.
-pub fn activate_palette_row(mut state: AppState, index: usize) {
-    let row = {
-        let visits = crate::visits::VISITS.read();
-        let (starred, places) = crate::components::palette::kept();
-        crate::components::palette::rows_for(
-            &visits.items,
-            &starred,
-            &places,
-            &state.palette_query.read(),
-        )
-        .get(index)
-        .cloned()
-    };
-    state.close_palette();
-    match row {
-        Some(crate::components::palette::Row::Document(visit)) => state.open_file(&visit.path),
-        Some(crate::components::palette::Row::Starred(path)) => state.open_file(&path),
-        Some(crate::components::palette::Row::Place(path)) => state.add_root(&path),
-        Some(crate::components::palette::Row::Command(action)) => dispatch_action(&action, state),
-        None => {}
-    }
 }

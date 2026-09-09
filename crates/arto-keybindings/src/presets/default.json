@@ -140,12 +140,16 @@
       "action": "sidebar.face_starred"
     },
     {
-      "key": "Ctrl+ArrowLeft",
-      "action": "focus.places"
-    },
-    {
       "key": "Cmd+k",
       "action": "palette.open"
+    },
+    {
+      "key": "Cmd+j",
+      "action": "contents.toggle"
+    },
+    {
+      "key": "Ctrl+ArrowLeft",
+      "action": "focus.places"
     }
   ],
   "content": [
@@ -172,24 +176,6 @@
     {
       "key": "Ctrl+ArrowLeft",
       "action": "focus.places"
-    }
-  ],
-  "search": [
-    {
-      "key": "Enter",
-      "action": "search.next"
-    },
-    {
-      "key": "Shift+Enter",
-      "action": "search.prev"
-    },
-    {
-      "key": "Escape",
-      "action": "search.clear"
-    },
-    {
-      "key": "Cmd+Enter",
-      "action": "search.pin_current"
     }
   ],
   "sidebar": [
@@ -234,6 +220,24 @@
       "action": "focus.places"
     }
   ],
+  "search": [
+    {
+      "key": "Tab",
+      "action": "search.next"
+    },
+    {
+      "key": "Shift+Tab",
+      "action": "search.prev"
+    },
+    {
+      "key": "Enter",
+      "action": "search.pin_current"
+    },
+    {
+      "key": "Escape",
+      "action": "search.clear"
+    }
+  ],
   "palette": [
     {
       "key": "ArrowDown",
@@ -258,6 +262,32 @@
     {
       "key": "Escape",
       "action": "palette.close"
+    }
+  ],
+  "contents": [
+    {
+      "key": "ArrowDown",
+      "action": "contents.next"
+    },
+    {
+      "key": "ArrowUp",
+      "action": "contents.prev"
+    },
+    {
+      "key": "Tab",
+      "action": "contents.next"
+    },
+    {
+      "key": "Shift+Tab",
+      "action": "contents.prev"
+    },
+    {
+      "key": "Enter",
+      "action": "contents.confirm"
+    },
+    {
+      "key": "Escape",
+      "action": "contents.close"
     }
   ]
 }

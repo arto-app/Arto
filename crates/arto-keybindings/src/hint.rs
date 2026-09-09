@@ -10,7 +10,7 @@ pub fn hint_for_action(
     context: Option<KeyContext>,
 ) -> Option<String> {
     let key = context
-        .and_then(|ctx| find_key_for_action(bindings_for_context(bindings, ctx), action))
+        .and_then(|ctx| find_key_for_action(bindings.of(ctx), action))
         .or_else(|| find_key_for_action(&bindings.global, action))
         .or_else(|| find_key_for_action(&bindings.menu_shortcuts, action))?;
     Some(format_shortcut_hint(key))
@@ -21,16 +21,6 @@ fn find_key_for_action<'a>(bindings: &'a [KeyAction], action: &str) -> Option<&'
         .iter()
         .find(|ka| ka.action == action)
         .map(|ka| ka.key.as_str())
-}
-
-fn bindings_for_context(bindings: &BindingSet, context: KeyContext) -> &[KeyAction] {
-    match context {
-        KeyContext::Content => &bindings.content,
-        KeyContext::Sidebar => &bindings.sidebar,
-        KeyContext::QuickAccess => &bindings.quick_access,
-        KeyContext::Search => &bindings.search,
-        KeyContext::Palette => &bindings.palette,
-    }
 }
 
 /// Convert keybinding notation into a platform-appropriate shortcut hint.
@@ -187,29 +177,29 @@ mod tests {
         let bindings = BindingSet {
             menu_shortcuts: vec![KeyAction {
                 key: "Cmd+w".to_string(),
-                action: "tab.close".to_string(),
+                action: "file.open".to_string(),
             }],
             global: vec![KeyAction {
                 key: "x".to_string(),
-                action: "tab.close".to_string(),
+                action: "file.open".to_string(),
             }],
             sidebar: vec![KeyAction {
                 key: "d".to_string(),
-                action: "tab.close".to_string(),
+                action: "file.open".to_string(),
             }],
             ..Default::default()
         };
 
         assert_eq!(
-            hint_for_action(&bindings, "tab.close", Some(KeyContext::Sidebar)),
+            hint_for_action(&bindings, "file.open", Some(KeyContext::Sidebar)),
             Some(format_shortcut_hint("d"))
         );
         assert_eq!(
-            hint_for_action(&bindings, "tab.close", Some(KeyContext::Content)),
+            hint_for_action(&bindings, "file.open", Some(KeyContext::Content)),
             Some(format_shortcut_hint("x"))
         );
         assert_eq!(
-            hint_for_action(&bindings, "tab.close", None),
+            hint_for_action(&bindings, "file.open", None),
             Some(format_shortcut_hint("x"))
         );
 
@@ -218,7 +208,7 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            hint_for_action(&menu_only, "tab.close", None),
+            hint_for_action(&menu_only, "file.open", None),
             Some(format_shortcut_hint("Cmd+w"))
         );
         assert_eq!(hint_for_action(&menu_only, "no.such.action", None), None);

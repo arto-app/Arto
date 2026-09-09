@@ -51,19 +51,12 @@ pub enum Action {
     CopyImageAsMarkdown,
     CopyLinkPath,
 
-    // Palette — the history, two keystrokes away, and moving through it
-    PaletteOpen,
-    PaletteNext,
-    PalettePrev,
-    PaletteConfirm,
-    PaletteClose,
-
     // Window (7)
     WindowNew,
-    /// A copy of this window: the document, and the place in it the reader had
-    /// reached.
+    /// A copy of this window: its temporary roots, its document and the place
+    /// in it the reader had reached.
     WindowDuplicate,
-    /// Put the document down; the window keeps everything else.
+    /// Put the document down; the welcome page takes its place.
     WindowNewDocument,
     WindowClose,
     WindowCloseAllChildWindows,
@@ -73,8 +66,8 @@ pub enum Action {
     // Reload (1)
     WindowReload,
 
-    // Focus — keyboard-only. One per face: asking for a list is asking for
-    // that list, not for whichever the panel happened to be showing.
+    // Focus — keyboard-only. One per face of the panel, so that a reader can
+    // reach the list they want rather than the one the panel happens to be on.
     FocusPlaces,
     FocusStarred,
     FocusRecent,
@@ -98,7 +91,21 @@ pub enum Action {
     AppGoToHomepage,
     HelpShowKeyboardShortcuts,
 
-    // Sidebar (1)
+    // Palette — the history, two keystrokes away, and moving through it
+    PaletteOpen,
+    PaletteNext,
+    PalettePrev,
+    PaletteConfirm,
+    PaletteClose,
+
+    // Contents — the gutter's list, and the keyboard's way through it
+    ContentsToggle,
+    ContentsNext,
+    ContentsPrev,
+    ContentsConfirm,
+    ContentsClose,
+
+    // Sidebar — the panel and which of its faces is showing
     SidebarToggleShowAllFiles,
     SidebarFacePlaces,
     SidebarFaceRecent,
@@ -125,7 +132,7 @@ pub enum Action {
     ContentPrevHeading,
     ContentOpenViewer,
 
-    // Directory — sidebar navigation (3) — keyboard-only
+    // Directory — sidebar navigation (1) — keyboard-only
     DirectoryParent,
 
     // Cancel (1) — keyboard-only
@@ -184,16 +191,6 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
         ],
     ),
     (
-        "Palette",
-        &[
-            Action::PaletteOpen,
-            Action::PaletteNext,
-            Action::PalettePrev,
-            Action::PaletteConfirm,
-            Action::PaletteClose,
-        ],
-    ),
-    (
         "Window",
         &[
             Action::WindowNew,
@@ -240,6 +237,26 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
         ],
     ),
     (
+        "Palette",
+        &[
+            Action::PaletteOpen,
+            Action::PaletteNext,
+            Action::PalettePrev,
+            Action::PaletteConfirm,
+            Action::PaletteClose,
+        ],
+    ),
+    (
+        "Contents",
+        &[
+            Action::ContentsToggle,
+            Action::ContentsNext,
+            Action::ContentsPrev,
+            Action::ContentsConfirm,
+            Action::ContentsClose,
+        ],
+    ),
+    (
         "Sidebar",
         &[
             Action::SidebarToggleShowAllFiles,
@@ -282,12 +299,6 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
     ("Cancel", &[Action::Cancel]),
 ];
 
-/// Actions that have a corresponding menu item and can therefore be bound as a
-/// native menu shortcut.
-///
-/// Kept in sync with the desktop app's menu module, which maps menu items to
-/// these actions and has a drift-guard test asserting every menu item's
-/// action appears here.
 impl Action {
     /// The name this action answers to when it is typed rather than pressed.
     ///
@@ -343,6 +354,7 @@ impl Action {
             Self::AppGoToHomepage => "Go to Homepage",
 
             // Contents
+            Self::ContentsToggle => "Contents",
 
             // Sidebar
             Self::SidebarToggleShowAllFiles => "Show All Files",
@@ -363,6 +375,12 @@ impl Action {
     }
 }
 
+/// Every action that answers to a name, in the order the palette lists them.
+///
+/// The order is the enum's own, which groups related commands together; the
+/// palette does not re-sort, so a query that leaves several commands standing
+/// shows them in a stable order rather than one that moves as the list is
+/// narrowed.
 pub const COMMAND_ACTIONS: &[Action] = &[
     Action::HistoryBack,
     Action::HistoryForward,
@@ -390,6 +408,7 @@ pub const COMMAND_ACTIONS: &[Action] = &[
     Action::AppAbout,
     Action::AppQuit,
     Action::AppGoToHomepage,
+    Action::ContentsToggle,
     Action::SidebarToggleShowAllFiles,
     Action::SidebarFacePlaces,
     Action::SidebarFaceRecent,
@@ -401,7 +420,12 @@ pub const COMMAND_ACTIONS: &[Action] = &[
     Action::ThemeSetAuto,
 ];
 
-/// Actions that are menu items.
+/// Actions that have a corresponding menu item and can therefore be bound as a
+/// native menu shortcut.
+///
+/// Kept in sync with the desktop app's menu module, which maps menu items to
+/// these actions and has a drift-guard test asserting every menu item's
+/// action appears here.
 pub const MENU_ACTIONS: &[Action] = &[
     Action::WindowNew,
     Action::WindowDuplicate,
@@ -507,11 +531,6 @@ action_strings! {
     CopyImagePath => "clipboard.copy_image_path",
     CopyImageAsMarkdown => "clipboard.copy_image_as_markdown",
     CopyLinkPath => "clipboard.copy_link_path",
-    PaletteOpen => "palette.open",
-    PaletteNext => "palette.next",
-    PalettePrev => "palette.prev",
-    PaletteConfirm => "palette.confirm",
-    PaletteClose => "palette.close",
     WindowNew => "window.new",
     WindowDuplicate => "window.duplicate",
     WindowNewDocument => "window.new_document",
@@ -538,6 +557,16 @@ action_strings! {
     AppQuit => "app.quit",
     AppGoToHomepage => "app.go_to_homepage",
     HelpShowKeyboardShortcuts => "help.show_keyboard_shortcuts",
+    PaletteOpen => "palette.open",
+    PaletteNext => "palette.next",
+    PalettePrev => "palette.prev",
+    PaletteConfirm => "palette.confirm",
+    PaletteClose => "palette.close",
+    ContentsToggle => "contents.toggle",
+    ContentsNext => "contents.next",
+    ContentsPrev => "contents.prev",
+    ContentsConfirm => "contents.confirm",
+    ContentsClose => "contents.close",
     SidebarToggleShowAllFiles => "sidebar.toggle_show_all_files",
     SidebarFacePlaces => "sidebar.face_places",
     SidebarFaceRecent => "sidebar.face_recent",
@@ -575,7 +604,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 84);
+        assert_eq!(all_actions().len(), 89);
     }
 
     #[test]
@@ -628,6 +657,41 @@ mod tests {
         assert!("unknown.action".parse::<Action>().is_err());
         assert!("".parse::<Action>().is_err());
         assert!("scroll".parse::<Action>().is_err());
+    }
+
+    #[test]
+    fn every_named_command_is_listed() {
+        for action in all_actions() {
+            let listed = COMMAND_ACTIONS.contains(&action);
+            assert_eq!(
+                action.command_label().is_some(),
+                listed,
+                "{action} is named but not listed in COMMAND_ACTIONS, or the other way round"
+            );
+        }
+    }
+
+    #[test]
+    fn motions_have_no_name() {
+        for action in [
+            Action::ScrollDown,
+            Action::CursorDown,
+            Action::ContentNext,
+            Action::FocusContent,
+            Action::PaletteOpen,
+            Action::Cancel,
+        ] {
+            assert_eq!(action.command_label(), None, "{action} should be unnamed");
+        }
+    }
+
+    #[test]
+    fn no_duplicate_command_labels() {
+        let mut seen = std::collections::HashSet::new();
+        for action in COMMAND_ACTIONS {
+            let label = action.command_label().expect("listed command has a label");
+            assert!(seen.insert(label), "duplicate command label: {label:?}");
+        }
     }
 
     #[test]

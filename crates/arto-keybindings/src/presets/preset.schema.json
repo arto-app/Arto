@@ -9,10 +9,9 @@
     "global": { "$ref": "#/$defs/bindings" },
     "content": { "$ref": "#/$defs/bindings" },
     "sidebar": { "$ref": "#/$defs/bindings" },
-    "quickAccess": { "$ref": "#/$defs/bindings" },
-    "rightSidebar": { "$ref": "#/$defs/bindings" },
-    "search": { "$ref": "#/$defs/bindings" },
-    "palette": { "$ref": "#/$defs/bindings" }
+    "palette": { "$ref": "#/$defs/bindings" },
+    "contents": { "$ref": "#/$defs/bindings" },
+    "search": { "$ref": "#/$defs/bindings" }
   },
   "$defs": {
     "bindings": {
