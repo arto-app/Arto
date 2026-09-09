@@ -23,7 +23,15 @@ use tokio::sync::broadcast;
 /// How many visits are kept.
 ///
 /// There is no expiry: reading something a year ago is still a fact about
-/// where to find it again. Only the count is bounded, and generously.
+/// where to find it again. Only the count is bounded, and generously — but a
+/// visit is one document on one day, so a document read every day costs a row
+/// a day, and the ceiling is reached in months of heavy reading rather than
+/// years. What falls off is the oldest rows, which are also the ones nothing
+/// but the history itself still names.
+///
+/// It is a count rather than a size because the file is written whole every
+/// time a document is opened: at this ceiling it is about a megabyte, which
+/// is a write worth not thinking about, and ten times that would not be.
 pub const MAX_VISITS: usize = 5_000;
 
 /// One document, when it was last read, and how far into it the reader had
@@ -57,7 +65,7 @@ impl Visit {
 /// The order of the variants is the order they appear, newest first, and no
 /// two of them can hold the same day: [`bucket_for`] tries them in this order
 /// and stops at the first that fits.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Bucket {
     Today,
     Yesterday,
@@ -198,9 +206,25 @@ pub fn last_read_under(dir: &Path) -> Option<DateTime<Local>> {
         .map(|visit| visit.at)
 }
 
-/// The visits answering a query, newest first.
+/// The history read as documents rather than as days: one row each, newest
+/// first.
+///
+/// The list itself keeps a visit per day, because what was read yesterday is
+/// a fact about yesterday that reading it again today cannot change. The
+/// windows that group by day want exactly that. The ones that are about
+/// *documents* — the palette, the trace in the margin — want the other
+/// reading: the same document on two days is one answer to "where have I
+/// been", not two.
+pub fn documents(visits: &[Visit]) -> impl Iterator<Item = &Visit> {
+    let mut seen = std::collections::HashSet::new();
+    visits
+        .iter()
+        .filter(move |visit| seen.insert(visit.path.as_path()))
+}
+
+/// The documents answering a query, newest first.
 pub fn filter<'a>(visits: &'a [Visit], query: &str) -> Vec<&'a Visit> {
-    visits.iter().filter(|v| matches(v, query)).collect()
+    documents(visits).filter(|v| matches(v, query)).collect()
 }
 
 /// The visit list, newest first.
@@ -213,13 +237,24 @@ pub struct Visits {
 impl Visits {
     /// Note that `path` was read at `at`.
     ///
-    /// A document read again moves to the front rather than appearing twice:
-    /// the list answers "where have I been", and the same place twice over is
-    /// not two answers.
+    /// One row per document per day. Reading something again today is the
+    /// same day's reading still going on, so the row moves to the front and
+    /// takes the later time; reading it again tomorrow is a new fact, and the
+    /// row it had yesterday stays where it is. The list is grouped by day
+    /// wherever it is drawn, and moving yesterday's row into today would say
+    /// that yesterday's reading never happened.
+    ///
+    /// The new row starts where the last one left off: how far into a
+    /// document the reader had got is a fact about the document, not about
+    /// the day, and opening it tomorrow has to land where opening it an hour
+    /// from now would.
     pub fn record(&mut self, path: impl Into<PathBuf>, at: DateTime<Local>) {
-        let path = path.into();
-        self.items.retain(|visit| visit.path != path);
-        self.items.insert(0, Visit::new(path, at));
+        let day = at.date_naive();
+        let mut visit = Visit::new(path, at);
+        visit.anchor = self.position(&visit.path).unwrap_or(ScrollAnchor::TOP);
+        self.items
+            .retain(|other| other.path != visit.path || other.at.date_naive() != day);
+        self.items.insert(0, visit);
         self.items.truncate(MAX_VISITS);
     }
 
@@ -243,6 +278,10 @@ impl Visits {
     }
 
     /// Forget one document, for a reader who would rather it were not listed.
+    ///
+    /// Every day of it, not the row that was pointed at: what is being asked
+    /// for is that the document not be in the history, and leaving yesterday's
+    /// row behind would answer a question nobody asked.
     pub fn forget(&mut self, path: &Path) {
         self.items.retain(|visit| visit.path != path);
     }
@@ -273,12 +312,13 @@ impl Visits {
         }
     }
 
-    /// One row per document, however the file spells them.
+    /// One row per document per day, however the file spells them.
     ///
     /// A history written before the spellings were folded together holds the
-    /// same document twice — once as it was typed, once as its own folders
-    /// name it. The list is newest first, so the first of a pair is the one
-    /// worth keeping.
+    /// same document twice on the same day — once as it was typed, once as
+    /// its own folders name it — and one written before the day was part of
+    /// what a row says holds every reading of it. The list is newest first,
+    /// so the first of a day's rows is the one worth keeping.
     fn folded(self) -> Self {
         let mut seen = std::collections::HashSet::new();
         Self {
@@ -289,7 +329,7 @@ impl Visits {
                     path: crate::utils::paths::true_spelling(&visit.path),
                     ..visit
                 })
-                .filter(|visit| seen.insert(visit.path.clone()))
+                .filter(|visit| seen.insert((visit.path.clone(), visit.at.date_naive())))
                 .collect(),
         }
     }
@@ -388,6 +428,11 @@ mod tests {
 
     fn at(y: i32, m: u32, d: u32) -> DateTime<Local> {
         Local.with_ymd_and_hms(y, m, d, 12, 0, 0).unwrap()
+    }
+
+    /// The same day at a named hour, for what happens inside one day.
+    fn at_hour(y: i32, m: u32, d: u32, hour: u32) -> DateTime<Local> {
+        Local.with_ymd_and_hms(y, m, d, hour, 0, 0).unwrap()
     }
 
     #[test]
@@ -537,15 +582,74 @@ mod tests {
     }
 
     #[test]
-    fn reading_something_again_moves_it_rather_than_repeating_it() {
+    fn reading_something_again_the_same_day_moves_it_rather_than_repeating_it() {
+        let mut visits = Visits::default();
+        visits.record("/a.md", at_hour(2026, 4, 16, 9));
+        visits.record("/b.md", at_hour(2026, 4, 16, 10));
+        visits.record("/a.md", at_hour(2026, 4, 16, 11));
+
+        assert_eq!(visits.items.len(), 2);
+        assert_eq!(visits.items[0].path, PathBuf::from("/a.md"));
+        assert_eq!(visits.items[0].at, at_hour(2026, 4, 16, 11));
+    }
+
+    #[test]
+    fn reading_something_again_another_day_leaves_the_day_it_was_read() {
+        let mut visits = Visits::default();
+        visits.record("/a.md", at(2026, 4, 15));
+        visits.record("/a.md", at(2026, 4, 16));
+
+        assert_eq!(visits.items.len(), 2);
+        assert_eq!(visits.items[0].at, at(2026, 4, 16));
+        assert_eq!(visits.items[1].at, at(2026, 4, 15));
+    }
+
+    #[test]
+    fn a_new_day_carries_the_place_the_reader_had_got_to() {
+        let place = ScrollAnchor {
+            line: 42,
+            fraction: 0.25,
+        };
+        let mut visits = Visits::default();
+        visits.record("/a.md", at(2026, 4, 15));
+        visits.keep_position(Path::new("/a.md"), place);
+        visits.record("/a.md", at(2026, 4, 16));
+
+        assert_eq!(visits.position(Path::new("/a.md")), Some(place));
+        // And yesterday still says where the reader was yesterday.
+        assert_eq!(visits.items[1].anchor, place);
+    }
+
+    #[test]
+    fn the_lists_about_documents_see_one_row_each() {
         let mut visits = Visits::default();
         visits.record("/a.md", at(2026, 4, 14));
         visits.record("/b.md", at(2026, 4, 15));
         visits.record("/a.md", at(2026, 4, 16));
 
+        let documents: Vec<&PathBuf> = documents(&visits.items).map(|v| &v.path).collect();
+        assert_eq!(
+            documents,
+            vec![&PathBuf::from("/a.md"), &PathBuf::from("/b.md")]
+        );
+    }
+
+    #[test]
+    fn loading_keeps_one_row_per_document_per_day() {
+        // A history written before the day was part of what a row says holds
+        // the same document twice in one day.
+        let visits = Visits {
+            items: vec![
+                Visit::new("/a.md", at_hour(2026, 4, 16, 11)),
+                Visit::new("/a.md", at_hour(2026, 4, 16, 9)),
+                Visit::new("/a.md", at(2026, 4, 15)),
+            ],
+        }
+        .folded();
+
         assert_eq!(visits.items.len(), 2);
-        assert_eq!(visits.items[0].path, PathBuf::from("/a.md"));
-        assert_eq!(visits.items[0].at, at(2026, 4, 16));
+        assert_eq!(visits.items[0].at, at_hour(2026, 4, 16, 11));
+        assert_eq!(visits.items[1].at, at(2026, 4, 15));
     }
 
     #[test]

@@ -36,9 +36,10 @@ pub fn MarginTrace(count: usize, visible: bool) -> Element {
     let current = state.current_file();
     let rows: Vec<Visit> = {
         let visits = VISITS.read();
-        visits
-            .items
-            .iter()
+        // Documents, not days: the history keeps a row per day a document was
+        // read, and the same name twice in a column of five is one document
+        // taking two of the five places it has.
+        crate::visits::documents(&visits.items)
             // What is on screen is not a trace of where the reader has been.
             .filter(|visit| current.as_deref() != Some(visit.path.as_path()))
             .take(count)

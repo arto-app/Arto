@@ -52,8 +52,14 @@ pub enum Group {
     Current,
     /// One of the folders kept, which every window has.
     Bookmark,
-    /// A face whose rows are one list with no groups in it: Recent and Starred.
+    /// A face whose rows are one list with no groups in it: Starred.
     Flat,
+    /// One day of the history. The same document is a row under every day it
+    /// was read on — which is what the history is for — so, as with a folder
+    /// that is in both of the tree's groups, the day is part of what names
+    /// the row: without it a cursor could not walk from today's copy to
+    /// yesterday's, because it could not tell them apart.
+    Day(crate::visits::Bucket),
 }
 
 /// A row of the tree: which group it is drawn in, which root it descends
