@@ -1,38 +1,47 @@
 use super::super::form_controls::{DirectoryPicker, OptionCardItem, OptionCards};
-use crate::config::{Config, NewWindowBehavior, StartupBehavior};
+use crate::config::{Config, StartupBehavior};
 use dioxus::prelude::*;
 use std::path::PathBuf;
 
+/// Where the first window is, when it opens.
+///
+/// Not a list of folders: the places are kept by starring one, wherever it is
+/// shown, and every window already starts with all of them. What cannot be
+/// said anywhere else is which folder the window is *in* — the one temporary
+/// root it begins with — so that is what this pane sets.
 #[component]
 pub fn DirectoryTab(
     config: Signal<Config>,
     has_changes: Signal<bool>,
     current_directory: Option<PathBuf>,
 ) -> Element {
-    // Extract values upfront to avoid holding read guard across closures
-    let directory = config.read().directory.clone();
+    let on_startup = config.read().directory.on_startup;
+    let default_directory = config.read().directory.default_directory.clone();
 
     rsx! {
         div {
             class: "preferences-pane",
 
-            h3 { class: "preference-section-title", "Default Settings" }
+            h3 { class: "preference-section-title", "Startup Folder" }
 
             div {
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Default Directory" }
-                    p { class: "preference-description", "The directory to open when no specific directory is specified." }
+                    label { "Folder to start in" }
+                    p {
+                        class: "preference-description",
+                        "The folder the first window works in, beside the places you keep. Leave it empty to start with the places alone."
+                    }
                 }
                 DirectoryPicker {
-                    value: directory.default_directory.to_owned(),
-                    placeholder: "Not set".to_string(),
-                    on_change: move |new_value| {
-                        config.write().directory.default_directory = new_value;
+                    value: default_directory,
+                    placeholder: "No folder — the places alone".to_string(),
+                    current_directory: current_directory.clone(),
+                    on_change: move |new_directory| {
+                        config.write().directory.default_directory = new_directory;
                         has_changes.set(true);
                     },
-                    current_directory: current_directory.clone(),
                 }
             }
 
@@ -43,7 +52,7 @@ pub fn DirectoryTab(
                 div {
                     class: "preference-item-header",
                     label { "On Startup" }
-                    p { class: "preference-description", "Which directory to open when the application starts." }
+                    p { class: "preference-description", "What the first window opens with." }
                 }
                 OptionCards {
                     name: "dir-startup".to_string(),
@@ -52,49 +61,18 @@ pub fn DirectoryTab(
                             icon: None,
                             value: StartupBehavior::Default,
                             title: "Default".to_string(),
-                            description: Some("Use default directory".to_string()),
+                            description: Some("Start in the folder above".to_string()),
                         },
                         OptionCardItem {
                             icon: None,
                             value: StartupBehavior::LastClosed,
                             title: "Last Closed".to_string(),
-                            description: Some("Resume from last closed window".to_string()),
+                            description: Some("Resume the last window's folders".to_string()),
                         },
                     ],
-                    selected: directory.on_startup,
+                    selected: on_startup,
                     on_change: move |new_behavior| {
                         config.write().directory.on_startup = new_behavior;
-                        has_changes.set(true);
-                    },
-                }
-            }
-
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { "On New Window" }
-                    p { class: "preference-description", "Which directory to open in new windows." }
-                }
-                OptionCards {
-                    name: "dir-new-window".to_string(),
-                    options: vec![
-                        OptionCardItem {
-                            icon: None,
-                            value: NewWindowBehavior::Default,
-                            title: "Default".to_string(),
-                            description: Some("Use default directory".to_string()),
-                        },
-                        OptionCardItem {
-                            icon: None,
-                            value: NewWindowBehavior::LastFocused,
-                            title: "Last Focused".to_string(),
-                            description: Some("Same as current window".to_string()),
-                        },
-                    ],
-                    selected: directory.on_new_window,
-                    on_change: move |new_behavior| {
-                        config.write().directory.on_new_window = new_behavior;
                         has_changes.set(true);
                     },
                 }

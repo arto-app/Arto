@@ -1,11 +1,12 @@
 //! Quick Access section component for the sidebar.
 //!
-//! Displays bookmarked files and directories for quick navigation.
+//! Displays the bookmarked *files*. A bookmarked folder is one of the tree's
+//! places, so listing it here as well would be the same folder twice.
 //! Supports drag-and-drop reordering of bookmarks.
 
 use dioxus::prelude::*;
 
-use crate::bookmarks::{reorder_bookmark, Bookmark, BOOKMARKS, BOOKMARKS_CHANGED};
+use crate::bookmarks::{move_bookmark, Bookmark, BOOKMARKS, BOOKMARKS_CHANGED};
 use crate::components::bookmark_button::BookmarkButton;
 use crate::components::icon::{Icon, IconName};
 use crate::state::{AppState, FocusedPanel};
@@ -30,13 +31,18 @@ impl CachedBookmark {
     }
 }
 
-/// Load bookmarks with cached exists status
-fn load_cached_bookmarks() -> Vec<CachedBookmark> {
+/// Load the bookmarked documents with cached exists status.
+///
+/// The index is the bookmark's position in the whole list, folders included:
+/// the order a drag rearranges is that list's, not this view of it.
+fn load_cached_bookmarks() -> Vec<(usize, CachedBookmark)> {
     BOOKMARKS
         .read()
         .items
         .iter()
-        .map(|b| CachedBookmark::from_bookmark(b.clone()))
+        .enumerate()
+        .filter(|(_, bookmark)| !bookmark.is_dir())
+        .map(|(index, bookmark)| (index, CachedBookmark::from_bookmark(bookmark.clone())))
         .collect()
 }
 
@@ -91,7 +97,7 @@ pub fn QuickAccess() -> Element {
                     evt.stop_propagation();
                     evt.prevent_default();
                 },
-                for (index, cached) in items.iter().enumerate() {
+                for (index, cached) in items.iter().cloned() {
                     QuickAccessItem {
                         key: "{cached.bookmark.path.display()}",
                         index,
@@ -101,12 +107,8 @@ pub fn QuickAccess() -> Element {
                         is_dragging: *dragging_index.read() == Some(index),
                         is_drop_target: *drop_target_index.read() == Some(index),
                         is_keyboard_focused: is_qa_focused && quick_access_cursor == Some(index),
-                        on_click: move |(bookmark, is_directory): (Bookmark, bool)| {
-                            if is_directory {
-                                state.set_root_directory(&bookmark.path);
-                            } else {
-                                state.open_file(&bookmark.path);
-                            }
+                        on_click: move |(bookmark, _): (Bookmark, bool)| {
+                            state.open_file(&bookmark.path);
                         },
                         on_drag_start: move |idx| {
                             dragging_index.set(Some(idx));
@@ -120,10 +122,22 @@ pub fn QuickAccess() -> Element {
                             drop_target_index.set(None);
                         },
                         on_drag_end: move |_| {
-                            // Perform the reorder if we have valid indices
+                            // Rearranged by path rather than by position: what
+                            // is drawn here is the documents alone, so a
+                            // position in it is not a position in the list the
+                            // order belongs to.
                             if let (Some(from), Some(to)) = (*dragging_index.read(), *drop_target_index.read()) {
                                 if from != to {
-                                    reorder_bookmark(from, to);
+                                    let paths = {
+                                        let all = BOOKMARKS.read();
+                                        (
+                                            all.items.get(from).map(|b| b.path.clone()),
+                                            all.items.get(to).map(|b| b.path.clone()),
+                                        )
+                                    };
+                                    if let (Some(moved), Some(target)) = paths {
+                                        move_bookmark(&moved, &target, from < to);
+                                    }
                                 }
                             }
                             dragging_index.set(None);
@@ -155,7 +169,7 @@ fn QuickAccessItem(
     on_drag_end: EventHandler<()>,
 ) -> Element {
     let path = bookmark.path.clone();
-    let display_name = bookmark.display_name().to_string();
+    let display_name = crate::utils::paths::short_name(&bookmark.path);
 
     let icon_name = if item_is_directory {
         IconName::Folder

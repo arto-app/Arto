@@ -1,6 +1,8 @@
 pub mod context_menu;
 pub mod file_explorer;
 pub mod quick_access;
+pub mod reorder;
+pub mod row_actions;
 
 use dioxus::document;
 use dioxus::prelude::*;
@@ -38,9 +40,7 @@ pub fn Sidebar(
                 style: "{inner_style}",
 
                 // File explorer content (always mounted for animation)
-                file_explorer::FileExplorer {
-                    on_pin_toggle,
-                }
+                file_explorer::FileExplorer {}
             }
 
             // Resize handle

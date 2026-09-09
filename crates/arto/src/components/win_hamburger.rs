@@ -69,7 +69,7 @@ pub fn WindowsMenu(on_close: EventHandler<()>) -> Element {
                 } }
                 ContextMenuItem { label: "Open Directory...", shortcut: shortcut("file.open_directory"), icon: Some(IconName::FolderOpen), on_click: move |_| {
                     if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-                        state.set_root_directory(dir);
+                        state.add_root(dir);
                     }
                     close();
                 } }

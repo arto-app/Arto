@@ -42,10 +42,10 @@ use shortcut_overlay::{
 pub fn App(
     // The document to open in this window, if there is one.
     document: Document,
-    // Directory to root the file explorer at (resolved in create_main_window or
-    // MainApp). None means no directory is opened, so the sidebar shows its
-    // empty/welcome state instead of scanning an arbitrary directory.
-    directory: Option<PathBuf>,
+    // Temporary roots this window starts with, beside the places (resolved
+    // by the window's creator or by MainApp). Empty means the tree shows the
+    // places alone, rather than scanning an arbitrary directory.
+    temps: Vec<PathBuf>,
     theme: Theme, // The enum: Auto/Light/Dark
     content_full_width: bool,
     sidebar_pinned: bool,
@@ -71,13 +71,11 @@ pub fn App(
         app_state.document.set(document);
         app_state.content_full_width.set(content_full_width);
 
-        // Apply initial sidebar settings from params (including directory)
+        // Apply initial sidebar settings from params (including the roots)
         {
             let mut sidebar = app_state.sidebar.write();
-            sidebar.root_directory = directory.clone();
-            if let Some(directory) = directory {
-                sidebar.push_to_history(directory);
-            }
+            sidebar.roots =
+                crate::roots::Roots::new(crate::bookmarks::BOOKMARKS.read().places(), temps);
             sidebar.pinned = sidebar_pinned;
             sidebar.width = sidebar_width;
             sidebar.show_all_files = sidebar_show_all_files;

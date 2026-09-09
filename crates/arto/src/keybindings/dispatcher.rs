@@ -140,13 +140,10 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
                 state.right_hover_active.set(false);
             }
             state.focused_panel.set(FocusedPanel::LeftSidebar);
-            // Initialize cursor to first item if not set
-            if state.sidebar_cursor.read().is_none() {
-                if let Some((root, expanded, show_all)) = extract_sidebar_data(&state) {
-                    let items = sidebar_cursor::visible_items(&root, &expanded, show_all);
-                    if let Some(first) = items.first() {
-                        state.sidebar_cursor.set(Some(first.clone()));
-                    }
+            // Initialize cursor to first row if not set
+            if state.panel_cursor.read().is_none() {
+                if let Some(first) = tree_items(&state).first() {
+                    state.panel_cursor.set(Some(first.clone()));
                 }
             }
         }
@@ -201,12 +198,6 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::DirectoryParent => {
             state.go_to_parent_directory();
         }
-        Action::DirectoryBack => {
-            state.go_back_directory();
-        }
-        Action::DirectoryForward => {
-            state.go_forward_directory();
-        }
 
         // --- File ---
         Action::FileOpen => {
@@ -216,7 +207,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         }
         Action::FileOpenDirectory => {
             if let Some(dir) = pick_directory() {
-                state.set_root_directory(dir);
+                state.add_root(dir);
             }
         }
         Action::FileSetParentAsRoot => set_parent_of_current_file_as_root(&mut state),
@@ -283,24 +274,50 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
     }
 }
 
-/// Clone sidebar data needed for cursor navigation, releasing the read guard.
-///
-/// Returns `(root_directory, expanded_dirs, show_all_files)` if a root is set.
-fn extract_sidebar_data(
-    state: &AppState,
-) -> Option<(
-    std::path::PathBuf,
-    std::collections::HashSet<std::path::PathBuf>,
-    bool,
-)> {
+/// What the tree is drawing, as the cursor needs to see it.
+struct TreeShape {
+    /// Every root the tree draws, in the order it draws them, each with the
+    /// group it is drawn in.
+    roots: Vec<(crate::state::Group, std::path::PathBuf)>,
+    /// The rows that are open — see [`crate::state::TreeRow`].
+    expanded: std::collections::HashSet<crate::state::TreeRow>,
+    show_all_files: bool,
+}
+
+/// The tree's shape, if it has any root at all.
+fn extract_sidebar_data(state: &AppState) -> Option<TreeShape> {
+    use crate::state::Group;
+
     let sidebar = state.sidebar.read();
-    sidebar.root_directory.as_ref().map(|root| {
-        (
-            root.clone(),
-            sidebar.expanded_dirs.clone(),
-            sidebar.show_all_files,
+    // The window's own folder first, which is the order the tree draws them.
+    let roots: Vec<_> = sidebar
+        .roots
+        .temps()
+        .iter()
+        .map(|root| (Group::Current, root.clone()))
+        .chain(
+            sidebar
+                .roots
+                .places()
+                .iter()
+                .map(|root| (Group::Bookmark, root.clone())),
         )
+        .collect();
+    (!roots.is_empty()).then(|| TreeShape {
+        roots,
+        expanded: sidebar.expanded_dirs.clone(),
+        show_all_files: sidebar.show_all_files,
     })
+}
+
+/// The rows the tree is drawing, in the order it draws them.
+fn tree_items(state: &AppState) -> Vec<crate::state::PanelRow> {
+    match extract_sidebar_data(state) {
+        Some(tree) => {
+            sidebar_cursor::visible_items_in_roots(&tree.roots, &tree.expanded, tree.show_all_files)
+        }
+        None => Vec::new(),
+    }
 }
 
 enum CursorDirection {
@@ -312,14 +329,14 @@ fn dispatch_cursor_move(state: &mut AppState, direction: CursorDirection) {
     let panel = *state.focused_panel.read();
     match panel {
         FocusedPanel::LeftSidebar => {
-            if let Some((root, expanded, show_all)) = extract_sidebar_data(state) {
-                let items = sidebar_cursor::visible_items(&root, &expanded, show_all);
-                let current = state.sidebar_cursor.read().clone();
+            let items = tree_items(state);
+            if !items.is_empty() {
+                let current = state.panel_cursor.read().clone();
                 let next = match direction {
                     CursorDirection::Down => sidebar_cursor::move_down(&current, &items),
                     CursorDirection::Up => sidebar_cursor::move_up(&current, &items),
                 };
-                state.sidebar_cursor.set(next);
+                state.panel_cursor.set(next);
                 scroll_cursor_into_view();
             }
         }
@@ -375,11 +392,12 @@ fn dispatch_cursor_enter(state: &mut AppState) {
     let panel = *state.focused_panel.read();
     match panel {
         FocusedPanel::LeftSidebar => {
-            let cursor = state.sidebar_cursor.read().clone();
-            let Some(path) = cursor else { return };
+            let Some((_, path)) = state.panel_cursor.read().clone() else {
+                return;
+            };
             if path.is_dir() {
-                state.set_root_directory(&path);
-            } else {
+                state.add_root(&path);
+            } else if path.exists() {
                 state.open_file(&path);
             }
         }
@@ -401,37 +419,47 @@ fn dispatch_cursor_open(state: &mut AppState) {
     }
 }
 
+/// Open what the cursor is on: a document is read, a folder opens onto its
+/// contents with the cursor on the first of them.
 fn open_sidebar(state: &mut AppState) {
-    let cursor = state.sidebar_cursor.read().clone();
-    let Some(path) = cursor else { return };
+    let Some(row) = state.panel_cursor.read().clone() else {
+        return;
+    };
+    let (group, path) = row.clone();
 
     if !path.is_dir() {
-        state.open_file(&path);
+        if path.exists() {
+            state.open_file(&path);
+        }
         return;
     }
 
-    // Open directory: expand it and move cursor to first child
-    {
-        let is_expanded = state.sidebar.read().expanded_dirs.contains(&path);
-        if !is_expanded {
-            state.toggle_directory_expansion(&path);
-        }
+    let root = root_of(state, &row);
+    if !state.sidebar.peek().is_expanded(group, &root, &path) {
+        state.toggle_directory_expansion(group, &root, &path);
     }
-    // Recompute visible items and move to first child
-    let next_cursor = {
-        let Some((root, expanded, show_all)) = extract_sidebar_data(state) else {
-            return;
-        };
-        let items = sidebar_cursor::visible_items(&root, &expanded, show_all);
-        items
-            .iter()
-            .position(|p| p == &path)
-            .and_then(|pos| items.get(pos + 1).cloned())
-    };
-    if let Some(next) = next_cursor {
-        state.sidebar_cursor.set(Some(next));
+    let items = tree_items(state);
+    let next = items
+        .iter()
+        .position(|item| item == &row)
+        .and_then(|at| items.get(at + 1).cloned());
+    if let Some(next) = next {
+        state.panel_cursor.set(Some(next));
         scroll_cursor_into_view();
     }
+}
+
+/// Which root of its own group the cursor's row descends from.
+fn root_of(state: &AppState, row: &crate::state::PanelRow) -> std::path::PathBuf {
+    let (group, path) = row;
+    let roots = extract_sidebar_data(state)
+        .map(|tree| tree.roots)
+        .unwrap_or_default();
+    roots
+        .into_iter()
+        .find(|(row_group, root)| row_group == group && path.starts_with(root))
+        .map(|(_, root)| root)
+        .unwrap_or_else(|| path.to_path_buf())
 }
 
 fn open_right_sidebar(state: &mut AppState) {
@@ -478,7 +506,7 @@ fn open_quick_access(state: &mut AppState) {
     if let Some((path, exists, is_dir)) = bookmark_info {
         if exists {
             if is_dir {
-                state.set_root_directory(&path);
+                state.add_root(&path);
             } else {
                 state.open_file(&path);
             }
@@ -490,25 +518,21 @@ fn dispatch_cursor_collapse(state: &mut AppState) {
     let panel = *state.focused_panel.read();
     match panel {
         FocusedPanel::LeftSidebar => {
-            let cursor = state.sidebar_cursor.read().clone();
-            if let Some(path) = cursor {
-                let is_expanded_dir =
-                    { path.is_dir() && state.sidebar.read().expanded_dirs.contains(&path) };
-                if is_expanded_dir {
-                    // Collapse this directory
-                    state.toggle_directory_expansion(&path);
-                } else {
-                    // Move cursor to parent directory in the visible list
-                    let parent =
-                        extract_sidebar_data(state).and_then(|(root, expanded, show_all)| {
-                            let items = sidebar_cursor::visible_items(&root, &expanded, show_all);
-                            sidebar_cursor::find_parent_dir(&path, &items)
-                        });
-                    if let Some(parent) = parent {
-                        state.sidebar_cursor.set(Some(parent));
-                        scroll_cursor_into_view();
-                    }
-                }
+            let Some(row) = state.panel_cursor.read().clone() else {
+                return;
+            };
+            let (group, path) = row.clone();
+            let root = root_of(state, &row);
+            if path.is_dir() && state.sidebar.peek().is_expanded(group, &root, &path) {
+                state.toggle_directory_expansion(group, &root, &path);
+                return;
+            }
+            // Out of a folder is up to the one holding it, where the list has
+            // one.
+            let items = tree_items(state);
+            if let Some(parent) = sidebar_cursor::find_parent_dir(&row, &items) {
+                state.panel_cursor.set(Some(parent));
+                scroll_cursor_into_view();
             }
         }
         // No-op for other panels
@@ -929,7 +953,7 @@ fn toggle_bookmark_on_cursor_or_current(state: &mut AppState) {
 
 fn get_bookmark_target_path(state: &AppState) -> Option<std::path::PathBuf> {
     match *state.focused_panel.read() {
-        FocusedPanel::LeftSidebar => state.sidebar_cursor.read().clone(),
+        FocusedPanel::LeftSidebar => state.panel_cursor.read().clone().map(|(_, path)| path),
         FocusedPanel::QuickAccess => {
             let cursor = *state.quick_access_cursor.read();
             cursor.and_then(|index| {
@@ -1142,7 +1166,7 @@ fn set_parent_of_current_file_as_root(state: &mut AppState) {
     let Some(parent) = file.parent() else {
         return;
     };
-    state.set_root_directory(parent.to_path_buf());
+    state.add_root(parent);
 }
 
 /// Open a second window on the same document, at the same place in it.
@@ -1158,7 +1182,7 @@ fn duplicate_window(state: &mut AppState) {
     let (directory, sidebar_pinned, sidebar_width, sidebar_show_all_files, sidebar_zoom_level) = {
         let sidebar = state.sidebar.read();
         (
-            sidebar.root_directory.clone(),
+            sidebar.primary_root().cloned(),
             sidebar.pinned,
             sidebar.width,
             sidebar.show_all_files,

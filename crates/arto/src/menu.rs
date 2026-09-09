@@ -1,4 +1,3 @@
-use dioxus::prelude::ReadableExt;
 use dioxus_desktop::muda::accelerator::Accelerator;
 use dioxus_desktop::muda::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use dioxus_desktop::window;
@@ -449,7 +448,6 @@ pub fn handle_menu_event_with_state(event: &MenuEvent, state: &mut AppState) -> 
     // effect (single source of truth). GoBack/GoForward are context-polymorphic:
     // the single "Back"/"Forward" item resolves to directory or document history
     // depending on the focused panel.
-    let is_left_sidebar = *state.focused_panel.read() == crate::state::FocusedPanel::LeftSidebar;
     let action = match id {
         MenuId::About => Action::AppAbout,
         MenuId::Preferences => Action::FilePreferences,
@@ -463,9 +461,7 @@ pub fn handle_menu_event_with_state(event: &MenuEvent, state: &mut AppState) -> 
         MenuId::ActualSize => Action::ZoomReset,
         MenuId::ZoomIn => Action::ZoomIn,
         MenuId::ZoomOut => Action::ZoomOut,
-        MenuId::GoBack if is_left_sidebar => Action::DirectoryBack,
         MenuId::GoBack => Action::HistoryBack,
-        MenuId::GoForward if is_left_sidebar => Action::DirectoryForward,
         MenuId::GoForward => Action::HistoryForward,
         MenuId::RevealInFinder => Action::FileRevealInFinder,
         MenuId::CopyFilePath => Action::CopyFilePath,

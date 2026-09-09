@@ -1,4 +1,9 @@
-/* Left Sidebar container */
+/* Left Sidebar container.
+
+   No border on either side. The panel's ground already differs from the
+   document's, so a line there would say a second time what the surface
+   says; the rail shares this same ground while the panel is out, so a line
+   there would draw a seam across one surface. */
 .left-sidebar {
   display: flex;
   flex-direction: column;
@@ -7,9 +12,10 @@
   min-width: 0;
   max-width: 70vw;
   background-color: var(--bg-secondary);
-  border-right: 1px solid var(--border-color);
   overflow: hidden;
-  transition: width var(--transition-slow) ease;
+  transition:
+    width var(--transition-slow) ease,
+    box-shadow var(--transition-quiet) ease;
   position: relative;
 }
 
@@ -21,19 +27,21 @@
   transition: none; /* Disable transition during resize */
 }
 
-/* Panel focus indicator — only visible during keyboard navigation */
+/* Which panel the keyboard is in — shown only while navigating by key. The
+   ring is the panel's own ink, not a colour: nothing in the chrome carries
+   accent, so a coloured frame here would be the only one in the window. */
 .keyboard-navigating .left-sidebar.panel-focused {
-  box-shadow:
-    inset 0 0 0 2px var(--bg-secondary),
-    inset 0 0 0 3px var(--accent-bg);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--text-color) 30%, transparent);
 }
 
-/* Inner wrapper with zoom applied */
+/* Inner wrapper with zoom applied. It is also what the rows measure
+   themselves against — see `.left-sidebar-row-when`. */
 .left-sidebar-inner {
   display: flex;
   flex-direction: column;
   width: 100%;
   height: 100%;
+  container: left-panel / inline-size;
 }
 
 /* Resize handle */
@@ -51,7 +59,7 @@
 
 .left-sidebar-resize-handle:hover,
 .left-sidebar-resize-handle.resizing {
-  background-color: var(--primary-color);
+  background-color: var(--accent-bg);
   opacity: var(--opacity-subtle);
 }
 
@@ -68,12 +76,23 @@
   border-radius: 1px;
 }
 
+/* Nothing inside a face gives up height to fit. A column of rows that runs
+   past the panel scrolls; letting the rows compress instead would flatten
+   the ones at the top exactly when there are most of them. */
+.left-sidebar-explorer > *,
+.left-sidebar-face > *,
+.left-sidebar-face-list > *,
+.left-sidebar-tree > *,
+.left-sidebar-starred-list > * {
+  flex: none;
+}
+
 /* File explorer container */
 .left-sidebar-explorer {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 8px;
+  padding: 4px 0 8px;
   user-select: none;
   display: flex;
   flex-direction: column;
@@ -89,219 +108,24 @@
   align-items: center;
   justify-content: center;
   height: 100%;
+  padding: 0 16px;
+  text-align: center;
   color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-/* ========================================
-   Left Sidebar Header Section
-   ======================================== */
-
-.left-sidebar-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0px;
-  margin: 0 0 8px 0;
-}
-
-/* History navigation buttons */
-.left-sidebar-header-history {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  opacity: var(--opacity-muted);
-  transition: opacity var(--transition-normal) ease;
-}
-
-.left-sidebar-header:hover .left-sidebar-header-history {
-  opacity: 1;
-}
-
-.left-sidebar-header-history-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 4px;
-  width: 24px;
-  height: 24px;
-  transition:
-    opacity var(--transition-normal) ease,
-    background-color var(--transition-fast) ease;
-}
-
-.left-sidebar-header-history-button:hover:not(:disabled) {
-  background-color: var(--hover-bg);
-}
-
-.left-sidebar-header-history-button:disabled,
-.left-sidebar-header-history-button.disabled {
-  opacity: var(--opacity-subtle);
-  cursor: default;
-}
-
-/* Header navigation (parent directory) */
-.left-sidebar-header-nav {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  opacity: var(--opacity-muted);
-  transition: opacity var(--transition-normal) ease;
-}
-
-.left-sidebar-header:hover .left-sidebar-header-nav {
-  opacity: 0.7;
-
-  &:hover {
-    opacity: 1;
-  }
-}
-
-.left-sidebar-header-content {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
-  overflow: hidden;
-  transition: opacity var(--transition-normal) ease;
-}
-
-.left-sidebar-header-icon {
-  flex-shrink: 0;
-  color: var(--text-secondary);
-}
-
-.left-sidebar-header-label {
-  flex: 0 1 auto;
-  min-width: 0;
-  font-size: 0.9rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text-color);
-}
-
-/* Header action buttons (copy & reload) */
-.left-sidebar-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity var(--transition-normal) ease;
-}
-
-.left-sidebar-header:hover .left-sidebar-header-actions {
-  opacity: 1;
-}
-
-.left-sidebar-action-button {
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3px;
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  opacity: var(--opacity-muted);
-  transition:
-    opacity var(--transition-normal),
-    color var(--transition-normal),
-    background-color var(--transition-fast) ease;
-}
-
-.left-sidebar-action-button:hover {
-  background-color: var(--hover-bg);
-  opacity: 1;
-}
-
-/* Copy button success state */
-.left-sidebar-action-button.copy-button.copied {
-  opacity: 1;
-  color: var(--copy-button-success-fg);
-}
-
-/* Reload button animation */
-.left-sidebar-action-button.reload-button.reloading {
-  opacity: 1;
-}
-
-.left-sidebar-action-button.reload-button.reloading .icon {
-  animation: spin 0.6s ease-in-out;
-}
-
-/* Header toolbar */
-.left-sidebar-header-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  margin-left: auto;
-}
-
-.left-sidebar-header-toolbar-button {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-color);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  transition: all var(--transition-normal);
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-}
-
-.left-sidebar-header-toolbar-button:hover {
-  border-color: var(--border-color);
-  background: var(--bg-color);
-}
-
-.left-sidebar-header-toolbar-button:focus-visible {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
-}
-
-.left-sidebar-header-toolbar-button .icon {
-  color: var(--text-secondary);
-  opacity: 0.7;
-}
-
-.left-sidebar-header-toolbar-button:hover .icon {
-  opacity: 1;
+  font-size: var(--font-size-md);
+  opacity: var(--opacity-secondary);
 }
 
 /* ========================================
    Left Sidebar Tree Section
    ======================================== */
 
+/* One root's contents. It is exactly as tall as its rows: the panel is the
+   one thing that scrolls, and a subtree that claimed the leftover height
+   would open a hole between itself and whatever is listed below it. */
 .left-sidebar-tree {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0; /* Allow shrinking in flex container */
-  overflow: hidden auto;
-}
-
-/* Webkit (Chrome, Safari, Edge) */
-.left-sidebar-tree::-webkit-scrollbar {
-  width: 2px;
-  height: 2px;
+  flex: none;
 }
 
 /* Tree node */
@@ -310,10 +134,11 @@
 }
 
 .left-sidebar-tree-node-content {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 4px 12px;
   height: 26px;
   box-sizing: border-box;
   cursor: pointer;
@@ -323,16 +148,32 @@
   opacity: var(--opacity-muted);
   transition:
     background-color var(--transition-fast) ease,
+    box-shadow var(--transition-quiet) ease,
     opacity var(--transition-normal) ease;
 }
 
+/* One step of nesting is one step of indent, and the first step is the one
+   that puts a root's contents inside the root. A row carries its depth
+   (`--tree-depth`) rather than a finished padding, so the step is one number
+   in one place — and the faces whose rows are a flat list (Recent, Starred)
+   borrow this row without borrowing the indent. */
+.left-sidebar-tree .left-sidebar-tree-node-content {
+  padding-left: calc(24px + var(--tree-depth, 0) * 12px);
+}
+
 .left-sidebar-tree-node-content:hover {
-  background-color: var(--hover-bg);
+  background-color: var(--bg-row-hover);
   opacity: 1;
 }
 
-.left-sidebar-tree-node.active > .left-sidebar-tree-node-content {
-  opacity: var(--opacity-hover);
+/* The document being read, in whichever face is listing it. With no colour
+   and no border left in the panel, the row that is current says so with two
+   steps of its own ground and a heavier name — one step is the pointer's. */
+.left-sidebar-tree-node.active > .left-sidebar-tree-node-content,
+.left-sidebar-tree-node-content.active {
+  background-color: var(--bg-row-active);
+  opacity: 1;
+  font-weight: 500;
 }
 
 /* Tree icons */
@@ -378,10 +219,26 @@
   flex-shrink: 0;
 }
 
-/* Tree label */
+/* When a listed document was last read. It qualifies the row rather than being
+   it, so it is the first thing to go when the panel is narrowed (see the
+   container query at the end of this file). */
+.left-sidebar-row-when {
+  flex: none;
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tree label. A row in the panel is a pointer to the document, not the
+   document, so it sits a step below the reading text — one step, not three:
+   a column of names nobody can read is not quiet, it is just small. */
 .left-sidebar-tree-label {
   flex: 1;
-  font-size: 0.9rem;
+  font-size: var(--font-size-base);
   line-height: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -393,99 +250,90 @@
   opacity: var(--opacity-secondary);
 }
 
-/* Tree action buttons - only visible on hover */
-.left-sidebar-tree-copy-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 2px 4px;
-  margin-left: auto;
-  opacity: 0;
-  transition:
-    opacity var(--transition-fast) ease,
-    background-color var(--transition-fast) ease;
-  flex-shrink: 0;
-}
-
-.left-sidebar-tree-node-content:hover .left-sidebar-tree-copy-button {
-  opacity: var(--opacity-secondary);
-}
-
-.left-sidebar-tree-copy-button:hover {
-  opacity: 1 !important;
-  background-color: var(--hover-bg);
-}
-
-.left-sidebar-tree-copy-button.copied {
-  opacity: 1 !important;
-  color: var(--copy-button-success-fg);
-}
-
 /* ========================================
    Left Sidebar Keyboard Cursor Highlight
    ======================================== */
 
-.left-sidebar-tree-node.keyboard-focused > .left-sidebar-tree-node-content {
-  background-color: color-mix(in srgb, var(--accent-bg) 12%, transparent);
+/* Where the keyboard is, as opposed to what is being read: a bar at the row's
+   edge, the same mark the rail uses for the face it is on.
+
+   The bar alone, with no ground of its own. The row that is current says so
+   with its ground, and a cursor that also filled the row said the same thing
+   in the same way — so a cursor resting anywhere read as the open document,
+   and the open document lost its mark the moment the cursor arrived on it.
+   One state per device: ground means "this is what is on screen", the bar
+   means "this is where the keys will land", and a row that is both wears
+   both. */
+.left-sidebar-tree-node.keyboard-focused > .left-sidebar-tree-node-content,
+.left-sidebar-tree-node-content.keyboard-focused {
   opacity: 1;
+  box-shadow: inset 2px 0 0 color-mix(in srgb, currentcolor 55%, transparent);
+  /* The bar is a straight edge, so the corner it is drawn on is square: on a
+     rounded one it bends away from the text and reads as a smudge rather than
+     as a mark. */
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
-/* ========================================
-   Left Sidebar Bookmark Button Context Styles
-   ======================================== */
-
-/* Sidebar tree bookmark button - smaller, matches copy button */
-.left-sidebar-tree-node-content .bookmark-button {
-  padding: 2px 4px;
-  width: auto;
-  height: auto;
-  margin-left: auto;
-  opacity: 0;
-}
-
-.left-sidebar-tree-node-content:hover .bookmark-button {
-  opacity: var(--opacity-secondary);
-}
-
-.left-sidebar-tree-node-content .bookmark-button:hover {
-  opacity: 1 !important;
-}
-
-.left-sidebar-tree-node-content .bookmark-button.bookmarked {
-  opacity: var(--opacity-hover);
-  color: var(--accent-bg);
-}
-
-/* Sidebar header bookmark button - independent of actions container */
-.left-sidebar-header-content > .bookmark-button {
-  padding: 2px 4px;
-  width: auto;
-  height: auto;
-  opacity: 0;
-}
-
-.left-sidebar-header-content:hover > .bookmark-button {
-  opacity: var(--opacity-secondary);
-}
-
-.left-sidebar-header-content > .bookmark-button:hover {
-  opacity: 1 !important;
-}
-
-.left-sidebar-header-content > .bookmark-button.bookmarked {
-  opacity: var(--opacity-hover);
-  color: var(--accent-bg);
-}
-
-/* Overlay mode: full height + drop shadow for depth */
+/* Overlay mode: full height, and a shadow that says the panel is floating
+   above the document. It falls to the right only — to the left is the rail,
+   which shares the panel's ground, and a shadow there would read as the
+   boundary the ground exists to avoid. The popover token cannot be used
+   here: it carries a 1px ring, and something already floating needs no
+   outline. */
 .sidebar-overlay-wrapper .left-sidebar {
   height: 100%;
-  box-shadow: var(--shadow-lg);
   min-width: 0; /* Override base min-width so configured inline width works in overlay */
+  transition:
+    transform var(--transition-normal) ease,
+    box-shadow var(--transition-normal) ease;
+}
+
+/* Only while it is out. A panel waiting off-screen has its right edge exactly
+   where the rail's is, so a shadow it kept would sit on the rail for as long
+   as the panel was away — a permanent seam cast by something not there. */
+.sidebar-overlay-wrapper.visible .left-sidebar {
+  box-shadow: var(--shadow-peek);
+}
+
+/* The panel is resized by hand, so what a row can afford is a question about
+   the panel and not about the window. Below this width the row is the name
+   alone: a clock in a column too narrow for the name it qualifies is two
+   things illegible instead of one thing readable. */
+@container left-panel (width < 210px) {
+  .left-sidebar-row-when {
+    display: none;
+  }
+}
+
+/* Where a dragged row would land: a line drawn in the panel's own ink, for the
+   moment of the drag only. It is a rule of its own rather than an inset shadow,
+   which would take the row's rounded corners with it and curve at both ends —
+   a line that says "between these two rows" has to be straight.
+   Above or below according to which way the row is travelling, so the last
+   position is reachable and the line does not jump as a row is crossed. */
+.left-sidebar-drop-before::before,
+.left-sidebar-drop-after::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  border-radius: 1px;
+  background: color-mix(in srgb, currentcolor 55%, transparent);
+}
+
+.left-sidebar-drop-before::before {
+  top: -1px;
+}
+
+.left-sidebar-drop-after::after {
+  bottom: -1px;
+}
+
+/* The row that is in the air. */
+.left-sidebar-starred-row.dragging,
+.left-sidebar-root.dragging {
+  opacity: 0.4;
+  background-color: var(--bg-row-hover);
 }

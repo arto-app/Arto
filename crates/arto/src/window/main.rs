@@ -314,14 +314,18 @@ fn build_window_dom_and_config(
     document: Document,
     mut params: CreateMainWindowConfigParams,
 ) -> (VirtualDom, Config) {
-    let directory = resolve_directory(params.directory.take(), &document);
+    // One temporary root: the folder the window is working in, if the caller
+    // named one or the document names one by sitting in it.
+    let temps: Vec<_> = resolve_directory(params.directory.take(), &document)
+        .into_iter()
+        .collect();
     let shifted_position = compute_shifted_position(&params);
 
     let dom = VirtualDom::new_with_props(
         App,
         AppProps {
             document,
-            directory,
+            temps,
             theme: params.theme,
             content_full_width: params.content_full_width,
             sidebar_pinned: params.sidebar_pinned,

@@ -90,7 +90,6 @@ mod tests {
         // Directory defaults
         assert_eq!(config.directory.default_directory, None);
         assert_eq!(config.directory.on_startup, StartupBehavior::Default);
-        assert_eq!(config.directory.on_new_window, NewWindowBehavior::Default);
 
         // Markdown defaults
         assert!(config.markdown.auto_link_urls); // Default is true
@@ -177,7 +176,6 @@ mod tests {
             directory: DirectoryConfig {
                 default_directory: Some(PathBuf::from("/home/user")),
                 on_startup: StartupBehavior::Default,
-                on_new_window: NewWindowBehavior::Default,
             },
             sidebar: SidebarConfig {
                 default_pinned: false,

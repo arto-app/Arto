@@ -272,7 +272,7 @@ fn apply_open_request_to_state(
     request: &OpenRequest,
 ) {
     if let Some(directory) = request.directory.as_ref() {
-        state.set_root_directory(directory.clone());
+        state.add_root(directory);
     }
     let mut files = request.files.iter();
     if let Some(first) = files.next() {

@@ -220,28 +220,6 @@
   line-height: 1.5;
 }
 
-/* Directory Input */
-.directory-input {
-  display: flex;
-  gap: 12px;
-}
-
-.directory-input input {
-  flex: 1;
-  min-width: 0;
-  padding: 10px 14px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-secondary);
-  color: var(--text-color);
-  font-size: var(--font-size-base);
-  font-family: inherit;
-}
-
-.directory-input input::placeholder {
-  color: var(--text-secondary);
-}
-
 /* Dimension Inputs */
 .dimension-grid {
   display: grid;
@@ -333,29 +311,6 @@
   color: var(--text-secondary);
   font-size: var(--font-size-md);
   font-weight: 500;
-}
-
-/* Icon button (for browse, etc.) */
-.directory-input .icon-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-color);
-  color: var(--text-secondary);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all var(--transition-fast) ease;
-}
-
-.directory-input .icon-button:hover {
-  background: var(--hover-bg);
-  border-color: var(--hover-border);
-  color: var(--text-color);
 }
 
 /* Option Cards (for radio button groups) */
@@ -537,37 +492,6 @@
 
 .option-card--icon.selected .option-card-title {
   color: var(--accent-bg);
-}
-
-/* Footer */
-.preferences-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 18px 24px;
-  border-top: 1px solid var(--border-color);
-  background: var(--header-bg);
-}
-
-.preferences-footer button {
-  padding: 10px 20px;
-  border-radius: var(--radius-lg);
-  font-size: var(--font-size-base);
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all var(--transition-fast) ease;
-}
-
-.cancel-button {
-  border: 1px solid var(--border-color);
-  background: var(--bg-color);
-  color: var(--text-color);
-}
-
-.cancel-button:hover {
-  background: var(--hover-bg);
-  border-color: var(--hover-border);
 }
 
 .save-button {

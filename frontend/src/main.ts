@@ -1,5 +1,6 @@
 import "../style/main.css";
 
+import { setupRowHover } from "./row-hover";
 import { type Theme, currentTheme, isDarkTheme, themedElement } from "./theme";
 import * as mermaidRenderer from "./mermaid-renderer";
 import { renderCoordinator } from "./render-coordinator";
@@ -205,6 +206,10 @@ function restorePrint(): void {
 export function init(): void {
   mermaidRenderer.init();
   renderCoordinator.init();
+
+  // The full name of a row the panel had to cut, floating clear of the box
+  // that scrolls it.
+  setupRowHover();
 
   // A page with no `.content` is one `arto page` wrote: a whole document,
   // which its reader can print with the browser's own command. Nothing can

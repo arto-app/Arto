@@ -11,7 +11,14 @@ impl AppState {
     /// nothing: the window would otherwise gain a history entry for standing
     /// still.
     pub fn open_file(&mut self, file: impl AsRef<Path>) {
-        let file = file.as_ref();
+        // Folded here rather than at each store's own door, so that the
+        // window and the lists beside it are all talking about the same
+        // document. A path typed or dropped in the wrong case opens the right
+        // file on a case-insensitive disk, and every list that asks "is this
+        // the one on screen?" compares strings.
+        let file = crate::utils::paths::true_spelling(file.as_ref());
+        let file = file.as_path();
+        self.reveal_in_roots(file);
         if self.current_file().as_deref() != Some(file) {
             self.update_document(|document| document.navigate_to(file));
         }
@@ -25,6 +32,7 @@ impl AppState {
     /// the history rather than here.
     pub fn navigate_to_file(&mut self, file: impl Into<PathBuf>) {
         let file = file.into();
+        self.reveal_in_roots(&file);
         self.update_document(|document| document.navigate_to(file));
     }
 
@@ -40,7 +48,7 @@ impl AppState {
             (
                 sidebar.width,
                 sidebar.zoom_level,
-                sidebar.root_directory.clone(),
+                sidebar.primary_root().cloned(),
             )
         };
         let (right_sidebar_width, right_sidebar_zoom_level) = {

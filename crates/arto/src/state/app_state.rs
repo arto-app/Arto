@@ -1,7 +1,6 @@
 use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
 use dioxus::prelude::*;
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 use crate::components::sidebar::context_menu::SidebarContextMenuData;
 use crate::config::{normalize_content_zoom, DEFAULT_ZOOM_LEVEL, ZOOM_STEP};
@@ -19,7 +18,7 @@ pub(crate) mod sidebar_cursor;
 pub use document::{Document, DocumentContent};
 pub use focused_panel::*;
 pub use right_sidebar::RightSidebar;
-pub use sidebar::Sidebar;
+pub use sidebar::{Group, PanelRow, Sidebar, TreeRow};
 
 /// Information about a single search match for display in the Search tab.
 #[derive(Debug, Clone, PartialEq)]
@@ -101,8 +100,8 @@ pub struct AppState {
     pub reload_trigger: Signal<usize>,
     /// Which panel currently has keyboard focus (for context-aware keybindings).
     pub focused_panel: Signal<FocusedPanel>,
-    /// Keyboard cursor position in the left sidebar file tree.
-    pub sidebar_cursor: Signal<Option<PathBuf>>,
+    /// Which row of the panel the keyboard is on — see [`PanelRow`].
+    pub panel_cursor: Signal<Option<PanelRow>>,
     /// Keyboard cursor position in the right sidebar TOC (index into headings list).
     pub toc_cursor: Signal<Option<usize>>,
     /// Keyboard cursor position in the Quick Access list (index into bookmarks).
@@ -154,7 +153,7 @@ impl AppState {
             current_scroll_anchor: Signal::new(ScrollAnchor::TOP),
             reload_trigger: Signal::new(0),
             focused_panel: Signal::new(FocusedPanel::Content),
-            sidebar_cursor: Signal::new(None),
+            panel_cursor: Signal::new(None),
             toc_cursor: Signal::new(None),
             quick_access_cursor: Signal::new(None),
             left_hover_active: Signal::new(false),
@@ -172,50 +171,15 @@ impl Default for AppState {
 }
 
 impl AppState {
-    /// Set the root directory and add to history
-    /// Note: The directory is persisted to state file when window closes
-    pub fn set_root_directory(&mut self, path: impl Into<PathBuf>) {
-        let path = path.into();
-        let mut sidebar = self.sidebar.write();
-        sidebar.root_directory = Some(path.clone());
-        sidebar.expanded_dirs.clear();
-        sidebar.push_to_history(path);
-    }
-
-    /// Set the root directory without adding to history (used for history navigation)
-    fn set_root_directory_no_history(&mut self, path: PathBuf) {
-        let mut sidebar = self.sidebar.write();
-        sidebar.root_directory = Some(path);
-        sidebar.expanded_dirs.clear();
-    }
-
-    /// Go back in directory history
-    pub fn go_back_directory(&mut self) {
-        let path = self.sidebar.write().go_back();
-        if let Some(path) = path {
-            self.set_root_directory_no_history(path);
-        }
-    }
-
-    /// Go forward in directory history
-    pub fn go_forward_directory(&mut self) {
-        let path = self.sidebar.write().go_forward();
-        if let Some(path) = path {
-            self.set_root_directory_no_history(path);
-        }
-    }
-
-    /// Navigate to parent directory
+    /// Move the window to the folder above the one it is in.
     pub fn go_to_parent_directory(&mut self) {
-        let parent = {
-            let sidebar = self.sidebar.read();
-            sidebar
-                .root_directory
-                .as_ref()
-                .and_then(|d| d.parent().map(|p| p.to_path_buf()))
-        };
+        let parent = self
+            .sidebar
+            .read()
+            .primary_root()
+            .and_then(|root| root.parent().map(|parent| parent.to_path_buf()));
         if let Some(parent) = parent {
-            self.set_root_directory(parent);
+            self.add_root(parent);
         }
     }
 
