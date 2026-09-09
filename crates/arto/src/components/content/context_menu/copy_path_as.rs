@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 use std::path::PathBuf;
 
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
+use crate::components::icon::IconName;
 
 /// "Copy Path As..." submenu: Path / Path with Line / Path with Range
 #[component]
@@ -18,9 +19,11 @@ pub(super) fn CopyPathAsSubmenu(
     rsx! {
         ContextMenuSubmenu {
             label: "Copy Path As...",
+            icon: Some(IconName::Copy),
 
             ContextMenuItem {
                 label: "Path",
+                icon: Some(IconName::File),
                 on_click: {
                     let path_str = path_str.clone();
                     move |_| {
@@ -34,6 +37,7 @@ pub(super) fn CopyPathAsSubmenu(
             if let Some(line) = source_line {
                 ContextMenuItem {
                     label: format!("Path with Line ({line})"),
+                    icon: Some(IconName::File),
                     on_click: {
                         let value = format!("{path_str}:{line}");
                         move |_| {
@@ -49,6 +53,7 @@ pub(super) fn CopyPathAsSubmenu(
                 if let (Some(start), Some(end)) = (source_line, source_line_end) {
                     ContextMenuItem {
                         label: format!("Path with Range ({start}-{end})"),
+                        icon: Some(IconName::File),
                         on_click: {
                             let value = format!("{path_str}:{start}-{end}");
                             move |_| {

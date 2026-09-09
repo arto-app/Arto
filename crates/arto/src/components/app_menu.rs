@@ -49,12 +49,12 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
             ContextMenuSeparator {}
 
             // === File ===
-            ContextMenuSubmenu { label: "File",
-                ContextMenuItem { label: "New Window", shortcut: shortcut("window.new"), on_click: move |_| {
+            ContextMenuSubmenu { label: "File", icon: Some(IconName::File),
+                ContextMenuItem { label: "New Window", shortcut: shortcut("window.new"), icon: Some(IconName::AppWindow), on_click: move |_| {
                     crate::window::create_main_window_sync(&dioxus::desktop::window(), crate::state::Document::default(), crate::window::CreateMainWindowConfigParams::default());
                     close();
                 } }
-                ContextMenuItem { label: "Duplicate Window", shortcut: shortcut("window.duplicate"), on_click: move |_| {
+                ContextMenuItem { label: "Duplicate Window", shortcut: shortcut("window.duplicate"), icon: Some(IconName::CopyPlus), on_click: move |_| {
                     crate::keybindings::dispatcher::dispatch_action(&crate::keybindings::Action::WindowDuplicate, state);
                     close();
                 } }
@@ -89,14 +89,14 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
                     dioxus::desktop::window().close();
                 } }
                 ContextMenuSeparator {}
-                ContextMenuItem { label: "Print...", shortcut: shortcut("file.print"), on_click: { let f = current_file.clone(); move |_| {
+                ContextMenuItem { label: "Print...", shortcut: shortcut("file.print"), icon: Some(IconName::Printer), on_click: { let f = current_file.clone(); move |_| {
                     close();
                     crate::utils::print::print_window(f.clone());
                 } } }
             }
 
             // === Edit ===
-            ContextMenuSubmenu { label: "Edit",
+            ContextMenuSubmenu { label: "Edit", icon: Some(IconName::Edit),
                 ContextMenuItem { label: "Find...", shortcut: shortcut("search.open"), icon: Some(IconName::Search), on_click: move |_| {
                     state.open_search_with_text(None);
                     close();
@@ -112,21 +112,21 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
             }
 
             // === View ===
-            ContextMenuSubmenu { label: "View",
+            ContextMenuSubmenu { label: "View", icon: Some(IconName::Eye),
                 ContextMenuItem { label: "Toggle Left Sidebar", shortcut: shortcut("window.toggle_sidebar"), icon: Some(IconName::Sidebar), on_click: move |_| {
                     state.toggle_sidebar();
                     close();
                 } }
                 ContextMenuSeparator {}
-                ContextMenuItem { label: "Actual Size", shortcut: shortcut("zoom.reset"), on_click: move |_| {
+                ContextMenuItem { label: "Actual Size", shortcut: shortcut("zoom.reset"), icon: Some(IconName::ZoomReset), on_click: move |_| {
                     state.zoom_reset();
                     close();
                 } }
-                ContextMenuItem { label: "Zoom In", shortcut: shortcut("zoom.in"), on_click: move |_| {
+                ContextMenuItem { label: "Zoom In", shortcut: shortcut("zoom.in"), icon: Some(IconName::ZoomIn), on_click: move |_| {
                     state.zoom_in();
                     close();
                 } }
-                ContextMenuItem { label: "Zoom Out", shortcut: shortcut("zoom.out"), on_click: move |_| {
+                ContextMenuItem { label: "Zoom Out", shortcut: shortcut("zoom.out"), icon: Some(IconName::ZoomOut), on_click: move |_| {
                     state.zoom_out();
                     close();
                 } }
@@ -138,7 +138,7 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
             // an item that cannot act reads as the feature being broken
             // rather than as the reader being at the start.
             if can_go_back || can_go_forward {
-                ContextMenuSubmenu { label: "History",
+                ContextMenuSubmenu { label: "History", icon: Some(IconName::History),
                     if can_go_back {
                         ContextMenuItem { label: "Go Back", shortcut: shortcut("history.back"), icon: Some(IconName::ChevronLeft), on_click: move |_| {
                             state.save_scroll_and_go_back();
@@ -155,7 +155,7 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
             }
 
             // === Window ===
-            ContextMenuSubmenu { label: "Window",
+            ContextMenuSubmenu { label: "Window", icon: Some(IconName::AppWindow),
                 ContextMenuItem { label: "Close All Child Windows", shortcut: shortcut("window.close_all_child_windows"), icon: Some(IconName::Close), on_click: move |_| {
                     crate::window::close_child_windows_for_last_focused();
                     close();
@@ -167,7 +167,7 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
             }
 
             // === Help ===
-            ContextMenuSubmenu { label: "Help",
+            ContextMenuSubmenu { label: "Help", icon: Some(IconName::HelpCircle),
                 ContextMenuItem { label: "Go to Homepage", shortcut: shortcut("app.go_to_homepage"), icon: Some(IconName::ExternalLink), on_click: move |_| {
                     let _ = open::that("https://github.com/arto-app/Arto");
                     close();
@@ -177,7 +177,7 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
             ContextMenuSeparator {}
 
             // === Quit ===
-            ContextMenuItem { label: "Quit", on_click: move |_| {
+            ContextMenuItem { label: "Quit", icon: Some(IconName::Power), on_click: move |_| {
                 crate::window::shutdown_all_windows();
             } }
         }

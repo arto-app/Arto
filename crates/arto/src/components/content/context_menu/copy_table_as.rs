@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use super::source_ops::build_path_with_range;
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
+use crate::components::icon::IconName;
 
 /// "Copy Table As..." submenu: TSV / CSV / Markdown / Path with Range
 #[component]
@@ -24,10 +25,12 @@ pub(super) fn CopyTableAsSubmenu(
     rsx! {
         ContextMenuSubmenu {
             label: "Copy Table As...",
+            icon: Some(IconName::Table),
 
             if let Some(tsv) = table_tsv {
                 ContextMenuItem {
                     label: "TSV",
+                    icon: Some(IconName::Table),
                     on_click: {
                         move |_| {
                             crate::utils::clipboard::copy_text(&tsv);
@@ -41,6 +44,7 @@ pub(super) fn CopyTableAsSubmenu(
             if let Some(csv) = table_csv {
                 ContextMenuItem {
                     label: "CSV",
+                    icon: Some(IconName::Table),
                     on_click: {
                         move |_| {
                             crate::utils::clipboard::copy_text(&csv);
@@ -54,6 +58,7 @@ pub(super) fn CopyTableAsSubmenu(
             if let Some(markdown) = table_markdown {
                 ContextMenuItem {
                     label: "Markdown",
+                    icon: Some(IconName::Markdown),
                     on_click: {
                         move |_| {
                             crate::utils::clipboard::copy_text(&markdown);

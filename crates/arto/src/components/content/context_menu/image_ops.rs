@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
+use crate::components::icon::IconName;
 use crate::keybindings::{shortcut_hint_for_context_action, KeyContext};
 use crate::utils::task::spawn_detached;
 
@@ -16,9 +17,11 @@ pub(super) fn CopyImageAsSubmenu(
     rsx! {
         ContextMenuSubmenu {
             label: "Copy Image As...",
+            icon: Some(IconName::Photo),
 
             ContextMenuItem {
                 label: "Image",
+                icon: Some(IconName::Photo),
                 on_click: {
                     let src = src.clone();
                     move |_| {
@@ -33,6 +36,7 @@ pub(super) fn CopyImageAsSubmenu(
 
             ContextMenuItem {
                 label: "Image with Background",
+                icon: Some(IconName::Photo),
                 shortcut: shortcut("clipboard.copy_image_with_background"),
                 on_click: {
                     let src = src.clone();
@@ -48,6 +52,7 @@ pub(super) fn CopyImageAsSubmenu(
 
             ContextMenuItem {
                 label: "Markdown",
+                icon: Some(IconName::Markdown),
                 on_click: {
                     let alt_text = alt.as_deref().unwrap_or("").to_string();
                     let src = src.clone();
@@ -63,6 +68,7 @@ pub(super) fn CopyImageAsSubmenu(
 
             ContextMenuItem {
                 label: "Path",
+                icon: Some(IconName::File),
                 shortcut: shortcut("clipboard.copy_image_path"),
                 on_click: {
                     let src = src.clone();
@@ -86,9 +92,11 @@ pub(super) fn CopySpecialBlockAsSubmenu(is_mermaid: bool, on_close: EventHandler
     rsx! {
         ContextMenuSubmenu {
             label: "Copy Image As...",
+            icon: Some(IconName::Photo),
 
             ContextMenuItem {
                 label: "Image",
+                icon: Some(IconName::Photo),
                 on_click: {
                     move |_| {
                         super::copy_special_block_image(is_mermaid, false);
@@ -99,6 +107,7 @@ pub(super) fn CopySpecialBlockAsSubmenu(is_mermaid: bool, on_close: EventHandler
 
             ContextMenuItem {
                 label: "Image with Background",
+                icon: Some(IconName::Photo),
                 shortcut: shortcut("clipboard.copy_image_with_background"),
                 on_click: {
                     move |_| {
