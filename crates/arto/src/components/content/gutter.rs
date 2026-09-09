@@ -6,6 +6,7 @@ use crate::components::pinned_marks::PinnedMarks;
 use crate::document_link::scroll_to_heading_js;
 use crate::markdown::HeadingInfo;
 use crate::pinned_search::{PinnedSearch, PINNED_SEARCHES, PINNED_SEARCHES_CHANGED};
+use crate::state::AppState;
 
 /// The contents, as a column of ticks beside the document — and the names
 /// those ticks stand for, for as long as the pointer is in the column.
@@ -30,8 +31,20 @@ use crate::pinned_search::{PinnedSearch, PINNED_SEARCHES, PINNED_SEARCHES_CHANGE
 /// mark and the way to change it in two places, and the way to change it in a
 /// bar that closes.
 ///
+/// Asked for by name (`contents.toggle`), the same list is held open instead
+/// of following the pointer, and the keyboard walks it. It is one list either
+/// way: a second panel drawn somewhere else would be a second thing to learn
+/// for the same headings — and at a width that has folded the ruler away, the
+/// list asked for by name is the only way to them, so it is drawn without the
+/// ruler beside it.
 #[component]
-pub fn ContentsGutter(headings: Vec<HeadingInfo>) -> Element {
+pub fn ContentsGutter(
+    headings: Vec<HeadingInfo>,
+    /// Whether the ruler is drawn beside the document. A narrow window folds
+    /// it away; the list can still be asked for.
+    ruler: bool,
+) -> Element {
+    let state = use_context::<AppState>();
     let mut pinned = use_signal(|| PINNED_SEARCHES.read().pinned_searches.clone());
 
     use_future(move || async move {
@@ -42,19 +55,23 @@ pub fn ContentsGutter(headings: Vec<HeadingInfo>) -> Element {
     });
 
     let marks = pinned.read().clone();
+    let open = *state.contents_open.read();
     // Nothing to rest on, and nothing to open: with neither a heading nor a
-    // mark there is no map to draw.
-    if headings.is_empty() && marks.is_empty() {
+    // mark there is no map to draw. Asked for by name it still answers, so
+    // that the key does something rather than nothing.
+    if headings.is_empty() && marks.is_empty() && !open {
         return rsx! {};
     }
 
     rsx! {
-        Ruler { headings: headings.clone() }
+        if ruler {
+            Ruler { headings: headings.clone() }
+        }
 
         // A sibling of the ruler, and after it: resting in the column is what
         // brings this out, and that is said in CSS as
         // `.contents-gutter:hover ~ .contents-toc`.
-        Names { headings, marks }
+        Names { headings, marks, open }
     }
 }
 
@@ -106,10 +123,17 @@ fn Ruler(headings: Vec<HeadingInfo>) -> Element {
 
 /// What the ticks stand for: the marks a search pinned, then the headings.
 #[component]
-fn Names(headings: Vec<HeadingInfo>, marks: Vec<PinnedSearch>) -> Element {
+fn Names(headings: Vec<HeadingInfo>, marks: Vec<PinnedSearch>, open: bool) -> Element {
+    let mut state = use_context::<AppState>();
+    let cursor = *state.contents_cursor.read();
     let nothing_pinned = marks.is_empty();
 
-    let go_to = move |id: String| {
+    // Picking a place is the end of a list held open. One that came out under
+    // the pointer goes when the pointer does, so it has nothing to close.
+    let mut go_to = move |id: String| {
+        if open {
+            state.close_contents();
+        }
         spawn(async move {
             let _ = document::eval(&scroll_to_heading_js(&id)).await;
         });
@@ -118,6 +142,7 @@ fn Names(headings: Vec<HeadingInfo>, marks: Vec<PinnedSearch>) -> Element {
     rsx! {
         nav {
             class: "contents-toc",
+            class: if open { "open" },
             "aria-label": "Contents",
 
             PinnedMarks { pinned_searches: marks }
@@ -130,13 +155,17 @@ fn Names(headings: Vec<HeadingInfo>, marks: Vec<PinnedSearch>) -> Element {
                 div { class: "contents-toc-empty", "No headings" }
             }
 
-            for heading in headings.iter().cloned() {
+            for (at, heading) in headings.iter().cloned().enumerate() {
                 {
                     let id = heading.id.clone();
                     rsx! {
                         button {
                             key: "{heading.id}",
                             class: "contents-toc-row",
+                            // Where the keys are, as opposed to where the
+                            // reader is: the row marked `data-current` is the
+                            // one being read, and the two are read together.
+                            class: if cursor == Some(at) { "keyboard-focused" },
                             "data-level": "{heading.level}",
                             "data-heading": "{heading.id}",
                             onclick: move |_| go_to(id.clone()),

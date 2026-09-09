@@ -108,45 +108,16 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
                 config,
                 has_changes,
             }
-            BindingSection {
-                title: "Content",
-                scope: BindingScope::Engine(Some(KeyContext::Content)),
-                bindings: keybindings.content.clone(),
-                filter_query: filter_text(),
-                config,
-                has_changes,
-            }
-            BindingSection {
-                title: "Sidebar",
-                scope: BindingScope::Engine(Some(KeyContext::Sidebar)),
-                bindings: keybindings.sidebar.clone(),
-                filter_query: filter_text(),
-                config,
-                has_changes,
-            }
-            BindingSection {
-                title: "Quick Access",
-                scope: BindingScope::Engine(Some(KeyContext::QuickAccess)),
-                bindings: keybindings.quick_access.clone(),
-                filter_query: filter_text(),
-                config,
-                has_changes,
-            }
-            BindingSection {
-                title: "Palette",
-                scope: BindingScope::Engine(Some(KeyContext::Palette)),
-                bindings: keybindings.palette.clone(),
-                filter_query: filter_text(),
-                config,
-                has_changes,
-            }
-            BindingSection {
-                title: "Search",
-                scope: BindingScope::Engine(Some(KeyContext::Search)),
-                bindings: keybindings.search.clone(),
-                filter_query: filter_text(),
-                config,
-                has_changes,
+            for context in KeyContext::ALL {
+                BindingSection {
+                    key: "{context}",
+                    title: context.label(),
+                    scope: BindingScope::Engine(Some(context)),
+                    bindings: keybindings.of(context).clone(),
+                    filter_query: filter_text(),
+                    config,
+                    has_changes,
+                }
             }
         }
     }
@@ -787,11 +758,7 @@ fn bindings_mut(set: &mut crate::config::BindingSet, scope: BindingScope) -> &mu
     match scope {
         BindingScope::Menu => &mut set.menu_shortcuts,
         BindingScope::Engine(None) => &mut set.global,
-        BindingScope::Engine(Some(KeyContext::Content)) => &mut set.content,
-        BindingScope::Engine(Some(KeyContext::Sidebar)) => &mut set.sidebar,
-        BindingScope::Engine(Some(KeyContext::QuickAccess)) => &mut set.quick_access,
-        BindingScope::Engine(Some(KeyContext::Search)) => &mut set.search,
-        BindingScope::Engine(Some(KeyContext::Palette)) => &mut set.palette,
+        BindingScope::Engine(Some(context)) => set.of_mut(context),
     }
 }
 
@@ -878,11 +845,7 @@ fn action_label(action_str: &str) -> String {
 fn context_label(context: Option<KeyContext>) -> &'static str {
     match context {
         None => "Global",
-        Some(KeyContext::Content) => "Content",
-        Some(KeyContext::Sidebar) => "Sidebar",
-        Some(KeyContext::QuickAccess) => "Quick Access",
-        Some(KeyContext::Search) => "Search",
-        Some(KeyContext::Palette) => "Palette",
+        Some(context) => context.label(),
     }
 }
 
@@ -1006,7 +969,7 @@ mod tests {
     #[test]
     fn action_label_converts_dot_and_underscore() {
         assert_eq!(action_label("scroll.down"), "Scroll Down");
-        assert_eq!(action_label("tab.close_all"), "Tab Close All");
+        assert_eq!(action_label("window.new_document"), "Window New Document");
         assert_eq!(action_label("cancel"), "Cancel");
         assert_eq!(
             action_label("clipboard.copy_file_path"),
@@ -1157,12 +1120,12 @@ mod tests {
                 context: Some(KeyContext::Content),
             },
         ];
-        // Adding "j" to Global — overridden by both Sidebar and Content
+        // Adding "j" to Global — overridden by both the panel and the content
         let result = check_conflict(&resolved, "j", None);
         match result {
             Some(BindingNotice::Overwrite(msg)) => {
                 assert!(msg.contains("Content"), "should list Content: {msg}");
-                assert!(msg.contains("Sidebar"), "should list Sidebar: {msg}");
+                assert!(msg.contains("Panel"), "should list Panel: {msg}");
             }
             other => panic!("Expected Overwrite, got {other:?}"),
         }

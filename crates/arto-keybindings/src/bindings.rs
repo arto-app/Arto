@@ -1,3 +1,4 @@
+use crate::context::KeyContext;
 use serde::{Deserialize, Serialize};
 
 /// Per-context keybinding definition stored in `mappings.json`.
@@ -26,11 +27,41 @@ pub struct BindingSet {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sidebar: Vec<KeyAction>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub quick_access: Vec<KeyAction>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub search: Vec<KeyAction>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub palette: Vec<KeyAction>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub contents: Vec<KeyAction>,
+}
+
+impl BindingSet {
+    /// The bindings a context owns.
+    ///
+    /// The one place that says which field belongs to which context. Every
+    /// caller that has to answer that question — resolving for the engine,
+    /// finding the shortcut to print beside a menu item, listing a context in
+    /// the preferences — asks here, so a new context cannot be wired into
+    /// some of them and forgotten in the rest.
+    pub fn of(&self, context: KeyContext) -> &Vec<KeyAction> {
+        match context {
+            KeyContext::Content => &self.content,
+            KeyContext::Sidebar => &self.sidebar,
+            KeyContext::Search => &self.search,
+            KeyContext::Palette => &self.palette,
+            KeyContext::Contents => &self.contents,
+        }
+    }
+
+    /// The same, to be edited.
+    pub fn of_mut(&mut self, context: KeyContext) -> &mut Vec<KeyAction> {
+        match context {
+            KeyContext::Content => &mut self.content,
+            KeyContext::Sidebar => &mut self.sidebar,
+            KeyContext::Search => &mut self.search,
+            KeyContext::Palette => &mut self.palette,
+            KeyContext::Contents => &mut self.contents,
+        }
+    }
 }
 
 /// A single key → action mapping.
@@ -51,7 +82,6 @@ mod tests {
         assert!(set.global.is_empty());
         assert!(set.content.is_empty());
         assert!(set.sidebar.is_empty());
-        assert!(set.quick_access.is_empty());
         assert!(set.search.is_empty());
     }
 
@@ -80,7 +110,6 @@ mod tests {
         assert!(set.global.is_empty());
         assert!(set.content.is_empty());
         assert!(set.sidebar.is_empty());
-        assert!(set.quick_access.is_empty());
         assert!(set.search.is_empty());
     }
 
@@ -94,7 +123,7 @@ mod tests {
     #[test]
     fn structured_json() {
         let json = r#"{
-            "global": [{"key": "x", "action": "tab.close"}],
+            "global": [{"key": "x", "action": "file.open"}],
             "sidebar": [{"key": "o", "action": "cursor.enter"}]
         }"#;
         let set: BindingSet = serde_json::from_str(json).unwrap();

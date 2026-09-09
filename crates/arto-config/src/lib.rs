@@ -69,7 +69,6 @@ mod tests {
         assert!(set.global.is_empty());
         assert!(set.content.is_empty());
         assert!(set.sidebar.is_empty());
-        assert!(set.quick_access.is_empty());
         assert!(set.search.is_empty());
     }
 

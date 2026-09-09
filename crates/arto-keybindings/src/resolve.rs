@@ -81,17 +81,23 @@ impl BindingSet {
     fn resolve_with(self, fold_menu_shortcuts: bool) -> (Vec<ResolvedBinding>, Vec<BindingError>) {
         let mut resolved = Vec::new();
         let mut errors = Vec::new();
-        let mut resolve = |actions: Vec<KeyAction>, context: Option<KeyContext>| {
-            resolve_field(actions, context, &mut resolved, &mut errors);
-        };
         if fold_menu_shortcuts {
-            resolve(self.menu_shortcuts, None);
+            resolve_field(
+                self.menu_shortcuts.clone(),
+                None,
+                &mut resolved,
+                &mut errors,
+            );
         }
-        resolve(self.global, None);
-        resolve(self.content, Some(KeyContext::Content));
-        resolve(self.sidebar, Some(KeyContext::Sidebar));
-        resolve(self.quick_access, Some(KeyContext::QuickAccess));
-        resolve(self.search, Some(KeyContext::Search));
+        resolve_field(self.global.clone(), None, &mut resolved, &mut errors);
+        for context in KeyContext::ALL {
+            resolve_field(
+                self.of(context).clone(),
+                Some(context),
+                &mut resolved,
+                &mut errors,
+            );
+        }
         (resolved, errors)
     }
 }
