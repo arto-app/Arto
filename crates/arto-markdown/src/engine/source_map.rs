@@ -12,6 +12,7 @@
 
 use super::parser_options;
 use crate::frontmatter::extract_and_render_frontmatter;
+use crate::RenderOptions;
 use ox_content_allocator::Allocator;
 use ox_content_ast::Node;
 use ox_content_parser::Parser;
@@ -217,11 +218,17 @@ impl Collector<'_> {
 }
 
 /// Build a mapping from rendered plain text to document byte positions.
-fn build_source_map(source: &str, auto_link_urls: bool) -> (String, Vec<TextSegment>) {
+///
+/// Parsed with the options the document was rendered with, because the map is
+/// only worth anything while it describes the text on screen: turning math
+/// off, say, makes `$x$` three pieces of prose where it was one formula, and
+/// a map built the other way round would count a selection into the wrong
+/// bytes.
+fn build_source_map(source: &str, options: &RenderOptions) -> (String, Vec<TextSegment>) {
     let (_, body, _) = extract_and_render_frontmatter(source);
     let allocator = Allocator::new();
-    let options = parser_options(auto_link_urls);
-    let Ok(document) = Parser::with_options(&allocator, &body, options).parse() else {
+    let parser = parser_options(options);
+    let Ok(document) = Parser::with_options(&allocator, &body, parser).parse() else {
         return (String::new(), Vec::new());
     };
     let mut collector = Collector {
@@ -301,6 +308,7 @@ fn find_source_range(
 pub fn extract_source_selection(
     source: impl AsRef<str>,
     selected_text: impl AsRef<str>,
+    options: &RenderOptions,
 ) -> Option<String> {
     // Every line ending becomes `\n` here, not just the lone `\r` the render
     // pipeline replaces: the map is indexed by itself rather than by the
@@ -316,14 +324,7 @@ pub fn extract_source_selection(
         return None;
     }
 
-    // Autolinking is the one render option that reaches the parser, and it
-    // only decides whether a bare URL is wrapped in a `Link`. That splits
-    // the run into more `Text` nodes without moving a byte, and touching
-    // pieces are merged back together as they are collected, so the map
-    // comes out the same either way — `the_map_does_not_depend_on_autolinking`
-    // pins that, which is what lets this pass a fixed value rather than
-    // carrying `RenderOptions` through the public signature.
-    let (rendered, segments) = build_source_map(source, true);
+    let (rendered, segments) = build_source_map(source, options);
 
     let mut matches = rendered.match_indices(selected_text);
     let (rendered_start, _) = matches.next()?;
@@ -340,6 +341,19 @@ pub fn extract_source_selection(
 mod tests {
     use super::*;
 
+    /// A selection looked up the way the app does it, with the options a
+    /// document is rendered with by default.
+    fn extract(source: &str, selected_text: &str) -> Option<String> {
+        extract_source_selection(source, selected_text, &RenderOptions::default())
+    }
+
+    fn with_autolinking(auto_link_urls: bool) -> RenderOptions {
+        RenderOptions {
+            auto_link_urls,
+            ..Default::default()
+        }
+    }
+
     #[test]
     fn the_map_does_not_depend_on_autolinking() {
         // The invariant the engine states is that the map and the rendering
@@ -351,8 +365,8 @@ mod tests {
             "Mail contact@example.com about <https://example.com/b>",
             "A **bold** run, `code`, and https://example.com/c.",
         ] {
-            let (on_rendered, on_segments) = build_source_map(source, true);
-            let (off_rendered, off_segments) = build_source_map(source, false);
+            let (on_rendered, on_segments) = build_source_map(source, &with_autolinking(true));
+            let (off_rendered, off_segments) = build_source_map(source, &with_autolinking(false));
 
             assert_eq!(on_rendered, off_rendered, "rendered text: {source:?}");
             assert_eq!(
@@ -372,7 +386,7 @@ mod tests {
     #[test]
     fn plain_text_maps_to_itself() {
         assert_eq!(
-            extract_source_selection("hello world end", "world"),
+            extract("hello world end", "world"),
             Some("world".to_string())
         );
     }
@@ -380,15 +394,15 @@ mod tests {
     #[test]
     fn a_whole_emphasized_run_takes_its_markers() {
         assert_eq!(
-            extract_source_selection("hello **world** end", "world"),
+            extract("hello **world** end", "world"),
             Some("**world**".to_string())
         );
         assert_eq!(
-            extract_source_selection("hello *italic* end", "italic"),
+            extract("hello *italic* end", "italic"),
             Some("*italic*".to_string())
         );
         assert_eq!(
-            extract_source_selection("old ~~removed~~ text", "removed"),
+            extract("old ~~removed~~ text", "removed"),
             Some("~~removed~~".to_string())
         );
     }
@@ -396,7 +410,7 @@ mod tests {
     #[test]
     fn part_of_an_emphasized_run_takes_only_the_characters() {
         assert_eq!(
-            extract_source_selection("hello **world** end", "orl"),
+            extract("hello **world** end", "orl"),
             Some("orl".to_string())
         );
     }
@@ -404,11 +418,11 @@ mod tests {
     #[test]
     fn a_selection_across_markup_keeps_the_markers_inside_it() {
         assert_eq!(
-            extract_source_selection("hello **world** end", "lo world e"),
+            extract("hello **world** end", "lo world e"),
             Some("lo **world** e".to_string())
         );
         assert_eq!(
-            extract_source_selection("text **bold *italic*** end", "bold italic"),
+            extract("text **bold *italic*** end", "bold italic"),
             Some("**bold *italic***".to_string())
         );
     }
@@ -416,15 +430,15 @@ mod tests {
     #[test]
     fn delimited_values_take_their_delimiters() {
         assert_eq!(
-            extract_source_selection("use `println!` here", "println!"),
+            extract("use `println!` here", "println!"),
             Some("`println!`".to_string())
         );
         assert_eq!(
-            extract_source_selection("energy $E=mc^2$ here", "E=mc^2"),
+            extract("energy $E=mc^2$ here", "E=mc^2"),
             Some("$E=mc^2$".to_string())
         );
         assert_eq!(
-            extract_source_selection("click [here](http://example.com) now", "here"),
+            extract("click [here](http://example.com) now", "here"),
             Some("[here](http://example.com)".to_string())
         );
     }
@@ -432,7 +446,7 @@ mod tests {
     #[test]
     fn the_whole_rendered_text_maps_to_the_whole_source() {
         assert_eq!(
-            extract_source_selection("hello **world** end", "hello world end"),
+            extract("hello **world** end", "hello world end"),
             Some("hello **world** end".to_string())
         );
     }
@@ -440,15 +454,15 @@ mod tests {
     #[test]
     fn selections_inside_containers_are_found() {
         assert_eq!(
-            extract_source_selection("intro\n\n> quoted **bold** here\n", "bold"),
+            extract("intro\n\n> quoted **bold** here\n", "bold"),
             Some("**bold**".to_string())
         );
         assert_eq!(
-            extract_source_selection("- item\n\n  second `code` paragraph\n- other\n", "code"),
+            extract("- item\n\n  second `code` paragraph\n- other\n", "code"),
             Some("`code`".to_string())
         );
         assert_eq!(
-            extract_source_selection("| a | b |\n| - | - |\n| **c** | d |\n", "c"),
+            extract("| a | b |\n| - | - |\n| **c** | d |\n", "c"),
             Some("**c**".to_string())
         );
     }
@@ -458,13 +472,13 @@ mod tests {
         // The second paragraph is one plain segment: no markup to absorb,
         // and the gap to the first paragraph is structure.
         assert_eq!(
-            extract_source_selection("first **para**\n\nsecond\n", "second"),
+            extract("first **para**\n\nsecond\n", "second"),
             Some("second".to_string())
         );
         // A block that is nothing but one emphasized run still absorbs its
         // own markers.
         assert_eq!(
-            extract_source_selection("first\n\n**whole**\n", "whole"),
+            extract("first\n\n**whole**\n", "whole"),
             Some("**whole**".to_string())
         );
     }
@@ -474,8 +488,29 @@ mod tests {
         // Without the CJK emphasis option the `**` around the brackets would
         // be missed here while the document shows them as bold.
         assert_eq!(
-            extract_source_selection("これは**「重要」**です。", "「重要」"),
+            extract("これは**「重要」**です。", "「重要」"),
             Some("**「重要」**".to_string())
+        );
+    }
+
+    #[test]
+    fn an_option_the_reader_turned_off_is_off_here_too() {
+        // With math on, `$x$` is one formula and selecting it takes the
+        // delimiters with it. With math off there is no formula, so the same
+        // characters are prose and come back as themselves — which is what
+        // the document on screen shows.
+        let source = "cost $x$ each";
+        assert_eq!(
+            extract_source_selection(source, "x", &RenderOptions::default()),
+            Some("$x$".to_string())
+        );
+        let no_math = RenderOptions {
+            math: false,
+            ..Default::default()
+        };
+        assert_eq!(
+            extract_source_selection(source, "$x$", &no_math),
+            Some("$x$".to_string())
         );
     }
 
@@ -489,7 +524,7 @@ mod tests {
             ("He said \"hello\" very loudly today", "loudly"),
             ("pages 10--20 are relevant here", "relevant"),
         ] {
-            let found = extract_source_selection(source, selection).unwrap();
+            let found = extract(source, selection).unwrap();
             assert!(
                 found.contains(selection),
                 "{selection:?} not in {found:?} (from {source:?})"
@@ -502,12 +537,9 @@ mod tests {
         // The fence is not inline markup around the content: absorbing it at
         // the front while the selection ends inside the block would hand back
         // an unbalanced ```-run.
+        assert_eq!(extract("```\nzzz\n```\n", "zzz"), Some("zzz".to_string()));
         assert_eq!(
-            extract_source_selection("```\nzzz\n```\n", "zzz"),
-            Some("zzz".to_string())
-        );
-        assert_eq!(
-            extract_source_selection("> ```\n> qqq\n> ```\n", "qqq"),
+            extract("> ```\n> qqq\n> ```\n", "qqq"),
             Some("qqq".to_string())
         );
     }
@@ -518,7 +550,7 @@ mod tests {
         // back has them; a rendered text that turned them into spaces would
         // never match.
         assert_eq!(
-            extract_source_selection(
+            extract(
                 "```rust\nlet a = 1;\nlet b = 2;\n```\n",
                 "let a = 1;\nlet b = 2;"
             ),
@@ -529,17 +561,17 @@ mod tests {
     #[test]
     fn offsets_are_document_offsets_not_body_offsets() {
         assert_eq!(
-            extract_source_selection("---\ntitle: x\n---\n\nsome *word* here\n", "word"),
+            extract("---\ntitle: x\n---\n\nsome *word* here\n", "word"),
             Some("*word*".to_string())
         );
     }
 
     #[test]
     fn nothing_is_returned_without_a_single_match() {
-        assert_eq!(extract_source_selection("hello", ""), None);
-        assert_eq!(extract_source_selection("", "hello"), None);
-        assert_eq!(extract_source_selection("hello world", "xyz"), None);
+        assert_eq!(extract("hello", ""), None);
+        assert_eq!(extract("", "hello"), None);
+        assert_eq!(extract("hello world", "xyz"), None);
         // Two occurrences are ambiguous.
-        assert_eq!(extract_source_selection("word and word", "word"), None);
+        assert_eq!(extract("word and word", "word"), None);
     }
 }

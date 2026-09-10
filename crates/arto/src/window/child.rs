@@ -132,6 +132,67 @@ pub(super) fn try_focus_or_mark_pending(child_id: &str, parent_id: WindowId) -> 
     })
 }
 
+/// Holds the `Pending` slot for as long as the creation that claimed it is
+/// still running.
+///
+/// The slot is what stops a second click from opening a second window while
+/// the first is on its way. That only works while something is still coming:
+/// a creation that goes away without registering — its task dropped, or the
+/// window refused — would otherwise leave the slot claimed forever, and
+/// `try_focus_or_mark_pending` would answer every later click with "still
+/// being created" for the rest of the session. Releasing it on drop makes the
+/// next click a retry instead.
+struct PendingSlot {
+    child_id: String,
+    /// Set once the window is registered, which is when the slot is somebody
+    /// else's to clear.
+    handed_over: bool,
+}
+
+impl PendingSlot {
+    fn claimed(child_id: String) -> Self {
+        Self {
+            child_id,
+            handed_over: false,
+        }
+    }
+
+    /// Whether this creation still owns the slot. A `Pending` entry that is
+    /// gone means the window was closed or disowned while it was being made.
+    fn still_ours(&self) -> bool {
+        CHILD_WINDOWS.with(|windows| {
+            windows
+                .borrow()
+                .get(&self.child_id)
+                .is_some_and(|state| matches!(state, ChildWindowState::Pending { .. }))
+        })
+    }
+
+    fn hand_over(mut self, entry: ChildWindowEntry) {
+        self.handed_over = true;
+        CHILD_WINDOWS.with(|windows| {
+            windows
+                .borrow_mut()
+                .insert(self.child_id.clone(), ChildWindowState::Created(entry));
+        });
+    }
+}
+
+impl Drop for PendingSlot {
+    fn drop(&mut self) {
+        if self.handed_over {
+            return;
+        }
+        CHILD_WINDOWS.with(|windows| {
+            let mut windows = windows.borrow_mut();
+            if let Some(ChildWindowState::Pending { .. }) = windows.get(&self.child_id) {
+                tracing::debug!(child_id = %self.child_id, "Child window was never created");
+                windows.remove(&self.child_id);
+            }
+        });
+    }
+}
+
 /// Register a newly created child window, or close it if the pending state was removed.
 pub(super) async fn create_and_register_child_window(
     child_id: String,
@@ -139,29 +200,18 @@ pub(super) async fn create_and_register_child_window(
     config: Config,
     parent_id: WindowId,
 ) {
-    let pending = window().new_window(dom, config);
-    let ctx = pending.await;
-    let should_register = CHILD_WINDOWS.with(|windows| {
-        let windows = windows.borrow();
-        windows
-            .get(&child_id)
-            .is_some_and(|state| matches!(state, ChildWindowState::Pending { .. }))
-    });
+    let slot = PendingSlot::claimed(child_id);
+    let ctx = window().new_window(dom, config).await;
 
-    if !should_register {
+    if !slot.still_ours() {
         ctx.close();
         return;
     }
 
-    CHILD_WINDOWS.with(|windows| {
-        windows.borrow_mut().insert(
-            child_id,
-            ChildWindowState::Created(ChildWindowEntry {
-                handle: std::rc::Rc::downgrade(&ctx),
-                window_id: ctx.window.id(),
-                parent_id,
-            }),
-        );
+    slot.hand_over(ChildWindowEntry {
+        handle: std::rc::Rc::downgrade(&ctx),
+        window_id: ctx.window.id(),
+        parent_id,
     });
 }
 
@@ -186,7 +236,7 @@ pub fn open_or_focus_mermaid_window(source: String, theme: Theme) {
             .with_custom_head(main_stylesheet_head())
             .with_custom_index(build_mermaid_window_index(theme));
 
-        dioxus_core::spawn(create_and_register_child_window(
+        crate::utils::task::spawn_detached(create_and_register_child_window(
             diagram_id, dom, config, parent_id,
         ));
     }
@@ -213,7 +263,7 @@ pub fn open_or_focus_math_window(source: String, theme: Theme) {
             .with_custom_head(main_stylesheet_head())
             .with_custom_index(build_math_window_index(theme));
 
-        dioxus_core::spawn(create_and_register_child_window(
+        crate::utils::task::spawn_detached(create_and_register_child_window(
             math_id, dom, config, parent_id,
         ));
     }
@@ -241,7 +291,7 @@ pub fn open_or_focus_image_window(src: String, alt: Option<String>, theme: Theme
             .with_custom_head(main_stylesheet_head())
             .with_custom_index(build_image_window_index(theme));
 
-        dioxus_core::spawn(create_and_register_child_window(
+        crate::utils::task::spawn_detached(create_and_register_child_window(
             image_id, dom, config, parent_id,
         ));
     }

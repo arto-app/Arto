@@ -1,3 +1,4 @@
+use super::ResetLine;
 use crate::config::{WindowDimension, WindowDimensionUnit};
 use dioxus::prelude::*;
 
@@ -8,7 +9,16 @@ pub fn DimensionInput(
     min: f64,
     step: f64,
     allow_negative_pixels: bool,
+    /// The measurement Arto ships with.
+    shipped: Option<WindowDimension>,
 ) -> Element {
+    let reset_to = shipped
+        .filter(|shipped| shipped != &value)
+        .map(|shipped| match shipped.unit {
+            WindowDimensionUnit::Pixels => format!("{}px", shipped.value),
+            WindowDimensionUnit::Percent => format!("{}%", shipped.value),
+        });
+
     let current_unit = value.unit;
     let handle_value_change = move |evt: Event<FormData>| {
         let input = evt.value();
@@ -63,6 +73,14 @@ pub fn DimensionInput(
                 option { value: "pixels", "px" }
                 option { value: "percent", "%" }
             }
+        }
+        ResetLine {
+            shipped: reset_to,
+            on_reset: move |_| {
+                if let Some(shipped) = shipped {
+                    on_change.call(shipped);
+                }
+            },
         }
     }
 }

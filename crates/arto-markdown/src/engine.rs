@@ -18,7 +18,7 @@ mod wiki;
 
 pub use source_map::*;
 
-use crate::{HeadingInfo, RenderOptions};
+use crate::{HeadingInfo, RawHtml, RenderOptions};
 use anyhow::{anyhow, Result};
 use lines::LineTable;
 use ox_content_allocator::Allocator;
@@ -29,40 +29,43 @@ use ox_content_renderer::{HtmlRenderer, HtmlRendererOptions};
 ///
 /// Rendering and the selection source map must agree on the text of a
 /// document and on where each piece of it came from, or a selection in the
-/// rendered view maps onto a different document. Everything here is fixed
-/// for that reason; only `auto_link_urls` varies, and the map is built so
-/// that it cannot see the difference (see [`source_map`]).
+/// rendered view maps onto a different document — which is why both build
+/// their options from the same [`RenderOptions`] through this function, and
+/// why the map takes options it does not otherwise need (see [`source_map`]).
 ///
-/// GFM is the baseline; the extensions on top of it are the ones Arto's
-/// documents rely on.
-fn parser_options(auto_link_urls: bool) -> ParserOptions {
+/// GFM is the baseline and is not configurable: a document written for GitHub
+/// contains tables and task lists, and showing those as literal pipes and
+/// brackets is a broken reader rather than a configured one.
+fn parser_options(options: &RenderOptions) -> ParserOptions {
     ParserOptions {
-        autolinks: auto_link_urls,
-        // `**強調。**` against CJK punctuation is ordinary Japanese prose;
-        // CommonMark's flanking rules would leave the delimiters literal.
-        cjk_emphasis: true,
-        math: true,
-        superscript: true,
-        subscript: true,
-        smart_punctuation: true,
-        definition_lists: true,
-        heading_attributes: true,
-        wiki_links: true,
+        autolinks: options.auto_link_urls,
+        cjk_emphasis: options.cjk_emphasis,
+        math: options.math,
+        superscript: options.superscript,
+        subscript: options.subscript,
+        smart_punctuation: options.smart_punctuation,
+        definition_lists: options.definition_lists,
+        heading_attributes: options.heading_attributes,
+        wiki_links: options.wiki_links,
         ..ParserOptions::gfm()
     }
 }
 
 /// The renderer configuration, which the crate's HTML contract depends on.
-fn renderer_options(auto_link_urls: bool) -> HtmlRendererOptions {
+///
+/// What the reader chooses is autolinking, the heading permalinks and the
+/// treatment of raw HTML; the rest is the contract the frontend, the app and
+/// the stylesheet read, and is fixed.
+fn renderer_options(options: &RenderOptions) -> HtmlRendererOptions {
     HtmlRendererOptions {
-        autolink_urls: auto_link_urls,
+        autolink_urls: options.auto_link_urls,
         // Arto opens links itself, in the window the user asked for; a
         // `target` would only confuse the webview's click handling.
         autolink_target_blank: false,
         link_target_blank: false,
-        // GFM's tagfilter: `<style>`, `<script>` and friends show as text
-        // instead of restyling the page around the document.
-        disallow_raw_html: true,
+        sanitize: options.raw_html == RawHtml::Escape,
+        disallow_raw_html: options.raw_html == RawHtml::Filter,
+        heading_permalinks: options.heading_permalinks,
         // Footnotes as GitHub writes them — one `<section class="footnotes">`
         // with a numbered list — which is the shape the frontend stylesheet
         // styles and the shape that numbers a named footnote.
@@ -94,11 +97,11 @@ pub(crate) fn render(
     with_toc: bool,
 ) -> Result<Rendered> {
     let allocator = Allocator::new();
-    let document = Parser::with_options(&allocator, body, parser_options(options.auto_link_urls))
+    let document = Parser::with_options(&allocator, body, parser_options(options))
         .parse()
         .map_err(|error| anyhow!("failed to parse Markdown: {error}"))?;
 
-    let html = HtmlRenderer::with_options(renderer_options(options.auto_link_urls))
+    let html = HtmlRenderer::with_options(renderer_options(options))
         .render_with_hooks(&document, &mut hooks::ArtoHooks::new(body));
 
     let lines = LineTable::new(body, frontmatter_lines);

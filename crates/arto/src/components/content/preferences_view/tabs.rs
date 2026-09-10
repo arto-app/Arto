@@ -1,8 +1,8 @@
 pub mod about_tab;
-pub mod directory_tab;
-pub mod general_tab;
+pub mod appearance_tab;
 pub mod keybindings_tab;
-pub mod sidebar_tab;
-pub mod theme_tab;
-pub mod window_position_tab;
-pub mod window_size_tab;
+pub mod markdown_tab;
+pub mod panel_tab;
+pub mod reading_tab;
+pub mod startup_tab;
+pub mod window_tab;

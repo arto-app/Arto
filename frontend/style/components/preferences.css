@@ -24,13 +24,20 @@
   min-width: 600px;
   background: var(--bg-color);
   overflow-x: auto;
+
+  /* How wide the settings column is allowed to get. A description is prose,
+     and prose set the full width of a wide window is not read, so the column
+     stops here and centres in what is left rather than leaving all of the
+     slack on one side. One number for every pane, including the binding
+     tables: a column that changed width when you switched sections would
+     move the whole page for no reason. */
+  --preferences-measure: 760px;
 }
 
 .preferences-page-body {
   display: flex;
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   min-height: 0;
 }
 
@@ -44,6 +51,9 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  /* Its own scroll: eight sections outgrow a short window, and the pane
+     beside it must not be dragged along by the navigation. */
+  overflow-y: auto;
 }
 
 .nav-tab {
@@ -66,11 +76,20 @@
 
 .nav-tab:hover {
   color: var(--text-color);
+  background: var(--hover-bg);
 }
 
+/* The selected section is the one thing on this page that has to be legible
+   from across the window, so it is the one place the navigation takes a
+   surface rather than a shade of grey. */
 .nav-tab.active {
-  color: var(--text-color);
+  color: var(--accent-fg);
+  background: var(--accent-bg);
   font-weight: 500;
+}
+
+.nav-tab.active:hover {
+  background: var(--accent-bg);
 }
 
 .nav-tab .icon {
@@ -78,9 +97,12 @@
   opacity: var(--opacity-muted);
 }
 
-.nav-tab:hover .icon,
-.nav-tab.active .icon {
+.nav-tab:hover .icon {
   opacity: var(--opacity-hover);
+}
+
+.nav-tab.active .icon {
+  opacity: 1;
 }
 
 .nav-spacer {
@@ -91,79 +113,34 @@
 .preferences-settings {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 48px 32px;
+  padding: 0 48px 32px;
   min-height: 0;
 }
 
-/* Limit width for regular settings panes */
-.preferences-pane {
-  max-width: 700px;
-}
-
-/* Header within settings area */
+/* The pane's own name, which is all the header carries: an edit is applied as
+   it is made, so there is no button and no status to hold here. It stays put
+   while the pane scrolls under it, so a long pane never leaves the reader
+   without a heading. */
 .preferences-settings-header {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  min-height: 36px;
-  margin-bottom: 8px;
-}
-
-/* Save status indicator */
-.save-status {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  min-height: 28px;
+  padding: 20px 0 12px;
+  margin: 0 auto 4px;
+  background: var(--bg-color);
+  /* Centred on the same measure as the pane below it, or the title would
+     hang off the left of the settings it names. */
+  width: 100%;
+  max-width: var(--preferences-measure);
 }
 
-.save-status .saving {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-secondary);
-  font-size: var(--font-size-md);
-}
-
-.save-status .saving::before {
-  content: "";
-  width: 14px;
-  height: 14px;
-  border: 1.5px solid var(--border-color);
-  border-top-color: var(--text-secondary);
-  border-radius: var(--radius-full);
-  animation: spin 0.8s linear infinite;
-}
-
-.save-status .saved {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--text-secondary);
-  font-size: var(--font-size-md);
-}
-
-.save-status .saved::before {
-  content: "✓";
-}
-
-/* Save button */
-.save-status .save-button {
-  padding: 8px 16px;
-  border: none;
-  border-radius: var(--radius-md);
-  background: var(--accent-bg);
-  color: var(--accent-fg);
-  font-size: var(--font-size-md);
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all var(--transition-fast) ease;
-}
-
-.save-status .save-button:hover {
-  filter: brightness(1.1);
+.preferences-pane-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-color);
 }
 
 /* =================================
@@ -171,9 +148,22 @@
    ================================= */
 
 .preferences-pane {
+  width: 100%;
+  max-width: var(--preferences-measure);
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* A sentence introducing a section, where the rows below it answer one
+   question between them and the label of each is too short to say so. */
+.preference-lede {
+  margin: 0;
+  padding-top: 12px;
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  line-height: 1.5;
 }
 
 /* Section Titles */
@@ -214,10 +204,138 @@
 }
 
 .preference-description {
+  display: block;
   margin: 0;
   font-size: var(--font-size-md);
   color: var(--text-secondary);
   line-height: 1.5;
+}
+
+/* A setting stated on one line: what it is on the left, the control on the
+   right. Used where the options need no explaining of their own — an on/off
+   switch, or a choice of two words. */
+.preference-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  cursor: pointer;
+}
+
+.preference-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.preference-row-label {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+/* The way back to the value Arto ships with, hanging under the control it
+   belongs to. It exists only while the setting is off that value, so it is
+   never a disabled thing taking up a line — and it names the value, which is
+   the only place the reader can find out what it was. */
+.preference-reset-line {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.preference-reset {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--link-color);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.preference-reset:hover {
+  text-decoration: underline;
+}
+
+/* Toggle switch */
+.toggle-switch {
+  flex-shrink: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 40px;
+  height: 24px;
+  margin: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast) ease,
+    border-color var(--transition-fast) ease;
+}
+
+.toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--text-secondary);
+  transition:
+    transform var(--transition-fast) ease,
+    background var(--transition-fast) ease;
+}
+
+.toggle-switch:checked {
+  background: var(--accent-bg);
+  border-color: var(--accent-bg);
+}
+
+.toggle-switch:checked::after {
+  background: var(--accent-fg);
+  transform: translateX(16px);
+}
+
+/* Segmented choice */
+.segmented {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.segment {
+  padding: 5px 12px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast) ease;
+}
+
+.segment:hover {
+  color: var(--text-color);
+}
+
+.segment input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segment.selected {
+  background: var(--accent-bg);
+  color: var(--accent-fg);
 }
 
 /* Dimension Inputs */
@@ -313,6 +431,60 @@
   font-weight: 500;
 }
 
+/* Directory picker: a path to type in, a button to browse with, and one to
+   take the folder the window is already in. The field is the dimension
+   field's twin, so the two sit at one height on a pane that shows both. */
+.directory-input {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.directory-input input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-size: var(--font-size-base);
+  font-family: inherit;
+}
+
+.directory-input input::placeholder {
+  color: var(--text-secondary);
+  opacity: var(--opacity-muted);
+}
+
+.directory-input input:focus {
+  outline: none;
+  border-color: var(--accent-bg);
+}
+
+/* Square, so the glyph is centred rather than sitting in a button shaped for
+   words it does not have. */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast) ease;
+}
+
+.icon-button:hover {
+  background: var(--hover-bg);
+  border-color: var(--hover-border);
+  color: var(--text-color);
+}
+
 /* Option Cards (for radio button groups) */
 .option-cards {
   display: flex;
@@ -363,7 +535,20 @@
 }
 
 .option-card.selected .option-card-title {
-  color: var(--accent-bg);
+  color: var(--accent-color);
+}
+
+/* =================================
+   Where the keyboard is
+   ================================= */
+
+/* The radio behind a card is hidden, so the card wears the ring for it. */
+.preferences-page :focus-visible,
+.option-card:has(input:focus-visible),
+.segment:has(input:focus-visible),
+.theme-card:has(input:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 
 /* Theme cards. The swatch carries `data-theme`, so the theme's own token
@@ -487,26 +672,11 @@
 }
 
 .option-card--icon.selected .icon {
-  color: var(--accent-bg);
+  color: var(--accent-color);
 }
 
 .option-card--icon.selected .option-card-title {
-  color: var(--accent-bg);
-}
-
-.save-button {
-  border: none;
-  background: var(--accent-bg);
-  color: var(--accent-fg);
-}
-
-.save-button:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-
-.save-button:disabled {
-  opacity: var(--opacity-muted);
-  cursor: not-allowed;
+  color: var(--accent-color);
 }
 
 /* Slider Input */
@@ -796,11 +966,6 @@
    Keybindings Tab
    ================================= */
 
-/* Wider pane for binding tables */
-.preferences-pane--keybindings {
-  max-width: 900px;
-}
-
 /* Preset cards */
 .preset-cards {
   display: flex;
@@ -830,7 +995,7 @@
 }
 
 .preset-card:hover .preset-card-name {
-  color: var(--accent-bg);
+  color: var(--accent-color);
 }
 
 .preset-card-name {
@@ -1080,7 +1245,7 @@
 
 .key-record-btn.recording {
   border-color: var(--accent-bg);
-  color: var(--accent-bg);
+  color: var(--accent-color);
 }
 
 /* Action dropdown */

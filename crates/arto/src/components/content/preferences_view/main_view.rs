@@ -1,26 +1,67 @@
 use super::tabs::{
-    about_tab::AboutTab, directory_tab::DirectoryTab, general_tab::GeneralTab,
-    keybindings_tab::KeybindingsTab, sidebar_tab::SidebarTab, theme_tab::ThemeTab,
-    window_position_tab::WindowPositionTab, window_size_tab::WindowSizeTab,
+    about_tab::AboutTab, appearance_tab::AppearanceTab, keybindings_tab::KeybindingsTab,
+    markdown_tab::MarkdownTab, panel_tab::PanelTab, reading_tab::ReadingTab,
+    startup_tab::StartupTab, window_tab::WindowTab,
 };
 use crate::components::icon::{Icon, IconName};
 use crate::config::{Config, CONFIG, CONFIG_CHANGED_BROADCAST};
 use crate::window::preferences::PreferencesSnapshot;
 use dioxus::prelude::*;
 use parking_lot::RwLock;
-use std::sync::LazyLock;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, LazyLock};
+use std::time::Duration;
 
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub enum PreferencesTab {
     #[default]
-    General,
-    Theme,
-    Directory,
-    WindowSize,
-    WindowPosition,
-    Sidebar,
+    Appearance,
+    Markdown,
+    Reading,
+    Panel,
+    Window,
+    Startup,
     Keybindings,
     About,
+}
+
+impl PreferencesTab {
+    /// The panes in the order the navigation lists them.
+    const ALL: [Self; 7] = [
+        Self::Appearance,
+        Self::Markdown,
+        Self::Reading,
+        Self::Panel,
+        Self::Window,
+        Self::Startup,
+        Self::Keybindings,
+    ];
+
+    fn title(self) -> &'static str {
+        match self {
+            Self::Appearance => "Appearance",
+            Self::Markdown => "Markdown",
+            Self::Reading => "Reading",
+            Self::Panel => "Panel",
+            Self::Window => "Window",
+            Self::Startup => "Startup",
+            Self::Keybindings => "Keybindings",
+            Self::About => "About",
+        }
+    }
+
+    fn icon(self) -> IconName {
+        match self {
+            Self::Appearance => IconName::SunMoon,
+            Self::Markdown => IconName::Markdown,
+            Self::Reading => IconName::Book,
+            Self::Panel => IconName::Sidebar,
+            Self::Window => IconName::AppWindow,
+            Self::Startup => IconName::Power,
+            Self::Keybindings => IconName::Command,
+            Self::About => IconName::InfoCircle,
+        }
+    }
 }
 
 /// Remember the last selected tab in memory
@@ -32,135 +73,137 @@ pub fn set_preferences_tab_to_about() {
     *LAST_PREFERENCES_TAB.write() = PreferencesTab::About;
 }
 
-/// Save status for the preferences page
-#[derive(Clone, Copy, PartialEq, Eq, Default)]
-enum SaveStatus {
-    #[default]
-    Idle,
-    Saving,
-    Saved,
+/// How long an edit is left alone before it is applied.
+///
+/// A slider fires all through a drag, so the writes are coalesced; short
+/// enough that a click still looks immediate.
+const SETTLE: Duration = Duration::from_millis(200);
+
+/// An edit waiting out [`SETTLE`], held outside the component.
+///
+/// Not a signal: the window can be closed while an edit is still settling, and
+/// what flushes it then runs as the page is being torn down, where the page's
+/// own signals are no longer safe to read.
+#[derive(Default)]
+struct PendingEdit {
+    config: parking_lot::Mutex<Option<Config>>,
+    /// Which edit the settling tasks are waiting for. A task that wakes to
+    /// find the number moved on has been overtaken and does nothing.
+    ticket: AtomicU64,
+}
+
+impl PendingEdit {
+    /// Write the edit out and tell every window about it.
+    fn flush(&self) {
+        let Some(edited) = self.config.lock().take() else {
+            return;
+        };
+        if let Err(error) = edited.save() {
+            tracing::error!(?error, "Failed to save configuration");
+            return;
+        }
+        *CONFIG.write() = edited;
+        CONFIG_CHANGED_BROADCAST.send(()).ok();
+    }
+}
+
+/// Apply every edit as it is made.
+///
+/// There is no Save button. A setting the reader changed is a decision, not a
+/// draft: it goes into the live configuration, out to the windows reading it,
+/// and on to disk. Nothing is lost by closing the window, and nothing has to
+/// be confirmed — which is also what lets the header say which pane you are in
+/// instead of holding a button and a status.
+fn use_auto_save(config: Signal<Config>) {
+    let pending = use_hook(|| Arc::new(PendingEdit::default()));
+
+    use_effect({
+        let pending = pending.clone();
+        move || {
+            // Reading the whole configuration subscribes this to every field.
+            let edited = config();
+            if edited == *CONFIG.read() {
+                // The configuration as loaded, or an edit already applied.
+                return;
+            }
+
+            *pending.config.lock() = Some(edited);
+            let ticket = pending.ticket.fetch_add(1, Ordering::Relaxed) + 1;
+
+            // Detached, because the write has to happen even if the window
+            // that started it is gone by the time it comes due.
+            let pending = pending.clone();
+            crate::utils::task::spawn_detached(async move {
+                tokio::time::sleep(SETTLE).await;
+                if pending.ticket.load(Ordering::Relaxed) == ticket {
+                    pending.flush();
+                }
+            });
+        }
+    });
+
+    // Closing the window is not a way to take an edit back, so one that has
+    // not settled yet is written on the way out rather than waited for.
+    use_drop(move || {
+        pending.ticket.fetch_add(1, Ordering::Relaxed);
+        pending.flush();
+    });
 }
 
 #[component]
 pub fn PreferencesView(snapshot: PreferencesSnapshot) -> Element {
     let mut config = use_signal(Config::default);
-    let mut has_changes = use_signal(|| false);
     let mut active_tab = use_signal(|| *LAST_PREFERENCES_TAB.read());
-    let mut save_status = use_signal(|| SaveStatus::Idle);
+
+    // What the "Current Settings" sliders are showing. The snapshot says what
+    // the window had when preferences opened; after that these sliders are the
+    // only thing moving it, so they keep the value here as well as sending it
+    // — a slider that reported the snapshot forever would sit still while the
+    // window it acts on zoomed.
+    let sidebar_zoom = use_signal(|| snapshot.sidebar_zoom_level);
+    let content_zoom = use_signal(|| snapshot.content_zoom_level);
 
     // Load initial config on mount (use_hook runs only once)
     use_hook(|| {
         let cfg = CONFIG.read().clone();
         config.set(cfg);
-        has_changes.set(false);
     });
 
-    // A theme picked here is worn by the window while the page is open, and
-    // the edit that chose it lives exactly as long: both are dropped together
-    // when the page goes away unsaved. Moving between sections changes
-    // neither, or the window would go back to the old theme while the picker
-    // still showed the new one.
+    use_auto_save(config);
+
+    // A theme picked here is worn by the window while the page is open, so a
+    // dark theme can be judged from light mode. It is dropped with the page,
+    // which is what lets the mode decide again.
     use_drop(crate::theme::clear_theme_preview);
 
-    let handle_save = move |_| {
-        let cfg = config().clone();
-        save_status.set(SaveStatus::Saving);
-        spawn(async move {
-            if let Err(e) = cfg.save() {
-                tracing::error!("Failed to save configuration: {:?}", e);
-                save_status.set(SaveStatus::Idle);
-            } else {
-                *CONFIG.write() = cfg.clone();
-                // The theme being previewed is now the configured one, so the
-                // preview has nothing left to say — and dropping it is what
-                // lets the mode decide again.
-                crate::theme::clear_theme_preview();
-                CONFIG_CHANGED_BROADCAST.send(()).ok();
-                has_changes.set(false);
-                save_status.set(SaveStatus::Saved);
-                // Reset to idle after showing success
-                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                save_status.set(SaveStatus::Idle);
-            }
-        });
-    };
-
     let current_tab = active_tab();
-    let current_save_status = *save_status.read();
+    let mut select = move |tab: PreferencesTab| {
+        active_tab.set(tab);
+        *LAST_PREFERENCES_TAB.write() = tab;
+    };
 
     rsx! {
         div {
             class: "preferences-page",
 
-            // Navigation and settings
             div {
                 class: "preferences-page-body",
 
-                // Left navigation sidebar
                 nav {
                     class: "preferences-nav",
-                    button {
-                        class: if current_tab == PreferencesTab::General { "nav-tab active" } else { "nav-tab" },
-                        onclick: move |_| {
-                            active_tab.set(PreferencesTab::General);
-                            *LAST_PREFERENCES_TAB.write() = PreferencesTab::General;
-                        },
-                        Icon { name: IconName::Gear, size: 18 }
-                        span { "General" }
-                    }
-                    button {
-                        class: if current_tab == PreferencesTab::Theme { "nav-tab active" } else { "nav-tab" },
-                        onclick: move |_| {
-                            active_tab.set(PreferencesTab::Theme);
-                            *LAST_PREFERENCES_TAB.write() = PreferencesTab::Theme;
-                        },
-                        Icon { name: IconName::SunMoon, size: 18 }
-                        span { "Theme" }
-                    }
-                    button {
-                        class: if current_tab == PreferencesTab::Directory { "nav-tab active" } else { "nav-tab" },
-                        onclick: move |_| {
-                            active_tab.set(PreferencesTab::Directory);
-                            *LAST_PREFERENCES_TAB.write() = PreferencesTab::Directory;
-                        },
-                        Icon { name: IconName::Folder, size: 18 }
-                        span { "Directory" }
-                    }
-                    button {
-                        class: if current_tab == PreferencesTab::WindowSize { "nav-tab active" } else { "nav-tab" },
-                        onclick: move |_| {
-                            active_tab.set(PreferencesTab::WindowSize);
-                            *LAST_PREFERENCES_TAB.write() = PreferencesTab::WindowSize;
-                        },
-                        Icon { name: IconName::ArrowsDiagonal, size: 18 }
-                        span { "Window Size" }
-                    }
-                    button {
-                        class: if current_tab == PreferencesTab::WindowPosition { "nav-tab active" } else { "nav-tab" },
-                        onclick: move |_| {
-                            active_tab.set(PreferencesTab::WindowPosition);
-                            *LAST_PREFERENCES_TAB.write() = PreferencesTab::WindowPosition;
-                        },
-                        Icon { name: IconName::ArrowsMove, size: 18 }
-                        span { "Window Position" }
-                    }
-                    button {
-                        class: if current_tab == PreferencesTab::Sidebar { "nav-tab active" } else { "nav-tab" },
-                        onclick: move |_| {
-                            active_tab.set(PreferencesTab::Sidebar);
-                            *LAST_PREFERENCES_TAB.write() = PreferencesTab::Sidebar;
-                        },
-                        Icon { name: IconName::Sidebar, size: 18 }
-                        span { "Sidebar" }
-                    }
-                    button {
-                        class: if current_tab == PreferencesTab::Keybindings { "nav-tab active" } else { "nav-tab" },
-                        onclick: move |_| {
-                            active_tab.set(PreferencesTab::Keybindings);
-                            *LAST_PREFERENCES_TAB.write() = PreferencesTab::Keybindings;
-                        },
-                        Icon { name: IconName::Command, size: 18 }
-                        span { "Keybindings" }
+                    role: "tablist",
+                    "aria-label": "Preferences sections",
+
+                    for tab in PreferencesTab::ALL {
+                        button {
+                            key: "{tab.title()}",
+                            class: if current_tab == tab { "nav-tab active" } else { "nav-tab" },
+                            role: "tab",
+                            "aria-selected": current_tab == tab,
+                            onclick: move |_| select(tab),
+                            Icon { name: tab.icon(), size: 18 }
+                            span { "{tab.title()}" }
+                        }
                     }
 
                     // Spacer to push About to bottom
@@ -168,90 +211,58 @@ pub fn PreferencesView(snapshot: PreferencesSnapshot) -> Element {
 
                     button {
                         class: if current_tab == PreferencesTab::About { "nav-tab active" } else { "nav-tab" },
-                        onclick: move |_| {
-                            active_tab.set(PreferencesTab::About);
-                            *LAST_PREFERENCES_TAB.write() = PreferencesTab::About;
-                        },
-                        Icon { name: IconName::InfoCircle, size: 18 }
-                        span { "About" }
+                        role: "tab",
+                        "aria-selected": current_tab == PreferencesTab::About,
+                        onclick: move |_| select(PreferencesTab::About),
+                        Icon { name: PreferencesTab::About.icon(), size: 18 }
+                        span { "{PreferencesTab::About.title()}" }
                     }
                 }
 
-                // Settings content area
                 div {
                     class: "preferences-settings",
+                    role: "tabpanel",
 
-                    // Header with save status
-                    div {
-                        class: "preferences-settings-header",
+                    if current_tab != PreferencesTab::About {
                         div {
-                            class: "save-status",
-                            match current_save_status {
-                                SaveStatus::Idle if has_changes() => rsx! {
-                                    button {
-                                        class: "save-button",
-                                        onclick: handle_save,
-                                        "Save Changes"
-                                    }
-                                },
-                                SaveStatus::Saving => rsx! {
-                                    span { class: "saving", "Saving..." }
-                                },
-                                SaveStatus::Saved => rsx! {
-                                    span { class: "saved", "Saved!" }
-                                },
-                                _ => rsx! {},
-                            }
+                            class: "preferences-settings-header",
+                            h2 { class: "preferences-pane-title", "{current_tab.title()}" }
                         }
                     }
 
-                    // Tab content
                     match current_tab {
-                        PreferencesTab::General => rsx! {
-                            GeneralTab {
+                        PreferencesTab::Appearance => rsx! {
+                            AppearanceTab { config }
+                        },
+                        PreferencesTab::Markdown => rsx! {
+                            MarkdownTab { config }
+                        },
+                        PreferencesTab::Reading => rsx! {
+                            ReadingTab {
                                 config,
-                                has_changes,
+                                window_id: snapshot.window_id,
+                                current_zoom: content_zoom,
                             }
                         },
-                        PreferencesTab::Theme => rsx! {
-                            ThemeTab {
+                        PreferencesTab::Panel => rsx! {
+                            PanelTab {
                                 config,
-                                has_changes,
+                                window_id: snapshot.window_id,
+                                current_width: snapshot.sidebar_width,
+                                current_zoom: sidebar_zoom,
                             }
                         },
-                        PreferencesTab::Directory => rsx! {
-                            DirectoryTab {
+                        PreferencesTab::Window => rsx! {
+                            WindowTab {
                                 config,
-                                has_changes,
                                 current_directory: snapshot.directory.clone(),
                             }
                         },
-                        PreferencesTab::WindowSize => rsx! {
-                            WindowSizeTab {
-                                config,
-                                has_changes,
-                            }
-                        },
-                        PreferencesTab::WindowPosition => rsx! {
-                            WindowPositionTab {
-                                config,
-                                has_changes,
-                            }
-                        },
-                        PreferencesTab::Sidebar => rsx! {
-                            SidebarTab {
-                                config,
-                                has_changes,
-                                window_id: snapshot.window_id,
-                                current_width: snapshot.sidebar_width,
-                                current_zoom: snapshot.sidebar_zoom_level,
-                            }
+                        PreferencesTab::Startup => rsx! {
+                            StartupTab { config }
                         },
                         PreferencesTab::Keybindings => rsx! {
-                            KeybindingsTab {
-                                config,
-                                has_changes,
-                            }
+                            KeybindingsTab { config }
                         },
                         PreferencesTab::About => rsx! {
                             AboutTab {}

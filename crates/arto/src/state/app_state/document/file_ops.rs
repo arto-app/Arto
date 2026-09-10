@@ -96,6 +96,7 @@ impl AppState {
                 window_id: dioxus::desktop::window().id(),
                 sidebar_width,
                 sidebar_zoom_level,
+                content_zoom_level: *self.zoom_level.read(),
                 directory,
             },
             *self.current_theme.read(),

@@ -25,13 +25,13 @@ enum BindingScope {
 }
 
 #[component]
-pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Element {
+pub fn KeybindingsTab(config: Signal<Config>) -> Element {
     let keybindings = config.read().keybindings.clone();
     let mut filter_text = use_signal(String::new);
 
     rsx! {
         div {
-            class: "preferences-pane preferences-pane--keybindings",
+            class: "preferences-pane",
 
             // Preset cards
             h3 { class: "preference-section-title", "Presets" }
@@ -41,7 +41,6 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
                     class: "preset-card",
                     onclick: move |_| {
                         config.write().keybindings = presets::default::bindings();
-                        has_changes.set(true);
                     },
                     span { class: "preset-card-name", "Default" }
                     span { class: "preset-card-desc", "Arrow keys, Cmd+Key, Ctrl+Tab" }
@@ -50,7 +49,6 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
                     class: "preset-card",
                     onclick: move |_| {
                         config.write().keybindings = presets::vim::bindings();
-                        has_changes.set(true);
                     },
                     span { class: "preset-card-name", "Vim" }
                     span { class: "preset-card-desc", "j/k scroll, g g, chord sequences" }
@@ -59,7 +57,6 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
                     class: "preset-card",
                     onclick: move |_| {
                         config.write().keybindings = presets::emacs::bindings();
-                        has_changes.set(true);
                     },
                     span { class: "preset-card-name", "Emacs" }
                     span { class: "preset-card-desc", "Ctrl+n/p, Ctrl+x combos" }
@@ -68,7 +65,6 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
                     class: "preset-card",
                     onclick: move |_| {
                         config.write().keybindings = BindingSet::default();
-                        has_changes.set(true);
                     },
                     span { class: "preset-card-name", "Clear" }
                     span { class: "preset-card-desc", "Remove all keybindings" }
@@ -98,7 +94,6 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
                 bindings: keybindings.menu_shortcuts.clone(),
                 filter_query: filter_text(),
                 config,
-                has_changes,
             }
             BindingSection {
                 title: "Global",
@@ -106,7 +101,6 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
                 bindings: keybindings.global.clone(),
                 filter_query: filter_text(),
                 config,
-                has_changes,
             }
             for context in KeyContext::ALL {
                 BindingSection {
@@ -116,7 +110,6 @@ pub fn KeybindingsTab(config: Signal<Config>, has_changes: Signal<bool>) -> Elem
                     bindings: keybindings.of(context).clone(),
                     filter_query: filter_text(),
                     config,
-                    has_changes,
                 }
             }
         }
@@ -138,7 +131,6 @@ fn BindingSection(
     bindings: Vec<KeyAction>,
     filter_query: String,
     config: Signal<Config>,
-    has_changes: Signal<bool>,
 ) -> Element {
     let mut show_add_form = use_signal(|| false);
     // Track which binding index is being edited (None = no edit in progress)
@@ -255,7 +247,6 @@ fn BindingSection(
                                                 initial_key: Some(ka.key.clone()),
                                                 initial_action: Some(ka.action.clone()),
                                                 config,
-                                                has_changes,
                                                 on_close: move |_| editing_index.set(None),
                                             }
                                         }
@@ -299,7 +290,6 @@ fn BindingSection(
                     initial_key: None::<String>,
                     initial_action: None::<String>,
                     config,
-                    has_changes,
                     on_close: move |_| show_add_form.set(false),
                 }
             } else {
@@ -324,7 +314,6 @@ fn BindingForm(
     initial_key: Option<String>,
     initial_action: Option<String>,
     config: Signal<Config>,
-    has_changes: Signal<bool>,
     on_close: EventHandler<()>,
 ) -> Element {
     let is_edit = edit_index.is_some();
@@ -712,7 +701,6 @@ fn BindingForm(
                             bindings.push(KeyAction { key, action });
                         }
                         drop(cfg);
-                        has_changes.set(true);
                         on_close.call(());
                     },
                     if is_edit { "Save" } else { "Add" }
@@ -737,7 +725,6 @@ fn BindingForm(
                                     &mut config.write().keybindings,
                                     scope,
                                 ).retain(|b| b.key != key_to_remove);
-                                has_changes.set(true);
                                 on_close.call(());
                             }
                         },

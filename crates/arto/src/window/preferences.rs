@@ -9,7 +9,8 @@
 //! The window carries no `AppState`. What the "Current Settings" sliders need
 //! from the window that opened them travels here as a [`PreferencesSnapshot`],
 //! taken at open time; what they change travels back as an event
-//! ([`crate::events::SET_SIDEBAR_ZOOM_IN_WINDOW`]).
+//! ([`crate::events::SET_SIDEBAR_ZOOM_IN_WINDOW`] and its content-zoom
+//! counterpart).
 
 use dioxus::desktop::tao::dpi::LogicalSize;
 use dioxus::desktop::tao::window::WindowId;
@@ -30,6 +31,15 @@ const PREFERENCES_CHILD_ID: &str = "preferences";
 const PREFERENCES_WIDTH: f64 = 880.0;
 const PREFERENCES_HEIGHT: f64 = 640.0;
 
+/// The narrowest the window may be dragged.
+///
+/// Matches the `min-width` the page carries, below which it stops laying out
+/// and scrolls sideways instead. Sideways scrolling is a fallback for a
+/// viewport nobody chose — a small screen — not something a drag should be
+/// able to walk the reader into.
+const PREFERENCES_MIN_WIDTH: f64 = 600.0;
+const PREFERENCES_MIN_HEIGHT: f64 = 480.0;
+
 /// What the preferences window knows about the window that opened it.
 ///
 /// Only the values the "Current Settings" section reports back — everything
@@ -40,6 +50,7 @@ pub struct PreferencesSnapshot {
     pub window_id: WindowId,
     pub sidebar_width: f64,
     pub sidebar_zoom_level: f64,
+    pub content_zoom_level: f64,
     pub directory: Option<PathBuf>,
 }
 
@@ -57,12 +68,19 @@ pub fn open_or_focus_preferences_window(snapshot: PreferencesSnapshot, theme: Th
             .with_window(super::icon::apply_app_icon(
                 WindowBuilder::new()
                     .with_title("Preferences")
-                    .with_inner_size(LogicalSize::new(PREFERENCES_WIDTH, PREFERENCES_HEIGHT)),
+                    .with_inner_size(LogicalSize::new(PREFERENCES_WIDTH, PREFERENCES_HEIGHT))
+                    .with_min_inner_size(LogicalSize::new(
+                        PREFERENCES_MIN_WIDTH,
+                        PREFERENCES_MIN_HEIGHT,
+                    )),
             ))
             .with_custom_head(main_stylesheet_head())
             .with_custom_index(build_preferences_window_index(theme));
 
-        dioxus_core::spawn(create_and_register_child_window(
+        // Detached, because the click that asks for preferences also closes
+        // the menu it was asked from: a task owned by that menu's scope is
+        // dropped with it, before the window is ever made.
+        crate::utils::task::spawn_detached(create_and_register_child_window(
             PREFERENCES_CHILD_ID.to_string(),
             dom,
             config,
