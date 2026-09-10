@@ -6,7 +6,7 @@
 //! (event streams, offset mapping) are tested next to that code.
 
 use arto_markdown::{
-    render_to_html, render_to_html_with_toc, HeadingInfo, ImageResolution, RenderOptions,
+    render_to_html, render_to_html_with_toc, HeadingInfo, ImageResolution, RawHtml, RenderOptions,
 };
 use indoc::indoc;
 use std::path::Path;
@@ -92,7 +92,11 @@ fn a_crlf_selection_maps_back_to_its_source() {
     use arto_markdown::extract_source_selection;
 
     assert_eq!(
-        extract_source_selection("intro\r\n\r\nsome **word** here\r\n", "word"),
+        extract_source_selection(
+            "intro\r\n\r\nsome **word** here\r\n",
+            "word",
+            &RenderOptions::default()
+        ),
         Some("**word**".to_string())
     );
 }
@@ -105,7 +109,11 @@ fn a_crlf_selection_inside_a_code_block_maps_back_too() {
     // map built over the CRLF source would not find it and would lose the
     // whole block.
     assert_eq!(
-        extract_source_selection("```rust\r\nlet x = 1;\r\n```\r\n", "let x = 1;"),
+        extract_source_selection(
+            "```rust\r\nlet x = 1;\r\n```\r\n",
+            "let x = 1;",
+            &RenderOptions::default()
+        ),
         Some("let x = 1;".to_string())
     );
 }
@@ -1014,4 +1022,236 @@ fn lines_after_an_alert_and_frontmatter_point_at_the_original_file() {
         html.contains(r#"<p data-source-line="10">Paragraph B</p>"#),
         "{html}"
     );
+}
+
+// ----------------------------------------------------------------------
+// Rendering options
+// ----------------------------------------------------------------------
+
+fn render_with(markdown: &str, options: RenderOptions) -> String {
+    render_to_html(markdown, Path::new("/nonexistent/test.md"), &options)
+        .expect("renders")
+        .html
+}
+
+#[test]
+fn math_off_leaves_the_dollars_to_the_prose() {
+    // Two shell variables in one line are what the option is for: the parser
+    // pairs their `$`s into a formula spanning the text between them.
+    let source = "run echo $HOME/$USER now";
+    assert!(
+        render(source).contains("preprocessed-math"),
+        "the default reads this as a formula"
+    );
+
+    let html = render_with(
+        source,
+        RenderOptions {
+            math: false,
+            ..Default::default()
+        },
+    );
+    assert!(!html.contains("preprocessed-math"), "{html}");
+    assert!(html.contains("$HOME/$USER"), "{html}");
+}
+
+#[test]
+fn wiki_links_off_leave_the_brackets_in_the_text() {
+    let source = "see [[Page]] for more";
+    assert!(render(source).contains("md-link"), "the default links this");
+
+    let html = render_with(
+        source,
+        RenderOptions {
+            wiki_links: false,
+            ..Default::default()
+        },
+    );
+    assert!(html.contains("[[Page]]"), "{html}");
+}
+
+#[test]
+fn subscript_off_leaves_a_lone_tilde_alone() {
+    let source = "about ~5 minutes~ long";
+    assert!(render(source).contains("<sub>"), "the default reads this");
+
+    let html = render_with(
+        source,
+        RenderOptions {
+            subscript: false,
+            ..Default::default()
+        },
+    );
+    assert!(!html.contains("<sub>"), "{html}");
+}
+
+#[test]
+fn superscript_off_leaves_a_lone_caret_alone() {
+    let source = "the 2^nd^ time";
+    assert!(render(source).contains("<sup>"), "the default reads this");
+
+    let html = render_with(
+        source,
+        RenderOptions {
+            superscript: false,
+            ..Default::default()
+        },
+    );
+    assert!(!html.contains("<sup>"), "{html}");
+}
+
+#[test]
+fn smart_punctuation_off_keeps_the_quotes_as_typed() {
+    let source = r#"He said "hello" -- loudly"#;
+    assert!(
+        render(source).contains('\u{201c}'),
+        "the default curls this"
+    );
+
+    let html = render_with(
+        source,
+        RenderOptions {
+            smart_punctuation: false,
+            ..Default::default()
+        },
+    );
+    assert!(html.contains("&quot;hello&quot;"), "{html}");
+}
+
+#[test]
+fn cjk_emphasis_off_renders_the_way_github_does() {
+    let source = "これは**「重要」**です。";
+    assert!(
+        render(source).contains("<strong>"),
+        "the default pairs this"
+    );
+
+    let html = render_with(
+        source,
+        RenderOptions {
+            cjk_emphasis: false,
+            ..Default::default()
+        },
+    );
+    assert!(!html.contains("<strong>"), "{html}");
+}
+
+#[test]
+fn definition_lists_off_leave_the_colon_in_the_paragraph() {
+    let source = "Term\n\n: The definition\n";
+    assert!(render(source).contains("<dl>"), "the default reads this");
+
+    let html = render_with(
+        source,
+        RenderOptions {
+            definition_lists: false,
+            ..Default::default()
+        },
+    );
+    assert!(!html.contains("<dl>"), "{html}");
+}
+
+#[test]
+fn heading_attributes_off_leave_the_block_in_the_heading_text() {
+    let source = "# Title {#custom}\n";
+    assert_eq!(
+        headings(source)[0].id,
+        "custom",
+        "the default takes the id from the block"
+    );
+
+    let html = render_with(
+        source,
+        RenderOptions {
+            heading_attributes: false,
+            ..Default::default()
+        },
+    );
+    assert!(html.contains("{#custom}"), "{html}");
+}
+
+#[test]
+fn heading_permalinks_appear_only_when_asked_for() {
+    let source = "# Title\n";
+    assert!(!render(source).contains("header-anchor"), "off by default");
+
+    let html = render_with(
+        source,
+        RenderOptions {
+            heading_permalinks: true,
+            ..Default::default()
+        },
+    );
+    assert!(html.contains(r#"class="header-anchor""#), "{html}");
+}
+
+#[test]
+fn raw_html_is_filtered_by_default() {
+    // The tags that would restyle or script the page around the document are
+    // escaped; everything else keeps working.
+    let source = "<kbd>Esc</kbd> and <style>p{color:red}</style>\n";
+
+    let filtered = render(source);
+    assert!(filtered.contains("<kbd>Esc</kbd>"), "{filtered}");
+    assert!(!filtered.contains("<style>"), "{filtered}");
+
+    let allowed = render_with(
+        source,
+        RenderOptions {
+            raw_html: RawHtml::Allow,
+            ..Default::default()
+        },
+    );
+    assert!(allowed.contains("<style>"), "{allowed}");
+
+    let escaped = render_with(
+        source,
+        RenderOptions {
+            raw_html: RawHtml::Escape,
+            ..Default::default()
+        },
+    );
+    assert!(!escaped.contains("<kbd>"), "{escaped}");
+    assert!(escaped.contains("&lt;kbd&gt;"), "{escaped}");
+}
+
+#[test]
+fn the_gfm_baseline_survives_every_option_being_turned_off() {
+    // Tables, task lists, strikethrough and footnotes are what a document
+    // written for GitHub contains, so nothing a reader can switch may take
+    // them away.
+    let everything_off = RenderOptions {
+        auto_link_urls: false,
+        math: false,
+        wiki_links: false,
+        superscript: false,
+        subscript: false,
+        definition_lists: false,
+        heading_attributes: false,
+        smart_punctuation: false,
+        cjk_emphasis: false,
+        heading_permalinks: false,
+        raw_html: RawHtml::Escape,
+        ..Default::default()
+    };
+
+    let html = render_with(
+        indoc! {"
+            | a | b |
+            | - | - |
+            | c | d |
+
+            - [x] done
+
+            ~~gone~~ and a note[^1]
+
+            [^1]: the note
+        "},
+        everything_off,
+    );
+
+    assert!(html.contains("<table"), "{html}");
+    assert!(html.contains(r#"type="checkbox""#), "{html}");
+    assert!(html.contains("<del>gone</del>"), "{html}");
+    assert!(html.contains(r#"class="footnotes""#), "{html}");
 }

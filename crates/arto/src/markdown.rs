@@ -5,11 +5,11 @@
 //! supplies the user's rendering preferences from the global `CONFIG`, so the
 //! app's call sites keep their two-argument signatures.
 //!
-//! The re-export is an explicit list rather than a glob: the two render
-//! functions below share their names with arto-markdown's three-argument
-//! originals, and a glob would import those only to shadow them.
+//! The re-export is an explicit list rather than a glob: the functions below
+//! share their names with arto-markdown's originals, which take the options
+//! as one more argument, and a glob would import those only to shadow them.
 
-pub use arto_markdown::{extract_source_selection, HeadingInfo, ImageResolution, RenderOptions};
+pub use arto_markdown::{HeadingInfo, ImageResolution, RawHtml, RenderOptions};
 
 use crate::config::CONFIG;
 use anyhow::Result;
@@ -41,4 +41,16 @@ pub fn render_to_html_with_toc(
     let rendered = arto_markdown::render_to_html_with_toc(markdown, base_path, &render_options())?;
     crate::assets::images::register(rendered.images);
     Ok((rendered.html, rendered.headings))
+}
+
+/// Extract the Markdown source behind a selection of the rendered text.
+///
+/// The same preferences the document was rendered with, because the map that
+/// answers this is built by parsing the source again: reading it any other
+/// way would describe a document the reader is not looking at.
+pub fn extract_source_selection(
+    source: impl AsRef<str>,
+    selected_text: impl AsRef<str>,
+) -> Option<String> {
+    arto_markdown::extract_source_selection(source, selected_text, &render_options())
 }

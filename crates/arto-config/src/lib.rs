@@ -26,7 +26,7 @@ mod window_size_config;
 mod zoom_config;
 
 pub use arto_keybindings::{BindingSet, KeyAction};
-pub use arto_markdown::RenderOptions;
+pub use arto_markdown::{RawHtml, RenderOptions};
 pub use behavior::*;
 pub use color_theme::*;
 pub use directory_config::*;
@@ -94,8 +94,15 @@ mod tests {
         assert_eq!(config.directory.default_directory, None);
         assert_eq!(config.directory.on_startup, StartupBehavior::Default);
 
-        // Markdown defaults
-        assert!(config.markdown.auto_link_urls); // Default is true
+        // Markdown defaults: the constructs Arto reads are on, and the two
+        // choices that change what a GitHub-rendered document looks like are
+        // where GitHub leaves them.
+        assert!(config.markdown.auto_link_urls);
+        assert!(config.markdown.math);
+        assert!(config.markdown.wiki_links);
+        assert!(config.markdown.cjk_emphasis);
+        assert!(!config.markdown.heading_permalinks);
+        assert_eq!(config.markdown.raw_html, RawHtml::Filter);
 
         // Sidebar defaults
         assert!(!config.sidebar.default_pinned); // Default is false (unpinned, overlay on hover)
@@ -279,8 +286,9 @@ mod tests {
         assert_eq!(parsed.zoom.on_startup, StartupBehavior::Default);
         assert_eq!(parsed.zoom.on_new_window, NewWindowBehavior::Default);
 
-        // Markdown defaults (auto_link_urls defaults to true even when section is missing)
+        // Markdown defaults (they hold even when the section is missing)
         assert!(parsed.markdown.auto_link_urls);
+        assert_eq!(parsed.markdown, RenderOptions::default());
 
         // Sidebar zoom and layout defaults
         assert_eq!(parsed.sidebar.default_zoom_level, 1.0);

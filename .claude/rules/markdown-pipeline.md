@@ -34,9 +34,20 @@ GitHub alerts, heading slugs and the GFM tag filter are all its work; anything
 missing there is an upstream issue rather than a local workaround. A version
 change shows up as a snapshot diff, so review it rather than accepting it.
 
+`RenderOptions` is what the reader chooses, and `src/engine.rs` is the only
+place it meets ox-content: `parser_options` and `renderer_options` build both
+option sets from it. Two rules bound what may go in it. The GFM baseline —
+tables, task lists, strikethrough, footnotes — stays fixed, because a document
+written for GitHub contains those and showing them as literal pipes would be a
+broken reader rather than a configured one; so do the parts of the renderer
+the HTML contract rests on (`source_spans`, `semantic_footnotes`). And every
+option reaches the selection source map as well as the rendering
+(`extract_source_selection` takes the options for that reason): the map is
+built by parsing the source again, so reading it any other way than the
+document on screen was read makes a selection count into the wrong bytes.
+
 Heading attributes (`{#id .class}`) and wiki links (`[[Page]]`) are parser
-options — `heading_attributes` and `wiki_links` in `src/engine.rs` — so what
-is left of them here is Arto's own half. `engine/wiki.rs` turns a target into
+options, so what is left of them here is Arto's own half. `engine/wiki.rs` turns a target into
 an href (`.md` for one without an extension, the target as written otherwise),
 which the render hook writes unencoded because the app opens it as a file
 name; the hook also renders a heading the parser read an attribute block off,
