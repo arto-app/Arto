@@ -1,0 +1,16 @@
+/* =================================
+   Matched text
+   =================================
+
+   Every list Arto narrows is narrowed the same way — a fuzzy match, the way
+   fzf matches — and a fuzzy match can land anywhere in a name: `gd` finds
+   `guide.md`. So a row marks the characters that put it there rather than
+   leaving the reader to work out why it is in the list. */
+
+/* Weight and colour, not a background: the marked characters are scattered
+   through the name rather than in a run, and a highlight behind every other
+   letter of a path is a row nobody can read. */
+.fuzzy-match {
+  color: var(--link-color);
+  font-weight: 600;
+}

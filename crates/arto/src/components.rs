@@ -9,6 +9,7 @@ pub mod header;
 pub mod icon;
 pub mod image_window;
 pub mod main_app;
+pub mod matched;
 pub mod math_window;
 pub mod mermaid_window;
 pub mod palette;

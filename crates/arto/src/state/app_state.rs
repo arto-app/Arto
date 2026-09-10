@@ -371,7 +371,12 @@ impl AppState {
 
     /// Force the file tree to remount and re-read the filesystem (manual reload
     /// or file-watcher change).
+    ///
+    /// The palette's file listings go with it: they are a picture of the same
+    /// folders taken earlier, and a reader who has just asked for the tree to
+    /// be re-read has asked about those too.
     pub fn bump_sidebar_refresh(&mut self) {
+        crate::files::forget();
         let next = self.sidebar_refresh_counter.read().wrapping_add(1);
         self.sidebar_refresh_counter.set(next);
     }

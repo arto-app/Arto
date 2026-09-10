@@ -6,6 +6,8 @@ mod components;
 mod config;
 mod document_link;
 mod events;
+mod files;
+mod fuzzy;
 mod history;
 mod hooks;
 pub mod ipc;
