@@ -1,3 +1,4 @@
+use super::ResetLine;
 use crate::components::icon::{Icon, IconName};
 use dioxus::prelude::*;
 
@@ -12,7 +13,20 @@ pub fn OptionCards<T: PartialEq + Clone + 'static>(
     options: Vec<OptionCardItem<T>>,
     selected: T,
     on_change: EventHandler<T>,
+    /// The value Arto ships with, named by the title of its own card so the
+    /// caller never restates a label written here.
+    shipped: Option<T>,
 ) -> Element {
+    let reset_to = shipped
+        .as_ref()
+        .filter(|value| *value != &selected)
+        .and_then(|value| {
+            options
+                .iter()
+                .find(|option| &option.value == value)
+                .map(|option| option.title.clone())
+        });
+
     rsx! {
         div {
             class: "option-cards",
@@ -49,6 +63,14 @@ pub fn OptionCards<T: PartialEq + Clone + 'static>(
                     }
                 }
             }
+        }
+        ResetLine {
+            shipped: reset_to,
+            on_reset: move |_| {
+                if let Some(shipped) = shipped.clone() {
+                    on_change.call(shipped);
+                }
+            },
         }
     }
 }

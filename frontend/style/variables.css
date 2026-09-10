@@ -134,6 +134,15 @@
   --hover-border: var(--borderColor-emphasis);
   --accent-bg: var(--bgColor-accent-emphasis);
   --accent-fg: var(--fgColor-onEmphasis);
+  /* The accent as ink rather than as a surface: for text and glyphs that must
+     stay legible on the page's own ground, where `--accent-bg` is a fill and
+     would read too light on it. */
+  --accent-color: var(--fgColor-accent);
+
+  /* Where the keyboard is. Drawn outside the control so it never moves what
+     it marks, and only for `:focus-visible`, so the pointer never raises it. */
+  --focus-ring: 2px solid var(--focus-outline-color);
+  --focus-ring-offset: 2px;
   --copy-button-bg: var(--control-bgColor-rest);
   --copy-button-fg: var(--fgColor-muted);
   --copy-button-hover-bg: var(--control-bgColor-hover);

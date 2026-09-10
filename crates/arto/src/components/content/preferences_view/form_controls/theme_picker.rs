@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 
+use super::ResetLine;
 use crate::config::ColorTheme;
 
 /// A radio group of GitHub's themes, each card showing the palette it selects.
@@ -20,7 +21,13 @@ pub fn ThemePicker(
     /// Whether this slot paints dark mode.
     dark_mode: bool,
     on_change: EventHandler<ColorTheme>,
+    /// The theme Arto ships in this slot.
+    shipped: Option<ColorTheme>,
 ) -> Element {
+    let reset_to = shipped
+        .filter(|shipped| shipped != &selected)
+        .map(|shipped| shipped.label().to_string());
+
     let (matching, others): (Vec<ColorTheme>, Vec<ColorTheme>) = ColorTheme::ALL
         .into_iter()
         .partition(|theme| theme.is_dark() == dark_mode);
@@ -56,6 +63,14 @@ pub fn ThemePicker(
                     "Show dark themes too"
                 }
             }
+        }
+        ResetLine {
+            shipped: reset_to,
+            on_reset: move |_| {
+                if let Some(shipped) = shipped {
+                    on_change.call(shipped);
+                }
+            },
         }
     }
 }

@@ -179,49 +179,81 @@ a settings tab sitting open for days, so it gets a window that closes instead.
 - `window::preferences::open_or_focus_preferences_window` opens it, reusing the
   child-window machinery in `window/child.rs`: one window at a time, focused
   rather than duplicated, closed with its parent.
-- The window holds no `AppState`. What the "Current Settings" section reports
-  comes over as a `PreferencesSnapshot` taken when it opens, and what it
-  changes goes back through `events::SET_SIDEBAR_ZOOM_IN_WINDOW`, targeted at
-  the window that opened it.
+- The window holds no `AppState`. What the "Current Settings" sections report
+  comes over as a `PreferencesSnapshot` taken when it opens, and what they
+  change goes back through `events::SET_SIDEBAR_ZOOM_IN_WINDOW` and
+  `SET_CONTENT_ZOOM_IN_WINDOW`, targeted at the window that opened it.
 - `AppState::open_preferences()` is still the single entry point, so the menu
   item and the keybinding stay unchanged.
+
+### An edit is applied, not saved
+
+There is no Save button. A setting the reader changed is a decision, not a
+draft: `use_auto_save` in `main_view.rs` writes it to `config.json`, replaces
+`CONFIG`, and broadcasts — so nothing is lost by closing the window and there
+is no unsaved state to warn about. Edits settle for 200ms first, because a
+slider fires all through a drag.
+
+A tab therefore takes `config: Signal<Config>` and nothing else; writing the
+field **is** the whole handler.
+
+### One question, asked once
+
+"The default, or what the last window had?" is one question, and it used to be
+asked twice at the foot of every pane — eleven copies of the same two cards,
+with no way to see what a window would actually open with. It is asked once,
+in the Startup pane, as a column of rows. A new setting with a
+`StartupBehavior` / `NewWindowBehavior` pair belongs there, not beside its own
+default.
 
 ### Layout Structure
 
 ```
 preferences-page (全体: flex column, min-width: 600px)
 │
-└─ preferences-page-body (flex row, 両方スクロール可能)
+└─ preferences-page-body (flex row, それぞれが独立にスクロール)
    │
    ├─ preferences-nav (左: width: 180px, 縦並びボタン)
-   │  ├─ Theme
-   │  ├─ Sidebar
-   │  ├─ Directory
+   │  ├─ Appearance / Markdown / Reading / Panel / Window / Startup / Keybindings
    │  ├─ (spacer)
    │  └─ About
    │
    └─ preferences-settings (右: flex: 1)
-      ├─ preferences-settings-header
-      │  └─ save-status (右寄せ: [Save Changes] or Saving... or Saved!)
+      ├─ preferences-settings-header (sticky, ペイン名のみ)
       │
       └─ preferences-pane (選択されたタブのコンテンツ)
          ├─ preference-section-title (h3, uppercase)
-         └─ preference-item (各設定項目)
-            ├─ preference-item-header (label + description)
-            └─ Controls (option-cards, theme-selector, slider, etc.)
+         ├─ preference-item (説明を要する設定)
+         │  ├─ preference-item-header (label + description)
+         │  └─ Controls (option-cards, theme-picker, slider, …)
+         └─ preference-item preference-row (一行で済む設定)
+            ├─ preference-row-text (label + description)
+            └─ toggle-switch / segmented
 ```
 
 ### Key CSS Properties
 
 - Page: `min-width: 600px; overflow-x: auto` (allow horizontal scroll below minimum)
-- Navigation: `width: 180px; background: transparent` (don't compete with sidebar)
-- Settings header: `min-height: 36px` (prevent layout shift when Save button appears/disappears)
+- Navigation: `width: 180px; background: transparent`, with its own `overflow-y`
+- Settings header: `position: sticky` on the pane's own background, so a long
+  pane never leaves the reader without a heading
 
 ## Form Controls
 
-### Custom Radio Button Styles
+Which control a setting gets follows from where its explanation has to live:
 
-**1. Option Cards** - For binary/multiple choices with descriptions:
+| The setting | Control |
+| --- | --- |
+| A few choices, each needing a line of its own to explain it | `OptionCards` |
+| A choice between GitHub's themes | `ThemePicker` |
+| Genuinely on or off, and the label says which | `ToggleRow` |
+| A few choices, each a word or two, in a pane full of the same question | `ChoiceRow` |
+
+Reach for `OptionCards` only when the options *are* the explanation. A boolean
+whose two cards would read "Unpinned / Pinned" says nothing the label did not,
+and a pane of ten of those is unreadable — that is what `ToggleRow` is for.
+
+**1. Option Cards** - For multiple choices with descriptions:
 - Hide native `<input type="radio">` with `opacity: 0; position: absolute`
 - Style the `<label>` as a card with `border: 1px solid var(--border-color)`
 - Selected: `border-color: var(--accent-bg)` + accent-tinted background
@@ -230,6 +262,43 @@ preferences-page (全体: flex column, min-width: 600px)
 **2. Theme/Icon Selector** - For icon-based choices:
 - Same card style as Option Cards (separated, not segmented)
 - Icon + label vertically stacked with `gap: 6px`
+
+**3. Row controls** (`.preference-row`) - label and description on the left,
+the control on the right: a `.toggle-switch` checkbox, or a `.segmented` group
+of radios.
+
+### The way back to the shipped value
+
+Every control takes a `shipped` prop: the value Arto is released with. When
+the setting is off that value the control draws a `ResetLine` under itself —
+"Reset to 640px" — and when it is on it, nothing. The question "what was this
+before I touched it?" only arises off the default, so that is the only time
+the answer is drawn, and naming the value in the button answers it without a
+hover.
+
+**The control formats the value, never the call site.** A slider has the unit
+and the decimals, a card group has the title written on the card, a segmented
+row has its segment's label. A call site that restated one of those would be a
+second copy of a string to keep in step. Adding a setting therefore means one
+more line: `shipped: Some(defaults.section.field)`.
+
+`shipped` is an `Option`, which Dioxus treats as optional, so a control with
+nothing to offer simply omits it. Where a setting is built from raw inputs
+rather than a shared control (the window position offset), the pane renders
+`ResetLine` itself.
+
+### Where the keyboard is
+
+Every control that hides its native input still has to show focus. The card
+wears the ring for the radio inside it (`:has(input:focus-visible)`), drawn
+with `--focus-ring` / `--focus-ring-offset` as an `outline`, so it never moves
+what it marks and never appears under the pointer.
+
+### Accent as ink vs. accent as surface
+
+`--accent-bg` is a fill and `--accent-fg` is what sits on it. Text and glyphs
+that stay on the page's own ground take `--accent-color` (`fgColor-accent`)
+instead; `--accent-bg` used as a `color` is too light to read there.
 
 ### Directory/Path Inputs
 
@@ -248,7 +317,6 @@ preferences-page (全体: flex column, min-width: 600px)
 
 | Button Type | Padding | Font Size | Border Radius |
 |-------------|---------|-----------|---------------|
-| Primary action (Save) | 8px 16px | var(--font-size-md) | var(--radius-md) |
 | Secondary (Browse, Use Current) | 10px 18px | var(--font-size-base) | var(--radius-lg) |
 | Icon button | 0 (40x40px) | - | var(--radius-lg) |
 

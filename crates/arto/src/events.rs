@@ -17,3 +17,9 @@ use tokio::sync::broadcast;
 /// travels as an event to that window rather than being written directly.
 pub static SET_SIDEBAR_ZOOM_IN_WINDOW: std::sync::LazyLock<broadcast::Sender<(WindowId, f64)>> =
     std::sync::LazyLock::new(|| broadcast::channel(10).0);
+
+/// Apply a zoom level to one window's document, from the preferences window.
+///
+/// The counterpart of [`SET_SIDEBAR_ZOOM_IN_WINDOW`] for the page itself.
+pub static SET_CONTENT_ZOOM_IN_WINDOW: std::sync::LazyLock<broadcast::Sender<(WindowId, f64)>> =
+    std::sync::LazyLock::new(|| broadcast::channel(10).0);

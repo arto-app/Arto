@@ -1,15 +1,30 @@
+use super::ResetLine;
 use crate::components::icon::{Icon, IconName};
 use dioxus::prelude::*;
 use std::path::PathBuf;
 
 /// Directory picker component with browse button and "Use Current" option
+///
+/// `shipped` nests two `Option`s on purpose: the outer one says whether there
+/// is a shipped value to offer at all, the inner one is that value — and for
+/// this setting the shipped value *is* "no folder".
 #[component]
 pub fn DirectoryPicker(
     value: Option<PathBuf>,
     placeholder: String,
     on_change: EventHandler<Option<PathBuf>>,
     current_directory: Option<PathBuf>,
+    shipped: Option<Option<PathBuf>>,
 ) -> Element {
+    let reset_to =
+        shipped
+            .clone()
+            .filter(|shipped| shipped != &value)
+            .map(|shipped| match shipped {
+                Some(path) => path.display().to_string(),
+                None => "no folder".to_string(),
+            });
+
     let handle_browse = move |_| {
         spawn(async move {
             if let Some(path) = pick_directory().await {
@@ -56,6 +71,14 @@ pub fn DirectoryPicker(
                 onclick: handle_use_current,
                 "Use Current"
             }
+        }
+        ResetLine {
+            shipped: reset_to,
+            on_reset: move |_| {
+                if let Some(shipped) = shipped.clone() {
+                    on_change.call(shipped);
+                }
+            },
         }
     }
 }

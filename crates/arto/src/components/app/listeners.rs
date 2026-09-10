@@ -2,7 +2,7 @@ use dioxus::desktop::window;
 use dioxus::document;
 use dioxus::prelude::*;
 
-use crate::events::SET_SIDEBAR_ZOOM_IN_WINDOW;
+use crate::events::{SET_CONTENT_ZOOM_IN_WINDOW, SET_SIDEBAR_ZOOM_IN_WINDOW};
 use crate::pinned_search::{PinnedSearch, PINNED_SEARCHES, PINNED_SEARCHES_CHANGED};
 use crate::state::AppState;
 
@@ -23,13 +23,22 @@ pub(super) fn setup_window_listeners(mut state: AppState) {
 
     setup_pinned_highlights();
 
-    // The panel zoom slider in the preferences window, which acts on the
-    // window that opened it rather than on every window.
+    // The zoom sliders in the preferences window, which act on the window
+    // that opened it rather than on every window.
     use_future(move || async move {
         let mut rx = SET_SIDEBAR_ZOOM_IN_WINDOW.subscribe();
         while let Ok((target_window_id, zoom)) = rx.recv().await {
             if target_window_id == current_window_id {
                 state.sidebar.write().zoom_level = zoom;
+            }
+        }
+    });
+
+    use_future(move || async move {
+        let mut rx = SET_CONTENT_ZOOM_IN_WINDOW.subscribe();
+        while let Ok((target_window_id, zoom)) = rx.recv().await {
+            if target_window_id == current_window_id {
+                state.zoom_level.set(zoom);
             }
         }
     });
