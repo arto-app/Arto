@@ -1,10 +1,11 @@
 name: "CI"
 
 # The fast lane. Every pull request gets the checks that finish in minutes
-# (frontend, Rust per OS, flake evaluation, docs, workflow lint) and one
-# macOS bundle as the release-critical smoke test. The full five-leg bundle
-# matrix and the from-scratch Nix build run on pushes to main and on demand,
-# or on a pull request that touches what they verify.
+# (frontend, Rust per OS, flake evaluation, docs, workflow lint) plus one
+# bundle per OS — macOS, Linux and Windows — so a reviewer can download and
+# run the change on their own machine. The arm64 legs and the from-scratch
+# Nix build run on pushes to main and on demand, or on a pull request that
+# touches what they verify.
 #
 # `ci` at the bottom is the single job to require in branch protection: it
 # always runs and fails if anything it depends on failed.
@@ -49,6 +50,9 @@ jobs:
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
         run: |
           all='["macos","ubuntu","ubuntu-arm64","windows","windows-arm64"]'
+          # One leg per OS: what a pull request has to produce so the change
+          # can be downloaded and run on macOS, Linux and Windows.
+          native='["macos","ubuntu","windows"]'
           if [ "$EVENT" != "pull_request" ]; then
             {
               echo "code=true"
@@ -75,12 +79,12 @@ jobs:
           # pnpmDeps hash, so both must go through the from-scratch build.
           if matches '^(flake\.nix|flake\.lock|nix/|Cargo\.lock|frontend/pnpm-lock\.yaml|\.github/workflows/nix\.yml)'; then flake=true; fi
           if matches '(\.md$|^docs/|^lychee\.toml$|^\.github/scripts/)'; then docs=true; fi
-          # The bundle verifies packaging inputs, not application code, so
-          # the full matrix runs only when those inputs (or a label) ask.
-          # crates/arto/assets holds the icon Dioxus.toml embeds.
+          # The arm64 legs duplicate their x86_64 siblings except for the
+          # packaging inputs, so they run only when those inputs (or a label)
+          # ask. crates/arto/assets holds the icon Dioxus.toml embeds.
           if matches '^(crates/arto/Dioxus\.toml|crates/arto/assets/|crates/arto/justfile|justfile|platform/|flake\.nix|flake\.lock|\.github/workflows/bundle\.yml|\.github/actions/)'; then bundle=true; fi
           case ",$LABELS," in *,ci:bundle,*) bundle=true ;; esac
-          if [ "$bundle" = true ]; then targets="$all"; else targets='["macos"]'; fi
+          if [ "$bundle" = true ]; then targets="$all"; else targets="$native"; fi
           {
             echo "code=$code"
             echo "flake=$flake"

@@ -206,5 +206,6 @@ jobs:
           path: ${{ matrix.artifacts }}
           if-no-files-found: error
           # Release bundles are attached to the release and can stay; a
-          # pull-request smoke test only needs to be downloadable for a while.
-          retention-days: ${{ inputs.version != '' && 90 || 7 }}
+          # pull-request bundle only has to stay downloadable while the change
+          # is under review.
+          retention-days: ${{ inputs.version != '' && 90 || 3 }}

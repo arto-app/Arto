@@ -95,15 +95,20 @@ Arto/
 minutes: the frontend job (lint, type-check, tests, production bundle), one
 Rust job per OS (format, clippy, tests via nextest; the Linux leg adds
 rustdoc, feature combinations, `cargo deny` and `cargo machete`), flake
-evaluation, documentation checks, workflow lint, and a macOS bundle as the
-release-critical smoke test. Only the `ci` job needs to be a required status
+evaluation, documentation checks, workflow lint, and one bundle per OS —
+macOS, Linux and Windows. Only the `ci` job needs to be a required status
 check; it fails if anything it depends on failed.
 
-The expensive jobs run when they can find something: the full five-leg
-bundle (`bundle.yml`) and the from-scratch Nix build (`nix.yml`) run on every
-push to `main`, on a pull request that touches packaging inputs or the flake,
-or on a pull request labelled `ci:bundle`. A new push to a pull request
-cancels the run in flight.
+Each bundle leg uploads its installers (and, off macOS, the standalone
+executable) as a run artifact named `arto-<leg>`, downloadable from the run
+summary page for three days — long enough to try a pull request on the
+machine it matters on. Release bundles are kept for ninety days instead.
+
+The expensive legs run when they can find something: the arm64 bundles
+(`bundle.yml`) and the from-scratch Nix build (`nix.yml`) run on every push
+to `main`, on a pull request that touches packaging inputs or the flake, or
+on a pull request labelled `ci:bundle`. A new push to a pull request cancels
+the run in flight.
 
 Every check has a matching recipe so a CI failure can be reproduced locally
 inside the devShell:
