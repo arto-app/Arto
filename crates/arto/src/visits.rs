@@ -726,6 +726,21 @@ mod tests {
     }
 
     #[test]
+    fn an_unnarrowed_list_is_newest_first_whatever_the_paths_are_like() {
+        // Nothing was asked, so nothing — length included — may reorder it:
+        // the palette opens on this list and the row under the cursor is
+        // meant to be the document read before the one on screen.
+        let visits = vec![
+            Visit::new("/notes/a-long-name-indeed.md", at(2026, 4, 16)),
+            Visit::new("/n/b.md", at(2026, 4, 15)),
+        ];
+        assert_eq!(
+            found(&visits, ""),
+            vec!["notes/a-long-name-indeed.md", "n/b.md"]
+        );
+    }
+
+    #[test]
     fn documents_that_score_alike_stay_newest_first() {
         let visits = vec![
             Visit::new("/notes/b.md", at(2026, 4, 16)),

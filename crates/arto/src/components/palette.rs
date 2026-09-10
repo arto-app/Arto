@@ -20,13 +20,18 @@ use std::sync::Arc;
 /// says so.
 const MAX_ROWS: usize = 40;
 
-/// How many rows each kind contributes, at most.
+/// How many rows each kind contributes to a narrowed list, at most.
 ///
 /// A fuzzy query answers with far more than a literal one does, so without a
 /// share each the best-scoring kind would take the whole list: a query that
 /// finds forty files would leave no room for the command it also names. The
 /// shares add up to more than [`MAX_ROWS`], deliberately — a kind that finds
 /// nothing gives its room to the kinds below it.
+///
+/// They are shares of a *narrowed* list. With nothing typed there is only
+/// one kind — the history — and it has the whole of [`MAX_ROWS`]: the
+/// palette opens as a way back through what was read, and a dozen rows is
+/// not that.
 const MAX_COMMANDS: usize = 8;
 const MAX_DOCUMENTS: usize = 12;
 const MAX_KEPT: usize = 6;
@@ -135,7 +140,14 @@ pub fn rows_for(sources: Sources<'_>, query: &str) -> Vec<Row> {
     let commands = ranked_commands(&query, MAX_COMMANDS)
         .into_iter()
         .map(Row::Command);
-    let documents = crate::visits::ranked(sources.visits, &query, MAX_DOCUMENTS)
+    // The history has a share of a narrowed list and the whole of an
+    // unnarrowed one, where it is the only kind there is.
+    let documents_cap = if query.is_empty() {
+        MAX_ROWS
+    } else {
+        MAX_DOCUMENTS
+    };
+    let documents = crate::visits::ranked(sources.visits, &query, documents_cap)
         .into_iter()
         .cloned()
         .map(Row::Document);
@@ -411,11 +423,14 @@ pub fn Palette() -> Element {
 
                 // Said once, and only where it changes what the list means: a
                 // folder too large to list whole is one where "not here" is
-                // not an answer the palette can give.
+                // not an answer the palette can give. Without a number,
+                // because a walk stops for whichever of its bounds it
+                // reaches first and the reader would read a count as the
+                // one that stopped this one.
                 if partial {
                     div {
                         class: "palette-note",
-                        "Only the first {crate::files::MAX_FILES} files under this folder are listed."
+                        "This folder was too large to list whole — some files are not offered."
                     }
                 }
 
@@ -570,6 +585,18 @@ mod tests {
         );
         assert_eq!(rows.len(), 2);
         assert!(rows.iter().all(|row| matches!(row, Row::Document(_))));
+    }
+
+    #[test]
+    fn an_empty_query_lists_the_history_to_the_end_of_the_screen() {
+        // The shares are shares of a narrowed list; unnarrowed, the history
+        // is the only kind there is and has the whole of it.
+        let visits: Vec<Visit> = (0..MAX_ROWS * 2)
+            .map(|at| visit(&format!("/docs/note-{at}.md")))
+            .collect();
+        let rows = rows_for(sources(&visits, &[], &[]), "");
+
+        assert_eq!(rows.len(), MAX_ROWS);
     }
 
     #[test]

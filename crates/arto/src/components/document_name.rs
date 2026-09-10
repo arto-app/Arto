@@ -13,6 +13,9 @@ use std::path::PathBuf;
 /// `query` marks the characters that found this row, for the lists that are
 /// typed into. It is asked of the whole name — folder and file — because that
 /// is what the reader sees, and the answer is then cut where the drawing is.
+/// A row is found by its whole path and drawn as two components of it, so a
+/// term that named a folder further up marks nothing here; the terms that
+/// are in sight still mark what they found.
 ///
 /// Nothing typed is the common case by far: every row of the tree is a name
 /// drawn this way and none of them is being searched. So an empty query is
@@ -32,7 +35,7 @@ pub fn DocumentName(path: PathBuf, #[props(default)] query: String) -> Element {
         };
     }
 
-    let spans = query.highlight(&format!("{folder}{name}"));
+    let spans = query.highlight_path(&format!("{folder}{name}"));
     let (folder_spans, name_spans) = crate::fuzzy::split_spans(spans, folder.chars().count());
 
     rsx! {

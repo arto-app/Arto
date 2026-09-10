@@ -83,7 +83,8 @@ pub struct Listing {
     pub all_files: bool,
     /// The files, shallowest first, then by path.
     pub files: Vec<PathBuf>,
-    /// Whether [`MAX_FILES`] cut the walk short.
+    /// Whether the walk was cut short — by any of its three bounds, so the
+    /// folder holds files this listing does not name.
     pub truncated: bool,
 }
 
@@ -115,6 +116,8 @@ struct Index {
     kept: Vec<Kept>,
     /// The folders being read right now, so two looks do not start two scans.
     scanning: HashSet<(PathBuf, bool)>,
+    /// Which era what is kept belongs to. See [`forget`].
+    era: u64,
 }
 
 impl Index {
@@ -122,9 +125,15 @@ impl Index {
     ///
     /// The listing replaces any earlier one of the same folder, so a rescan
     /// updates in place rather than pushing the other folders out.
-    fn remember(&mut self, listing: Listing) {
-        self.scanning
-            .remove(&(listing.root.clone(), listing.all_files));
+    ///
+    /// A listing from before the last [`forget`] is dropped instead of kept:
+    /// it was read from the disk as it was, and keeping it would answer the
+    /// reader's reload with what they asked to be rid of — and, worse, would
+    /// look freshly read for the next half minute.
+    fn remember(&mut self, listing: Listing, era: u64) {
+        if era != self.era {
+            return;
+        }
         self.kept
             .retain(|kept| !kept.listing.answers(&listing.root, listing.all_files));
         self.kept.push(Kept {
@@ -134,6 +143,22 @@ impl Index {
         while self.kept.len() > MAX_LISTINGS {
             self.kept.remove(0);
         }
+    }
+}
+
+/// A folder marked as being read, unmarked however the reading ends.
+///
+/// A guard rather than a line at the end of the scan: a walk that panics
+/// would otherwise leave its folder marked for the life of the process, and
+/// a folder that is forever being read is one the palette never offers a
+/// file from again.
+struct Scanning {
+    key: (PathBuf, bool),
+}
+
+impl Drop for Scanning {
+    fn drop(&mut self) {
+        INDEX.write().scanning.remove(&self.key);
     }
 }
 
@@ -165,7 +190,7 @@ pub fn listing(root: &Path, all_files: bool) -> Option<Arc<Listing>> {
 /// still fresh, does nothing.
 pub fn ensure(root: &Path, all_files: bool) {
     let key = (root.to_path_buf(), all_files);
-    {
+    let era = {
         let mut index = INDEX.write();
         if index.scanning.contains(&key) {
             return;
@@ -178,13 +203,17 @@ pub fn ensure(root: &Path, all_files: bool) {
             return;
         }
         index.scanning.insert(key.clone());
-    }
+        index.era
+    };
 
     // A plain thread rather than a task: walking a directory is blocking work
     // from first call to last, and the runtime this would otherwise sit on is
     // the one drawing the window.
     std::thread::spawn(move || {
-        let (root, all_files) = key;
+        // Held for as long as the walk is, and dropped by the walk ending
+        // however it ends.
+        let scanning = Scanning { key };
+        let (root, all_files) = scanning.key.clone();
         let started = Instant::now();
         let listing = scan(&root, all_files);
         tracing::debug!(
@@ -194,7 +223,10 @@ pub fn ensure(root: &Path, all_files: bool) {
             elapsed = ?started.elapsed(),
             "Listed the files under a folder"
         );
-        INDEX.write().remember(listing);
+        INDEX.write().remember(listing, era);
+        // The mark comes off before the news goes out, so a window woken by
+        // it can ask for another reading straight away.
+        drop(scanning);
         let _ = FILES_CHANGED.send(());
     });
 }
@@ -204,8 +236,16 @@ pub fn ensure(root: &Path, all_files: bool) {
 /// For the reader who has just asked for the tree to be reloaded: the palette
 /// is a window on the same folders, and answering from a listing taken before
 /// the reload would be the one place the app still showed the old files.
+///
+/// A walk that is already under way was reading the disk as it was before
+/// the reload, so what it is about to come back with is forgotten too — the
+/// era it started in has passed. Otherwise the one thing a reload could not
+/// refresh would be the folder that happened to be being read as it was
+/// asked for, and it would look freshly read for the next half minute.
 pub fn forget() {
-    INDEX.write().kept.clear();
+    let mut index = INDEX.write();
+    index.kept.clear();
+    index.era = index.era.wrapping_add(1);
 }
 
 /// What one walk is allowed to spend.
@@ -486,7 +526,7 @@ mod tests {
         // of its own rather than through a global other tests also write to.
         let mut index = Index::default();
         for at in 0..MAX_LISTINGS + 2 {
-            index.remember(listing_of(&format!("/w/{at}")));
+            index.remember(listing_of(&format!("/w/{at}")), index.era);
         }
 
         assert_eq!(index.kept.len(), MAX_LISTINGS);
@@ -494,12 +534,45 @@ mod tests {
     }
 
     #[test]
+    fn a_walk_that_falls_over_does_not_leave_its_folder_marked() {
+        // The panic below is the point of the test, and its message on
+        // stderr is not a failure.
+        let key = (PathBuf::from("/w/that-falls-over"), false);
+        INDEX.write().scanning.insert(key.clone());
+
+        let fell_over = std::panic::catch_unwind(|| {
+            let _scanning = Scanning {
+                key: (PathBuf::from("/w/that-falls-over"), false),
+            };
+            panic!("the walk fell over");
+        });
+
+        assert!(fell_over.is_err());
+        assert!(
+            !INDEX.read().scanning.contains(&key),
+            "a folder nothing is reading must not still be marked as read"
+        );
+    }
+
+    #[test]
+    fn a_reading_from_before_a_reload_is_not_kept() {
+        // The walk was already under way when the reader asked for the tree
+        // to be re-read, so what it comes back with is the disk as it was.
+        let mut index = Index::default();
+        let era = index.era;
+        index.era = index.era.wrapping_add(1);
+        index.remember(listing_of("/w/arto"), era);
+
+        assert!(index.kept.is_empty());
+    }
+
+    #[test]
     fn reading_a_folder_again_replaces_what_was_kept() {
         let mut index = Index::default();
-        index.remember(listing_of("/w/arto"));
+        index.remember(listing_of("/w/arto"), index.era);
         let mut second = listing_of("/w/arto");
         second.files.push(PathBuf::from("/w/arto/README.md"));
-        index.remember(second);
+        index.remember(second, index.era);
 
         assert_eq!(index.kept.len(), 1);
         assert_eq!(index.kept[0].listing.files.len(), 1);

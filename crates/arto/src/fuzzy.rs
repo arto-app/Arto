@@ -9,7 +9,7 @@
 //!
 //! Ranking is the half that "contains" never had. A fuzzy query matches far
 //! more than a substring does, so what saves it from being noise is that the
-//! best match is first: [`Query::score`] is what every list sorts on, and a
+//! best match is first: [`Query::rank`] is what every list sorts on, and a
 //! tie leaves the rows in the order they arrived — newest first for the
 //! history, as listed for the commands.
 //!
@@ -70,9 +70,9 @@ impl Scratch {
 
 /// One run of a candidate's text, and whether the query put it there.
 ///
-/// What [`Query::highlight`] answers with: the row draws the matched runs
-/// differently, which is what makes a fuzzy match legible — the reason a row
-/// is in the list is the reason it is spelled the way it is.
+/// What [`Query::highlight`] answers with: the row draws the marked runs
+/// differently, which is what makes a fuzzy match legible — the reader can
+/// see what of the query the row answered with.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Span {
     pub text: String,
@@ -96,6 +96,18 @@ pub struct Rank {
 }
 
 impl Rank {
+    /// What every candidate answers a query that asked nothing.
+    ///
+    /// Nothing was asked, so nothing distinguishes one candidate from
+    /// another — the length included. A rank that carried the candidate's
+    /// length here would order an unnarrowed list by how long its rows are,
+    /// which for the palette's opening list would mean the shortest path
+    /// rather than the last thing read.
+    const UNASKED: Self = Self {
+        score: 0,
+        length: 0,
+    };
+
     /// What an order is decided on, for the candidate offered `at`: the
     /// better score, then the shorter candidate, then the one offered first.
     ///
@@ -181,6 +193,9 @@ impl Query {
 
     /// How well `text` answers, or [`None`] if it does not.
     pub fn rank(&self, text: &str) -> Option<Rank> {
+        if self.is_empty() {
+            return Some(Rank::UNASKED);
+        }
         Some(Rank {
             score: self.matched(text, false)?,
             length: text.chars().count(),
@@ -199,6 +214,9 @@ impl Query {
     /// added: `guide` then finds `notes/guide.md` above `guide/notes.md`,
     /// which is what was meant.
     pub fn rank_path(&self, path: &Path) -> Option<Rank> {
+        if self.is_empty() {
+            return Some(Rank::UNASKED);
+        }
         let whole = path.to_string_lossy();
         let score = self.matched(&whole, true)?;
         let named = path
@@ -211,35 +229,64 @@ impl Query {
         })
     }
 
-    /// `text`, split into the runs the query matched and the runs it did not.
+    /// `text`, split into the runs the query marked and the runs it did not.
     ///
-    /// Adjacent runs of a kind are one span, and text that matched nothing is
-    /// one span of the whole string — so a row that did not match, or a query
-    /// that asked nothing, costs one span and no work.
+    /// Adjacent runs of a kind are one span, and text nothing was marked in
+    /// is one span of the whole string — so a row with nothing to mark, or a
+    /// query that asked nothing, costs one span and no work.
     pub fn highlight(&self, text: &str) -> Vec<Span> {
-        let whole = || {
-            vec![Span {
+        self.marks(text, false)
+    }
+
+    /// The same, for text that is a path or part of one.
+    pub fn highlight_path(&self, text: &str) -> Vec<Span> {
+        self.marks(text, true)
+    }
+
+    /// Mark whatever of the query appears in `text`, term by term.
+    ///
+    /// Term by term rather than all or nothing, because what a row is ranked
+    /// on and what a row shows are not the same string: a document is found
+    /// by its whole path and drawn as `folder/file.md`, so `arto guide` can
+    /// find `~/arto/docs/guide.md` while only `guide` is anywhere in sight.
+    /// Asking for all the terms at once would leave that row with no marks
+    /// at all — the one row the reader most needs to see the reason for.
+    /// Each term that is in the visible text marks it; the rest say nothing.
+    ///
+    /// A term the query excludes (`!draft`) marks nothing either way: it is
+    /// there to keep rows out, and a row that is here does not contain it.
+    fn marks(&self, text: &str, is_path: bool) -> Vec<Span> {
+        if self.is_empty() || text.is_empty() {
+            return vec![Span {
                 text: text.to_string(),
                 matched: false,
-            }]
-        };
-        if self.is_empty() || text.is_empty() {
-            return whole();
+            }];
         }
 
         let mut indices = Vec::new();
-        let found = SCRATCH.with_borrow_mut(|scratch| {
+        SCRATCH.with_borrow_mut(|scratch| {
+            let scratch = &mut *scratch;
             let haystack = Utf32Str::new(text, &mut scratch.haystack);
-            self.pattern
-                .indices(haystack, &mut scratch.text, &mut indices)
-                .is_some()
+            let matcher = if is_path {
+                &mut scratch.path
+            } else {
+                &mut scratch.text
+            };
+            for atom in &self.pattern.atoms {
+                if atom.negative {
+                    continue;
+                }
+                // A term that is not here leaves nothing behind: what it had
+                // written down before giving up is not a mark.
+                let marked = indices.len();
+                if atom.indices(haystack, matcher, &mut indices).is_none() {
+                    indices.truncate(marked);
+                }
+            }
         });
-        if !found {
-            return whole();
-        }
-        // One index per matched character, but a term is matched on its own
-        // and the terms can overlap, so the same character can arrive twice
-        // and out of order.
+        // One index per marked character, but the terms are marked one at a
+        // time and can overlap, so the same character can arrive twice and
+        // out of order.
         indices.sort_unstable();
         indices.dedup();
 
@@ -466,6 +513,42 @@ mod tests {
     }
 
     #[test]
+    fn nothing_asked_tells_no_two_candidates_apart() {
+        // Not even by length: an unnarrowed list keeps the order it was
+        // given, which for the palette's opening list is newest first.
+        let query = Query::new("");
+        let ranked = best(
+            [
+                (
+                    query
+                        .rank_path(Path::new("/w/a-long-name-indeed.md"))
+                        .unwrap(),
+                    "first",
+                ),
+                (query.rank_path(Path::new("/w/b.md")).unwrap(), "second"),
+            ],
+            usize::MAX,
+        );
+        assert_eq!(ranked, vec!["first", "second"]);
+    }
+
+    #[test]
+    fn marking_says_what_of_the_query_is_in_sight() {
+        // The row was found by its whole path; this is the part of it the
+        // reader can see, so the term that named a folder further up marks
+        // nothing and the one that named the file marks it.
+        let spans = Query::new("arto guide").highlight_path("docs/guide.md");
+        assert_eq!(text_of(&spans), "docs/guide.md");
+        assert_eq!(matched_of(&spans), "guide");
+    }
+
+    #[test]
+    fn a_term_the_query_excludes_marks_nothing() {
+        let spans = Query::new("guide !docs").highlight_path("docs/guide.md");
+        assert_eq!(matched_of(&spans), "guide");
+    }
+
+    #[test]
     fn nothing_asked_and_nothing_found_are_one_span() {
         let spans = Query::new("").highlight("guide.md");
         assert_eq!(spans.len(), 1);
@@ -474,6 +557,11 @@ mod tests {
         let spans = Query::new("zzz").highlight("guide.md");
         assert_eq!(spans.len(), 1);
         assert!(!spans[0].matched);
+
+        // A term that is not there leaves nothing behind, even beside one
+        // that is.
+        let spans = Query::new("guide zzz").highlight("guide.md");
+        assert_eq!(matched_of(&spans), "guide");
     }
 
     #[test]
