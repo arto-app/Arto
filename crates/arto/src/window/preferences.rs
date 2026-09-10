@@ -77,7 +77,10 @@ pub fn open_or_focus_preferences_window(snapshot: PreferencesSnapshot, theme: Th
             .with_custom_head(main_stylesheet_head())
             .with_custom_index(build_preferences_window_index(theme));
 
-        dioxus_core::spawn(create_and_register_child_window(
+        // Detached, because the click that asks for preferences also closes
+        // the menu it was asked from: a task owned by that menu's scope is
+        // dropped with it, before the window is ever made.
+        crate::utils::task::spawn_detached(create_and_register_child_window(
             PREFERENCES_CHILD_ID.to_string(),
             dom,
             config,
