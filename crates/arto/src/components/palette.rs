@@ -342,11 +342,21 @@ pub fn Palette() -> Element {
         });
     });
 
-    // Read so a recorded visit redraws the list; the number says nothing.
-    let _ = revision();
-    let _ = state.visits_revision.read();
+    // The list, worked out again only when something it is made of has
+    // changed. A memo rather than a line in the draw, because a draw is not
+    // the same thing as a change: writing how many rows there are draws
+    // again, and so does moving the cursor between them, and ranking every
+    // file under the folder a second and third time for one keystroke is
+    // most of what the keystroke would cost. The reads below are what it
+    // watches — the query, and the numbers that stand for the lists the
+    // rows come from.
+    let rows = use_memo(move || {
+        let _ = revision();
+        let _ = state.visits_revision.read();
+        current_rows(&state)
+    });
     let needle = query();
-    let rows = current_rows(&state);
+    let rows = rows();
     // Whether the folder was too large to list whole, and a file row is on
     // screen for the reader to wonder about the completeness of.
     let partial = rows.iter().any(|row| matches!(row, Row::File(_)))

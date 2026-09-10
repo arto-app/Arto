@@ -12,9 +12,11 @@
 //! - **It is read in the background.** [`ensure`] starts a scan on a thread
 //!   of its own and returns; the palette draws what it has and redraws when
 //!   [`FILES_CHANGED`] says there is more. Nothing waits on the disk.
-//! - **It is bounded.** [`MAX_FILES`] files, and the walk stops there. A
-//!   reader who points a window at their home directory gets a list that is
-//!   honest about being partial rather than a window that stops responding.
+//! - **It is bounded three ways.** [`MAX_FILES`] kept, [`MAX_VISITED`] looked
+//!   at, and [`TIME_BUDGET`] to do it in — because a folder can be too much
+//!   in three different ways, and a bound on what is kept is no bound at all
+//!   on a million files holding twelve documents. A reader who points a
+//!   window at their home directory gets a list that says it is partial.
 //! - **It skips what a reader would not open.** Hidden files, and everything
 //!   `.gitignore` (or `.ignore`) excludes — the same rule `ripgrep` follows,
 //!   through the same crate — so `node_modules` and `target` cost nothing.
@@ -38,9 +40,25 @@ use tokio::sync::broadcast;
 /// Enough for any repository and most of the folders people keep documents
 /// in; a bound rather than a limit anyone is expected to reach. What it
 /// really guards is the folder nobody meant to index — a home directory, a
-/// mounted drive — where the walk would otherwise run for minutes and the
-/// list would be too long to be a list.
+/// mounted drive — where the list would otherwise be too long to be a list.
 pub const MAX_FILES: usize = 20_000;
+
+/// How many files the walk will look at, whether or not it keeps them.
+///
+/// [`MAX_FILES`] alone does not bound the walk: a folder of a million files
+/// holding twelve Markdown documents never reaches it, and the walk goes on
+/// to the end. This is the bound that does not depend on what is found —
+/// and it is the one that matters on a network mount, where every directory
+/// is a round trip.
+const MAX_VISITED: usize = 400_000;
+
+/// How long the walk is allowed to take.
+///
+/// The last resort, for the filesystem that answers slowly rather than the
+/// tree that is large: neither bound above is reached, and the thread would
+/// otherwise still be walking when the reader has given up and typed the
+/// path by hand.
+const TIME_BUDGET: Duration = Duration::from_secs(10);
 
 /// How many folders are remembered at once.
 ///
@@ -190,15 +208,50 @@ pub fn forget() {
     INDEX.write().kept.clear();
 }
 
+/// What one walk is allowed to spend.
+///
+/// Three bounds rather than one, because a walk can be too much in three
+/// different ways: too many documents to list, too many files to look
+/// through to find them, or too slow a filesystem for either count to be
+/// reached before the reader has given up. A field rather than a constant
+/// read straight from the walk so that the rule can be tested against a
+/// budget small enough to reach.
+#[derive(Debug, Clone, Copy)]
+struct Budget {
+    /// How many files to keep.
+    files: usize,
+    /// How many to look at, kept or not.
+    visited: usize,
+    /// How long to spend looking.
+    time: Duration,
+}
+
+impl Default for Budget {
+    fn default() -> Self {
+        Self {
+            files: MAX_FILES,
+            visited: MAX_VISITED,
+            time: TIME_BUDGET,
+        }
+    }
+}
+
 /// Walk `root` and collect the files worth offering.
+fn scan(root: &Path, all_files: bool) -> Listing {
+    walk(root, all_files, Budget::default())
+}
+
+/// The walk itself, within `budget`.
 ///
 /// In parallel, because the cost of a large tree is the waiting on the
 /// filesystem rather than the work, and bounded, because the tree can always
 /// turn out to be larger than anyone meant.
-fn scan(root: &Path, all_files: bool) -> Listing {
+fn walk(root: &Path, all_files: bool, budget: Budget) -> Listing {
     let found = Mutex::new(Vec::new());
     let count = AtomicUsize::new(0);
+    let visited = AtomicUsize::new(0);
     let truncated = AtomicBool::new(false);
+    let deadline = Instant::now() + budget.time;
 
     WalkBuilder::new(root)
         // What a reader would not have opened by hand. `.git` and the rest of
@@ -226,11 +279,21 @@ fn scan(root: &Path, all_files: bool) -> Listing {
                 if !entry.file_type().is_some_and(|kind| kind.is_file()) {
                     return WalkState::Continue;
                 }
+                // Counted before anything is decided about the file, because
+                // this is the bound on the walk rather than on the list. The
+                // clock is read once every so often: asking it per file
+                // would cost more than looking at the file.
+                let seen = visited.fetch_add(1, Ordering::Relaxed);
+                let spent = seen.is_multiple_of(1024) && Instant::now() >= deadline;
+                if seen >= budget.visited || spent {
+                    truncated.store(true, Ordering::Relaxed);
+                    return WalkState::Quit;
+                }
                 let path = entry.into_path();
                 if !all_files && !is_markdown_file(&path) {
                     return WalkState::Continue;
                 }
-                if count.fetch_add(1, Ordering::Relaxed) >= MAX_FILES {
+                if count.fetch_add(1, Ordering::Relaxed) >= budget.files {
                     truncated.store(true, Ordering::Relaxed);
                     return WalkState::Quit;
                 }
@@ -245,7 +308,7 @@ fn scan(root: &Path, all_files: bool) -> Listing {
     // answer a query equally well should come out in the same order every
     // time, and the shallower of two identical names is the likelier one.
     files.sort_by_cached_key(|path| (path.components().count(), path.clone()));
-    files.truncate(MAX_FILES);
+    files.truncate(budget.files);
 
     Listing {
         root: root.to_path_buf(),
@@ -323,6 +386,59 @@ mod tests {
         assert!(found.contains(&"notes.txt".to_string()));
         assert!(!found.iter().any(|name| name.contains("built.md")));
         assert!(!found.iter().any(|name| name.contains("secret.md")));
+    }
+
+    #[test]
+    fn a_list_cut_short_says_so() {
+        let dir = tree();
+        let listing = walk(
+            dir.path(),
+            true,
+            Budget {
+                files: 1,
+                ..Budget::default()
+            },
+        );
+
+        assert_eq!(listing.files.len(), 1);
+        assert!(listing.truncated);
+    }
+
+    #[test]
+    fn a_walk_is_bounded_by_what_it_looks_at_and_not_only_by_what_it_keeps() {
+        // Nothing here is Markdown, so the file bound is never approached;
+        // what stops the walk is having looked at enough.
+        let dir = TempDir::new().unwrap();
+        for at in 0..8 {
+            fs::write(dir.path().join(format!("note-{at}.txt")), "").unwrap();
+        }
+
+        let listing = walk(
+            dir.path(),
+            false,
+            Budget {
+                visited: 2,
+                ..Budget::default()
+            },
+        );
+
+        assert!(listing.files.is_empty());
+        assert!(listing.truncated);
+    }
+
+    #[test]
+    fn a_walk_that_runs_out_of_time_stops() {
+        let dir = tree();
+        let listing = walk(
+            dir.path(),
+            true,
+            Budget {
+                time: Duration::ZERO,
+                ..Budget::default()
+            },
+        );
+
+        assert!(listing.truncated);
     }
 
     #[test]

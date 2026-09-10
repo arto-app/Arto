@@ -96,25 +96,61 @@ pub struct Rank {
 }
 
 impl Rank {
-    /// What a sort orders on: the better score first, then the shorter
-    /// candidate.
-    fn key(&self) -> (std::cmp::Reverse<u32>, usize) {
-        (std::cmp::Reverse(self.score), self.length)
+    /// What an order is decided on, for the candidate offered `at`: the
+    /// better score, then the shorter candidate, then the one offered first.
+    ///
+    /// The third is what keeps the history newest-first and the commands in
+    /// the order they are listed, once the first two have nothing left to
+    /// say — and it is part of the key rather than a property of the sort,
+    /// so that [`best`] can throw a candidate away the moment it knows the
+    /// answer without the order depending on how many it kept.
+    fn key(&self, at: usize) -> (std::cmp::Reverse<u32>, usize, usize) {
+        (std::cmp::Reverse(self.score), self.length, at)
     }
 }
 
 /// The best `cap` of what was ranked, best first.
 ///
-/// The sort is stable, so candidates that rank alike come out in the order
-/// they were offered — newest first for the history, as listed for the
-/// commands. That order is the last of the three tie-breaks, which is why
-/// every caller hands its candidates over in the order it would want them
-/// in.
+/// Only `cap` of them are ever held. A query typed into a folder of twenty
+/// thousand files can match every one of them, and sorting twenty thousand
+/// candidates to draw sixteen rows is most of what a keystroke would cost:
+/// each candidate is instead compared against the worst one kept so far and
+/// forgotten if it loses, which is one comparison for nearly all of them.
+///
+/// What comes out is exactly what a stable sort of everything, cut to `cap`,
+/// would have produced — the arrival order is inside the key rather than in
+/// the sort — so the caller still hands its candidates over in the order it
+/// would want them in.
+///
+/// `cap` is meant to be a screenful. What is kept is held in order by
+/// insertion, which is the cheapest thing there is for a handful and the
+/// wrong shape for thousands.
 pub fn best<T>(ranked: impl IntoIterator<Item = (Rank, T)>, cap: usize) -> Vec<T> {
-    let mut ranked: Vec<(Rank, T)> = ranked.into_iter().collect();
-    ranked.sort_by_key(|(rank, _)| rank.key());
-    ranked.truncate(cap);
-    ranked.into_iter().map(|(_, item)| item).collect()
+    type Key = (std::cmp::Reverse<u32>, usize, usize);
+
+    if cap == 0 {
+        return Vec::new();
+    }
+    // A cap larger than any list it could be asked of; the reserve is what it
+    // is worth allocating up front rather than what a caller said.
+    let mut kept: Vec<(Key, T)> = Vec::with_capacity(cap.min(64));
+
+    for (at, (rank, item)) in ranked.into_iter().enumerate() {
+        let key = rank.key(at);
+        if kept.len() == cap {
+            // Arrival is part of the key and only ever grows, so a candidate
+            // that ties the worst kept one loses to it: this is the whole of
+            // the fast path.
+            if kept[kept.len() - 1].0 < key {
+                continue;
+            }
+            kept.pop();
+        }
+        let at = kept.partition_point(|(kept, _)| *kept < key);
+        kept.insert(at, (key, item));
+    }
+
+    kept.into_iter().map(|(_, item)| item).collect()
 }
 
 /// What the reader typed, parsed once and asked of many candidates.
