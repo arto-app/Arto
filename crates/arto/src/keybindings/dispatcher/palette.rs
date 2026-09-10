@@ -24,22 +24,14 @@ pub(super) fn step_palette(state: &mut AppState, forward: bool) {
 /// window on screen, and the list it was picked from has no business still
 /// floating over that.
 pub fn activate_palette_row(mut state: AppState, index: usize) {
-    let row = {
-        let visits = crate::visits::VISITS.read();
-        let (starred, places) = crate::components::palette::kept();
-        crate::components::palette::rows_for(
-            &visits.items,
-            &starred,
-            &places,
-            &state.palette_query.read(),
-        )
+    let row = crate::components::palette::current_rows(&state)
         .get(index)
-        .cloned()
-    };
+        .cloned();
     state.close_palette();
     match row {
         Some(crate::components::palette::Row::Document(visit)) => state.open_file(&visit.path),
         Some(crate::components::palette::Row::Starred(path)) => state.open_file(&path),
+        Some(crate::components::palette::Row::File(path)) => state.open_file(&path),
         Some(crate::components::palette::Row::Place(path)) => state.add_root(&path),
         Some(crate::components::palette::Row::Command(action)) => dispatch_action(&action, state),
         None => {}

@@ -145,6 +145,15 @@
   text-align: right;
 }
 
+/* Something the list itself cannot say: that it is not the whole answer.
+   Sits under the rows, quiet enough not to be mistaken for one. */
+.palette-note {
+  padding: 4px 10px 6px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  opacity: var(--opacity-secondary);
+}
+
 /* The way out of the short list and into the whole history. */
 .palette-row-all {
   margin: 0 4px 4px;

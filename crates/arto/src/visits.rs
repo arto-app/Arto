@@ -143,31 +143,6 @@ pub fn group(visits: &[Visit], now: DateTime<Local>) -> Vec<(Bucket, Vec<&Visit>
     groups
 }
 
-/// Whether a visit answers a filter query.
-///
-/// The palette, the panel's history face and the welcome page all narrow the same
-/// list, so they narrow it the same way: a query that finds a document in one
-/// of them finds it in all three.
-///
-/// Terms are separated by whitespace and all of them must match, each against
-/// the whole path rather than the name alone — so `guide arto` finds
-/// `~/arto/docs/guide.md` however the two words are ordered, and `docs/`
-/// narrows to a directory. Matching ignores case, which is what a reader
-/// typing quickly expects.
-pub fn matches(visit: &Visit, query: &str) -> bool {
-    matches_path(&visit.path, query)
-}
-
-/// The same rule, for the lists that are not visits — the places kept and the
-/// documents starred. One query narrows a screen, so it has to mean the same
-/// thing in every list on it.
-pub fn matches_path(path: &Path, query: &str) -> bool {
-    let haystack = path.to_string_lossy().to_lowercase();
-    query
-        .split_whitespace()
-        .all(|term| haystack.contains(&term.to_lowercase()))
-}
-
 /// When a document was last read, said in whatever unit still adds something.
 ///
 /// The heading above a row already says the day, so repeating it there is a
@@ -222,9 +197,20 @@ pub fn documents(visits: &[Visit]) -> impl Iterator<Item = &Visit> {
         .filter(move |visit| seen.insert(visit.path.as_path()))
 }
 
-/// The documents answering a query, newest first.
-pub fn filter<'a>(visits: &'a [Visit], query: &str) -> Vec<&'a Visit> {
-    documents(visits).filter(|v| matches(v, query)).collect()
+/// The documents answering a query, best first, and at most `cap` of them.
+///
+/// The rule is [`crate::fuzzy`]'s, which is every list's: every term has to
+/// appear, in any order, and a term's characters need only appear in order —
+/// so `gd` finds `guide.md` and `guide arto` finds `~/arto/docs/guide.md`.
+/// The whole path is the haystack, not the name alone.
+///
+/// Ranked rather than merely filtered, because a fuzzy query answers with far
+/// more than a literal one did: the answer has to be the first row rather
+/// than somewhere among the rows. Documents that score the same keep the
+/// order they came in, which is newest first.
+pub fn ranked<'a>(visits: &'a [Visit], query: &crate::fuzzy::Query, cap: usize) -> Vec<&'a Visit> {
+    let ranked = documents(visits).filter_map(|visit| Some((query.rank_path(&visit.path)?, visit)));
+    crate::fuzzy::best(ranked, cap)
 }
 
 /// The visit list, newest first.
@@ -695,46 +681,93 @@ mod tests {
         assert_eq!(Bucket::Year(2024).heading(), "2024");
     }
 
-    // === matches(): one rule for the palette, the face and the welcome page ===
+    // === ranked(): one rule for the palette and every other list ===
 
-    #[test]
-    fn an_empty_query_matches_everything() {
-        let visit = Visit::new("/home/reader/notes/guide.md", at(2026, 4, 16));
-        assert!(matches(&visit, ""));
-        assert!(matches(&visit, "   "));
+    fn found(visits: &[Visit], query: &str) -> Vec<String> {
+        ranked(visits, &crate::fuzzy::Query::new(query), usize::MAX)
+            .iter()
+            .map(|visit| crate::utils::paths::short_name(&visit.path))
+            .collect()
     }
 
     #[test]
-    fn matching_ignores_case_and_spans_the_whole_path() {
-        let visit = Visit::new("/home/reader/Arto/docs/Guide.md", at(2026, 4, 16));
-        assert!(matches(&visit, "guide"));
-        assert!(matches(&visit, "docs/"));
-        assert!(matches(&visit, "ARTO"));
-        assert!(!matches(&visit, "readme"));
+    fn an_empty_query_keeps_everything() {
+        let visits = vec![
+            Visit::new("/notes/guide.md", at(2026, 4, 16)),
+            Visit::new("/notes/spec.md", at(2026, 4, 15)),
+        ];
+        assert_eq!(found(&visits, "").len(), 2);
+        assert_eq!(found(&visits, "   ").len(), 2);
     }
 
     #[test]
-    fn every_term_must_match_in_any_order() {
-        let visit = Visit::new("/home/reader/arto/docs/guide.md", at(2026, 4, 16));
-        assert!(matches(&visit, "guide arto"));
-        assert!(matches(&visit, "arto guide"));
-        assert!(!matches(&visit, "guide missing"));
+    fn case_is_smart_and_the_whole_path_is_the_haystack() {
+        let visits = vec![Visit::new(
+            "/home/reader/Arto/docs/Guide.md",
+            at(2026, 4, 16),
+        )];
+        assert_eq!(found(&visits, "guide").len(), 1);
+        assert_eq!(found(&visits, "docs/").len(), 1);
+        assert_eq!(found(&visits, "ARTO").len(), 0, "a capital means a capital");
+        assert_eq!(found(&visits, "arto").len(), 1);
+        assert!(found(&visits, "readme").is_empty());
     }
 
     #[test]
-    fn filter_keeps_the_order_it_was_given() {
+    fn every_term_must_appear_in_any_order() {
+        let visits = vec![Visit::new(
+            "/home/reader/arto/docs/guide.md",
+            at(2026, 4, 16),
+        )];
+        assert_eq!(found(&visits, "guide arto").len(), 1);
+        assert_eq!(found(&visits, "arto guide").len(), 1);
+        assert_eq!(found(&visits, "gd").len(), 1);
+        assert!(found(&visits, "guide missing").is_empty());
+    }
+
+    #[test]
+    fn an_unnarrowed_list_is_newest_first_whatever_the_paths_are_like() {
+        // Nothing was asked, so nothing — length included — may reorder it:
+        // the palette opens on this list and the row under the cursor is
+        // meant to be the document read before the one on screen.
+        let visits = vec![
+            Visit::new("/notes/a-long-name-indeed.md", at(2026, 4, 16)),
+            Visit::new("/n/b.md", at(2026, 4, 15)),
+        ];
+        assert_eq!(
+            found(&visits, ""),
+            vec!["notes/a-long-name-indeed.md", "n/b.md"]
+        );
+    }
+
+    #[test]
+    fn documents_that_score_alike_stay_newest_first() {
         let visits = vec![
             Visit::new("/notes/b.md", at(2026, 4, 16)),
             Visit::new("/notes/a.md", at(2026, 4, 15)),
             Visit::new("/other/c.md", at(2026, 4, 14)),
         ];
-        let found = filter(&visits, "notes");
+        assert_eq!(found(&visits, "notes"), vec!["notes/b.md", "notes/a.md"]);
+    }
+
+    #[test]
+    fn the_closest_match_comes_first_however_old_it_is() {
+        let visits = vec![
+            Visit::new("/notes/g-u-i-d-e-lines.md", at(2026, 4, 16)),
+            Visit::new("/notes/guide.md", at(2026, 4, 15)),
+        ];
+        assert_eq!(found(&visits, "guide").first().unwrap(), "notes/guide.md");
+    }
+
+    #[test]
+    fn a_ranked_list_is_cut_to_what_was_asked_for() {
+        let visits = vec![
+            Visit::new("/notes/a.md", at(2026, 4, 16)),
+            Visit::new("/notes/b.md", at(2026, 4, 15)),
+        ];
         assert_eq!(
-            found
-                .iter()
-                .map(|v| crate::utils::paths::short_name(&v.path))
-                .collect::<Vec<_>>(),
-            vec!["notes/b.md", "notes/a.md"]
+            ranked(&visits, &crate::fuzzy::Query::new("notes"), 1).len(),
+            1
         );
     }
 }

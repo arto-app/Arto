@@ -37,7 +37,7 @@ Markdown is where documentation, communication and thinking now live, and readin
 
 **Getting around** — a file explorer over several folders at once, a reading history reachable from the panel, the document's name, the welcome page and the palette, bookmarks for the folders you keep returning to, a contents gutter beside the page, and back/forward across linked documents.
 
-**Finding** — find in page, plus pinned searches that keep multi-colour highlights across sessions.
+**Finding** — a command palette that fuzzy-finds in one list, the way `fzf` does: the files under the folder you are working in, what you have read, what you have kept, and every command by name. Plus find in page, and pinned searches that keep multi-colour highlights across sessions.
 
 **Windows** — one document to a window, as many windows as you like, child windows for diagrams, and drag-and-drop to open.
 

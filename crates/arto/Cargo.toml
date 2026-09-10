@@ -66,6 +66,8 @@ uuid = { version = "1.0", features = ["v4"] }
 display-info = "0.5.9"
 flate2 = "1.1"
 mouse_position = "0.1.4"
+nucleo-matcher = "0.3"
+ignore = "0.4"
 
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.4"
