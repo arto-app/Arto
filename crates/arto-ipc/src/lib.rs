@@ -31,11 +31,18 @@
 //! {"type":"open","files":["/path/to/file.md"],"directory":null,"behavior":"last_focused","behind":false}
 //! {"type":"open","files":[],"directory":"/path/to/dir","behavior":"new_window","behind":true}
 //! {"type":"reopen","behavior":"last_focused","behind":false}
+//! {"type":"reopen","behavior":"new_window","behind":false,"window":{"position":{"x":120,"y":64}},"wait_ready":true}
 //! ```
 //!
 //! The older `file` and `directory` messages are still accepted so a
 //! freshly upgraded primary understands a not-yet-upgraded secondary, and
-//! `behind` defaults to `false` when a message omits it.
+//! `behind` defaults to `false` when a message omits it. [`WindowOptions`]
+//! and `wait_ready` are left out of the line when nothing asked for them,
+//! so the common case is the line it has always been.
+//!
+//! A message that sets `wait_ready` gets an answer back down the same
+//! connection ([`ReadyReply`]) once the app fires the [`ReadySignal`] it was
+//! handed; everything else is written and forgotten.
 //!
 //! # Socket location
 //!

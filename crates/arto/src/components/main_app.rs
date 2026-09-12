@@ -91,15 +91,29 @@ pub fn MainApp() -> Element {
         _ => (Document::default(), Vec::new(), None),
     };
 
+    // What the launch asked of the window itself. The geometry was applied
+    // when the window was built (see `run`); the theme is a prop, so it is
+    // applied here — and the two have to agree, because the custom index was
+    // already written in the theme the launch named.
+    let window_options = match &first_event {
+        Some(OpenEvent::Open(request)) => request.window,
+        Some(OpenEvent::Reopen { window, .. }) => *window,
+        None => Default::default(),
+    };
+
     // Everything after the first path, once — a launch naming several files is
     // a request for several windows, and dropping them would lose what the
     // command line asked for.
     use_hook(move || {
+        // The theme carries to every window of one launch; the geometry does
+        // not, having named one place. See `WindowOptions::without_geometry`.
+        let inherited = window_options.without_geometry();
         for path in rest {
             crate::window::create_main_window_sync(
                 &window(),
                 Document::new(path),
-                crate::window::CreateMainWindowConfigParams::default(),
+                crate::window::CreateMainWindowConfigParams::default()
+                    .with_window_options(&inherited),
             );
         }
     });
@@ -144,7 +158,7 @@ pub fn MainApp() -> Element {
         crate::components::app::App {
             document: document,
             temps: temps,
-            theme: theme_pref.theme,
+            theme: window_options.theme.unwrap_or(theme_pref.theme),
             content_full_width,
             sidebar_pinned: sidebar_pref.pinned,
             sidebar_width: sidebar_pref.width,

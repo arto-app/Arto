@@ -55,7 +55,8 @@ pub use child::{
 #[cfg(target_os = "macos")]
 pub use main::has_any_main_windows;
 pub use main::{
-    close_all_main_windows, create_main_window_config, create_main_window_sync,
-    get_any_main_window, register_main_window, register_window_state, shutdown_all_windows,
-    unregister_window_state, update_last_focused_window, CreateMainWindowConfigParams,
+    apply_window_options, close_all_main_windows, create_main_window_config,
+    create_main_window_sync, get_any_main_window, register_main_window, register_window_state,
+    shutdown_all_windows, unregister_window_state, update_last_focused_window,
+    CreateMainWindowConfigParams,
 };

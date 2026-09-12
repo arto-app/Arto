@@ -23,6 +23,7 @@
 //! ```
 
 mod queue;
+pub mod ready;
 mod request;
 mod window_selection;
 
@@ -34,6 +35,7 @@ pub use queue::*;
 pub use request::*;
 
 use crate::cli::CliInvocation;
+use dioxus::desktop::tao::window::WindowId;
 use queue::{drain_events, SHUTDOWN_REQUESTED, SHUTDOWN_SIGNAL, SHUTDOWN_STARTED};
 use std::sync::atomic::Ordering;
 use window_selection::{select_target_window, select_target_window_with_behavior};
@@ -46,7 +48,7 @@ use window_selection::{select_target_window, select_target_window_with_behavior}
 /// site has to remember that rule.
 pub fn try_send_to_existing_instance(invocation: &CliInvocation) -> SendResult {
     let event = open_event_for_invocation(invocation);
-    match arto_ipc::send_to_existing_instance(&event) {
+    match arto_ipc::send_to_existing_instance(&event, invocation.wait_ready) {
         SendResult::Failed(error) => {
             tracing::warn!(%error, "Failed to send to the primary instance; becoming primary");
             SendResult::NoExistingInstance
@@ -95,9 +97,16 @@ pub fn start_ipc_server() {
         };
         tracing::info!(socket_path = ?server.socket_path(), "IPC server ready for connections");
 
-        server.serve(|events| {
-            for event in events {
-                push_event(event);
+        server.serve(|events, ready| {
+            // One connection, one waiting launch, and it sends one message —
+            // so the signal goes to the last event, which is that message.
+            let mut ready = ready;
+            let last = events.len().saturating_sub(1);
+            for (index, event) in events.into_iter().enumerate() {
+                push_queued_event(QueuedEvent {
+                    event,
+                    ready: if index == last { ready.take() } else { None },
+                });
             }
             // Wake main thread once per client connection.
             wake_main_thread();
@@ -219,16 +228,21 @@ fn process_shutdown_request() {
 /// Handle a single event by creating/showing windows. Runs on main thread.
 fn handle_event_on_main_thread(
     desktop: &std::rc::Rc<dioxus::desktop::DesktopService>,
-    event: OpenEvent,
+    queued: QueuedEvent,
 ) {
+    let QueuedEvent { event, ready } = queued;
     match event {
         OpenEvent::Open(request) => {
             tracing::debug!(?request, "Processing open request event");
-            open_request_with_behavior(desktop, request);
+            open_request_with_behavior(desktop, request, ready);
         }
-        OpenEvent::Reopen { behavior, behind } => {
-            tracing::debug!(?behavior, behind, "Processing reopen event");
-            reopen_with_behavior(desktop, behavior, behind);
+        OpenEvent::Reopen {
+            behavior,
+            behind,
+            window,
+        } => {
+            tracing::debug!(?behavior, behind, ?window, "Processing reopen event");
+            reopen_with_behavior(desktop, behavior, behind, window, ready);
         }
     }
 }
@@ -236,6 +250,7 @@ fn handle_event_on_main_thread(
 fn open_request_with_behavior(
     desktop: &std::rc::Rc<dioxus::desktop::DesktopService>,
     request: OpenRequest,
+    ready: Option<arto_ipc::ReadySignal>,
 ) {
     let behavior = request
         .behavior
@@ -244,9 +259,11 @@ fn open_request_with_behavior(
     if let Some(window_id) = select_target_window_with_behavior(behavior) {
         if let Some(mut state) = crate::window::main::get_window_state(window_id) {
             apply_open_request_to_state(desktop, &mut state, &request);
+            crate::window::apply_window_options(window_id, &request.window);
             if !request.behind {
                 let _ = crate::window::main::focus_window(window_id);
             }
+            watch_existing_window(window_id, ready);
             return;
         }
     }
@@ -255,15 +272,40 @@ fn open_request_with_behavior(
         directory: request.directory,
         focused: !request.behind,
         ..Default::default()
-    };
+    }
+    .with_window_options(&request.window);
 
     let mut files = request.files.iter();
     let first = files
         .next()
         .map(crate::state::Document::new)
         .unwrap_or_default();
+    watch_new_window(ready);
     crate::window::create_main_window_sync(desktop, first, params);
-    open_each_in_its_own_window(desktop, files);
+    open_each_in_its_own_window(desktop, files, &request.window);
+}
+
+/// Hold the launch until `window_id` next finishes drawing.
+///
+/// The window is already open and has no reason to notice that anything now
+/// waits on it, so it is told.
+fn watch_existing_window(window_id: WindowId, ready: Option<arto_ipc::ReadySignal>) {
+    let Some(ready) = ready else {
+        return;
+    };
+    ready::await_window(window_id, ready);
+    let _ = crate::events::REPORT_READY_IN_WINDOW.send(window_id);
+}
+
+/// Hold the launch until the window about to be created finishes drawing.
+///
+/// Must be called before the window is asked for: the window claims what is
+/// waiting as it mounts, and a signal parked afterwards would be claimed by
+/// nothing until some later window happened to appear.
+fn watch_new_window(ready: Option<arto_ipc::ReadySignal>) {
+    if let Some(ready) = ready {
+        ready::await_new_window(ready);
+    }
 }
 
 fn apply_open_request_to_state(
@@ -278,22 +320,26 @@ fn apply_open_request_to_state(
     if let Some(first) = files.next() {
         state.open_file(first);
     }
-    open_each_in_its_own_window(desktop, files);
+    open_each_in_its_own_window(desktop, files, &request.window);
 }
 
 /// Give every remaining file a window of its own.
 ///
 /// A window reads one document, so a request naming several is a request for
-/// several windows; sending them all to one would leave only the last.
+/// several windows; sending them all to one would leave only the last. They
+/// inherit what the launch asked for minus the geometry, which named one
+/// place — see [`arto_ipc::WindowOptions::without_geometry`].
 fn open_each_in_its_own_window<'a>(
     desktop: &std::rc::Rc<dioxus::desktop::DesktopService>,
     files: impl Iterator<Item = &'a std::path::PathBuf>,
+    window: &arto_ipc::WindowOptions,
 ) {
+    let inherited = window.without_geometry();
     for path in files {
         crate::window::create_main_window_sync(
             desktop,
             crate::state::Document::new(path),
-            crate::window::CreateMainWindowConfigParams::default(),
+            crate::window::CreateMainWindowConfigParams::default().with_window_options(&inherited),
         );
     }
 }
@@ -302,12 +348,31 @@ fn reopen_with_behavior(
     desktop: &std::rc::Rc<dioxus::desktop::DesktopService>,
     behavior: Option<crate::config::FileOpenBehavior>,
     behind: bool,
+    window: arto_ipc::WindowOptions,
+    ready: Option<arto_ipc::ReadySignal>,
 ) {
     // A reopen asks for the app to come forward, which is the one thing
     // `--behind` refuses to do: every window, visible or hidden, is left
-    // exactly as it is. Events are only dispatched once a window exists, so
-    // there is never one to create here either.
-    if behind {
+    // exactly as it is — unless it also asked for a geometry or a theme,
+    // which is a request to change a window rather than to look at it, and
+    // is carried out below without anything being brought forward.
+    if behind && window.is_empty() {
+        return;
+    }
+
+    // `new_window` means a window of its own whether or not any path was
+    // named. Asking the selector would answer `None` here — the same answer
+    // it gives when no window is suitable — and the fallbacks below would
+    // then raise an existing window instead, which is the opposite of what
+    // was asked for.
+    if behavior == Some(crate::config::FileOpenBehavior::NewWindow) {
+        let params = crate::window::CreateMainWindowConfigParams {
+            focused: !behind,
+            ..Default::default()
+        }
+        .with_window_options(&window);
+        watch_new_window(ready);
+        crate::window::create_main_window_sync(desktop, crate::state::Document::default(), params);
         return;
     }
 
@@ -318,22 +383,40 @@ fn reopen_with_behavior(
 
     // First try to focus an existing visible window
     if let Some(window_id) = target_window {
-        if crate::window::main::focus_window(window_id) {
+        crate::window::apply_window_options(window_id, &window);
+        if behind || crate::window::main::focus_window(window_id) {
+            watch_existing_window(window_id, ready);
             return;
         }
     }
 
+    // Nothing visible to act on, and `--behind` is the promise not to make
+    // something appear: raising the hidden window would put the app in front
+    // of whatever the user is working in, and creating one would leave them
+    // with a window they never asked to see.
+    if behind {
+        tracing::debug!(
+            "Nothing visible to apply a --behind request to; leaving every window as it is"
+        );
+        return;
+    }
+
     // If no visible windows, try to show and focus a hidden window (e.g., MainApp with WindowHides)
     if crate::window::main::show_and_focus_hidden_window() {
+        // The window that came back is the one the request is for, and it is
+        // the one now focused.
+        if let Some(window_id) = crate::window::main::get_last_focused_window() {
+            crate::window::apply_window_options(window_id, &window);
+            watch_existing_window(window_id, ready);
+        }
         return;
     }
 
     // If no windows at all, create a new one
-    crate::window::create_main_window_sync(
-        desktop,
-        crate::state::Document::default(),
-        crate::window::CreateMainWindowConfigParams::default(),
-    );
+    let params =
+        crate::window::CreateMainWindowConfigParams::default().with_window_options(&window);
+    watch_new_window(ready);
+    crate::window::create_main_window_sync(desktop, crate::state::Document::default(), params);
 }
 
 #[cfg(test)]
@@ -356,16 +439,19 @@ mod tests {
             directory: None,
             behavior: None,
             behind: false,
+            window: Default::default(),
         }));
         push_event(OpenEvent::Open(OpenRequest {
             files: Vec::new(),
             directory: Some(PathBuf::from("/second")),
             behavior: None,
             behind: false,
+            window: Default::default(),
         }));
         push_event(OpenEvent::Reopen {
             behavior: None,
             behind: false,
+            window: Default::default(),
         });
 
         // try_pop_first_event returns FIFO order
@@ -380,15 +466,16 @@ mod tests {
         let remaining = drain_events();
         assert_eq!(remaining.len(), 2);
         assert!(matches!(
-            &remaining[0],
+            &remaining[0].event,
             OpenEvent::Open(OpenRequest { files, directory: Some(directory), .. })
             if files.is_empty() && directory == Path::new("/second")
         ));
         assert!(matches!(
-            &remaining[1],
+            &remaining[1].event,
             OpenEvent::Reopen {
                 behavior: None,
-                behind: false
+                behind: false,
+                ..
             }
         ));
 
