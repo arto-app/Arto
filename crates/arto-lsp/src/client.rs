@@ -47,6 +47,32 @@ pub enum SendResult {
 /// the point of waiting is to not have to guess how many.
 pub const READY_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// How long the instance gets to apply a request nobody is waiting on.
+///
+/// Only the main thread coming round, which is the next turn of the event
+/// loop unless something is very wrong — but "very wrong" includes a window
+/// busy drawing a large document, so it is not instant.
+pub const APPLY_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// What the instance's own deadline is extended by for the launch waiting
+/// on it.
+///
+/// The two clocks start within microseconds of each other, and the instance
+/// answers *at* its deadline — `ready: false`, or an error. Given the same
+/// bound, that answer would always arrive just after this end stopped
+/// listening, and every slow request would read as a vanished primary.
+const DEADLINE_MARGIN: Duration = Duration::from_secs(5);
+
+/// How long this launch listens for an answer.
+fn client_deadline(wait_ready: bool) -> Duration {
+    let theirs = if wait_ready {
+        READY_TIMEOUT
+    } else {
+        APPLY_TIMEOUT
+    };
+    theirs + DEADLINE_MARGIN
+}
+
 /// How much of the handshake got through before anything was asked for.
 ///
 /// Kept apart from [`SendResult`] because the two halves of a handoff fail
@@ -200,11 +226,13 @@ fn request(
         return SendResult::Failed(error);
     }
 
-    // The answer to this one can be a whole document being drawn away.
-    if wait_ready {
-        if let Err(error) = socket::set_socket_timeout(reader.get_mut(), client_ready_timeout()) {
-            tracing::debug!(%error, "Could not extend the IPC socket timeout for the ready wait");
-        }
+    // The answer to this one is the app's, not the connection thread's, so
+    // it takes as long as the app does — a whole document being drawn, when
+    // the launch asked to wait. Either way this end listens for longer than
+    // the instance is allowed to take, so the instance's own answer always
+    // arrives while somebody is still reading.
+    if let Err(error) = socket::set_socket_timeout(reader.get_mut(), client_deadline(wait_ready)) {
+        tracing::debug!(%error, "Could not set the IPC socket timeout for the answer");
     }
 
     match read_response(reader) {
@@ -226,18 +254,6 @@ fn request(
         },
         None => SendResult::Unanswered,
     }
-}
-
-/// How long the launch waits for an answer it was told to wait for.
-///
-/// Longer than the primary's own [`READY_TIMEOUT`], deliberately. The two
-/// start at nearly the same moment and the primary answers `ready: false`
-/// when its wait runs out; given the same bound, that answer would always
-/// arrive just after this end had stopped listening, and a launch would
-/// never learn the difference between "the window did not draw" and "the
-/// primary vanished".
-fn client_ready_timeout() -> Duration {
-    READY_TIMEOUT + Duration::from_secs(5)
 }
 
 fn invalid_data(message: impl std::fmt::Display) -> std::io::Error {
@@ -381,9 +397,10 @@ mod tests {
     }
 
     #[test]
-    fn the_launch_waits_longer_than_the_instance_it_is_waiting_on() {
-        // Given the same bound, the instance's own `ready: false` would
-        // always arrive just after this end stopped listening.
-        assert!(client_ready_timeout() > READY_TIMEOUT);
+    fn the_launch_always_waits_longer_than_the_instance_it_waits_on() {
+        // The instance answers *at* its own deadline; listening for exactly
+        // as long would miss that answer every time.
+        assert!(client_deadline(true) > READY_TIMEOUT);
+        assert!(client_deadline(false) > APPLY_TIMEOUT);
     }
 }
