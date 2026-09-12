@@ -112,8 +112,11 @@ pub fn start_ipc_server() {
         };
         tracing::info!(socket_path = ?server.socket_path(), "IPC server ready for connections");
 
-        server.serve(peer_info("arto"), |event, ready| {
-            push_queued_event(QueuedEvent { event, ready });
+        server.serve(peer_info("arto"), |call, responder| {
+            push_queued_event(QueuedEvent {
+                call,
+                responder: Some(responder),
+            });
             wake_main_thread();
         });
     });
@@ -235,11 +238,22 @@ fn handle_event_on_main_thread(
     desktop: &std::rc::Rc<dioxus::desktop::DesktopService>,
     queued: QueuedEvent,
 ) {
-    let QueuedEvent { event, ready } = queued;
-    match event {
+    let QueuedEvent { call, responder } = queued;
+
+    // Only a request that asked to wait travels on: it is answered by
+    // whichever window ends up drawing it. Everything else is answered here,
+    // below, once it has actually been applied — not when it was queued,
+    // which is all the protocol crate could have known.
+    let (waiting, answer_when_applied) = if call.wait_ready {
+        (responder, None)
+    } else {
+        (None, responder)
+    };
+
+    match call.event {
         OpenEvent::Open(request) => {
             tracing::debug!(?request, "Processing open request event");
-            open_request_with_behavior(desktop, request, ready);
+            open_request_with_behavior(desktop, request, waiting);
         }
         OpenEvent::Reopen {
             behavior,
@@ -247,15 +261,19 @@ fn handle_event_on_main_thread(
             window,
         } => {
             tracing::debug!(?behavior, behind, ?window, "Processing reopen event");
-            reopen_with_behavior(desktop, behavior, behind, window, ready);
+            reopen_with_behavior(desktop, behavior, behind, window, waiting);
         }
+    }
+
+    if let Some(responder) = answer_when_applied {
+        responder.ok(arto_lsp::AppliedResult { ready: false });
     }
 }
 
 fn open_request_with_behavior(
     desktop: &std::rc::Rc<dioxus::desktop::DesktopService>,
     request: OpenRequest,
-    ready: Option<arto_lsp::ReadySignal>,
+    ready: Option<arto_lsp::Responder>,
 ) {
     let behavior = request
         .behavior
@@ -294,7 +312,7 @@ fn open_request_with_behavior(
 ///
 /// The window is already open and has no reason to notice that anything now
 /// waits on it, so it is told.
-fn watch_existing_window(window_id: WindowId, ready: Option<arto_lsp::ReadySignal>) {
+fn watch_existing_window(window_id: WindowId, ready: Option<arto_lsp::Responder>) {
     let Some(ready) = ready else {
         return;
     };
@@ -307,7 +325,7 @@ fn watch_existing_window(window_id: WindowId, ready: Option<arto_lsp::ReadySigna
 /// Must be called before the window is asked for: the window claims what is
 /// waiting as it mounts, and a signal parked afterwards would be claimed by
 /// nothing until some later window happened to appear.
-fn watch_new_window(ready: Option<arto_lsp::ReadySignal>) {
+fn watch_new_window(ready: Option<arto_lsp::Responder>) {
     if let Some(ready) = ready {
         ready::await_new_window(ready);
     }
@@ -354,7 +372,7 @@ fn reopen_with_behavior(
     behavior: Option<crate::config::FileOpenBehavior>,
     behind: bool,
     window: arto_lsp::WindowOptions,
-    ready: Option<arto_lsp::ReadySignal>,
+    ready: Option<arto_lsp::Responder>,
 ) {
     // A reopen asks for the app to come forward, which is the one thing
     // `--behind` refuses to do: every window, visible or hidden, is left
@@ -471,12 +489,12 @@ mod tests {
         let remaining = drain_events();
         assert_eq!(remaining.len(), 2);
         assert!(matches!(
-            &remaining[0].event,
+            &remaining[0].call.event,
             OpenEvent::Open(OpenRequest { files, directory: Some(directory), .. })
             if files.is_empty() && directory == Path::new("/second")
         ));
         assert!(matches!(
-            &remaining[1].event,
+            &remaining[1].call.event,
             OpenEvent::Reopen {
                 behavior: None,
                 behind: false,

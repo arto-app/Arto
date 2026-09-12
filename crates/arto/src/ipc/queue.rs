@@ -3,7 +3,7 @@
 //! signal sets for the main thread to act on.
 
 use super::OpenEvent;
-use arto_lsp::ReadySignal;
+use arto_lsp::{AppliedResult, Call, Responder};
 use parking_lot::Mutex;
 use std::collections::VecDeque;
 #[cfg(unix)]
@@ -34,14 +34,15 @@ fn get_event_queue() -> &'static Mutex<VecDeque<QueuedEvent>> {
     IPC_EVENT_QUEUE.get_or_init(|| Mutex::new(VecDeque::new()))
 }
 
-/// An event on its way to the main thread, and the launch waiting on it.
+/// A request on its way to the main thread, and the peer waiting on it.
 ///
-/// The signal rides beside the event rather than inside it because waiting
-/// is the sending connection's business: the same event means the same thing
-/// whether or not anyone is holding a socket open for it.
+/// The responder rides beside the call rather than inside it because who is
+/// waiting is the connection's business: the same call means the same thing
+/// whether it came over a socket or from this process's own command line.
+/// A request with no peer — the app's own startup event — carries `None`.
 pub struct QueuedEvent {
-    pub event: OpenEvent,
-    pub ready: Option<ReadySignal>,
+    pub call: Call,
+    pub responder: Option<Responder>,
 }
 
 /// Register signal handlers for clean socket cleanup.
@@ -137,12 +138,21 @@ fn request_shutdown(signal: i32) {
     }
 }
 
-/// Push an event to the IPC queue. Thread-safe.
+/// Push an event this process asked for itself. Thread-safe.
+///
+/// Nobody is waiting on it: it came from this launch's own command line,
+/// and this launch is the app.
 pub fn push_event(event: OpenEvent) {
-    push_queued_event(QueuedEvent { event, ready: None });
+    push_queued_event(QueuedEvent {
+        call: Call {
+            event,
+            wait_ready: false,
+        },
+        responder: None,
+    });
 }
 
-/// Push an event together with the launch waiting for its window.
+/// Push a request together with the peer waiting for its answer.
 pub fn push_queued_event(queued: QueuedEvent) {
     get_event_queue().lock().push_back(queued);
 }
@@ -152,15 +162,21 @@ pub fn push_queued_event(queued: QueuedEvent) {
 /// Normally this is what the launch itself asked for and nothing waits on
 /// it. But the IPC server starts listening before the launch queues its own
 /// event, so a second launch can slip in ahead of it and have its request
-/// become the first window's. That launch is waiting, so its signal is
-/// parked for the window this event is about to build rather than dropped —
-/// dropping it would answer a request that had in fact been carried out.
+/// become the first window's. That launch is owed an answer, and which
+/// answer depends on what it asked: a launch waiting for a window has its
+/// responder parked for the window this event is about to build, and one
+/// that is not waiting is answered now — holding its connection open for a
+/// draw it never asked about would time it out for nothing.
 pub fn try_pop_first_event() -> Option<OpenEvent> {
-    let queued = get_event_queue().lock().pop_front()?;
-    if let Some(signal) = queued.ready {
-        super::ready::await_new_window(signal);
+    let mut queued = get_event_queue().lock().pop_front()?;
+    if let Some(responder) = queued.responder.take() {
+        if queued.call.wait_ready {
+            super::ready::await_new_window(responder);
+        } else {
+            responder.ok(AppliedResult { ready: false });
+        }
     }
-    Some(queued.event)
+    Some(queued.call.event)
 }
 
 /// Drain all pending events from the IPC queue.
