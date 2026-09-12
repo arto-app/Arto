@@ -1,6 +1,6 @@
 [package]
-name = "arto-ipc"
-description = "Arto's single-instance IPC: the JSON Lines protocol and the local socket a second launch hands its paths to"
+name = "arto-lsp"
+description = "Arto's wire protocol: JSON-RPC 2.0 in LSP framing, and the local socket a second launch hands its request to"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -30,5 +30,4 @@ tracing.workspace = true
 libc = "0.2.186"
 
 [dev-dependencies]
-indoc.workspace = true
 tempfile.workspace = true

@@ -123,7 +123,7 @@ impl CreateMainWindowConfigParams {
     /// Only the fields the launch named are touched, so `--size` alone still
     /// opens where the preferences say, and an invocation that names none of
     /// them is the invocation that was there before these options existed.
-    pub fn with_window_options(mut self, options: &arto_ipc::WindowOptions) -> Self {
+    pub fn with_window_options(mut self, options: &arto_lsp::WindowOptions) -> Self {
         if let Some(position) = options.position {
             self.position = LogicalPosition::new(position.x, position.y);
             self.exact_position = true;
@@ -406,7 +406,7 @@ pub fn update_last_focused_window(window_id: WindowId) {
 /// for the window a launch reuses rather than creates: the same options,
 /// applied to a window that already has a position, a size and a theme.
 /// Only what the launch named is touched.
-pub fn apply_window_options(window_id: WindowId, options: &arto_ipc::WindowOptions) {
+pub fn apply_window_options(window_id: WindowId, options: &arto_lsp::WindowOptions) {
     if options.is_empty() {
         return;
     }
@@ -572,7 +572,7 @@ mod tests {
 
     #[test]
     fn an_invocation_that_named_nothing_leaves_every_preference_alone() {
-        let params = blank_params().with_window_options(&arto_ipc::WindowOptions::default());
+        let params = blank_params().with_window_options(&arto_lsp::WindowOptions::default());
         assert_eq!(params.position, LogicalPosition::new(50, 50));
         assert_eq!(params.size, LogicalSize::new(1000, 800));
         assert_eq!(params.theme, Theme::Auto);
@@ -581,8 +581,8 @@ mod tests {
 
     #[test]
     fn each_option_replaces_only_its_own_preference() {
-        let params = blank_params().with_window_options(&arto_ipc::WindowOptions {
-            size: Some(arto_ipc::WindowExtent {
+        let params = blank_params().with_window_options(&arto_lsp::WindowOptions {
+            size: Some(arto_lsp::WindowExtent {
                 width: 1400,
                 height: 920,
             }),
@@ -596,8 +596,8 @@ mod tests {
 
     #[test]
     fn a_named_position_is_exact() {
-        let params = blank_params().with_window_options(&arto_ipc::WindowOptions {
-            position: Some(arto_ipc::WindowPoint { x: 120, y: 64 }),
+        let params = blank_params().with_window_options(&arto_lsp::WindowOptions {
+            position: Some(arto_lsp::WindowPoint { x: 120, y: 64 }),
             ..Default::default()
         });
         assert_eq!(params.position, LogicalPosition::new(120, 64));
@@ -612,7 +612,7 @@ mod tests {
 
     #[test]
     fn a_named_theme_replaces_the_configured_one() {
-        let params = blank_params().with_window_options(&arto_ipc::WindowOptions {
+        let params = blank_params().with_window_options(&arto_lsp::WindowOptions {
             theme: Some(Theme::Dark),
             ..Default::default()
         });

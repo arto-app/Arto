@@ -36,22 +36,49 @@ const DEFAULT_LOGLEVEL: &str = if cfg!(debug_assertions) {
 };
 
 pub enum RunResult {
-    SentToExistingInstance,
+    /// A running instance took the request; exit with this status without
+    /// starting anything.
+    HandedOver(i32),
     Launched,
 }
 
 pub fn run(invocation: cli::CliInvocation) -> RunResult {
-    // Try to send paths to existing instance via IPC
-    // If successful, exit immediately without initializing anything else
-    if let ipc::SendResult::Sent = ipc::try_send_to_existing_instance(&invocation) {
-        return RunResult::SentToExistingInstance;
-    }
-
-    // Load environment variables from .env file
+    // Both of these come before the handoff, not after it, because the
+    // handoff is where a launch can fail: a secondary that reports nothing
+    // is a secondary whose only diagnostics went to a subscriber that had
+    // not been installed yet. `.env` stays ahead of tracing so it can still
+    // set `RUST_LOG`.
     if let Ok(dotenv) = dotenvy::dotenv() {
         println!("Loaded .env file from: {}", dotenv.display());
     }
     init_tracing();
+
+    // Try to hand the request to an existing instance. Only "nothing is
+    // listening" and "the connection failed before anything was written"
+    // leave this process free to go on and become primary; anything else
+    // means the request is already with a live instance, and starting a
+    // second app would either open the document twice or fail to bind.
+    match ipc::try_send_to_existing_instance(&invocation) {
+        ipc::SendResult::Applied { ready } => {
+            if invocation.wait_ready && !ready {
+                eprintln!("arto: the window did not report a finished render in time");
+                return RunResult::HandedOver(1);
+            }
+            return RunResult::HandedOver(0);
+        }
+        ipc::SendResult::Refused(error) => {
+            eprintln!("arto: the running instance refused the request: {error}");
+            return RunResult::HandedOver(1);
+        }
+        ipc::SendResult::Unanswered => {
+            eprintln!(
+                "arto: handed the request over but got no answer; \
+                 it may or may not have been carried out"
+            );
+            return RunResult::HandedOver(1);
+        }
+        ipc::SendResult::NoExistingInstance | ipc::SendResult::Failed(_) => {}
+    }
 
     // Clear stale WebView cache when build changes (app upgrade via Homebrew, etc.)
     cache::clear_stale_webview_cache_if_needed();

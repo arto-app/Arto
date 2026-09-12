@@ -1,6 +1,6 @@
 //! Single-instance IPC, the app's side.
 //!
-//! The protocol and the socket live in the `arto-ipc` crate. This module
+//! The protocol and the socket live in the `arto-lsp` crate. This module
 //! connects them to the running app: it turns a CLI invocation into an
 //! event, runs the server on a background thread, queues what arrives for
 //! the main thread, wakes that thread, and finally opens files in the
@@ -12,14 +12,14 @@
 //! 1st Instance (Primary):
 //!   main() → try_send_to_existing_instance() → NoExistingInstance → start_ipc_server()
 //!                                                                          ↓
-//!                                                   IpcServer::serve() on a thread
+//!                                                   Server::serve() on a thread
 //!                                                                          ↓
 //!                                                   events → IPC_EVENT_QUEUE
 //!                                                                          ↓
 //!                                                   GCD wake → process_pending_events()
 //!
 //! 2nd Instance (Secondary):
-//!   main() → try_send_to_existing_instance() → Sent → exit(0)
+//!   main() → try_send_to_existing_instance() → Applied → exit(0)
 //! ```
 
 mod queue;
@@ -30,7 +30,7 @@ mod window_selection;
 // Listed rather than glob-imported: this module wraps `cleanup_socket` and
 // the server start-up with logging and shutdown handling, and the rest of
 // the app should reach the transport only through those wrappers.
-pub use arto_ipc::{OpenEvent, OpenRequest, SendResult};
+pub use arto_lsp::{OpenEvent, OpenRequest, SendResult};
 pub use queue::*;
 pub use request::*;
 
@@ -42,18 +42,33 @@ use window_selection::{select_target_window, select_target_window_with_behavior}
 
 /// Try to hand this launch's request to an already running instance.
 ///
-/// Returns only `Sent` or `NoExistingInstance`: a delivery failure is
-/// logged and folded into `NoExistingInstance` here, so a primary that died
-/// mid-handshake does not stop the user from opening anything and no call
-/// site has to remember that rule.
+/// A connection that failed before anything was written is folded into
+/// `NoExistingInstance`, so a primary that died mid-handshake does not stop
+/// the user from opening anything. Everything past that point is reported
+/// as it happened: once the request has gone out, the caller must not start
+/// a second app, and only [`SendResult`] can tell it so.
 pub fn try_send_to_existing_instance(invocation: &CliInvocation) -> SendResult {
     let event = open_event_for_invocation(invocation);
-    match arto_ipc::send_to_existing_instance(&event, invocation.wait_ready) {
+    match arto_lsp::send_to_existing_instance(peer_info("arto-cli"), &event, invocation.wait_ready)
+    {
         SendResult::Failed(error) => {
-            tracing::warn!(%error, "Failed to send to the primary instance; becoming primary");
+            tracing::warn!(%error, "Could not reach a running instance; becoming primary");
             SendResult::NoExistingInstance
         }
         result => result,
+    }
+}
+
+/// How this binary names itself in the `initialize` handshake.
+///
+/// `ARTO_BUILD_VERSION`, not `CARGO_PKG_VERSION`: the workspace manifest
+/// says `0.0.0` and only the release workflow patches it, so a Nix build
+/// (which stamps the version through the environment instead) and every
+/// local build would otherwise introduce themselves as version zero.
+fn peer_info(name: &str) -> arto_lsp::PeerInfo {
+    arto_lsp::PeerInfo {
+        name: name.to_string(),
+        version: Some(env!("ARTO_BUILD_VERSION").to_string()),
     }
 }
 
@@ -78,7 +93,7 @@ pub fn start_ipc_server() {
     register_cleanup_handler();
 
     std::thread::spawn(move || {
-        let server = match arto_ipc::IpcServer::bind() {
+        let server = match arto_lsp::Server::bind() {
             Ok(server) => server,
             Err(error) => {
                 tracing::error!(
@@ -97,18 +112,8 @@ pub fn start_ipc_server() {
         };
         tracing::info!(socket_path = ?server.socket_path(), "IPC server ready for connections");
 
-        server.serve(|events, ready| {
-            // One connection, one waiting launch, and it sends one message —
-            // so the signal goes to the last event, which is that message.
-            let mut ready = ready;
-            let last = events.len().saturating_sub(1);
-            for (index, event) in events.into_iter().enumerate() {
-                push_queued_event(QueuedEvent {
-                    event,
-                    ready: if index == last { ready.take() } else { None },
-                });
-            }
-            // Wake main thread once per client connection.
+        server.serve(peer_info("arto"), |event, ready| {
+            push_queued_event(QueuedEvent { event, ready });
             wake_main_thread();
         });
     });
@@ -118,7 +123,7 @@ pub fn start_ipc_server() {
 ///
 /// This prevents stale socket detection on next startup.
 pub fn cleanup_socket() {
-    match arto_ipc::cleanup_socket() {
+    match arto_lsp::cleanup_socket() {
         Ok(()) => tracing::debug!("IPC socket cleaned up"),
         Err(error) => tracing::warn!(%error, "Failed to remove IPC socket on cleanup"),
     }
@@ -250,7 +255,7 @@ fn handle_event_on_main_thread(
 fn open_request_with_behavior(
     desktop: &std::rc::Rc<dioxus::desktop::DesktopService>,
     request: OpenRequest,
-    ready: Option<arto_ipc::ReadySignal>,
+    ready: Option<arto_lsp::ReadySignal>,
 ) {
     let behavior = request
         .behavior
@@ -289,7 +294,7 @@ fn open_request_with_behavior(
 ///
 /// The window is already open and has no reason to notice that anything now
 /// waits on it, so it is told.
-fn watch_existing_window(window_id: WindowId, ready: Option<arto_ipc::ReadySignal>) {
+fn watch_existing_window(window_id: WindowId, ready: Option<arto_lsp::ReadySignal>) {
     let Some(ready) = ready else {
         return;
     };
@@ -302,7 +307,7 @@ fn watch_existing_window(window_id: WindowId, ready: Option<arto_ipc::ReadySigna
 /// Must be called before the window is asked for: the window claims what is
 /// waiting as it mounts, and a signal parked afterwards would be claimed by
 /// nothing until some later window happened to appear.
-fn watch_new_window(ready: Option<arto_ipc::ReadySignal>) {
+fn watch_new_window(ready: Option<arto_lsp::ReadySignal>) {
     if let Some(ready) = ready {
         ready::await_new_window(ready);
     }
@@ -328,11 +333,11 @@ fn apply_open_request_to_state(
 /// A window reads one document, so a request naming several is a request for
 /// several windows; sending them all to one would leave only the last. They
 /// inherit what the launch asked for minus the geometry, which named one
-/// place — see [`arto_ipc::WindowOptions::without_geometry`].
+/// place — see [`arto_lsp::WindowOptions::without_geometry`].
 fn open_each_in_its_own_window<'a>(
     desktop: &std::rc::Rc<dioxus::desktop::DesktopService>,
     files: impl Iterator<Item = &'a std::path::PathBuf>,
-    window: &arto_ipc::WindowOptions,
+    window: &arto_lsp::WindowOptions,
 ) {
     let inherited = window.without_geometry();
     for path in files {
@@ -348,8 +353,8 @@ fn reopen_with_behavior(
     desktop: &std::rc::Rc<dioxus::desktop::DesktopService>,
     behavior: Option<crate::config::FileOpenBehavior>,
     behind: bool,
-    window: arto_ipc::WindowOptions,
-    ready: Option<arto_ipc::ReadySignal>,
+    window: arto_lsp::WindowOptions,
+    ready: Option<arto_lsp::ReadySignal>,
 ) {
     // A reopen asks for the app to come forward, which is the one thing
     // `--behind` refuses to do: every window, visible or hidden, is left

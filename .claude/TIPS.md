@@ -546,7 +546,7 @@ tracing::debug!("Processing batch of {} items", items.len());
 - Use request/response patterns for fire-and-forget operations
 - Implement acknowledgment systems for desktop app window communication
 
-**Note:** This refers to broadcast channels between windows WITHIN the same process. For inter-process IPC (secondary → primary instance), see the `arto-ipc` crate (protocol and socket) and `crates/arto/src/ipc.rs` (queueing and window handling).
+**Note:** This refers to broadcast channels between windows WITHIN the same process. For inter-process IPC (secondary → primary instance), see the `arto-lsp` crate (protocol and socket) and `crates/arto/src/ipc.rs` (queueing and window handling).
 
 **✅ Do:**
 ```rust

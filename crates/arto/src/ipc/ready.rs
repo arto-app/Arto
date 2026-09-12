@@ -28,7 +28,7 @@
 //! A signal that is dropped rather than fired releases the launch too, so a
 //! window that closes — or is torn down mid-draw — strands nothing.
 
-use arto_ipc::ReadySignal;
+use arto_lsp::ReadySignal;
 use dioxus::desktop::tao::window::WindowId;
 use parking_lot::Mutex;
 use std::collections::HashMap;

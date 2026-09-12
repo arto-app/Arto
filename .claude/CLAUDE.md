@@ -25,7 +25,7 @@ crate. Do NOT report completion while any of these fail.
 | `crates/arto-markdown/` | Markdown → HTML pipeline shared by the app, `arto page` and Quick Look |
 | `crates/arto-config/` | `config.json` types and file I/O (no globals) |
 | `crates/arto-keybindings/` | Keybinding parsing and defaults |
-| `crates/arto-ipc/` | Single-instance protocol and socket |
+| `crates/arto-lsp/` | The wire protocol: JSON-RPC 2.0 in LSP framing, and the socket it runs on |
 | `crates/arto-page/` | Standalone page renderer: `arto page` CLI and the Quick Look static library |
 | `frontend/` | TypeScript and CSS bundled into each crate's `assets/frontend/` by Vite |
 | `samples/` | Rendering samples; their HTML is snapshot-tested in `arto-markdown` |

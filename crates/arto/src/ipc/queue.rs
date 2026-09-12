@@ -3,7 +3,7 @@
 //! signal sets for the main thread to act on.
 
 use super::OpenEvent;
-use arto_ipc::ReadySignal;
+use arto_lsp::ReadySignal;
 use parking_lot::Mutex;
 use std::collections::VecDeque;
 #[cfg(unix)]

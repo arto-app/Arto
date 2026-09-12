@@ -1,5 +1,5 @@
 ---
-paths: "crates/arto-config/**, crates/arto-keybindings/**, crates/arto-ipc/**, crates/arto/src/state/persistence.rs, crates/arto-markdown/src/options.rs"
+paths: "crates/arto-config/**, crates/arto-keybindings/**, crates/arto-lsp/**, crates/arto/src/state/persistence.rs, crates/arto-markdown/src/options.rs"
 ---
 
 # Serde Optimization Patterns

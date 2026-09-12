@@ -1,4 +1,4 @@
-use arto_ipc::ReadySignal;
+use arto_lsp::ReadySignal;
 use dioxus::desktop::tao::window::WindowId;
 use dioxus::desktop::window;
 use dioxus::document;
