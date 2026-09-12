@@ -2,6 +2,7 @@ mod drag_drop_overlay;
 mod drop_handlers;
 mod keybinding_engine;
 mod listeners;
+mod mouse_navigation;
 mod ready_reporter;
 mod shortcut_overlay;
 
@@ -31,6 +32,7 @@ use drag_drop_overlay::DragDropOverlay;
 use drop_handlers::handle_dropped_files;
 use keybinding_engine::setup_keybinding_engine;
 use listeners::setup_window_listeners;
+use mouse_navigation::setup_mouse_navigation;
 use ready_reporter::setup_ready_reporter;
 use shortcut_overlay::{
     build_shortcut_help_items, close_shortcut_overlay, split_shortcut_help_columns,
@@ -137,6 +139,9 @@ pub fn App(
 
     // Set up keybinding engine (keyboard shortcut processing)
     setup_keybinding_engine(state, shortcut_overlay_visibility);
+
+    // The mouse's side buttons, which reach the history through the page.
+    setup_mouse_navigation(state);
 
     // Handle menu events (only state-dependent events, not global ones)
     #[cfg(target_os = "macos")]

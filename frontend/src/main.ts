@@ -17,6 +17,7 @@ import {
 import { rasterizeMathBlock, rasterizeMermaidBlock } from "./special-block-rasterizer";
 import * as findInPage from "./find-in-page";
 import * as keyboardInterceptor from "./keyboard-interceptor";
+import * as mouseNavigation from "./mouse-navigation";
 import * as scrollController from "./scroll-controller";
 import * as contentCursor from "./content-cursor";
 import * as actionFeedback from "./action-feedback";
@@ -70,6 +71,10 @@ declare global {
         resume: typeof keyboardInterceptor.resume;
         setMenuAccelerators: typeof keyboardInterceptor.setMenuAccelerators;
         setReservedKeyOverrides: typeof keyboardInterceptor.setReservedKeyOverrides;
+      };
+      mouse: {
+        /** Register a callback for the mouse's back / forward side buttons. */
+        onNavigate: typeof mouseNavigation.onNavigate;
       };
       scroll: {
         down: typeof scrollController.down;
@@ -365,6 +370,9 @@ export function init(): void {
       setMenuAccelerators: keyboardInterceptor.setMenuAccelerators,
       setReservedKeyOverrides: keyboardInterceptor.setReservedKeyOverrides,
     },
+    mouse: {
+      onNavigate: mouseNavigation.onNavigate,
+    },
     scroll: {
       down: scrollController.down,
       up: scrollController.up,
@@ -415,6 +423,9 @@ export function init(): void {
 
   // Set up keyboard interceptor event listeners
   keyboardInterceptor.setup();
+
+  // The mouse's thumb buttons, which walk the history like the arrows do.
+  mouseNavigation.setup();
 
   // Listen for theme changes from Rust
   document.addEventListener("arto:theme-changed", ((event: CustomEvent) => {
