@@ -60,19 +60,29 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
     ipc::start_ipc_server();
 
     // Push CLI request to IPC event queue (MainApp will pop and apply it as initial state)
+    //
+    // A launch naming no path queues nothing, and the window opens on the
+    // welcome page — unless it asked for a geometry or a theme, which the
+    // first window has to be told about, and the event is how it is told.
     if let Some(request) = ipc::build_open_request(&invocation) {
         let event = ipc::OpenEvent::Open(request);
         tracing::debug!(?event, "Pushing CLI request to IPC event queue");
+        ipc::push_event(event);
+    } else if !invocation.window.is_empty() {
+        let event = ipc::open_event_for_invocation(&invocation);
+        tracing::debug!(?event, "Pushing CLI window options to IPC event queue");
         ipc::push_event(event);
     }
 
     // let menu = menu::build_menu();
 
-    // Get window parameters for first window from preferences
+    // Get window parameters for first window from preferences, with anything
+    // this launch asked for laid over them.
     let params = window::CreateMainWindowConfigParams {
         focused: !invocation.behind,
         ..window::CreateMainWindowConfigParams::from_preferences(true)
-    };
+    }
+    .with_window_options(&invocation.window);
 
     let config = window::create_main_window_config(&params).with_custom_event_handler(
         move |event, _target| {
@@ -104,6 +114,7 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
                     ipc::push_event(ipc::OpenEvent::Reopen {
                         behavior: None,
                         behind: false,
+                        window: Default::default(),
                     });
                     ipc::process_main_thread_tasks();
                 }

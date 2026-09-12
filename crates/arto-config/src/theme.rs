@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// `Auto` follows the operating system; resolving it to light or dark is the
 /// app's job, since it needs the system appearance.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Theme {
     #[default]

@@ -1,9 +1,9 @@
 //! The secondary instance's side: hand the request to whoever is listening.
 
-use crate::protocol::{IpcMessage, OpenEvent};
+use crate::protocol::{IpcMessage, OpenEvent, ReadyReply};
 use crate::socket;
 use interprocess::local_socket::{prelude::*, GenericFilePath, Stream, ToFsName};
-use std::io::Write;
+use std::io::{BufRead, Write};
 use std::path::Path;
 use std::sync::mpsc;
 use std::time::Duration;
@@ -21,37 +21,80 @@ pub enum SendResult {
     Failed(std::io::Error),
 }
 
+/// How long a launch that asked to wait will hold the connection open.
+///
+/// Far longer than [`socket::IPC_TIMEOUT`], which bounds a handshake: this
+/// bounds a document being read from disk, parsed, and drawn with its
+/// diagrams and formulas. A cold start with a large document is seconds, and
+/// the point of waiting is to not have to guess how many.
+pub const READY_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// Try to hand an event to an already running instance.
 ///
 /// Connecting is bounded by a timeout so a wedged primary cannot hang a
 /// new launch; no answer within it counts as no instance.
-pub fn send_to_existing_instance(event: &OpenEvent) -> SendResult {
+///
+/// With `wait_ready`, the connection stays open until the primary says the
+/// target window has drawn the request, or until [`READY_TIMEOUT`] passes.
+/// A primary too old to understand the flag closes the connection instead of
+/// replying, which reads as no reply and returns just as a reply would — the
+/// request itself was still delivered.
+pub fn send_to_existing_instance(event: &OpenEvent, wait_ready: bool) -> SendResult {
     let socket_path = socket::socket_path();
 
     let Some(stream) = connect_with_timeout(&socket_path, socket::IPC_TIMEOUT) else {
         return SendResult::NoExistingInstance;
     };
 
-    match send_event(stream, event) {
+    match send_event(stream, event, wait_ready) {
         Ok(()) => SendResult::Sent,
         Err(error) => SendResult::Failed(error),
     }
 }
 
 /// Write one JSON line and make sure it went out.
-fn send_event(mut stream: Stream, event: &OpenEvent) -> std::io::Result<()> {
+fn send_event(mut stream: Stream, event: &OpenEvent, wait_ready: bool) -> std::io::Result<()> {
     // A write timeout keeps a stuck primary from hanging this process.
     if let Err(error) = socket::set_socket_timeout(&stream, socket::IPC_TIMEOUT) {
         tracing::debug!(%error, "Could not set the IPC socket timeout");
     }
 
-    let message = IpcMessage::from(event.clone());
+    let message = IpcMessage::from_event(event.clone(), wait_ready);
     let json = serde_json::to_string(&message)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     writeln!(stream, "{json}")?;
 
     // Flush and verify - this will fail if primary crashed
-    stream.flush()
+    stream.flush()?;
+
+    if wait_ready {
+        await_ready(stream);
+    }
+    Ok(())
+}
+
+/// Block until the primary answers, it hangs up, or the wait runs out.
+///
+/// Nothing here fails the send: the request was delivered and acknowledged
+/// by the write above, and what is being waited for is a courtesy on top of
+/// it. Every way the wait can end is therefore a debug line and a return.
+fn await_ready(stream: Stream) {
+    if let Err(error) = socket::set_socket_timeout(&stream, READY_TIMEOUT) {
+        tracing::debug!(%error, "Could not extend the IPC socket timeout for the ready wait");
+    }
+
+    let mut line = String::new();
+    match std::io::BufReader::new(stream).read_line(&mut line) {
+        Ok(0) => tracing::debug!("Primary closed the connection without a ready reply"),
+        Ok(_) => match serde_json::from_str::<ReadyReply>(line.trim()) {
+            Ok(ReadyReply::Ready) => tracing::debug!("Target window reported ready"),
+            Ok(ReadyReply::Timeout) => {
+                tracing::debug!("Primary gave up waiting for the target window")
+            }
+            Err(error) => tracing::debug!(%line, %error, "Unparseable ready reply"),
+        },
+        Err(error) => tracing::debug!(%error, "Gave up waiting for the ready reply"),
+    }
 }
 
 /// Try to connect to a socket with timeout.

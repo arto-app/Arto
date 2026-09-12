@@ -1,4 +1,5 @@
-use arto::cli::{CliInvocation, CliOpenMode};
+use arto::cli::{parse_position, parse_size, CliInvocation, CliOpenMode};
+use arto_ipc::{WindowExtent, WindowOptions, WindowPoint};
 use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
@@ -17,6 +18,26 @@ enum OpenModeArg {
     New,
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum ThemeArg {
+    /// Always light, whatever the system is set to
+    Light,
+    /// Always dark, whatever the system is set to
+    Dark,
+    /// Follow the system appearance
+    System,
+}
+
+impl From<ThemeArg> for arto_config::Theme {
+    fn from(arg: ThemeArg) -> Self {
+        match arg {
+            ThemeArg::Light => Self::Light,
+            ThemeArg::Dark => Self::Dark,
+            ThemeArg::System => Self::Auto,
+        }
+    }
+}
+
 /// Arto — the Art of Reading Markdown
 #[derive(Parser, Debug)]
 #[command(
@@ -26,7 +47,11 @@ enum OpenModeArg {
         A local app that faithfully recreates GitHub-style Markdown rendering\n\
         for a beautiful reading experience.\n\n\
         Arto runs as a single instance — if already running, paths are sent\n\
-        to the existing process instead of launching a new one.",
+        to the existing process instead of launching a new one.\n\n\
+        --position, --size and --theme apply to the window --open selects,\n\
+        whether that window is reused or created, and whether or not any\n\
+        paths were named; --wait-ready then holds the command until that\n\
+        window has drawn what it was given.",
     after_long_help = "Examples:\n\
         \x20 arto                     Launch Arto (shows welcome screen)\n\
         \x20 arto README.md           Open a specific file\n\
@@ -34,6 +59,9 @@ enum OpenModeArg {
         \x20 arto --open=new README.md\n\
         \x20 arto --behind README.md  Open without taking the focus\n\
         \x20 arto --directory=. README.md\n\
+        \x20 arto --position=120,120 --size=1400,920 README.md\n\
+        \x20 arto --theme=light --wait-ready README.md\n\
+        \x20 arto --open=new --position=80,64 --size=1400,920 --theme=dark --wait-ready\n\
         \x20 arto docs/               Open a directory in the file explorer\n\
         \x20 arto file1.md file2.md   Open each file in its own window\n\
         \x20 arto page README.md      Print README.md as a self-contained HTML page",
@@ -54,6 +82,22 @@ struct Cli {
     /// Root directory for the file explorer sidebar
     #[arg(long)]
     directory: Option<PathBuf>,
+    /// Place the window at these screen coordinates, as X,Y
+    #[arg(long, value_name = "X,Y", value_parser = parse_position, allow_hyphen_values = true)]
+    position: Option<WindowPoint>,
+    /// Give the window this size, as WIDTH,HEIGHT
+    #[arg(long, value_name = "WIDTH,HEIGHT", value_parser = parse_size)]
+    size: Option<WindowExtent>,
+    /// Theme for this invocation, overriding the configured one
+    #[arg(long, value_enum)]
+    theme: Option<ThemeArg>,
+    /// Return only once the window has drawn the document.
+    ///
+    /// Applies when Arto is already running and this invocation hands its
+    /// request over. A launch that starts Arto itself becomes the app and
+    /// runs until it is quit, with or without this flag.
+    #[arg(long)]
+    wait_ready: bool,
     /// Files or directories to open
     #[arg()]
     paths: Vec<PathBuf>,
@@ -121,6 +165,12 @@ fn main() {
         directory: cli.directory,
         open_mode,
         behind: cli.behind,
+        window: WindowOptions {
+            position: cli.position,
+            size: cli.size,
+            theme: cli.theme.map(arto_config::Theme::from),
+        },
+        wait_ready: cli.wait_ready,
     };
 
     if let arto::RunResult::SentToExistingInstance = arto::run(invocation) {

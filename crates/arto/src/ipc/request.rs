@@ -11,12 +11,17 @@ use std::path::Path;
 
 /// The event a CLI invocation asks for: an open request when it names any
 /// valid file or directory, otherwise a plain reopen.
+///
+/// A reopen still carries the geometry and theme, because naming no path is
+/// how a window is asked for *as a window* — placed, sized, and pinned to a
+/// theme, with whatever it was already reading left in it.
 pub fn open_event_for_invocation(invocation: &CliInvocation) -> OpenEvent {
     match build_open_request(invocation) {
         Some(request) => OpenEvent::Open(request),
         None => OpenEvent::Reopen {
             behavior: invocation.open_mode.to_file_open_behavior(),
             behind: invocation.behind,
+            window: invocation.window,
         },
     }
 }
@@ -56,6 +61,7 @@ pub fn build_open_request(invocation: &CliInvocation) -> Option<OpenRequest> {
         directory,
         behavior: invocation.open_mode.to_file_open_behavior(),
         behind: invocation.behind,
+        window: invocation.window,
     })
 }
 
@@ -70,12 +76,14 @@ pub fn validate_path(path: impl AsRef<Path>) -> Option<OpenEvent> {
             directory: None,
             behavior: None,
             behind: false,
+            window: Default::default(),
         })),
         Some(PathKind::Directory(canonical)) => Some(OpenEvent::Open(OpenRequest {
             files: Vec::new(),
             directory: Some(canonical),
             behavior: None,
             behind: false,
+            window: Default::default(),
         })),
         None => {
             tracing::warn!(
@@ -120,6 +128,8 @@ mod tests {
             directory: None,
             open_mode: CliOpenMode::LastFocused,
             behind: false,
+            window: Default::default(),
+            wait_ready: false,
         };
 
         let request = build_open_request(&invocation).unwrap();
@@ -141,6 +151,8 @@ mod tests {
             directory: Some(option_directory.clone()),
             open_mode: CliOpenMode::LastFocused,
             behind: false,
+            window: Default::default(),
+            wait_ready: false,
         };
 
         let request = build_open_request(&invocation).unwrap();
@@ -162,6 +174,8 @@ mod tests {
             directory: None,
             open_mode: CliOpenMode::CurrentScreen,
             behind: false,
+            window: Default::default(),
+            wait_ready: false,
         };
 
         let request = build_open_request(&invocation).unwrap();
@@ -179,6 +193,8 @@ mod tests {
             directory: None,
             open_mode: CliOpenMode::Config,
             behind: true,
+            window: Default::default(),
+            wait_ready: false,
         };
 
         let request = build_open_request(&invocation).unwrap();
@@ -192,6 +208,8 @@ mod tests {
             directory: None,
             open_mode: CliOpenMode::Config,
             behind: true,
+            window: Default::default(),
+            wait_ready: false,
         };
 
         assert_eq!(
@@ -199,6 +217,7 @@ mod tests {
             OpenEvent::Reopen {
                 behavior: None,
                 behind: true,
+                window: Default::default(),
             }
         );
     }
@@ -214,6 +233,8 @@ mod tests {
             directory: None,
             open_mode: CliOpenMode::Config,
             behind: false,
+            window: Default::default(),
+            wait_ready: false,
         };
 
         let request = build_open_request(&invocation).unwrap();
@@ -227,6 +248,8 @@ mod tests {
             directory: None,
             open_mode: CliOpenMode::NewWindow,
             behind: false,
+            window: Default::default(),
+            wait_ready: false,
         };
 
         assert_eq!(
@@ -234,6 +257,7 @@ mod tests {
             OpenEvent::Reopen {
                 behavior: Some(FileOpenBehavior::NewWindow),
                 behind: false,
+                window: Default::default(),
             }
         );
     }
@@ -242,5 +266,79 @@ mod tests {
     fn validate_path_rejects_missing_paths() {
         let temp = tempfile::tempdir().unwrap();
         assert!(validate_path(temp.path().join("missing.md")).is_none());
+    }
+
+    /// What `--position=120,64 --size=1400,920 --theme=light` amounts to.
+    fn geometry_and_theme() -> arto_ipc::WindowOptions {
+        arto_ipc::WindowOptions {
+            position: Some(arto_ipc::WindowPoint { x: 120, y: 64 }),
+            size: Some(arto_ipc::WindowExtent {
+                width: 1400,
+                height: 920,
+            }),
+            theme: Some(crate::config::Theme::Light),
+        }
+    }
+
+    #[test]
+    fn an_open_request_carries_the_geometry_and_theme() {
+        let temp = tempfile::tempdir().unwrap();
+        let file = temp.path().join("README.md");
+        std::fs::write(&file, "# test").unwrap();
+
+        let invocation = CliInvocation {
+            paths: vec![file],
+            directory: None,
+            open_mode: CliOpenMode::Config,
+            behind: false,
+            window: geometry_and_theme(),
+            wait_ready: false,
+        };
+
+        assert_eq!(
+            build_open_request(&invocation).unwrap().window,
+            geometry_and_theme()
+        );
+    }
+
+    #[test]
+    fn naming_no_path_still_asks_for_the_window() {
+        // `arto --open=new --position=80,64` is a request for a window, not
+        // for a document, and the window half has to survive having nothing
+        // to read.
+        let invocation = CliInvocation {
+            paths: Vec::new(),
+            directory: None,
+            open_mode: CliOpenMode::NewWindow,
+            behind: false,
+            window: geometry_and_theme(),
+            wait_ready: false,
+        };
+
+        assert_eq!(
+            open_event_for_invocation(&invocation),
+            OpenEvent::Reopen {
+                behavior: Some(FileOpenBehavior::NewWindow),
+                behind: false,
+                window: geometry_and_theme(),
+            }
+        );
+    }
+
+    #[test]
+    fn an_invocation_that_asks_for_no_window_carries_none() {
+        let invocation = CliInvocation {
+            paths: Vec::new(),
+            directory: None,
+            open_mode: CliOpenMode::Config,
+            behind: false,
+            window: Default::default(),
+            wait_ready: false,
+        };
+
+        let OpenEvent::Reopen { window, .. } = open_event_for_invocation(&invocation) else {
+            panic!("a pathless invocation is a reopen");
+        };
+        assert!(window.is_empty());
     }
 }

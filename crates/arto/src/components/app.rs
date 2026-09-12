@@ -2,6 +2,7 @@ mod drag_drop_overlay;
 mod drop_handlers;
 mod keybinding_engine;
 mod listeners;
+mod ready_reporter;
 mod shortcut_overlay;
 
 use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
@@ -30,6 +31,7 @@ use drag_drop_overlay::DragDropOverlay;
 use drop_handlers::handle_dropped_files;
 use keybinding_engine::setup_keybinding_engine;
 use listeners::setup_window_listeners;
+use ready_reporter::setup_ready_reporter;
 use shortcut_overlay::{
     build_shortcut_help_items, close_shortcut_overlay, split_shortcut_help_columns,
     ShortcutHelpOverlay, ShortcutOverlayVisibility,
@@ -181,6 +183,9 @@ pub fn App(
     });
 
     setup_window_listeners(state);
+
+    // Answer any launch that is holding its socket open for this window.
+    setup_ready_reporter();
 
     // Keep the window title on the document being read
     use_effect(move || {

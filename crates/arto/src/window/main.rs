@@ -76,6 +76,14 @@ pub struct CreateMainWindowConfigParams {
     pub zoom_level: f64,
     pub size: LogicalSize<u32>,
     pub position: LogicalPosition<i32>,
+    /// Put the window exactly at `position`, rather than cascading it clear
+    /// of the windows already there.
+    ///
+    /// The cascade is a courtesy to a reader opening a second window by
+    /// hand; a position named on the command line is the whole point of
+    /// naming it, and moving the window "helpfully" off it would make the
+    /// option useless for placing a window for a screen capture.
+    pub exact_position: bool,
     /// Take the keyboard focus once the window exists. `arto --behind` clears
     /// it so the window can appear without interrupting what the user is doing.
     pub focused: bool,
@@ -105,8 +113,28 @@ impl CreateMainWindowConfigParams {
             zoom_level: zoom_pref.zoom_level,
             size: size_pref.size,
             position: position_pref.position,
+            exact_position: false,
             focused: true,
         }
+    }
+
+    /// Lay what a launch asked for over what the preferences answered.
+    ///
+    /// Only the fields the launch named are touched, so `--size` alone still
+    /// opens where the preferences say, and an invocation that names none of
+    /// them is the invocation that was there before these options existed.
+    pub fn with_window_options(mut self, options: &arto_ipc::WindowOptions) -> Self {
+        if let Some(position) = options.position {
+            self.position = LogicalPosition::new(position.x, position.y);
+            self.exact_position = true;
+        }
+        if let Some(size) = options.size {
+            self.size = LogicalSize::new(size.width, size.height);
+        }
+        if let Some(theme) = options.theme {
+            self.theme = theme;
+        }
+        self
     }
 }
 
@@ -272,6 +300,9 @@ pub(crate) fn resolve_directory(
 
 /// Compute the shifted position for a new window, avoiding overlap with existing windows.
 fn compute_shifted_position(params: &CreateMainWindowConfigParams) -> LogicalPosition<i32> {
+    if params.exact_position {
+        return params.position;
+    }
     let position_offset = CONFIG.read().window_position.position_offset;
     let (screen_origin, screen_size) = get_current_display_bounds()
         .unwrap_or_else(|| (LogicalPosition::new(0, 0), LogicalSize::new(1000, 800)));
@@ -367,6 +398,41 @@ pub fn get_any_main_window() -> Option<Rc<DesktopService>> {
 
 pub fn update_last_focused_window(window_id: WindowId) {
     LAST_FOCUSED_WINDOW.with(|last| *last.borrow_mut() = Some(window_id));
+}
+
+/// Move, resize and repaint a window that is already open.
+///
+/// The counterpart of [`CreateMainWindowConfigParams::with_window_options`]
+/// for the window a launch reuses rather than creates: the same options,
+/// applied to a window that already has a position, a size and a theme.
+/// Only what the launch named is touched.
+pub fn apply_window_options(window_id: WindowId, options: &arto_ipc::WindowOptions) {
+    if options.is_empty() {
+        return;
+    }
+
+    if let Some(context) = list_main_windows()
+        .into_iter()
+        .find(|context| context.window.id() == window_id)
+    {
+        if let Some(position) = options.position {
+            context
+                .window
+                .set_outer_position(LogicalPosition::new(position.x, position.y));
+        }
+        if let Some(size) = options.size {
+            context
+                .window
+                .set_inner_size(LogicalSize::new(size.width, size.height));
+        }
+    }
+
+    if let Some(theme) = options.theme {
+        if let Some(state) = get_window_state(window_id) {
+            let mut current_theme = state.current_theme;
+            current_theme.set(theme);
+        }
+    }
 }
 
 // ============================================================================
@@ -483,6 +549,75 @@ fn shift_position_if_needed(
 mod tests {
     use super::*;
     use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
+
+    /// Params that name nothing, so a test can see exactly what an option
+    /// changed and what it left alone.
+    fn blank_params() -> CreateMainWindowConfigParams {
+        CreateMainWindowConfigParams {
+            directory: None,
+            temps: Vec::new(),
+            theme: Theme::Auto,
+            content_full_width: false,
+            sidebar_pinned: false,
+            sidebar_width: 280.0,
+            sidebar_show_all_files: false,
+            sidebar_zoom_level: 1.0,
+            zoom_level: 1.0,
+            size: LogicalSize::new(1000, 800),
+            position: LogicalPosition::new(50, 50),
+            exact_position: false,
+            focused: true,
+        }
+    }
+
+    #[test]
+    fn an_invocation_that_named_nothing_leaves_every_preference_alone() {
+        let params = blank_params().with_window_options(&arto_ipc::WindowOptions::default());
+        assert_eq!(params.position, LogicalPosition::new(50, 50));
+        assert_eq!(params.size, LogicalSize::new(1000, 800));
+        assert_eq!(params.theme, Theme::Auto);
+        assert!(!params.exact_position);
+    }
+
+    #[test]
+    fn each_option_replaces_only_its_own_preference() {
+        let params = blank_params().with_window_options(&arto_ipc::WindowOptions {
+            size: Some(arto_ipc::WindowExtent {
+                width: 1400,
+                height: 920,
+            }),
+            ..Default::default()
+        });
+        assert_eq!(params.size, LogicalSize::new(1400, 920));
+        // `--size` alone still opens where the preferences say.
+        assert_eq!(params.position, LogicalPosition::new(50, 50));
+        assert_eq!(params.theme, Theme::Auto);
+    }
+
+    #[test]
+    fn a_named_position_is_exact() {
+        let params = blank_params().with_window_options(&arto_ipc::WindowOptions {
+            position: Some(arto_ipc::WindowPoint { x: 120, y: 64 }),
+            ..Default::default()
+        });
+        assert_eq!(params.position, LogicalPosition::new(120, 64));
+        // The cascade that keeps hand-opened windows from stacking would
+        // undo the placement, which is the whole point of naming it.
+        assert!(params.exact_position);
+        assert_eq!(
+            compute_shifted_position(&params),
+            LogicalPosition::new(120, 64)
+        );
+    }
+
+    #[test]
+    fn a_named_theme_replaces_the_configured_one() {
+        let params = blank_params().with_window_options(&arto_ipc::WindowOptions {
+            theme: Some(Theme::Dark),
+            ..Default::default()
+        });
+        assert_eq!(params.theme, Theme::Dark);
+    }
 
     #[test]
     fn test_resolve_directory_none_when_no_config_and_no_file() {
