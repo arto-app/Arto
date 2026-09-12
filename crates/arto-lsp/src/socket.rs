@@ -129,15 +129,23 @@ pub(crate) fn set_socket_timeout(stream: &Stream, timeout: Duration) -> std::io:
 }
 
 /// Set socket timeout for named pipes (Windows).
-/// Note: Windows named pipes have different timeout semantics.
-/// The timeout is set during pipe creation, not on the stream.
-/// This function is a no-op but maintains API compatibility.
+///
+/// A no-op: a named pipe takes its timeout at creation, not on the stream,
+/// and the `interprocess` crate owns that. Bounding a read here would need
+/// `SetNamedPipeHandleState` or overlapped I/O.
+///
+/// # This leaves a read unbounded
+///
+/// It did not matter while a handoff only wrote. It does now: every handoff
+/// reads the answer to `initialize`, so an instance that accepts the
+/// connection and then never replies — a wedged handler thread — hangs the
+/// launch instead of failing within [`IPC_TIMEOUT`]. `connect_with_timeout`
+/// bounds only the connect.
+///
+/// Left as it is rather than half-solved here, because Windows support is
+/// not yet claimed at all and the fix belongs with the rest of it.
 #[cfg(windows)]
 pub(crate) fn set_socket_timeout(_stream: &Stream, _timeout: Duration) -> std::io::Result<()> {
-    // Windows named pipes set timeout at creation time via PIPE_WAIT mode
-    // The interprocess crate handles this internally
-    // For additional control, we would need to use SetNamedPipeHandleState
-    // but the default behavior is acceptable for our use case
     Ok(())
 }
 

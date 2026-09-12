@@ -11,14 +11,14 @@ Understanding the relationship between Config, PersistedState, and State modules
 **Arto runs as a single process enforced via IPC:**
 
 - First launch → Becomes primary instance, starts IPC server
-- Subsequent launches → Connect to primary, send paths via JSON Lines, exit(0)
+- Subsequent launches → Connect to primary, hand the request over, exit(0)
 - Primary instance receives paths via IPC server → Opens files/directories in existing windows
 
-**IPC Protocol:** Unix domain socket (`com.lambdalisue.arto.sock`) with JSON Lines messages
+**IPC Protocol:** Unix domain socket (`com.lambdalisue.arto.sock`) carrying JSON-RPC 2.0 in LSP `Content-Length` framing — see `lsp.md`
 
 **Why:** Prevents multiple processes from conflicting over file watches, config writes, and state persistence.
 
-**Implementation:** Protocol and socket live in `crates/arto-ipc/`; queueing, main-thread wake-up and window handling in `crates/arto/src/ipc.rs`.
+**Implementation:** Protocol and socket live in `crates/arto-lsp/`; queueing, main-thread wake-up and window handling in `crates/arto/src/ipc.rs`.
 
 **Note:** This document focuses on the state management within the single running instance.
 
@@ -148,7 +148,7 @@ pub struct AppState {
 ```
 0. IPC Check (in main(), before any initialization)
    ├─> Try to connect to existing instance via Unix socket
-   ├─> If connection succeeds → Send paths via JSON Lines → exit(0)
+   ├─> If connection succeeds → initialize, arto/open → exit(0)
    └─> If connection fails → Continue as primary instance
 
 1. Initialize primary instance
@@ -179,14 +179,14 @@ pub struct AppState {
 0. IPC Check (in main())
    ├─> Try to connect to existing instance
    ├─> Connection succeeds!
-   ├─> Send paths: [{"type":"file","path":"/doc.md"}]
-   └─> exit(0) immediately (no initialization)
+   ├─> initialize, then arto/open {"files":["/doc.md"]}
+   └─> exit(0) once the primary answers (no initialization)
 
 Primary instance receives:
    ├─> IPC server accepts connection
-   ├─> Parse JSON Lines messages
-   ├─> Convert to OpenEvents
-   ├─> Send to OPEN_EVENT_RECEIVER channel
+   ├─> Read Content-Length framed JSON-RPC messages
+   ├─> Convert requests to OpenEvents
+   ├─> Push to IPC_EVENT_QUEUE and wake the main thread
    └─> MainApp component processes events (open file/directory)
 ```
 

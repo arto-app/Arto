@@ -1,5 +1,5 @@
 use arto::cli::{parse_position, parse_size, CliInvocation, CliOpenMode};
-use arto_ipc::{WindowExtent, WindowOptions, WindowPoint};
+use arto_lsp::{WindowExtent, WindowOptions, WindowPoint};
 use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
@@ -93,6 +93,9 @@ struct Cli {
     theme: Option<ThemeArg>,
     /// Return only once the window has drawn the document.
     ///
+    /// Exits non-zero if it does not draw in time, so a script can tell the
+    /// difference rather than photographing a blank window.
+    ///
     /// Applies when Arto is already running and this invocation hands its
     /// request over. A launch that starts Arto itself becomes the app and
     /// runs until it is quit, with or without this flag.
@@ -173,7 +176,7 @@ fn main() {
         wait_ready: cli.wait_ready,
     };
 
-    if let arto::RunResult::SentToExistingInstance = arto::run(invocation) {
-        std::process::exit(0);
+    if let arto::RunResult::HandedOver(status) = arto::run(invocation) {
+        std::process::exit(status);
     }
 }

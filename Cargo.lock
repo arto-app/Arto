@@ -156,8 +156,8 @@ dependencies = [
  "anyhow",
  "arboard",
  "arto-config",
- "arto-ipc",
  "arto-keybindings",
+ "arto-lsp",
  "arto-markdown",
  "arto-page",
  "base64 0.23.1",
@@ -216,22 +216,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arto-ipc"
-version = "0.0.0"
-dependencies = [
- "arto-config",
- "dirs 7.0.0",
- "indoc",
- "interprocess",
- "libc",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.20",
- "tracing",
-]
-
-[[package]]
 name = "arto-keybindings"
 version = "0.0.0"
 dependencies = [
@@ -239,6 +223,21 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.20",
+]
+
+[[package]]
+name = "arto-lsp"
+version = "0.0.0"
+dependencies = [
+ "arto-config",
+ "dirs 7.0.0",
+ "interprocess",
+ "libc",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tracing",
 ]
 
 [[package]]

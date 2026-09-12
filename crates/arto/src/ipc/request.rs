@@ -6,7 +6,7 @@
 
 use super::{OpenEvent, OpenRequest};
 use crate::cli::CliInvocation;
-use arto_ipc::{classify_path, PathKind};
+use arto_lsp::{classify_path, PathKind};
 use std::path::Path;
 
 /// The event a CLI invocation asks for: an open request when it names any
@@ -269,10 +269,10 @@ mod tests {
     }
 
     /// What `--position=120,64 --size=1400,920 --theme=light` amounts to.
-    fn geometry_and_theme() -> arto_ipc::WindowOptions {
-        arto_ipc::WindowOptions {
-            position: Some(arto_ipc::WindowPoint { x: 120, y: 64 }),
-            size: Some(arto_ipc::WindowExtent {
+    fn geometry_and_theme() -> arto_lsp::WindowOptions {
+        arto_lsp::WindowOptions {
+            position: Some(arto_lsp::WindowPoint { x: 120, y: 64 }),
+            size: Some(arto_lsp::WindowExtent {
                 width: 1400,
                 height: 920,
             }),

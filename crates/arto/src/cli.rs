@@ -1,4 +1,4 @@
-use arto_ipc::{WindowExtent, WindowPoint};
+use arto_lsp::{WindowExtent, WindowPoint};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,7 +30,7 @@ pub struct CliInvocation {
     pub behind: bool,
     /// Geometry and theme asked for by this invocation, for the window it
     /// lands in. Empty when the invocation asked for none of them.
-    pub window: arto_ipc::WindowOptions,
+    pub window: arto_lsp::WindowOptions,
     /// Return only once the target window has drawn the document, rather
     /// than as soon as the request is handed over.
     pub wait_ready: bool,

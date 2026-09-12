@@ -37,7 +37,7 @@ readme = "README.md"
 # be five chances to forget one. It is the workspace version, so the release
 # patch that stamps `[workspace.package]` above stamps these in the same pass.
 arto-config = { path = "crates/arto-config", version = "0.0.0" }
-arto-ipc = { path = "crates/arto-ipc", version = "0.0.0" }
+arto-lsp = { path = "crates/arto-lsp", version = "0.0.0" }
 arto-keybindings = { path = "crates/arto-keybindings", version = "0.0.0" }
 arto-markdown = { path = "crates/arto-markdown", version = "0.0.0" }
 arto-page = { path = "crates/arto-page", version = "0.0.0" }
