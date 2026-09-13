@@ -62,19 +62,6 @@ const STANDALONE_OVERRIDE_CSS: &str = "html,body{overflow:auto!important;height:
 /// preference `light` and `dark` are taken as-is; anything else follows
 /// `prefers-color-scheme`. The mode then picks one of the two theme names.
 const BOOTSTRAP_JS: &str = r#"(function(){
-  // Quick Look loads this page from an opaque origin, which is not a secure
-  // context, so crypto.randomUUID (used by Mermaid) is undefined. Polyfill it
-  // with a non-cryptographic UUID — Mermaid only needs unique element ids.
-  try {
-    if (window.crypto && typeof window.crypto.randomUUID !== 'function') {
-      window.crypto.randomUUID = function () {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-          var r = (Math.random() * 16) | 0;
-          return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-        });
-      };
-    }
-  } catch (e) {}
   try {
     var root = document.documentElement;
     var preference = root.getAttribute('data-theme-preference');
@@ -336,9 +323,6 @@ mod tests {
         // the system.
         assert!(html.contains(r#"<html data-theme="light" data-theme-preference="auto" data-light-theme="light" data-dark-theme="dark">"#));
         assert!(html.contains("prefers-color-scheme"));
-        // Mermaid needs crypto.randomUUID, which an opaque origin lacks, so
-        // the bootstrap must polyfill it.
-        assert!(html.contains("crypto.randomUUID"));
     }
 
     #[test]

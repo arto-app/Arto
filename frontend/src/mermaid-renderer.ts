@@ -47,6 +47,14 @@ export async function renderDiagrams(container: Element): Promise<void> {
   }
 }
 
+/**
+ * Names the next diagram. Mermaid only asks for an id that is unique within
+ * the document, and a counter is that everywhere Arto draws:
+ * `crypto.randomUUID` is exposed in a secure context alone, which neither the
+ * app's WebView on Windows nor Quick Look's is.
+ */
+let nextDiagramNumber = 1;
+
 async function renderDiagram(element: HTMLElement): Promise<void> {
   // Skip if already rendered (has SVG child or marked as rendered)
   if (element.dataset.rendered === "true" || element.querySelector("svg")) {
@@ -63,8 +71,7 @@ async function renderDiagram(element: HTMLElement): Promise<void> {
   }
 
   try {
-    // Generate a unique ID for this diagram
-    const id = `mermaid-${crypto.randomUUID()}`;
+    const id = `mermaid-${nextDiagramNumber++}`;
 
     // Render the diagram inside the target element so Mermaid measures
     // text in the same CSS context where the SVG will be displayed.
