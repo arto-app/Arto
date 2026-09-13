@@ -41,6 +41,11 @@ Methods, all in `crates/arto-lsp/src/methods.rs`:
 | `initialized` | notification | Client is ready; ignored |
 | `arto/open` | request | Open files and/or set the root directory |
 | `arto/reopen` | request | Bring a window forward, or place and repaint one |
+| `arto/state` | request | What is open, and where the reader is in it |
+| `arto/goto` | request | Put the reader somewhere in a window's document |
+| `arto/selection` | request | What the reader has selected |
+| `arto/didChangeState` | notification | **Sent by the instance** — a window changed |
+| `shutdown` | request | No more requests; `exit` follows |
 | `exit` | notification | **Close this connection** — see below |
 
 **`exit` departs from LSP deliberately.** There it ends the server process;
@@ -77,6 +82,105 @@ its request is applied.
 The client asks to wait only when `initialize` said the instance can
 (`capabilities.waitReady`). That is what the handshake is for: what an
 instance says it cannot do, it is not asked to do.
+
+## Reading a window, and moving the reader in it
+
+`arto/state` answers with every open window — the document, the theme, the
+headings and where the reader is — and `arto/goto` puts the reader
+somewhere else. Both name a window by `WindowKey`, a number the instance
+hands out as a window registers, counting from one and never reused: a key
+held across a close names nothing rather than whatever took the number.
+
+The scroll position travels as `{line, fraction}`, never as a pixel offset.
+A pixel offset only means anything while every block is the height it was
+when the offset was taken, and Mermaid and KaTeX draw after the document
+appears — so a document full of them is still growing while it is read.
+Naming the block is what makes `arto/state`'s answer something
+`arto/goto` can be handed straight back.
+
+`arto/state` is a read of the main thread's own state, answered in the turn
+that asked; `current_scroll_anchor` is kept up to date by the
+reading-position tracker for the header already. `arto/goto` travels to the
+target window as an event, because `document::eval` only reaches a WebView
+from inside that window's scope. It is answered when the window has been
+asked to move, not when the reader has arrived; the destination is held in
+the page until the document stops growing under it. A client that needs the
+settled position asks `arto/state` for it.
+
+A `search` target runs the panel's own find rather than a search of its
+own, so the hits stay highlighted where the reader can see them — a jump
+that left no trace would put them somewhere they could not account for.
+`index` counts hits from zero and out of range moves nothing.
+
+`arto/selection` is the one method that cannot be answered from the main
+thread: a selection lives in the WebView. The responder is parked in
+`crates/arto/src/ipc/selection.rs` and the window answers it a round trip
+later, which is why it is its own method rather than a field of
+`arto/state` — that one is answered in the turn that asked, and every
+field of it is already here.
+
+## Ending a session
+
+`shutdown` ends nothing by itself. It marks the connection: a request after
+it is refused with `InvalidRequest`, and `exit` closes it. LSP's own
+handshake, kept because an editor's client machinery sends it on the way
+out and would otherwise read `MethodNotFound` as a fault.
+
+A launch skips it — it sends `exit` alone. `shutdown` costs a round trip
+and there is nothing the answer would change for a process that is exiting
+anyway.
+
+## `$/cancelRequest` and `$/progress` are deliberately absent
+
+A connection is read one request at a time, each answered before the next
+is read. So a `$/cancelRequest` naming an outstanding request cannot arrive
+while it is outstanding — the loop is not reading — and one naming any
+other request has nothing to cancel. Implementing it would mean answering
+requests concurrently, which would buy nothing else: the only slow request
+is a `waitReady` launch, and a launch that gives up closes its socket.
+
+`$/progress` has nothing to report progress on for the same reason. The one
+long operation says what happened in its own answer (`ready`), and a
+progress notification between "asked" and "drew" would carry no information
+the client does not already have.
+
+**Do not add either without first making request handling concurrent**, and
+do not make it concurrent for their sake alone.
+
+## The instance speaks first
+
+A client that declares `capabilities.stateChanges` in `initialize` is sent
+`arto/didChangeState` whenever a window changes, carrying that window's
+whole `WindowState` — or no state at all, which is how a close is reported.
+
+Nothing is pushed at a client that did not ask: a launch handing over a path
+declares nothing and is written to only in answer. That is what
+`ClientCapabilities` is for, and why every field of it defaults to `false`.
+
+Scrolling changes a window's state on every frame, so a change that only
+moves the scroll is held for 150ms — `crates/arto/src/ipc/subscribers.rs`
+releases the held one afterwards, because the last move of a scroll is the
+one a client actually wants. Everything else goes out at once.
+
+A connection's reads are bounded by `IPC_TIMEOUT` only until `initialize`
+succeeds; after that the read timeout is lifted and only writes stay
+bounded. A subscriber, or an MCP server holding one connection for a whole
+session, has nothing to ask for long stretches, and a bound on its reads
+would cut it off at the first quiet moment.
+
+## The socket is not a trust boundary
+
+It is reachable by any process running as the user, and the directory is
+the only thing that narrows that (`0o700`, created in `server.rs`). There
+is no authentication and nothing to add one to: a peer that can connect can
+open files, read what is on screen and move the reader.
+
+That is the same authority any process running as the user already has —
+it can read those files directly and drive the app through the window
+system. So the socket grants nothing new, and the rule that follows is that
+**no capability may be added here that a process running as the user does
+not already have.** Writing files, running commands, reaching the network
+on the app's behalf: none of those belong on this socket.
 
 ## What the launch reports back
 
@@ -127,10 +231,14 @@ format to keep in step with the first.
 | `crates/arto-lsp/src/framing.rs` | `Content-Length` framing |
 | `crates/arto-lsp/src/jsonrpc.rs` | The envelope: requests, responses, notifications, error codes |
 | `crates/arto-lsp/src/methods.rs` | Arto's own methods and their parameters |
-| `crates/arto-lsp/src/protocol.rs` | `OpenEvent`, `OpenRequest`, `WindowOptions` |
+| `crates/arto-lsp/src/protocol.rs` | `OpenEvent`, `OpenRequest`, `WindowOptions`, `WindowKey` |
 | `crates/arto-lsp/src/client.rs` | `send_to_existing_instance` |
 | `crates/arto-lsp/src/server.rs` | `Server`, `ReadySignal` |
+| `crates/arto-lsp/src/writer.rs` | `Writer` — a connection's write half, shared |
 | `crates/arto/src/ipc.rs` | Queues received events, wakes the main thread, opens files in the right window |
+| `crates/arto/src/ipc/state.rs` | Answers `arto/state` and routes `arto/goto` and `arto/selection` |
+| `crates/arto/src/ipc/selection.rs` | Requests parked while a window is asked what is selected |
+| `crates/arto/src/ipc/subscribers.rs` | Who gets `arto/didChangeState`, and how often |
 
 `arto-lsp` is a library crate: no globals, debug-level logging only. It does
 not know the app's version, so both ends are handed the `PeerInfo` they

@@ -31,7 +31,8 @@ A path that is neither a file nor a directory is skipped. When no path is
 left, the command acts as if it named none.
 
 Arto runs as a **single instance**: if it is already running, the command hands
-the request to the existing process rather than starting a second one.
+the request to the existing process rather than starting a second one, over
+the connection described in [Controlling a running Arto](./control.md).
 
 ```mermaid
 sequenceDiagram

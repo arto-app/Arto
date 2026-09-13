@@ -7,9 +7,10 @@
 //! launch is asking for.
 
 use crate::jsonrpc::{ErrorCode, ResponseError};
-use crate::protocol::{OpenEvent, OpenRequest, WindowOptions};
-use arto_types::FileOpenBehavior;
+use crate::protocol::{OpenEvent, OpenRequest, WindowKey, WindowOptions};
+use arto_types::{FileOpenBehavior, Theme};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 /// Establish what the two ends can say to each other. Must come first.
 pub const INITIALIZE: &str = "initialize";
@@ -20,6 +21,23 @@ pub const OPEN: &str = "arto/open";
 /// Bring a window forward, or place and repaint one, without opening
 /// anything.
 pub const REOPEN: &str = "arto/reopen";
+/// What is open, and where the reader is in it.
+pub const STATE: &str = "arto/state";
+/// Put the reader somewhere in the document a window is showing.
+pub const GOTO: &str = "arto/goto";
+/// What the reader has selected, if anything.
+pub const SELECTION: &str = "arto/selection";
+/// A window's state changed. Carries the whole [`WindowState`] rather than
+/// a delta: one window's state is small, and a client that wants to know
+/// where the reader is should not have to reassemble it.
+pub const DID_CHANGE_STATE: &str = "arto/didChangeState";
+/// Stop asking for things; [`EXIT`] follows.
+///
+/// LSP's own handshake for ending a session, kept because an editor's
+/// client machinery sends it and would otherwise be answered
+/// `MethodNotFound` on the way out. It ends nothing by itself: a request
+/// after it is refused, and the connection closes when `exit` arrives.
+pub const SHUTDOWN: &str = "shutdown";
 /// End this connection.
 ///
 /// **This is where Arto departs from LSP.** There, `exit` ends the server
@@ -35,6 +53,19 @@ pub const EXIT: &str = "exit";
 pub struct InitializeParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_info: Option<PeerInfo>,
+    #[serde(default)]
+    pub capabilities: ClientCapabilities,
+}
+
+/// What a client can be told, as opposed to what it can ask. Nothing is
+/// pushed to a client that did not ask for it: a notification arriving at a
+/// peer that expects none is at best ignored and at worst a parse error.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientCapabilities {
+    /// Send [`DID_CHANGE_STATE`] when a window's state changes.
+    #[serde(default)]
+    pub state_changes: bool,
 }
 
 /// What the running instance says about itself in return.
@@ -60,13 +91,36 @@ pub struct PeerInfo {
 /// accumulating message shapes that had to be understood forever. A client
 /// meeting an instance that lacks a capability can say so, or fall back,
 /// instead of writing into a socket and hoping.
+///
+/// Every field defaults to `false`, so an instance from before a capability
+/// existed reads as lacking it rather than failing to parse. Without that,
+/// adding a field here would make every older running instance unreachable:
+/// the launch would conclude there is none, then fail to bind the socket it
+/// is holding.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerCapabilities {
+    #[serde(default)]
     pub open: bool,
+    #[serde(default)]
     pub reopen: bool,
+    /// Whether the instance can report what its windows are showing.
+    #[serde(default)]
+    pub state: bool,
+    /// Whether the reader can be moved within a document from outside.
+    #[serde(default)]
+    pub goto: bool,
+    /// Whether what the reader has selected can be asked for.
+    #[serde(default)]
+    pub selection: bool,
+    /// Whether a client that asked for [`DID_CHANGE_STATE`] will get it.
+    /// The client says what it can be told before hearing this, so the
+    /// answer is what tells it whether anything will actually arrive.
+    #[serde(default)]
+    pub state_changes: bool,
     /// Whether a request may ask to be answered only once the window has
     /// drawn, rather than as soon as the request is applied.
+    #[serde(default)]
     pub wait_ready: bool,
 }
 
@@ -75,6 +129,10 @@ impl Default for ServerCapabilities {
         Self {
             open: true,
             reopen: true,
+            state: true,
+            goto: true,
+            selection: true,
+            state_changes: true,
             wait_ready: true,
         }
     }
@@ -121,15 +179,185 @@ pub struct AppliedResult {
     pub ready: bool,
 }
 
-/// One side of the wire, as the app's own handler sees it: the event to
-/// apply, and whether the answer waits for the window.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Call {
-    pub event: OpenEvent,
-    pub wait_ready: bool,
+/// The parameters of [`STATE`].
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StateParams {
+    /// One window, or every open one when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window: Option<WindowKey>,
+}
+
+/// What [`STATE`] answers with.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StateResult {
+    /// Every window asked about, in the order they opened.
+    pub windows: Vec<WindowState>,
+    /// Which of them the reader was last in, if any is still open.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focused: Option<WindowKey>,
+}
+
+/// One window, as somebody outside would want it described.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowState {
+    pub window: WindowKey,
+    /// What is being read, or absent for a window on the welcome page.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document: Option<PathBuf>,
+    pub theme: Theme,
+    /// Where the reader is, named by content rather than by pixels.
+    pub scroll: ScrollPosition,
+    pub headings: Vec<Heading>,
+}
+
+/// Where the reader is, named by content rather than by pixels.
+///
+/// A pixel offset only means anything while every block is the height it
+/// was when the offset was taken, and diagrams and formulas are drawn after
+/// the document appears. Naming the block is what makes "where am I" and
+/// "put me back there" the same place.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScrollPosition {
+    /// 1-based source line of the block at the top; 0 is the top of the
+    /// document.
+    pub line: u32,
+    /// How far into that block the top edge sits, 0 to just under 1.
+    pub fraction: f32,
+}
+
+/// One entry of a document's table of contents.
+///
+/// No source line: the extractor does not carry one, and the rendered
+/// heading's `data-source-line` lives in the page, not in this process.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Heading {
+    pub level: u8,
+    pub text: String,
+    /// The anchor the heading renders with.
+    pub id: String,
+}
+
+/// The parameters of [`DID_CHANGE_STATE`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DidChangeStateParams {
+    pub window: WindowKey,
+    /// How the window reads now, or absent once it has closed. A close
+    /// needs no shape of its own: a window with no state is a window gone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<WindowState>,
+}
+
+/// The parameters of [`SELECTION`].
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SelectionParams {
+    /// Which window to ask. The last focused one when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window: Option<WindowKey>,
+}
+
+/// What [`SELECTION`] answers with.
+///
+/// The one thing on this protocol that cannot be read off the main thread:
+/// a selection lives in the WebView, so answering means a round trip into
+/// the page. That is why it is its own method rather than a field of
+/// [`StateResult`], which is answered in the turn that asked.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SelectionResult {
+    pub window: WindowKey,
+    /// What is selected, or absent when nothing is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+}
+
+/// The parameters of [`GOTO`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GotoParams {
+    /// Which window to move. The last focused one when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window: Option<WindowKey>,
+    pub target: GotoTarget,
+}
+
+/// Where to put the reader.
+///
+/// Externally tagged — `{"heading": "install"}` rather than a shape with
+/// four optional fields of which exactly one may be set.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GotoTarget {
+    /// A heading, by the `id` [`STATE`] reported for it.
+    Heading(String),
+    /// A place in the source, as [`STATE`] reports the current one — hand
+    /// back what it gave and the same text is under the top edge again.
+    Scroll(ScrollPosition),
+    /// A hit of a search, which is run as if it had been typed into the
+    /// panel: the matches stay highlighted where the reader can see them.
+    Search {
+        query: String,
+        /// Which hit, counting from zero. Out of range moves nothing.
+        #[serde(default)]
+        index: u32,
+    },
+    /// The top of the document.
+    Top,
+    /// The bottom of the document.
+    Bottom,
+}
+
+/// What [`GOTO`] answers with.
+///
+/// Sent once the window has been asked to move, not once the reader has
+/// arrived — a destination is held until the document stops growing under
+/// it. A client that needs the settled position asks [`STATE`] for it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GotoResult {
+    /// Which window was moved.
+    pub window: WindowKey,
+}
+
+/// One request, as the app's own handler sees it.
+///
+/// Split by what it does rather than by method name, because that is the
+/// distinction the app acts on: only [`Apply`](Self::Apply) opens anything
+/// or can be asked to wait for a drawing.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Call {
+    /// Change what a window is showing.
+    Apply {
+        event: OpenEvent,
+        /// Answer only once the target window has drawn it.
+        wait_ready: bool,
+    },
+    /// Report what is showing.
+    State(StateParams),
+    /// Move the reader within what a window is already showing.
+    Goto(GotoParams),
+    /// Report what the reader has selected.
+    Selection(SelectionParams),
 }
 
 impl Call {
+    /// Whether the answer waits for a window to be drawn.
+    pub fn wait_ready(&self) -> bool {
+        matches!(
+            self,
+            Self::Apply {
+                wait_ready: true,
+                ..
+            }
+        )
+    }
+
     /// Read a call out of a method name and its parameters.
     ///
     /// Absent parameters are an empty object rather than an error: `reopen`
@@ -143,14 +371,14 @@ impl Call {
         match method {
             OPEN => {
                 let params: OpenParams = parse_params(params)?;
-                Ok(Self {
+                Ok(Self::Apply {
                     event: OpenEvent::Open(params.request),
                     wait_ready: params.wait_ready,
                 })
             }
             REOPEN => {
                 let params: ReopenParams = parse_params(params)?;
-                Ok(Self {
+                Ok(Self::Apply {
                     event: OpenEvent::Reopen {
                         behavior: params.behavior,
                         behind: params.behind,
@@ -159,6 +387,9 @@ impl Call {
                     wait_ready: params.wait_ready,
                 })
             }
+            STATE => Ok(Self::State(parse_params(params)?)),
+            GOTO => Ok(Self::Goto(parse_params(params)?)),
+            SELECTION => Ok(Self::Selection(parse_params(params)?)),
             other => Err(ResponseError::new(
                 ErrorCode::MethodNotFound,
                 format!("unknown method: {other}"),
@@ -173,27 +404,37 @@ impl Call {
     /// would send a request the primary is bound to refuse, and the refusal
     /// would say `InvalidParams` rather than what was actually wrong.
     pub fn to_method(&self) -> Result<(&'static str, serde_json::Value), serde_json::Error> {
-        match &self.event {
-            OpenEvent::Open(request) => Ok((
+        match self {
+            Self::Apply {
+                event: OpenEvent::Open(request),
+                wait_ready,
+            } => Ok((
                 OPEN,
                 serde_json::to_value(OpenParams {
                     request: request.clone(),
-                    wait_ready: self.wait_ready,
+                    wait_ready: *wait_ready,
                 })?,
             )),
-            OpenEvent::Reopen {
-                behavior,
-                behind,
-                window,
+            Self::Apply {
+                event:
+                    OpenEvent::Reopen {
+                        behavior,
+                        behind,
+                        window,
+                    },
+                wait_ready,
             } => Ok((
                 REOPEN,
                 serde_json::to_value(ReopenParams {
                     behavior: *behavior,
                     behind: *behind,
                     window: *window,
-                    wait_ready: self.wait_ready,
+                    wait_ready: *wait_ready,
                 })?,
             )),
+            Self::State(params) => Ok((STATE, serde_json::to_value(params)?)),
+            Self::Goto(params) => Ok((GOTO, serde_json::to_value(params)?)),
+            Self::Selection(params) => Ok((SELECTION, serde_json::to_value(params)?)),
         }
     }
 }
@@ -215,7 +456,7 @@ mod tests {
 
     #[test]
     fn an_open_call_round_trips_through_its_method_and_params() {
-        let call = Call {
+        let call = Call::Apply {
             event: OpenEvent::Open(OpenRequest {
                 files: vec![PathBuf::from("/README.md")],
                 directory: Some(PathBuf::from("/docs")),
@@ -240,7 +481,7 @@ mod tests {
 
     #[test]
     fn a_reopen_call_round_trips_through_its_method_and_params() {
-        let call = Call {
+        let call = Call::Apply {
             event: OpenEvent::Reopen {
                 behavior: Some(FileOpenBehavior::LastFocused),
                 behind: true,
@@ -262,7 +503,7 @@ mod tests {
         // `OpenRequest` is flattened rather than nested, so the parameters
         // of `arto/open` read the same as the body of the line-delimited
         // `open` message — one shape, one type, one set of defaults.
-        let call = Call {
+        let call = Call::Apply {
             event: OpenEvent::Open(OpenRequest {
                 files: vec![PathBuf::from("/a.md")],
                 directory: None,
@@ -286,7 +527,7 @@ mod tests {
         let call = Call::from_method(REOPEN, None).unwrap();
         assert_eq!(
             call,
-            Call {
+            Call::Apply {
                 event: OpenEvent::Reopen {
                     behavior: None,
                     behind: false,
@@ -306,7 +547,7 @@ mod tests {
         use std::os::unix::ffi::OsStrExt;
 
         let path = PathBuf::from(std::ffi::OsStr::from_bytes(b"/\xff.md"));
-        let call = Call {
+        let call = Call::Apply {
             event: OpenEvent::Open(OpenRequest {
                 files: vec![path],
                 directory: None,
@@ -317,6 +558,138 @@ mod tests {
             wait_ready: false,
         };
         assert!(call.to_method().is_err());
+    }
+
+    #[test]
+    fn an_instance_that_never_heard_of_a_capability_is_read_as_lacking_it() {
+        // What an older running instance answers `initialize` with. Reading
+        // this as a parse failure would make it unreachable: the launch
+        // would conclude there is no instance, and then fail to bind the
+        // socket that instance is holding.
+        let older: ServerCapabilities =
+            serde_json::from_value(json!({"open": true, "reopen": true, "waitReady": true}))
+                .unwrap();
+        assert!(older.open);
+        assert!(older.wait_ready);
+        assert!(!older.state, "a capability it never mentioned is absent");
+    }
+
+    #[test]
+    fn asking_about_everything_needs_no_parameters() {
+        assert_eq!(
+            Call::from_method(STATE, None).unwrap(),
+            Call::State(StateParams { window: None })
+        );
+    }
+
+    #[test]
+    fn a_state_call_round_trips_through_its_method_and_params() {
+        let call = Call::State(StateParams {
+            window: Some(WindowKey(3)),
+        });
+        let (method, params) = call.to_method().unwrap();
+        assert_eq!(method, STATE);
+        assert_eq!(params, json!({"window": 3}));
+        assert_eq!(Call::from_method(method, Some(params)).unwrap(), call);
+    }
+
+    #[test]
+    fn a_query_never_waits_for_a_window() {
+        // Nothing is drawn by asking, so there is nothing to wait for.
+        assert!(!Call::State(StateParams::default()).wait_ready());
+    }
+
+    #[test]
+    fn the_answer_names_windows_the_way_the_request_does() {
+        let result = StateResult {
+            windows: vec![WindowState {
+                window: WindowKey(1),
+                document: Some(PathBuf::from("/README.md")),
+                theme: Theme::Dark,
+                scroll: ScrollPosition {
+                    line: 42,
+                    fraction: 0.25,
+                },
+                headings: vec![Heading {
+                    level: 2,
+                    text: "Install".into(),
+                    id: "install".into(),
+                }],
+            }],
+            focused: Some(WindowKey(1)),
+        };
+        assert_eq!(
+            serde_json::to_value(&result).unwrap(),
+            json!({
+                "windows": [{
+                    "window": 1,
+                    "document": "/README.md",
+                    "theme": "dark",
+                    "scroll": {"line": 42, "fraction": 0.25},
+                    "headings": [{"level": 2, "text": "Install", "id": "install"}],
+                }],
+                "focused": 1,
+            })
+        );
+    }
+
+    #[test]
+    fn a_window_on_the_welcome_page_reports_no_document() {
+        let window = WindowState {
+            window: WindowKey(2),
+            document: None,
+            theme: Theme::Auto,
+            scroll: ScrollPosition::default(),
+            headings: Vec::new(),
+        };
+        let json = serde_json::to_value(&window).unwrap();
+        assert!(
+            !json.as_object().unwrap().contains_key("document"),
+            "{json}"
+        );
+    }
+
+    #[test]
+    fn a_selection_call_round_trips_through_its_method_and_params() {
+        let call = Call::Selection(SelectionParams {
+            window: Some(WindowKey(2)),
+        });
+        let (method, params) = call.to_method().unwrap();
+        assert_eq!(method, SELECTION);
+        assert_eq!(params, json!({"window": 2}));
+        assert_eq!(Call::from_method(method, Some(params)).unwrap(), call);
+    }
+
+    #[test]
+    fn a_search_target_travels_tagged_by_what_kind_of_place_it_is() {
+        let call = Call::Goto(GotoParams {
+            window: None,
+            target: GotoTarget::Search {
+                query: "install".into(),
+                index: 2,
+            },
+        });
+        let (_, params) = call.to_method().unwrap();
+        assert_eq!(
+            params,
+            json!({"target": {"search": {"query": "install", "index": 2}}})
+        );
+    }
+
+    #[test]
+    fn a_search_that_names_no_hit_takes_the_first() {
+        let call =
+            Call::from_method(GOTO, Some(json!({"target": {"search": {"query": "a"}}}))).unwrap();
+        assert_eq!(
+            call,
+            Call::Goto(GotoParams {
+                window: None,
+                target: GotoTarget::Search {
+                    query: "a".into(),
+                    index: 0,
+                },
+            })
+        );
     }
 
     #[test]
@@ -344,7 +717,15 @@ mod tests {
             serde_json::to_value(&result).unwrap(),
             json!({
                 "serverInfo": {"name": "arto", "version": "0.1.0"},
-                "capabilities": {"open": true, "reopen": true, "waitReady": true},
+                "capabilities": {
+                    "open": true,
+                    "reopen": true,
+                    "state": true,
+                    "goto": true,
+                    "selection": true,
+                    "stateChanges": true,
+                    "waitReady": true,
+                },
             })
         );
     }

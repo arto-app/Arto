@@ -67,6 +67,7 @@ mod methods;
 mod protocol;
 mod server;
 mod socket;
+mod writer;
 
 pub use client::*;
 pub use framing::*;
@@ -75,3 +76,4 @@ pub use methods::*;
 pub use protocol::*;
 pub use server::*;
 pub use socket::*;
+pub use writer::*;

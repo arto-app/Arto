@@ -26,6 +26,9 @@
 mod queue;
 pub mod ready;
 mod request;
+mod selection;
+mod state;
+mod subscribers;
 mod window_selection;
 
 // Listed rather than glob-imported: this module wraps `cleanup_socket` and
@@ -34,6 +37,8 @@ mod window_selection;
 pub use arto_lsp::{OpenEvent, OpenRequest, SendResult};
 pub use queue::*;
 pub use request::*;
+pub use selection::{abandon as abandon_selection, answer as answer_selection};
+pub use state::{report_window_closed, report_window_state};
 
 use crate::cli::CliInvocation;
 use dioxus::desktop::tao::window::WindowId;
@@ -114,13 +119,17 @@ pub fn start_ipc_server() {
         };
         tracing::info!(socket_path = ?server.socket_path(), "IPC server ready for connections");
 
-        server.serve(peer_info("arto"), |call, responder| {
-            push_queued_event(QueuedEvent {
-                call,
-                responder: Some(responder),
-            });
-            wake_main_thread();
-        });
+        server.serve(
+            peer_info("arto"),
+            |call, responder| {
+                push_queued_event(QueuedEvent {
+                    call,
+                    responder: Some(responder),
+                });
+                wake_main_thread();
+            },
+            subscribers::subscribe,
+        );
     });
 }
 
@@ -269,17 +278,42 @@ fn handle_event_on_main_thread(
 ) {
     let QueuedEvent { call, responder } = queued;
 
+    let (event, wait_ready) = match call {
+        arto_lsp::Call::Apply { event, wait_ready } => (event, wait_ready),
+        arto_lsp::Call::State(params) => {
+            if let Some(responder) = responder {
+                responder.ok(state::describe(&params));
+            }
+            return;
+        }
+        arto_lsp::Call::Goto(params) => {
+            if let Some(responder) = responder {
+                match state::goto(&params) {
+                    Ok(result) => responder.ok(result),
+                    Err(error) => responder.err(error),
+                }
+            }
+            return;
+        }
+        arto_lsp::Call::Selection(params) => {
+            if let Some(responder) = responder {
+                state::selection(&params, responder);
+            }
+            return;
+        }
+    };
+
     // Only a request that asked to wait travels on: it is answered by
     // whichever window ends up drawing it. Everything else is answered here,
     // below, once it has actually been applied — not when it was queued,
     // which is all the protocol crate could have known.
-    let (waiting, answer_when_applied) = if call.wait_ready {
+    let (waiting, answer_when_applied) = if wait_ready {
         (responder, None)
     } else {
         (None, responder)
     };
 
-    match call.event {
+    match event {
         OpenEvent::Open(request) => {
             tracing::debug!(?request, "Processing open request event");
             open_request_with_behavior(desktop, request, waiting);
@@ -554,15 +588,18 @@ mod tests {
         let remaining = drain_events();
         assert_eq!(remaining.len(), 2);
         assert!(matches!(
-            &remaining[0].call.event,
-            OpenEvent::Open(OpenRequest { files, directory: Some(directory), .. })
+            &remaining[0].call,
+            arto_lsp::Call::Apply { event: OpenEvent::Open(OpenRequest { files, directory: Some(directory), .. }), .. }
             if files.is_empty() && directory == Path::new("/second")
         ));
         assert!(matches!(
-            &remaining[1].call.event,
-            OpenEvent::Reopen {
-                behavior: None,
-                behind: false,
+            &remaining[1].call,
+            arto_lsp::Call::Apply {
+                event: OpenEvent::Reopen {
+                    behavior: None,
+                    behind: false,
+                    ..
+                },
                 ..
             }
         ));

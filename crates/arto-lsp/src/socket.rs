@@ -86,11 +86,28 @@ pub(crate) fn is_address_in_use(err: &std::io::Error) -> bool {
 /// Set socket timeout for both send and receive operations (Unix).
 #[cfg(unix)]
 pub(crate) fn set_socket_timeout(stream: &Stream, timeout: Duration) -> std::io::Result<()> {
+    // Try both directions even if one fails: a read timeout still protects
+    // the server thread when only the send timeout could not be set.
+    set_timeouts(stream, &[libc::SO_SNDTIMEO, libc::SO_RCVTIMEO], timeout)
+}
+
+/// Let reads wait as long as they need to, leaving writes bounded (Unix).
+#[cfg(unix)]
+pub(crate) fn clear_read_timeout(stream: &Stream) -> std::io::Result<()> {
+    // A zero timeout is how the socket API spells "none".
+    set_timeouts(stream, &[libc::SO_RCVTIMEO], Duration::ZERO)
+}
+
+#[cfg(unix)]
+fn set_timeouts(
+    stream: &Stream,
+    options: &[libc::c_int],
+    timeout: Duration,
+) -> std::io::Result<()> {
     use std::os::fd::{AsFd, AsRawFd};
 
-    // Access the inner Unix domain socket stream, if supported
-    // Note: The pattern is currently irrefutable on Unix, but we use if-let
-    // for forward compatibility in case the interprocess crate adds new stream types
+    // The pattern is irrefutable on Unix today; if-let keeps this compiling
+    // should the `interprocess` crate add another stream type.
     #[allow(irrefutable_let_patterns)]
     let Stream::UdSocket(ref inner) = *stream
     else {
@@ -100,17 +117,14 @@ pub(crate) fn set_socket_timeout(stream: &Stream, timeout: Duration) -> std::io:
         ));
     };
 
-    // Get raw fd via BorrowedFd
     let fd = inner.as_fd().as_raw_fd();
     let tv = libc::timeval {
         tv_sec: timeout.as_secs() as libc::time_t,
         tv_usec: timeout.subsec_micros() as libc::suseconds_t,
     };
 
-    // Try both directions even if one fails: a read timeout still protects
-    // the server thread when only the send timeout could not be set.
     let mut result = Ok(());
-    for option in [libc::SO_SNDTIMEO, libc::SO_RCVTIMEO] {
+    for &option in options {
         // SAFETY: fd is valid from the stream, tv is properly initialized
         let ret = unsafe {
             libc::setsockopt(
@@ -146,6 +160,12 @@ pub(crate) fn set_socket_timeout(stream: &Stream, timeout: Duration) -> std::io:
 /// not yet claimed at all and the fix belongs with the rest of it.
 #[cfg(windows)]
 pub(crate) fn set_socket_timeout(_stream: &Stream, _timeout: Duration) -> std::io::Result<()> {
+    Ok(())
+}
+
+/// A no-op on named pipes, whose reads are unbounded already (Windows).
+#[cfg(windows)]
+pub(crate) fn clear_read_timeout(_stream: &Stream) -> std::io::Result<()> {
     Ok(())
 }
 

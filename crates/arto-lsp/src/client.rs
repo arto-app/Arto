@@ -166,6 +166,7 @@ fn handshake(reader: &mut std::io::BufReader<Stream>, client_info: methods::Peer
         methods::INITIALIZE,
         serde_json::to_value(methods::InitializeParams {
             client_info: Some(client_info),
+            capabilities: methods::ClientCapabilities::default(),
         })
         .ok(),
     );
@@ -208,7 +209,7 @@ fn request(
     event: &OpenEvent,
     wait_ready: bool,
 ) -> SendResult {
-    let call = methods::Call {
+    let call = methods::Call::Apply {
         event: event.clone(),
         wait_ready,
     };
