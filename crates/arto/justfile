@@ -194,8 +194,19 @@ build:
 # Not `dx build`: there is nothing left for it to collect. The frontend is
 # compiled into the binary, so a plain cargo build is the whole story, and it
 # is the same compilation the bundle recipes above already drive.
+[unix]
 standalone:
   cargo build --release --package arto
+
+# The download is the copy of Arto that gets run from a terminal, so on
+# Windows it is built for the console subsystem — the shell waits only for
+# such a program, and `arto page`'s redirect, `--wait-ready` and the exit code
+# all need it to. The installer's copy stays the GUI-subsystem build, which is
+# what keeps a command prompt from opening behind a document. See the comment
+# at the top of `src/main.rs`.
+[windows]
+standalone:
+  cargo build --release --package arto --features windows-console
 
 # Release artifacts are built with the platform's native toolchain, but a
 # bundle built inside the Nix devShell links against /nix/store paths and is
@@ -207,6 +218,11 @@ standalone:
 [macos]
 verify-bundle:
   "{{root}}/platform/macos/verify-bundle.sh" "{{target}}/dx/arto/release/macos/Arto.app" arto
+
+# Reject a bundled binary that would open a command prompt behind the document
+[windows]
+verify-bundle:
+  pwsh -NoProfile -File "{{root}}/platform/windows/verify-bundle.ps1" "{{target}}/dx/arto/release/windows/app/arto.exe" -Expect gui
 
 [linux]
 verify-bundle:

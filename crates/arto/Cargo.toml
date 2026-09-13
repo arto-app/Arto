@@ -29,6 +29,13 @@ include = [
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+# Build the binary for Windows' console subsystem instead of its GUI one; see
+# the comment at the top of `src/main.rs` for which artifact wants which, and
+# `justfile`'s `standalone` recipe for where it is turned on. No effect off
+# Windows.
+windows-console = []
+
 [dependencies]
 anyhow.workspace = true
 arboard = "3.6.1"
@@ -71,6 +78,12 @@ ignore = "0.4"
 
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+  "Win32_System_Console",
+  "Win32_UI_WindowsAndMessaging",
+] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.4"
