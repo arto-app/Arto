@@ -162,14 +162,15 @@ jobs:
           Set-Content -NoNewline crates/arto/VERSION $v
       - run: just build
       # Refuse to publish a bundle that carries build-environment dependencies
-      # or that cannot start. Windows never sees a Nix toolchain, so there is
-      # nothing to check there.
+      # or that cannot start. Windows has no Nix toolchain to carry in, and
+      # checks instead that the bundled binary is the GUI-subsystem build, the
+      # one that opens a document without a command prompt behind it.
       - name: Verify bundle
-        if: runner.os != 'Windows'
         run: just verify-bundle
       # The single executable, for people who would rather download a file
       # than install a package. It shares everything `just build` compiled, so
-      # this costs a link and no more.
+      # this costs a link and no more — except on Windows, where the app crate
+      # is compiled once again for the console subsystem the download wants.
       - name: Build standalone binary
         if: matrix.standalone != ''
         run: just standalone
@@ -197,6 +198,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist, $empty | Out-Null
           Copy-Item target/release/arto.exe (Join-Path 'dist' $env:NAME)
           $binary = Join-Path $env:GITHUB_WORKSPACE (Join-Path 'dist' $env:NAME)
+          # The download is the copy that gets run from a terminal, so unlike
+          # the bundled app it has to be a console-subsystem image — nothing
+          # else makes a shell wait for it, or hand back its exit code.
+          & ./platform/windows/verify-bundle.ps1 -Path $binary -Expect console
           Push-Location $empty
           & $binary --version
           Pop-Location

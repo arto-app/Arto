@@ -77,6 +77,9 @@ verify-bundle: arto::verify-bundle
 [linux]
 verify-bundle: arto::verify-bundle
 
+[windows]
+verify-bundle: arto::verify-bundle
+
 open: arto::open
 
 [macos]

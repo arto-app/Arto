@@ -11,6 +11,13 @@ below works the same:
 ./arto_<version>_x86_64.AppImage README.md
 ```
 
+On Windows, the copy to put on your `PATH` is the single binary from the
+[releases] page rather than the installed one. Only the single binary is a
+console program, and only a console program is one the shell waits for: with
+the installed copy the prompt comes back before Arto has finished, so a
+redirect can be read half-written, `--wait-ready` holds nothing, and no exit
+code reaches the script.
+
 ## Opening files
 
 ```sh
@@ -72,3 +79,5 @@ in the Markdown; pass `--no-csp` only for input you trust.
 
 The same command is available as a standalone `arto-page` binary for machines
 without the app.
+
+[releases]: https://github.com/arto-app/Arto/releases

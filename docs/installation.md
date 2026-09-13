@@ -60,6 +60,13 @@ menu entry, no file associations, and no `arto` on your `PATH` unless you put
 it there. The Linux binary still needs WebKitGTK 4.1 on the system, exactly as
 the `.deb` and the AppImage do.
 
+On Windows the two also differ in how they meet a terminal. The installed copy
+is a GUI program, which is what keeps a command prompt from opening behind a
+document started from Explorer or the Start menu. The single binary is a
+console program, because it is the copy people run from a terminal and only
+such a program makes the shell wait for it — see [CLI usage](./cli.md).
+Double-click it instead and it hides the console it was given.
+
 macOS has no such download on purpose. Most of what makes Arto worth
 installing there — the Finder associations and the Quick Look preview — is
 carried by the app bundle rather than by the executable inside it, so the DMG

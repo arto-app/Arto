@@ -1,3 +1,22 @@
+// Windows decides at link time whether a program owns a console, and neither
+// answer suits both ways Arto is run — so the binary is built twice and the
+// `windows-console` feature is the switch.
+//
+// Off, the default, is the GUI-subsystem build that `dx bundle` packages. A
+// document opened from Explorer, a file association or the Start menu shows
+// the window and nothing else; a console-subsystem image would put a command
+// prompt behind it for as long as Arto runs.
+//
+// On is the console-subsystem build behind the single-file download, which is
+// what people run from a terminal. Only for such an image does a shell wait
+// for the program, and waiting is what `arto page > page.html` finishing
+// before the next command reads the file, `--wait-ready` holding a script
+// until the window has drawn, and reading the exit code all rest on.
+#![cfg_attr(
+    all(windows, not(feature = "windows-console")),
+    windows_subsystem = "windows"
+)]
+
 use arto::cli::{parse_position, parse_size, CliInvocation, CliOpenMode};
 use arto_lsp::{WindowExtent, WindowOptions, WindowPoint};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -112,7 +131,40 @@ enum Command {
     Page(arto_page::cli::PageArgs),
 }
 
+/// Hide the console window of a launch that came from no terminal.
+///
+/// The console-subsystem build is the one people download as a single file,
+/// and double-clicking it is as ordinary as running it from a terminal.
+/// Windows gives such a launch a console of its own, and leaves its window on
+/// screen behind the document for as long as Arto runs.
+///
+/// A console holding no other process is exactly that launch: a terminal's
+/// console holds the shell as well, and its window is the terminal the reader
+/// is working in. The window is hidden rather than the console freed, so the
+/// standard handles stay valid — a diagnostic printed after a `FreeConsole`
+/// is a panic rather than a message.
+#[cfg(windows)]
+fn hide_unshared_console_window() {
+    use windows_sys::Win32::System::Console::{GetConsoleProcessList, GetConsoleWindow};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
+
+    // The call answers how many processes share the console, whatever the
+    // buffer holds, so two slots are enough to tell "only Arto" from "more".
+    let mut attached = [0u32; 2];
+    if unsafe { GetConsoleProcessList(attached.as_mut_ptr(), attached.len() as u32) } != 1 {
+        return;
+    }
+
+    let console = unsafe { GetConsoleWindow() };
+    if !console.is_null() {
+        unsafe { ShowWindow(console, SW_HIDE) };
+    }
+}
+
 fn main() {
+    #[cfg(windows)]
+    hide_unshared_console_window();
+
     // Re-exec with the canonical path if launched via a symlink.
     //
     // On macOS, `current_exe()` uses `_NSGetExecutablePath` which may return the
