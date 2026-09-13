@@ -27,6 +27,11 @@ jobs:
   # This job cannot make a crate that does not exist yet: crates.io only lets
   # a trusted publisher be configured on a crate that is already there, so
   # each name's first version was published by hand. See CONTRIBUTING.md.
+  #
+  # A renamed crate is a new name, and the registry does not learn it from
+  # the rename: it has to be claimed by hand before the release that would
+  # first publish it, or this job fails on a member it has no token for —
+  # after the members ahead of it have already gone out irrevocably.
   publish:
     needs: bundle
     runs-on: blacksmith-6vcpu-macos-15

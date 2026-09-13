@@ -205,6 +205,26 @@ it, and `0.0.0` is superseded by the first real version — which is also when
 the registry page starts showing the README, keywords and categories, since
 crates.io renders the latest version's metadata.
 
+### Renaming a crate
+
+A rename is a new name by these rules, and the registry does not learn it
+from the rename: nothing in git tells crates.io anything. Both halves have to
+be done by hand, **before** the release that would first publish the new
+name, or the `publish` job fails on a member it has no token for — after the
+members ahead of it in the dependency order have already gone out, which
+cannot be undone.
+
+1. Claim the new name exactly as above, excluding every member the registry
+   already carries.
+2. Add the trusted publisher for it.
+3. Decide what becomes of the old name. It cannot be deleted, so it either
+   stays as it is, is yanked, or gets one last version whose description
+   points at the new name. Leaving it alone leaves a crate on the registry
+   that still looks current.
+
+A grep of the working tree will not catch this: what needs changing is the
+state of the registry, not a file.
+
 [Trusted Publishing]: https://crates.io/docs/trusted-publishing
 
 ## Code Style

@@ -16,7 +16,7 @@
 //! ```text
 //! 1st launch (primary):
 //!   send_to_existing_instance() → NoExistingInstance
-//!   Server::bind() → serve(|event, ready| ...)   accepts later launches
+//!   Server::bind() → serve(|call, responder| ...)  accepts later launches
 //!
 //! 2nd launch (secondary):
 //!   send_to_existing_instance() → Sent → exit

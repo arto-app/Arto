@@ -1,9 +1,8 @@
 //! The primary instance's side: accept later launches and hand their
 //! events to the app.
 
-use crate::client::READY_TIMEOUT;
+use crate::client::{APPLY_TIMEOUT, READY_TIMEOUT};
 use crate::methods::{self, PeerInfo};
-use crate::protocol::OpenEvent;
 use crate::socket::{self, IpcError};
 use crate::{framing, jsonrpc};
 use interprocess::local_socket::prelude::*;
@@ -13,24 +12,41 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::Arc;
 
-/// The app's end of a launch that is waiting to be told the window drew it.
+/// The app's end of a request that is waiting for its answer.
 ///
-/// Handed to the events callback only when the launch asked to wait, and
-/// carried by the app to whatever finally knows the answer. Dropping it
-/// without a call to [`ReadySignal::fire`] releases the waiting launch too:
-/// nothing that can still answer exists once the last one is gone.
-pub struct ReadySignal(mpsc::Sender<()>);
+/// Every request gets one. The connection thread is holding the socket open
+/// on it, so an answer here is what the peer finally reads — which is why
+/// the app, not this crate, decides what a request amounts to: only the app
+/// knows whether the document opened, where the reader is, or what the
+/// window has drawn.
+///
+/// Carried across threads and, for a launch waiting on a window, across an
+/// arbitrary stretch of time. Dropping it without answering releases the
+/// peer too, with an error: nothing that could still answer exists once the
+/// last one is gone.
+pub struct Responder(mpsc::Sender<Result<serde_json::Value, jsonrpc::ResponseError>>);
 
-impl ReadySignal {
-    /// Tell the waiting launch the window has drawn what it asked for.
-    pub fn fire(self) {
-        let _ = self.0.send(());
+impl Responder {
+    /// Answer the request with what it asked for.
+    ///
+    /// A value that cannot be serialized is answered as an internal error
+    /// rather than dropped, so the peer hears something either way.
+    pub fn ok<T: serde::Serialize>(self, value: T) {
+        let answer = serde_json::to_value(value).map_err(|error| {
+            jsonrpc::ResponseError::new(jsonrpc::ErrorCode::InternalError, error.to_string())
+        });
+        let _ = self.0.send(answer);
+    }
+
+    /// Answer the request with why it could not be carried out.
+    pub fn err(self, error: jsonrpc::ResponseError) {
+        let _ = self.0.send(Err(error));
     }
 }
 
-impl std::fmt::Debug for ReadySignal {
+impl std::fmt::Debug for Responder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("ReadySignal")
+        f.write_str("Responder")
     }
 }
 
@@ -72,29 +88,27 @@ impl Server {
         &self.socket_path
     }
 
-    /// Accept connections forever, calling `on_event` with what each one
+    /// Accept connections forever, calling `on_request` with what each one
     /// asks for, in order.
     ///
     /// Each connection is read on its own thread so a slow or stalled
     /// client cannot hold up the next one; reads time out after
     /// [`IPC_TIMEOUT`](crate::IPC_TIMEOUT). A connection that sends nothing
-    /// parseable does not call `on_event` at all. Blocks the calling
+    /// parseable does not call `on_request` at all. Blocks the calling
     /// thread for the life of the listener.
     ///
-    /// `on_event` is handed one request at a time, each answered before the
-    /// next is read. Its second argument is `Some` only for a launch that
-    /// asked to wait for its window; firing it releases that launch. See
-    /// [`ReadySignal`].
+    /// `on_request` is handed one request at a time, each answered before
+    /// the next is read, and every one of them carries a [`Responder`]: this
+    /// crate knows what was asked, and only the app knows the answer.
     ///
     /// `server_info` is what `initialize` reports back — the app's name and
     /// build, which this crate deliberately does not know.
     pub fn serve(
         self,
         server_info: PeerInfo,
-        on_event: impl Fn(OpenEvent, Option<ReadySignal>) + Send + Sync + 'static,
+        on_request: impl Fn(methods::Call, Responder) + Send + Sync + 'static,
     ) {
-        let on_event: Arc<dyn Fn(OpenEvent, Option<ReadySignal>) + Send + Sync> =
-            Arc::new(on_event);
+        let on_request: Arc<dyn Fn(methods::Call, Responder) + Send + Sync> = Arc::new(on_request);
 
         for conn in self.listener.incoming() {
             let stream = match conn {
@@ -105,7 +119,7 @@ impl Server {
                 }
             };
 
-            let handler = Arc::clone(&on_event);
+            let handler = Arc::clone(&on_request);
             let info = server_info.clone();
             let spawned = std::thread::Builder::new()
                 .name("ipc-client-handler".into())
@@ -124,7 +138,7 @@ impl Server {
 fn handle_connection(
     stream: Stream,
     server_info: &PeerInfo,
-    on_event: &dyn Fn(OpenEvent, Option<ReadySignal>),
+    on_request: &dyn Fn(methods::Call, Responder),
 ) {
     // Set read timeout to avoid blocking forever
     if let Err(error) = socket::set_socket_timeout(&stream, socket::IPC_TIMEOUT) {
@@ -132,7 +146,7 @@ fn handle_connection(
     }
 
     let mut reader = std::io::BufReader::new(stream);
-    handle_jsonrpc(&mut reader, server_info, on_event);
+    handle_jsonrpc(&mut reader, server_info, on_request);
 }
 
 /// Serve one connection's worth of JSON-RPC.
@@ -143,7 +157,7 @@ fn handle_connection(
 fn handle_jsonrpc<S: std::io::Read + Write>(
     reader: &mut std::io::BufReader<S>,
     server_info: &PeerInfo,
-    on_event: &dyn Fn(OpenEvent, Option<ReadySignal>),
+    on_request: &dyn Fn(methods::Call, Responder),
 ) {
     let mut initialized = false;
 
@@ -179,7 +193,7 @@ fn handle_jsonrpc<S: std::io::Read + Write>(
 
         match message {
             jsonrpc::Message::Request(request) => {
-                let response = answer(request, server_info, &mut initialized, on_event);
+                let response = answer(request, server_info, &mut initialized, on_request);
                 respond(reader, response);
             }
             jsonrpc::Message::Notification(notification) => {
@@ -201,7 +215,7 @@ fn answer(
     request: jsonrpc::Request,
     server_info: &PeerInfo,
     initialized: &mut bool,
-    on_event: &dyn Fn(OpenEvent, Option<ReadySignal>),
+    on_request: &dyn Fn(methods::Call, Responder),
 ) -> jsonrpc::Response {
     let id = request.id.clone();
 
@@ -238,30 +252,49 @@ fn answer(
         Err(error) => return jsonrpc::Response::error(id, error),
     };
 
-    tracing::debug!(method = %request.method, "Applying a JSON-RPC request");
+    tracing::debug!(method = %request.method, "Handing a JSON-RPC request to the app");
 
-    if !call.wait_ready {
-        on_event(call.event, None);
-        return applied(id, false);
-    }
+    // How long the app gets to answer. A request that asked to wait is
+    // waiting on a window being drawn; every other one is waiting only for
+    // the main thread to come round. The peer listens for longer than
+    // either, so whatever is answered here is still being read.
+    let wait_ready = call.wait_ready;
+    let deadline = if wait_ready {
+        READY_TIMEOUT
+    } else {
+        APPLY_TIMEOUT
+    };
 
     let (sender, receiver) = mpsc::channel();
-    on_event(call.event, Some(ReadySignal(sender)));
-    let ready = match receiver.recv_timeout(READY_TIMEOUT) {
-        Ok(()) => true,
-        // Disconnected means every signal was dropped, so no answer is ever
-        // coming; saying so at once beats holding the launch for the full
-        // timeout to reach the same place.
-        Err(error) => {
-            tracing::debug!(%error, "No window reported ready for a waiting launch");
-            false
-        }
-    };
-    applied(id, ready)
-}
+    on_request(call, Responder(sender));
 
-fn applied(id: jsonrpc::RequestId, ready: bool) -> jsonrpc::Response {
-    result_or_internal_error(id, methods::AppliedResult { ready })
+    // The app's answer, not this crate's. Answering here before the main
+    // thread had done anything is what made an `arto/open` report success
+    // the instant it was queued — true of the queue, and nothing the peer
+    // actually asked about.
+    match receiver.recv_timeout(deadline) {
+        Ok(Ok(value)) => jsonrpc::Response::result(id, value),
+        Ok(Err(error)) => jsonrpc::Response::error(id, error),
+        // Running out of time, and every responder being dropped, are the
+        // same thing to the peer: no answer is coming. For a launch that
+        // was waiting on a window, that *is* the answer — the window did
+        // not draw — and saying so beats an error, which the launch would
+        // report as the instance refusing a request it in fact carried out.
+        Err(error) if wait_ready => {
+            tracing::debug!(%error, "No window reported ready for a waiting launch");
+            result_or_internal_error(id, methods::AppliedResult { ready: false })
+        }
+        Err(error) => {
+            tracing::debug!(%error, "The app did not answer a request");
+            jsonrpc::Response::error(
+                id,
+                jsonrpc::ResponseError::new(
+                    jsonrpc::ErrorCode::InternalError,
+                    "the running instance did not answer",
+                ),
+            )
+        }
+    }
 }
 
 /// Answer with the encoded result, or with an internal error when the
@@ -355,20 +388,20 @@ mod tests {
 
     /// Drive a whole connection and answer with what the server wrote and
     /// what it handed the app.
-    fn serve_once(incoming: Vec<u8>) -> (Vec<jsonrpc::Response>, Vec<OpenEvent>) {
+    ///
+    /// The stand-in app answers every request at once, the way the real one
+    /// does for anything that is not waiting on a window.
+    fn serve_once(incoming: Vec<u8>) -> (Vec<jsonrpc::Response>, Vec<crate::OpenEvent>) {
         let applied = Mutex::new(Vec::new());
         let mut reader = std::io::BufReader::new(Duplex {
             incoming: std::io::Cursor::new(incoming),
             outgoing: Vec::new(),
         });
 
-        handle_jsonrpc(&mut reader, &server_info(), &|event, ready| {
-            applied.lock().unwrap().push(event);
-            // Nothing here has a window, so a launch that asked to wait is
-            // told so at once rather than left for the timeout.
-            if let Some(ready) = ready {
-                ready.fire();
-            }
+        handle_jsonrpc(&mut reader, &server_info(), &|call, responder| {
+            let waited = call.wait_ready;
+            applied.lock().unwrap().push(call.event);
+            responder.ok(methods::AppliedResult { ready: waited });
         });
 
         let written = std::mem::take(&mut reader.get_mut().outgoing);
@@ -433,7 +466,7 @@ mod tests {
         );
         assert_eq!(
             applied,
-            vec![OpenEvent::Open(OpenRequest {
+            vec![crate::OpenEvent::Open(OpenRequest {
                 files: vec!["/README.md".into()],
                 directory: None,
                 behavior: None,

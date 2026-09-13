@@ -1,4 +1,4 @@
-use arto_lsp::ReadySignal;
+use arto_lsp::{AppliedResult, Responder};
 use dioxus::desktop::tao::window::WindowId;
 use dioxus::desktop::window;
 use dioxus::document;
@@ -72,13 +72,13 @@ async fn report_pending(window_id: WindowId) {
     }
 }
 
-/// Wait for the page to finish drawing, then release `signals`.
+/// Wait for the page to finish drawing, then release `responders`.
 ///
-/// The signals are held here rather than left in the registry so that a
+/// The responders are held here rather than left in the registry so that a
 /// request arriving mid-draw is not answered by a draw it never asked for.
 /// Holding them also means a window torn down while this runs drops them,
 /// which releases the launches rather than stranding them.
-async fn report_once_drawn(window_id: WindowId, signals: Vec<ReadySignal>) {
+async fn report_once_drawn(window_id: WindowId, responders: Vec<Responder>) {
     let drawn = document::eval(indoc::indoc! {r#"
         (async () => {
             // The renderer bundle arrives after the first frame, and a cold
@@ -109,23 +109,29 @@ async fn report_once_drawn(window_id: WindowId, signals: Vec<ReadySignal>) {
     })
     .await;
 
-    match answered {
-        Ok(Ok(true)) => tracing::debug!(?window_id, "Window drew; releasing the waiting launches"),
-        Ok(Ok(false)) => tracing::warn!(
-            ?window_id,
-            "Renderer never appeared; releasing the waiting launches anyway"
-        ),
-        Ok(Err(error)) => tracing::warn!(
-            ?window_id,
-            %error,
-            "Could not ask the page whether it had drawn; releasing the waiting launches anyway"
-        ),
-        Err(_) => tracing::warn!(
-            ?window_id,
-            "Window did not report a draw in time; releasing the waiting launches anyway"
-        ),
-    }
-    for signal in signals {
-        signal.fire();
+    // Only the page saying so counts as drawn. Every other outcome releases
+    // the waiting launches — leaving them to time out helps nobody — but
+    // releases them with `ready: false`, because the one thing `--wait-ready`
+    // rules out is reporting success for a window that never drew.
+    let drew = match answered {
+        Ok(Ok(true)) => {
+            tracing::debug!(?window_id, "Window drew; releasing the waiting launches");
+            true
+        }
+        Ok(Ok(false)) => {
+            tracing::warn!(?window_id, "Renderer never appeared");
+            false
+        }
+        Ok(Err(error)) => {
+            tracing::warn!(?window_id, %error, "Could not ask the page whether it had drawn");
+            false
+        }
+        Err(_) => {
+            tracing::warn!(?window_id, "Window did not report a draw in time");
+            false
+        }
+    };
+    for responder in responders {
+        responder.ok(AppliedResult { ready: drew });
     }
 }
