@@ -189,7 +189,18 @@ build:
   if [[ -d "{{target}}/dx/arto/bundle" ]]; then
     find "{{target}}/dx/arto/bundle" -type f \( -name '*.deb' -o -name '*.AppImage' \) -delete
   fi
-  dx bundle --release --linux --package-types deb --package-types appimage
+  dx bundle --release --linux --package-types deb
+  # Only the .deb comes from dx. Its AppImage would carry WebKitGTK, which the
+  # image must leave to the system, and dx offers no way to exclude a library
+  # from the linuxdeploy run it drives.
+  version="$(perl -ne 'print $1 and exit if /^version = "(.*)"/' "{{root}}/Cargo.toml")"
+  case "$(uname -m)" in
+    aarch64 | arm64) arch="aarch64" ;;
+    *) arch="$(uname -m)" ;;
+  esac
+  deb="$(find "{{target}}/dx/arto/bundle" -type f -name '*.deb' -print -quit)"
+  "{{root}}/platform/linux/build-appimage.sh" "$deb" \
+    "{{target}}/dx/arto/bundle/linux/appimage/arto_${version}_${arch}.AppImage"
 
 # Not `dx build`: there is nothing left for it to collect. The frontend is
 # compiled into the binary, so a plain cargo build is the whole story, and it
