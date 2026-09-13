@@ -38,7 +38,17 @@ chmod +x arto_<version>_x86_64.AppImage
 ./arto_<version>_x86_64.AppImage
 ```
 
-The AppImage needs WebKitGTK 4.1 present on the system; on Fedora that is `sudo dnf install webkit2gtk4.1`.
+The AppImage needs WebKitGTK 4.1 installed on the system. It is the one thing
+the image deliberately does not carry: WebKitGTK renders pages in helper
+processes that it looks for at a path fixed when your distribution built it, so
+the library and those helpers only work as the set your package manager
+installed. Install it first if it is missing:
+
+```sh
+sudo dnf install webkit2gtk4.1          # Fedora
+sudo zypper install libwebkit2gtk-4_1-0 # openSUSE
+sudo pacman -S webkit2gtk-4.1           # Arch
+```
 
 Both artifacts are built on Ubuntu 24.04, so they require glibc 2.39 or newer (Ubuntu 24.04+, Debian 13+, Fedora 40+). On older distributions, build from source or use Nix.
 

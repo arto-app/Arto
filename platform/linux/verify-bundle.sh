@@ -16,7 +16,12 @@
 #      pulls them in instead of leaving the user to hunt them down. An AppImage
 #      has no dependency metadata to declare — it carries the libraries
 #      linuxdeploy copied in — so this check applies to the .deb only.
-#   3. The artifact actually starts, which is the only way to confirm that the
+#   3. An AppImage must not carry WebKitGTK. A bundled copy shadows the
+#      system's through RUNPATH yet still spawns its helper processes from the
+#      path compiled into the build host's library, so the application dies at
+#      its first web process wherever that path does not exist. See
+#      platform/linux/webkit-excludes.sh.
+#   4. The artifact actually starts, which is the only way to confirm that the
 #      interpreter and every NEEDED library really resolve. `--version` exits
 #      immediately and needs no display.
 set -euo pipefail
@@ -83,6 +88,17 @@ if [[ "$kind" == "appimage" && -d "$root/usr/lib" ]]; then
   if refs="$(grep -rlF /nix/store "$root/usr/lib")"; then
     echo "Error: bundled libraries come from the build environment:" >&2
     echo "$refs" >&2
+    status=1
+  fi
+
+  # WebKitGTK and the JavaScriptCore it is versioned with are the libraries
+  # that must come from the machine running the AppImage, not from this one.
+  webkit="$(find "$root/usr/lib" -maxdepth 1 \
+    \( -name 'libwebkit2gtk-*.so*' -o -name 'libjavascriptcoregtk-*.so*' \) -print)"
+  if [[ -n "$webkit" ]]; then
+    echo "Error: the AppImage carries WebKitGTK, whose helper processes it cannot" >&2
+    echo "       carry with it, so the application dies at its first web process:" >&2
+    echo "$webkit" >&2
     status=1
   fi
 fi
