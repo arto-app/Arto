@@ -75,7 +75,7 @@ pub fn ContentsGutter(
 
         // A sibling of the ruler, and after it: resting in the column is what
         // brings this out, and that is said in CSS as
-        // `.contents-gutter:hover ~ .contents-toc`.
+        // `.contents-gutter:hover ~ .contents-toc-stand .contents-toc`.
         Names { headings, marks, open }
     }
 }
@@ -153,41 +153,57 @@ fn Names(headings: Vec<HeadingInfo>, marks: Vec<PinnedSearch>, open: bool) -> El
     };
 
     rsx! {
-        nav {
-            class: "contents-toc",
-            class: if open { "open" },
-            "aria-label": "Contents",
+        // The band the list stands in, and the ruler's own construction
+        // applied to the list: a box as tall as the extent both are measured
+        // against, with the thing itself centred in it. The list is placed
+        // this way rather than from the top of the page because the pointer
+        // that opens it is resting on a tick, and the two have to be level
+        // for it to reach the list without leaving the column — see
+        // `contents-gutter.css`.
+        //
+        // The band is never touchable: `pointer-events` is the list's, so a
+        // column of page the width of the list does not stop answering to
+        // the reader because there is a band over it.
+        div {
+            class: "contents-toc-stand",
 
-            PinnedMarks { pinned_searches: marks }
+            nav {
+                class: "contents-toc",
+                class: if open { "open" },
+                "aria-label": "Contents",
 
-            if !headings.is_empty() {
-                div { class: "contents-toc-label", "Contents" }
-            }
+                PinnedMarks { pinned_searches: marks }
 
-            if headings.is_empty() && nothing_pinned {
-                div { class: "contents-toc-empty", "No headings" }
-            }
+                if !headings.is_empty() {
+                    div { class: "contents-toc-label", "Contents" }
+                }
 
-            for (at, heading) in headings.iter().cloned().enumerate() {
-                {
-                    let id = heading.id.clone();
-                    rsx! {
-                        button {
-                            key: "{heading.id}",
-                            class: "contents-toc-row",
-                            // Where the keys are, as opposed to where the
-                            // reader is: the row marked `data-current` is the
-                            // one being read, and the two are read together.
-                            class: if cursor == Some(at) { "keyboard-focused" },
-                            "data-level": "{heading.level}",
-                            "data-heading": "{heading.id}",
-                            onclick: move |_| go_to(id.clone()),
-                            span { class: "contents-toc-name", "{heading.text}" }
-                            // One dot per mark under this heading, filled in
-                            // by `reading-position.ts`: which marks those are
-                            // is a question about the rendered page, which
-                            // only the page can answer.
-                            span { class: "contents-toc-hits" }
+                if headings.is_empty() && nothing_pinned {
+                    div { class: "contents-toc-empty", "No headings" }
+                }
+
+                for (at, heading) in headings.iter().cloned().enumerate() {
+                    {
+                        let id = heading.id.clone();
+                        rsx! {
+                            button {
+                                key: "{heading.id}",
+                                class: "contents-toc-row",
+                                // Where the keys are, as opposed to where the
+                                // reader is: the row marked `data-current` is
+                                // the one being read, and the two are read
+                                // together.
+                                class: if cursor == Some(at) { "keyboard-focused" },
+                                "data-level": "{heading.level}",
+                                "data-heading": "{heading.id}",
+                                onclick: move |_| go_to(id.clone()),
+                                span { class: "contents-toc-name", "{heading.text}" }
+                                // One dot per mark under this heading, filled
+                                // in by `reading-position.ts`: which marks
+                                // those are is a question about the rendered
+                                // page, which only the page can answer.
+                                span { class: "contents-toc-hits" }
+                            }
                         }
                     }
                 }
