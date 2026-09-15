@@ -227,28 +227,64 @@
  * The names, for as long as the pointer is in the column.
  * ---------------------------------------------------------------------- */
 
-/* Floating over the document, never pushing it: a line the reader is on does
-   not move because the contents came out. The shadow falls to the left, over
-   the page it is above — the ticks on its right are not underneath it. */
-.contents-toc {
+/* The band the list stands in, built the way the ruler's own column is: a box
+   the height of the extent both are measured against, with the thing itself
+   centred in it. Nothing is drawn here — it is where the list is put.
+
+   The ticks are centred in that extent, and a list placed from the top of the
+   page began above them by however much the two differed. The pointer that
+   opens the list is resting on a tick, so a list that starts higher can only
+   be reached diagonally, and the ruler is the only thing holding it open: it
+   closed on the way to itself. Sharing the ruler's centre is what makes the
+   journey a straight line to the left, and the two columns are adjacent —
+   the ruler's 32px is exactly what `right` steps over — so the pointer is
+   over the list from the first pixel it is off the ticks.
+
+   Centring the list against a box of a definite height, rather than by
+   putting a height on the list and letting two auto margins divide what is
+   left: an out-of-flow box sized to its own content is the thing engines
+   disagree about, and this list has to be right on the WebKit it ships
+   against. */
+.contents-toc-stand {
   position: absolute;
-  top: 24px;
+  top: 0;
+  height: var(--margin-extent, 100%);
   /* Beside the ruler that opened it, wherever the page's margin has put that
      — not at the window's edge, which is half a screen from the column the
      pointer is resting in. */
   right: calc(32px + var(--gutter-offset, 0px));
-  z-index: var(--z-dropdown);
-  min-width: 260px;
-  /* Wide enough for a heading to be read rather than guessed at — most fit
-     whole at this width — and never more than half of what it is floating
-     over, because it is a list about the page and not a second page. */
+  /* Never more than half of what the list floats over, because it is a list
+     about the page and not a second page. Said here rather than on the list,
+     which measures its own half against this box. */
   max-width: min(440px, 50%);
-  /* Against the window rather than against a percentage of a box whose height
-     an engine may or may not treat as definite: this list can be longer than
-     the document is tall, and it has to be the window that stops it.
-     24px above it and 48px below: a list that ends level with the foot of the
-     window reads as having been cut off there rather than as ending. */
-  max-height: calc(100vh - var(--header-height) - 72px);
+  display: flex;
+  align-items: center;
+  z-index: var(--z-dropdown);
+  /* The band is the list's place, not a surface. A column of page as wide as
+     the list would otherwise stop answering to the reader for the whole
+     height of the window; `pointer-events` is the list's own, below, and
+     `:hover` reaches this box through it. */
+  pointer-events: none;
+}
+
+/* Floating over the document, never pushing it: a line the reader is on does
+   not move because the contents came out. The shadow falls to the left, over
+   the page it is above — the ticks on its right are not underneath it. */
+.contents-toc {
+  /* The padding is part of the height the band allows it, or a list filling
+     the band stands 34px taller than the box it is centred in and hangs out
+     of both ends of it. */
+  box-sizing: border-box;
+  width: 100%;
+  /* Wide enough for a heading to be read rather than guessed at, whatever the
+     band's half of the page comes to. */
+  min-width: 260px;
+  /* The band, and nothing else: it is already the extent the ruler measures
+     itself against and it already sits inside the header, so a list that
+     fills it cannot reach either edge of the window. Filling it is also what
+     keeps every tick reachable — the rows are 28px against the ticks' 8px, so
+     the list is never the shorter column of the two. */
+  max-height: 100%;
   overflow-y: auto;
   /* A name too long for the panel is cut, not scrolled to. `overflow-y: auto`
      alone makes this axis `auto` as well, which is where the sideways bar
@@ -264,9 +300,14 @@
 }
 
 /* The rail's rule, on the other edge: a moment's rest opens it, and crossing
-   the column on the way somewhere else does not. */
-.contents-gutter:hover ~ .contents-toc,
-.contents-toc:hover {
+   the column on the way somewhere else does not.
+
+   The band is hovered through the list it holds — it has no pointer of its
+   own — so the second selector says what `.contents-toc:hover` said before
+   the list was put in a box: the pointer is on the list, keep it. It cannot
+   start the list, because a list at rest takes no pointer either. */
+.contents-gutter:hover ~ .contents-toc-stand .contents-toc,
+.contents-toc-stand:hover .contents-toc {
   opacity: 1;
   pointer-events: auto;
   transition-delay: 0.12s;
