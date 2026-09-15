@@ -84,7 +84,7 @@ Arto/
 │   ├── windows/      #   NSIS installer hook (file associations)
 │   └── linux/        #   verify-bundle.sh
 ├── nix/              # Command wrappers used only by the Nix build
-├── docs/images/      # Brand images (README header, logo)
+├── docs/images/      # Brand images (README header, logo) and README screenshots
 ├── samples/          # Sample Markdown files for manual testing
 └── flake.nix         # Nix flake for reproducible builds
 ```

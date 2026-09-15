@@ -24,7 +24,7 @@ code reaches the script.
 arto                     # Launch Arto (shows the welcome screen)
 arto README.md           # Open a file
 arto docs/               # Open a directory in the file explorer
-arto file1.md file2.md   # Open several files in tabs
+arto file1.md file2.md   # Open several files, one window each
 ```
 
 Arto runs as a **single instance**: if it is already running, the command hands

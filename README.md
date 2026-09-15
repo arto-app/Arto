@@ -19,7 +19,10 @@
 </p>
 
 <p align="center">
-  <img src="./docs/images/hero-light.png" alt="Arto showing a rendered README" width="860">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/images/hero-dark.webp">
+    <img src="./docs/images/hero-light.webp" alt="Arto showing a rendered document, with the contents gutter standing in its right-hand margin" width="860">
+  </picture>
 </p>
 
 > [!WARNING]
@@ -33,27 +36,45 @@ Markdown is where documentation, communication and thinking now live, and readin
 
 ## Features
 
-**Reading** — GitHub-accurate rendering with the extended syntax, auto-reload when the file changes on disk, and no network required.
+**Reading** — GitHub's dialect drawn with GitHub's own stylesheet: headings, tables, task lists, footnotes, autolinks and heading slugs; the five alerts (`NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`); code highlighted per language with a copy button; and YAML frontmatter as a table that arrives collapsed, so the document still begins with its title. A file that changes on disk re-renders in place, and the renderer needs nothing from the network — the stylesheet, the highlighter and the diagram and formula code are compiled into the binary, so the only thing ever fetched is an image the document itself names by URL.
 
-**Getting around** — a file explorer over several folders at once, a reading history reachable from the panel, the document's name, the welcome page and the palette, bookmarks for the folders you keep returning to, a contents gutter beside the page, and back/forward across linked documents.
+**What the renderer reads** — Markdown is a family of dialects, so the extensions are switches rather than assumptions: math, wiki links, superscript and subscript, definition lists, heading attributes and permalinks, smart punctuation, CJK emphasis, bare URLs as links, and whether raw HTML is filtered, passed through, or escaped so the markup itself shows.
 
-**Finding** — a command palette that fuzzy-finds in one list, the way `fzf` does: the files under the folder you are working in, what you have read, what you have kept, and every command by name. Plus find in page, and pinned searches that keep multi-colour highlights across sessions.
+**Getting around** — one panel with three faces rather than three panels: a file explorer holding as many folders as you need, the documents you have read grouped by day, and the ones you have starred (`⌘1`, `⌘2`, `⌘3`, and `⌘B` to show the panel at all). Unpinned it comes over the page on hover and leaves again; pinned it takes its own width beside the document. A window with nothing open shows the same three things on its welcome page.
 
-**Windows** — one document to a window, as many windows as you like, child windows for diagrams, and drag-and-drop to open.
+**The gutter** — a ruler stands in the page's own margin and marks every heading: its width is the heading's depth, its colour a pinned search, its thickness where you are. `⌘J` opens it into a list of headings you can walk with the arrow keys. Relative links open the document they name, `⌘[` and `⌘]` move back and forward across the trail, and reopening a document puts you back where you stopped reading.
 
-**Rich content** — Mermaid diagrams in an interactive viewer with zoom, pan and copy-as-image; KaTeX math; syntax-highlighted code with a copy button; YAML frontmatter as a collapsible table; and GitHub alerts (`NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`).
+**Finding** — `⌘K` fuzzy-matches one query the way `fzf` does, across the files under the folder you are in, what you have read, what you have kept, and every command by name — a command showing the keystroke that runs it, where one is bound. `⌘F` puts find in the row the document's name is in, so nothing moves and nothing is covered; `Return` keeps what you typed as a mark in a colour of its own, repeated in the gutter, applied in every window it matches and kept across sessions.
 
-**Fitting in** — GitHub's own themes, including dimmed, high contrast and the colour-vision ones, with a separate choice for light and dark mode and the system deciding which applies; zoom by keyboard or trackpad, configurable preferences, context menus, and — on macOS — Quick Look and the Finder preview pane.
+**Windows** — one document to a window, named in its title; hand Arto several files and each gets a window of its own. A link inside a document travels in the window you are already in, unless you middle-click it. A diagram, a formula or an image lifts into a viewer of its own — zoom, pan, fit and copy-as-image, with the formula and the image naming their source in the header. Files dragged onto Arto open, including ones dragged out of an editor, and preferences decide whether a new window reuses the last focused one, appears on the screen the cursor is on, or is always new.
+
+**Rich content** — Mermaid diagrams and KaTeX math where they stand, drawn as they come into view so a long document opens as quickly as a short one. The context menu copies a selection as Markdown, a code block with or without its fence, a table as Markdown, CSV or TSV, and an image as Markdown or as the image itself — as well as the document's path, with the line you are on or a range of them.
+
+**Fitting in** — GitHub's own themes, including dimmed, high contrast and the colour-vision ones, with a separate choice for light and dark mode and the system deciding which applies. Keybindings ship as Default, Vim, Emacs and Clear presets, every binding editable and chord sequences supported. Zoom by keyboard or trackpad with the level remembered, `⌘P` to print or save a PDF through a stylesheet made for paper, and — on macOS — `Space` on a Markdown file previews it rendered, in the Finder preview pane too.
+
+<sub>Shortcuts above are the macOS defaults; `⌘` is `Ctrl` on Linux and Windows. All of them are rebindable — see [Keybindings](./docs/keybindings.md).</sub>
 
 <p align="center">
-  <img src="./docs/images/feature-rendering.png" alt="GitHub-style rendering" width="410">
-  <img src="./docs/images/feature-katex.png" alt="KaTeX math" width="410">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/images/gfm-dark.webp">
+    <img src="./docs/images/gfm-light.webp" alt="Emphasis, strikethrough, inline code, links, nested and task lists, and a blockquote rendered in Arto" width="410">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/images/contents-dark.webp">
+    <img src="./docs/images/contents-light.webp" alt="The gutter opened into a list of the document's headings, beside typeset math" width="410">
+  </picture>
   <br>
-  <img src="./docs/images/feature-toc.png" alt="Table of contents" width="410">
-  <img src="./docs/images/feature-search.png" alt="Find in page" width="410">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/images/palette-dark.webp">
+    <img src="./docs/images/palette-light.webp" alt="The command palette, one query matching commands and documents at once" width="410">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/images/diagrams-dark.webp">
+    <img src="./docs/images/diagrams-light.webp" alt="A Mermaid sequence diagram drawn inline in a document" width="410">
+  </picture>
 </p>
 
-<p align="center"><em>Diagrams, the sidebar and multi-window in motion: <a href="https://arto-app.github.io">arto-app.github.io</a></em></p>
+<p align="center"><em>See it in motion: <a href="https://arto-app.github.io">arto-app.github.io</a></em></p>
 
 ## Install
 
@@ -66,17 +87,19 @@ Linux packages, a single binary for Linux and Windows, Nix, and why that second 
 
 ## From the terminal
 
-Arto is a GUI application. The `arto` command hands files to it:
+Arto is a GUI application, and it runs as a single instance: the `arto` command hands files to the process already running rather than starting a second one.
 
 ```sh
 arto README.md
 ```
 
-It also renders a Markdown file to a self-contained HTML page that opens in any browser without the app:
+It also renders a Markdown file to a self-contained HTML page — stylesheet, diagrams and math inlined — that opens in any browser without the app:
 
 ```sh
 arto page README.md > README.html
 ```
+
+The page follows your configuration, and ships with a Content-Security-Policy that blocks any script embedded in the Markdown. The same renderer is available as a standalone `arto-page` binary, for machines that need the output but not the window.
 
 Full flags and behaviour: [CLI usage](./docs/cli.md).
 
