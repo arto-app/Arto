@@ -117,16 +117,44 @@ function addImageCopyButton(pre: HTMLPreElement, type: "mermaid" | "math"): void
   pre.appendChild(button);
 }
 
+/**
+ * Put text on the clipboard, inside the app or outside it.
+ *
+ * In the app the Rust side owns the clipboard — it holds one instance for the
+ * process lifetime so Linux keeps ownership of what was copied — and registers
+ * `window.rustCopyText` for the renderer to reach it. A page `arto page` wrote
+ * and a Quick Look preview run this same renderer with no Rust side behind it,
+ * so there the browser's own clipboard is all there is.
+ *
+ * Rejects when neither is reachable; the caller marks the button failed.
+ */
+export async function writeTextToClipboard(text: string): Promise<void> {
+  if (window.rustCopyText) {
+    window.rustCopyText(text);
+    return;
+  }
+  await navigator.clipboard.writeText(text);
+}
+
+/**
+ * Put a PNG on the clipboard, inside the app or outside it.
+ *
+ * The two paths want the image in different shapes: Rust decodes the data URL,
+ * the browser takes the blob it was encoded from. See
+ * {@link writeTextToClipboard} for which path applies where.
+ */
+export async function writeImageToClipboard(blob: Blob, dataUrl: string): Promise<void> {
+  if (window.rustCopyImage) {
+    window.rustCopyImage(dataUrl);
+    return;
+  }
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+}
+
 async function copyToClipboard(pre: HTMLPreElement, button: HTMLButtonElement): Promise<void> {
   try {
-    const content = getContentToCopy(pre);
-
-    if (window.rustCopyText) {
-      window.rustCopyText(content);
-      showSuccessFeedback(button);
-    } else {
-      throw new Error("Rust clipboard handler not available");
-    }
+    await writeTextToClipboard(getContentToCopy(pre));
+    showSuccessFeedback(button);
   } catch (error) {
     console.error("Failed to copy text to clipboard", error);
     showErrorFeedback(button);
@@ -217,12 +245,8 @@ async function copyMathAsImage(pre: HTMLPreElement, button: HTMLButtonElement): 
 
     const dataUrl = await blobToDataUrl(blob);
 
-    if (window.rustCopyImage) {
-      window.rustCopyImage(dataUrl);
-      showSuccessFeedback(button);
-    } else {
-      throw new Error("Rust clipboard handler not available");
-    }
+    await writeImageToClipboard(blob, dataUrl);
+    showSuccessFeedback(button);
   } catch (error) {
     console.error("Failed to copy math as image", error);
     showErrorFeedback(button);
@@ -240,12 +264,8 @@ async function copyMermaidAsImage(pre: HTMLPreElement, button: HTMLButtonElement
     const blob = await createBlobPromise(canvas, svgDataUrl);
     const dataUrl = await blobToDataUrl(blob);
 
-    if (window.rustCopyImage) {
-      window.rustCopyImage(dataUrl);
-      showSuccessFeedback(button);
-    } else {
-      throw new Error("Rust clipboard handler not available");
-    }
+    await writeImageToClipboard(blob, dataUrl);
+    showSuccessFeedback(button);
   } catch (error) {
     console.error("Failed to copy image to clipboard", error);
     showErrorFeedback(button);
