@@ -1,8 +1,9 @@
 # Keybindings
 
 Shortcuts live in `mappings.json`, next to `config.json` in the app config
-directory. Preferences ships Default, Vim and Emacs presets; this document is
-for editing the file directly.
+directory. Preferences ships Default, Vim and Emacs presets, plus Clear, which
+removes every binding so you can start from nothing; this document is for
+editing the file directly.
 
 ## Two kinds of shortcut
 
