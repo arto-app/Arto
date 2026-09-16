@@ -3,6 +3,24 @@
   position: relative;
 }
 
+/* The code scrolls, the button stays at the corner.
+
+   Primer makes `pre` itself the scroll container, so a button pinned inside it
+   travels with the code once a long line is scrolled sideways. Handing the
+   overflow to the `code` child leaves `pre` a still box, and the button keeps
+   the corner it was put in.
+
+   Only text blocks move: a rendered diagram or formula has no `code` child, so
+   it keeps scrolling as a whole and its buttons keep scrolling with it. */
+.markdown-body pre:has(> code) {
+  overflow: visible;
+}
+
+.markdown-body pre > code {
+  display: block;
+  overflow-x: auto;
+}
+
 .markdown-body .copy-button {
   position: absolute;
   top: 8px;

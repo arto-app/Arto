@@ -122,10 +122,17 @@
      Text blocks
      ---------------------------------------- */
 
-  /* Code blocks scroll horizontally on screen; wrap them on paper */
+  /* Code blocks scroll horizontally on screen; wrap them on paper.
+     On screen the scrolling belongs to the `code` child, so that the copy
+     button has a still box to sit in; on paper nothing scrolls, and a scroll
+     container would only cut the lines it cannot fit. */
   .markdown-body pre {
     white-space: pre-wrap !important;
     overflow-wrap: anywhere;
+    overflow: visible !important;
+  }
+
+  .markdown-body pre > code {
     overflow: visible !important;
   }
 
