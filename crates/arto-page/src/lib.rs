@@ -31,6 +31,7 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 #[cfg(feature = "cli")]
 pub mod cli;
@@ -51,6 +52,104 @@ const FRONTEND_JS: &str = include_str!("../assets/frontend/main.iife.js");
 /// such container, so inheriting that rule clips long documents and leaves the
 /// page unscrollable. Restore natural document scrolling.
 const STANDALONE_OVERRIDE_CSS: &str = "html,body{overflow:auto!important;height:auto!important;}";
+
+/// [`FRONTEND_CSS`] without the KaTeX font faces.
+///
+/// Those faces carry their woff2 inline and are most of the stylesheet by
+/// weight, yet nothing but typeset math ever has a glyph to set in them.
+/// Computed once per process: Quick Look builds a page on every press of
+/// Space, and the scan runs over a megabyte-scale string.
+static CSS_WITHOUT_MATH_FONTS: LazyLock<String> = LazyLock::new(|| {
+    let mut css = strip_font_faces(FRONTEND_CSS, "KaTeX_");
+    // The buffer was sized for a stylesheet with nothing to strip, and what is
+    // left is a fraction of that. It is held for the life of the process.
+    css.shrink_to_fit();
+    css
+});
+
+/// Remove every `@font-face` block that names a font family starting with
+/// `prefix`.
+fn strip_font_faces(css: &str, prefix: &str) -> String {
+    let mut out = String::with_capacity(css.len());
+    let mut rest = css;
+
+    while let Some(at) = rest.find("@font-face") {
+        let Some(open) = rest[at..].find('{').map(|i| at + i) else {
+            break;
+        };
+        let Some(end) = block_end(rest, open) else {
+            break;
+        };
+        out.push_str(if rest[open..end].contains(prefix) {
+            &rest[..at]
+        } else {
+            &rest[..end]
+        });
+        rest = &rest[end..];
+    }
+
+    out.push_str(rest);
+    out
+}
+
+/// Remove the `[data-theme=…]` rules for every theme but `light` and `dark`.
+///
+/// The stylesheet carries all of GitHub's themes because the app lets the
+/// reader pick any of them at any time. A page is written for one pair: the
+/// bootstrap writes one of these two names onto the root element and nothing
+/// afterwards can name a third.
+fn strip_unused_themes(css: &str, light: &str, dark: &str) -> String {
+    const MARKER: &str = "[data-theme=";
+
+    let mut out = String::with_capacity(css.len());
+    let mut rest = css;
+
+    while let Some(at) = rest.find(MARKER) {
+        let name_start = at + MARKER.len();
+        let Some(name_end) = rest[name_start..].find(']').map(|i| name_start + i) else {
+            break;
+        };
+        let Some(open) = rest[name_end..].find('{').map(|i| name_end + i) else {
+            break;
+        };
+        let Some(end) = block_end(rest, open) else {
+            break;
+        };
+        let name = &rest[name_start..name_end];
+        if name == light || name == dark {
+            out.push_str(&rest[..end]);
+        } else {
+            // A theme can share its rule with another selector
+            // (`:root:not([data-theme]),[data-theme=light]{…}`). Cutting at the
+            // selector itself would leave the rest of the list behind, to bind
+            // to whatever rule follows — so cut where the rule starts.
+            let rule_start = rest[..at].rfind(['}', '{', ';']).map_or(0, |i| i + 1);
+            out.push_str(&rest[..rule_start]);
+        }
+        rest = &rest[end..];
+    }
+
+    out.push_str(rest);
+    out
+}
+
+/// The index just past the `}` that closes the block opening at `open`.
+fn block_end(css: &str, open: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (offset, c) in css[open..].char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(open + offset + 1);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
 
 /// The inline bootstrap script. Settles the theme (the frontend reads
 /// `data-theme` on the root element during initialization) and then starts the
@@ -271,6 +370,19 @@ fn build_document(body_html: &str, options: &PageOptions) -> String {
         Theme::Dark => (dark_theme, "dark"),
     };
 
+    // Both passes drop what this page can never paint with. Math is typeset in
+    // the page rather than in the HTML handed to it, so a body with no
+    // `preprocessed-math*` container never reaches for a KaTeX glyph; and the
+    // stylesheet's other themes have no name left that could select them.
+    let css = {
+        let with_math_settled = if body_html.contains("preprocessed-math") {
+            FRONTEND_CSS
+        } else {
+            &CSS_WITHOUT_MATH_FONTS
+        };
+        strip_unused_themes(with_math_settled, light_theme, dark_theme)
+    };
+
     format!(
         r#"<!DOCTYPE html><html data-theme="{initial_theme}" data-theme-preference="{theme_preference}" data-light-theme="{light_theme}" data-dark-theme="{dark_theme}"><head><meta charset="utf-8">
 {csp_meta}<meta name="viewport" content="width=device-width, initial-scale=1">
@@ -282,7 +394,7 @@ fn build_document(body_html: &str, options: &PageOptions) -> String {
 <script>{bootstrap}</script>
 </body></html>"#,
         csp_meta = csp_meta,
-        css = FRONTEND_CSS,
+        css = css,
         standalone_override = STANDALONE_OVERRIDE_CSS,
         initial_theme = initial_theme,
         theme_preference = theme_preference,
@@ -323,6 +435,97 @@ mod tests {
         // the system.
         assert!(html.contains(r#"<html data-theme="light" data-theme-preference="auto" data-light-theme="light" data-dark-theme="dark">"#));
         assert!(html.contains("prefers-color-scheme"));
+    }
+
+    #[test]
+    fn test_strip_font_faces_removes_only_the_matching_faces() {
+        let css = "a{color:red}@font-face{font-family:KaTeX_Main;src:url(x)}b{color:blue}@font-face{font-family:Other;src:url(y)}c{color:green}";
+
+        assert_eq!(
+            strip_font_faces(css, "KaTeX_"),
+            "a{color:red}b{color:blue}@font-face{font-family:Other;src:url(y)}c{color:green}"
+        );
+    }
+
+    #[test]
+    fn test_strip_font_faces_leaves_a_stylesheet_without_a_match_alone() {
+        let css = "a{color:red}@font-face{font-family:Other;src:url(y)}";
+
+        assert_eq!(strip_font_faces(css, "KaTeX_"), css);
+    }
+
+    #[test]
+    fn test_build_document_embeds_the_math_fonts_only_for_a_document_with_math() {
+        let plain = build_document("<p>hi</p>", &PageOptions::default());
+        let math = build_document(
+            r#"<span class="preprocessed-math-inline" data-original-content="x">x</span>"#,
+            &PageOptions::default(),
+        );
+
+        // The KaTeX faces carry their woff2 inline, so leaving them out of a
+        // document that sets no math saves megabytes.
+        assert!(math.len() > plain.len() + 1_000_000);
+        assert!(math.contains("@font-face"));
+        // Both are still whole pages.
+        assert!(plain.contains("ArtoRenderer.init"));
+        assert!(math.contains("ArtoRenderer.init"));
+    }
+
+    #[test]
+    fn test_strip_unused_themes_keeps_only_the_named_pair() {
+        let css = "a{color:red}[data-theme=light]{--x:1}[data-theme=dark_dimmed]{--x:2}[data-theme=dark]{--x:3}b{color:blue}";
+
+        assert_eq!(
+            strip_unused_themes(css, "light", "dark"),
+            "a{color:red}[data-theme=light]{--x:1}[data-theme=dark]{--x:3}b{color:blue}"
+        );
+    }
+
+    #[test]
+    fn test_strip_unused_themes_drops_the_whole_selector_list_of_a_dropped_theme() {
+        let css = "a{color:red}:root:not([data-theme]),[data-theme=light]{--x:1}@media print{b{color:blue}}";
+
+        assert_eq!(
+            strip_unused_themes(css, "light_high_contrast", "dark"),
+            "a{color:red}@media print{b{color:blue}}"
+        );
+    }
+
+    #[test]
+    fn test_strip_unused_themes_allows_the_same_theme_on_both_sides() {
+        let css = "[data-theme=light]{--x:1}[data-theme=dark]{--x:2}";
+
+        assert_eq!(
+            strip_unused_themes(css, "light", "light"),
+            "[data-theme=light]{--x:1}"
+        );
+    }
+
+    #[test]
+    fn test_build_document_carries_only_the_themes_the_page_can_paint() {
+        let html = build_document("<p>hi</p>", &PageOptions::default());
+
+        assert!(html.contains("[data-theme=light]{"));
+        assert!(html.contains("[data-theme=dark]{"));
+        assert!(!html.contains("[data-theme=dark_dimmed]{"));
+        assert!(!html.contains("[data-theme=light_high_contrast]{"));
+    }
+
+    #[test]
+    fn test_build_document_keeps_the_themes_the_options_name() {
+        let html = build_document(
+            "<p>hi</p>",
+            &PageOptions {
+                light_theme: ColorTheme::LightHighContrast,
+                dark_theme: ColorTheme::DarkDimmed,
+                ..PageOptions::default()
+            },
+        );
+
+        assert!(html.contains("[data-theme=light_high_contrast]{"));
+        assert!(html.contains("[data-theme=dark_dimmed]{"));
+        assert!(!html.contains("[data-theme=light]{"));
+        assert!(!html.contains("[data-theme=dark]{"));
     }
 
     #[test]
