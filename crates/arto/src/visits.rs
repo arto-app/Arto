@@ -208,8 +208,18 @@ pub fn documents(visits: &[Visit]) -> impl Iterator<Item = &Visit> {
 /// more than a literal one did: the answer has to be the first row rather
 /// than somewhere among the rows. Documents that score the same keep the
 /// order they came in, which is newest first.
-pub fn ranked<'a>(visits: &'a [Visit], query: &crate::fuzzy::Query, cap: usize) -> Vec<&'a Visit> {
-    let ranked = documents(visits).filter_map(|visit| Some((query.rank_path(&visit.path)?, visit)));
+///
+/// `except` is dropped before the ranking rather than after it, so a caller
+/// that leaves out the document it is already showing still gets `cap` rows.
+pub fn ranked<'a>(
+    visits: &'a [Visit],
+    query: &crate::fuzzy::Query,
+    cap: usize,
+    except: Option<&Path>,
+) -> Vec<&'a Visit> {
+    let ranked = documents(visits)
+        .filter(|visit| Some(visit.path.as_path()) != except)
+        .filter_map(|visit| Some((query.rank_path(&visit.path)?, visit)));
     crate::fuzzy::best(ranked, cap)
 }
 
@@ -684,7 +694,7 @@ mod tests {
     // === ranked(): one rule for the palette and every other list ===
 
     fn found(visits: &[Visit], query: &str) -> Vec<String> {
-        ranked(visits, &crate::fuzzy::Query::new(query), usize::MAX)
+        ranked(visits, &crate::fuzzy::Query::new(query), usize::MAX, None)
             .iter()
             .map(|visit| crate::utils::paths::short_name(&visit.path))
             .collect()
@@ -766,8 +776,24 @@ mod tests {
             Visit::new("/notes/b.md", at(2026, 4, 15)),
         ];
         assert_eq!(
-            ranked(&visits, &crate::fuzzy::Query::new("notes"), 1).len(),
+            ranked(&visits, &crate::fuzzy::Query::new("notes"), 1, None).len(),
             1
         );
+    }
+
+    #[test]
+    fn what_a_caller_is_already_showing_is_left_out() {
+        let visits = vec![
+            Visit::new("/notes/a.md", at(2026, 4, 16)),
+            Visit::new("/notes/b.md", at(2026, 4, 15)),
+        ];
+        let found = ranked(
+            &visits,
+            &crate::fuzzy::Query::new("notes"),
+            usize::MAX,
+            Some(Path::new("/notes/a.md")),
+        );
+
+        assert_eq!(found, vec![&visits[1]]);
     }
 }
