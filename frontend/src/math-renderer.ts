@@ -1,14 +1,20 @@
-import katex from "katex";
+import { type KatexLibrary, katexLibrary } from "./libraries";
 import { whenNearViewport } from "./viewport-queue";
 import { restoreCopyButton } from "./code-copy";
 
 export function renderMath(container: Element): void {
-  renderInlineMath(container);
-  renderDisplayMath(container);
-  renderBlockMath(container);
+  // A page whose document sets no formula carries no KaTeX, and has nothing
+  // here to typeset either.
+  const katex = katexLibrary();
+  if (!katex) {
+    return;
+  }
+  renderInlineMath(container, katex);
+  renderDisplayMath(container, katex);
+  renderBlockMath(container, katex);
 }
 
-function renderInlineMath(container: Element): void {
+function renderInlineMath(container: Element, katex: KatexLibrary): void {
   // Process inline math: <span class="math math-inline">...</span>
   const inlineMathElements: NodeListOf<HTMLElement> = container.querySelectorAll(
     "span.preprocessed-math-inline:not([data-katex-rendered])",
@@ -36,7 +42,7 @@ function renderInlineMath(container: Element): void {
   }
 }
 
-function renderDisplayMath(container: Element): void {
+function renderDisplayMath(container: Element, katex: KatexLibrary): void {
   // Process display math: <span class="math math-display">...</span>
   const displayMathElements: NodeListOf<HTMLElement> = container.querySelectorAll(
     "div.preprocessed-math-display:not([data-katex-rendered])",
@@ -64,7 +70,7 @@ function renderDisplayMath(container: Element): void {
   }
 }
 
-function renderBlockMath(container: Element): void {
+function renderBlockMath(container: Element, katex: KatexLibrary): void {
   const mathBlocks: NodeListOf<HTMLElement> = container.querySelectorAll(
     "pre.preprocessed-math:not([data-rendered])",
   );

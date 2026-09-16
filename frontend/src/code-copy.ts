@@ -1,4 +1,4 @@
-import html2canvas from "html2canvas";
+import { html2canvasLibrary } from "./libraries";
 import iconCopy from "@tabler/icons/outline/copy.svg?raw";
 import iconCheck from "@tabler/icons/outline/check.svg?raw";
 import iconX from "@tabler/icons/outline/x.svg?raw";
@@ -218,6 +218,13 @@ function getPhotoIcon(): string {
 
 async function copyMathAsImage(pre: HTMLPreElement, button: HTMLButtonElement): Promise<void> {
   try {
+    // The rasterizer travels with KaTeX, and this button is only ever put on
+    // a block KaTeX typeset, so the two are there together or not at all.
+    const html2canvas = html2canvasLibrary();
+    if (!html2canvas) {
+      throw new Error("No rasterizer to draw the formula with");
+    }
+
     const bgColor = getComputedStyle(document.body).getPropertyValue("--bg-color").trim();
 
     // Ensure fonts are loaded before rasterization so KaTeX renders correctly.

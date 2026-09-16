@@ -3,7 +3,7 @@
  * These convert DOM elements to PNG data URLs for clipboard copy and file save.
  */
 
-import html2canvas from "html2canvas";
+import { html2canvasLibrary } from "./libraries";
 import { findSvgElement, getSvgDimensions, convertSvgToDataUrl } from "./code-copy";
 
 /**
@@ -16,6 +16,13 @@ export async function rasterizeMathBlock(
   opaque: boolean,
 ): Promise<string | null> {
   try {
+    // The rasterizer travels with KaTeX: a document with a formula to
+    // rasterize has both, one with neither has neither.
+    const html2canvas = html2canvasLibrary();
+    if (!html2canvas) {
+      throw new Error("No rasterizer to draw the formula with");
+    }
+
     const backgroundColor = opaque
       ? getComputedStyle(document.body).getPropertyValue("--bg-color").trim() || "#ffffff"
       : "transparent";

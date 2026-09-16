@@ -1,8 +1,7 @@
-import mermaid from "mermaid";
 import { currentTheme, type Theme } from "./theme";
 import { buildMermaidThemeConfig } from "./mermaid-theme";
 import { fixTextContrast } from "./mermaid-contrast";
-import { openMermaidWindow } from "./mermaid-window-controller";
+import { mermaidLibrary } from "./libraries";
 import { whenNearViewport } from "./viewport-queue";
 import { restoreCopyButton } from "./code-copy";
 
@@ -13,6 +12,10 @@ export function init(): void {
 }
 
 export function setTheme(theme: Theme): void {
+  const mermaid = mermaidLibrary();
+  if (!mermaid) {
+    return;
+  }
   const config = buildMermaidThemeConfig(theme);
   mermaid.initialize({
     startOnLoad: false,
@@ -23,6 +26,9 @@ export function setTheme(theme: Theme): void {
 }
 
 export async function renderDiagrams(container: Element): Promise<void> {
+  if (!mermaidLibrary()) {
+    return;
+  }
   const mermaidBlocks = collectMermaidBlocks(container);
 
   if (mermaidBlocks.length === 0) {
@@ -56,6 +62,11 @@ export async function renderDiagrams(container: Element): Promise<void> {
 let nextDiagramNumber = 1;
 
 async function renderDiagram(element: HTMLElement): Promise<void> {
+  const mermaid = mermaidLibrary();
+  if (!mermaid) {
+    return;
+  }
+
   // Skip if already rendered (has SVG child or marked as rendered)
   if (element.dataset.rendered === "true" || element.querySelector("svg")) {
     return;
@@ -92,7 +103,11 @@ async function renderDiagram(element: HTMLElement): Promise<void> {
       // Hover styling (cursor, opacity, outline) is handled by CSS via
       // pre.preprocessed-mermaid:hover in mermaid-window.css
       svgElement.addEventListener("click", () => {
-        openMermaidWindow(mermaidSource);
+        // The window is the app's; a standalone page installs no handler and
+        // the click does nothing.
+        if (typeof window.handleMermaidWindowOpen === "function") {
+          window.handleMermaidWindowOpen(mermaidSource);
+        }
       });
     }
 

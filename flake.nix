@@ -203,8 +203,9 @@
               postPatch = ''
                 mkdir -p crates/arto/assets/frontend crates/arto-page/assets/frontend
                 cp -r ${frontend-assets}/* crates/arto/assets/frontend/
-                # The page crate embeds only the stylesheet and the IIFE bundle.
-                cp ${frontend-assets}/main.css ${frontend-assets}/main.iife.js \
+                # The page crate embeds the stylesheet, the page runtime and the
+                # library bundles a document may call for.
+                cp ${frontend-assets}/main.css ${frontend-assets}/page* \
                   crates/arto-page/assets/frontend/
               '';
 
@@ -283,7 +284,7 @@
 
               postPatch = ''
                 mkdir -p crates/arto-page/assets/frontend
-                cp ${frontend-assets}/main.css ${frontend-assets}/main.iife.js \
+                cp ${frontend-assets}/main.css ${frontend-assets}/page* \
                   crates/arto-page/assets/frontend/
               '';
 

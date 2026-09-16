@@ -1,11 +1,34 @@
-import hljs from "highlight.js";
+import { type HljsLibrary, hljsLibrary } from "./libraries";
 import { whenNearViewport } from "./viewport-queue";
 
-// Remove some languages that other libraries handle better
-if (hljs.getLanguage("mermaid")) hljs.unregisterLanguage("mermaid");
-if (hljs.getLanguage("math")) hljs.unregisterLanguage("math");
+/**
+ * The library with the two languages another renderer owns taken out of it.
+ *
+ * Done on the way to the first block rather than as this module loads,
+ * because the library arrives from outside: the app hands it over as it
+ * starts, and a page hands over whichever build its document called for.
+ */
+let prepared: HljsLibrary | null = null;
+
+function highlighter(): HljsLibrary | null {
+  const hljs = hljsLibrary();
+  if (!hljs || hljs === prepared) {
+    return hljs;
+  }
+  // Remove some languages that other libraries handle better
+  if (hljs.getLanguage("mermaid")) hljs.unregisterLanguage("mermaid");
+  if (hljs.getLanguage("math")) hljs.unregisterLanguage("math");
+  prepared = hljs;
+  return hljs;
+}
 
 export function highlightCodeBlocks(container: Element): void {
+  // A page whose document has no code block carries no highlighter, and has
+  // no block here for one to work on either.
+  if (!highlighter()) {
+    return;
+  }
+
   const codeBlocks = container.querySelectorAll("pre code:not([data-highlighted])");
 
   if (codeBlocks.length === 0) {
@@ -24,6 +47,11 @@ export function highlightCodeBlocks(container: Element): void {
 }
 
 function highlightCodeBlock(element: HTMLElement): void {
+  const hljs = highlighter();
+  if (!hljs) {
+    return;
+  }
+
   // Skip if already highlighted
   if (element.dataset.highlighted === "yes") {
     return;

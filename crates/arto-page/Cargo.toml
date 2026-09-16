@@ -13,7 +13,17 @@ categories = ["text-processing", "command-line-utilities"]
 # The frontend bundle under assets/ is build output copied in by the frontend
 # build (see frontend/vite.config.ts); list it so a package cannot be
 # published without it.
-include = ["src/**", "assets/frontend/main.css", "assets/frontend/main.iife.js"]
+include = [
+  "src/**",
+  "assets/frontend/main.css",
+  "assets/frontend/page.iife.js",
+  "assets/frontend/page-mermaid.iife.js",
+  "assets/frontend/page-math.iife.js",
+  "assets/frontend/page-hljs-common.iife.js",
+  "assets/frontend/page-hljs-common.txt",
+  "assets/frontend/page-hljs-all.iife.js",
+  "assets/frontend/page-hljs-all.txt",
+]
 
 [lib]
 name = "arto_page"
