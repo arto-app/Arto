@@ -98,6 +98,8 @@ pub struct Sources<'a> {
     pub places: &'a [PathBuf],
     /// The files under the folder this window is in, once they are listed.
     pub files: Option<&'a Listing>,
+    /// The document this window is showing, which the palette leaves out.
+    pub current: Option<&'a Path>,
 }
 
 /// The commands `query` names, best first and at most `cap` of them.
@@ -134,6 +136,10 @@ fn ranked_commands(query: &Query, cap: usize) -> Vec<Action> {
 /// Within each kind the order is the score's: a fuzzy query matches loosely
 /// enough that the answer has to be the first row rather than somewhere in
 /// the list.
+///
+/// The document on screen is in none of them. It is where the reader already
+/// is, so a row offering it is a row that does nothing — and, being the
+/// newest visit, it would be the row the palette opens on.
 pub fn rows_for(sources: Sources<'_>, query: &str) -> Vec<Row> {
     let query = Query::new(query);
 
@@ -147,14 +153,16 @@ pub fn rows_for(sources: Sources<'_>, query: &str) -> Vec<Row> {
     } else {
         MAX_DOCUMENTS
     };
-    let documents = crate::visits::ranked(sources.visits, &query, documents_cap)
+    let documents = crate::visits::ranked(sources.visits, &query, documents_cap, sources.current)
         .into_iter()
         .cloned()
         .map(Row::Document);
-    let stars = kept_paths(sources.starred, &query)
+    let stars = kept_paths(sources.starred, &query, sources.current)
         .into_iter()
         .map(Row::Starred);
-    let folders = kept_paths(sources.places, &query)
+    // A place is a folder, so the exclusion can never fire here; passing it
+    // anyway keeps the two kept lists the same call.
+    let folders = kept_paths(sources.places, &query, sources.current)
         .into_iter()
         .map(Row::Place);
 
@@ -166,10 +174,13 @@ pub fn rows_for(sources: Sources<'_>, query: &str) -> Vec<Row> {
 
     // Last, and against the rows already found: a document that is in the
     // history is offered by the history, and offering it again under another
-    // heading would make the list longer without making it wider.
+    // heading would make the list longer without making it wider. The
+    // document on screen counts as already offered, which is how it stays out
+    // of a list nothing else has had the chance to drop it from.
     let shown: HashSet<PathBuf> = rows
         .iter()
         .filter_map(Row::path)
+        .chain(sources.current)
         .map(Path::to_path_buf)
         .collect();
     rows.extend(
@@ -182,16 +193,17 @@ pub fn rows_for(sources: Sources<'_>, query: &str) -> Vec<Row> {
     rows
 }
 
-/// The starred documents or the kept places a query names.
+/// The starred documents or the kept places a query names, less `except`.
 ///
 /// Nothing until something is typed: these are short lists the reader keeps,
 /// and the palette opens on the history.
-fn kept_paths(paths: &[PathBuf], query: &Query) -> Vec<PathBuf> {
+fn kept_paths(paths: &[PathBuf], query: &Query, except: Option<&Path>) -> Vec<PathBuf> {
     if query.is_empty() {
         return Vec::new();
     }
     let ranked = paths
         .iter()
+        .filter(|path| Some(path.as_path()) != except)
         .filter_map(|path| Some((query.rank_path(path)?, path)));
     best(ranked, MAX_KEPT).into_iter().cloned().collect()
 }
@@ -230,12 +242,14 @@ pub fn current_rows(state: &AppState) -> Vec<Row> {
     let visits = VISITS.read();
     let (starred, places) = kept();
     let listing = window_files(state);
+    let document = state.document.read();
     rows_for(
         Sources {
             visits: &visits.items,
             starred: &starred,
             places: &places,
             files: listing.as_deref(),
+            current: document.file(),
         },
         &state.palette_query.read(),
     )
@@ -265,25 +279,14 @@ fn ensure_files(state: &AppState) {
 
 /// Which row the keys act on: the cursor, clamped to the list as it stands.
 ///
-/// A cursor that has not moved yet rests on the row that "take me back" means
-/// rather than on the document already open.
+/// A cursor that has not moved yet rests on the first row, which is the
+/// document read before this one — the palette does not offer the one on
+/// screen, so the quickest gesture in the app, open and press return, goes
+/// back rather than nowhere.
 pub fn cursor_row(state: &AppState, len: usize) -> usize {
     match *state.palette_cursor.read() {
-        None => initial_cursor(len),
+        None => 0,
         Some(at) => at.min(len.saturating_sub(1)),
-    }
-}
-
-/// Where the cursor sits when the palette opens.
-///
-/// The first row is the document already on screen, so resting on it would
-/// make the quickest gesture in the app — open, press return — do nothing.
-/// The second row is the one before it, which is what "take me back" means.
-pub fn initial_cursor(len: usize) -> usize {
-    if len > 1 {
-        1
-    } else {
-        0
     }
 }
 
@@ -308,11 +311,13 @@ pub fn step_cursor(cursor: usize, len: usize, forward: bool) -> usize {
 /// command by name.
 ///
 /// It opens on the history rather than on an empty prompt: with nothing
-/// typed the rows are the visits, newest first, so the common gesture is two
-/// keys. Typing narrows every list the window can offer — the commands, the
-/// history, the stars, the places, and the files under the folder this
-/// window is in — with one rule, [`crate::fuzzy`]'s, so that a query means
-/// the same thing wherever it lands and the best answer is the first row.
+/// typed the rows are the visits, newest first and less the document on
+/// screen, so the common gesture is two keys — open, return, and the document
+/// read before this one is back. Typing narrows every list the window can
+/// offer — the commands, the history, the stars, the places, and the files
+/// under the folder this window is in — with one rule, [`crate::fuzzy`]'s, so
+/// that a query means the same thing wherever it lands and the best answer is
+/// the first row.
 ///
 /// It is mounted only while it is open, so every opening starts with an
 /// empty query and the cursor back on the previous document.
@@ -521,14 +526,6 @@ mod tests {
     }
 
     #[test]
-    fn the_cursor_opens_on_the_previous_document() {
-        assert_eq!(initial_cursor(0), 0);
-        assert_eq!(initial_cursor(1), 0);
-        assert_eq!(initial_cursor(2), 1);
-        assert_eq!(initial_cursor(30), 1);
-    }
-
-    #[test]
     fn stepping_wraps_at_both_ends() {
         assert_eq!(step_cursor(0, 3, true), 1);
         assert_eq!(step_cursor(2, 3, true), 0);
@@ -559,6 +556,7 @@ mod tests {
             starred,
             places,
             files: None,
+            current: None,
         }
     }
 
@@ -597,6 +595,54 @@ mod tests {
         let rows = rows_for(sources(&visits, &[], &[]), "");
 
         assert_eq!(rows.len(), MAX_ROWS);
+    }
+
+    #[test]
+    fn the_document_on_screen_is_not_the_first_row_back() {
+        let visits = vec![visit("/docs/README.md"), visit("/docs/CHANGELOG.md")];
+        let rows = rows_for(
+            Sources {
+                current: Some(Path::new("/docs/README.md")),
+                ..sources(&visits, &[], &[])
+            },
+            "",
+        );
+
+        assert_eq!(rows, vec![Row::Document(visits[1].clone())]);
+    }
+
+    #[test]
+    fn leaving_the_open_document_out_does_not_shorten_the_history() {
+        let visits: Vec<Visit> = (0..MAX_ROWS + 1)
+            .map(|at| visit(&format!("/docs/note-{at}.md")))
+            .collect();
+        let rows = rows_for(
+            Sources {
+                current: Some(Path::new("/docs/note-0.md")),
+                ..sources(&visits, &[], &[])
+            },
+            "",
+        );
+
+        assert_eq!(rows.len(), MAX_ROWS);
+    }
+
+    #[test]
+    fn the_open_document_stays_out_of_every_list() {
+        let open = PathBuf::from("/work/spec.md");
+        let visits = vec![visit("/work/spec.md")];
+        let starred = vec![open.clone()];
+        let listed = listing("/work", &["/work/spec.md"]);
+        let rows = rows_for(
+            Sources {
+                files: Some(&listed),
+                current: Some(open.as_path()),
+                ..sources(&visits, &starred, &[])
+            },
+            "spec",
+        );
+
+        assert!(rows.is_empty(), "{rows:?}");
     }
 
     #[test]
