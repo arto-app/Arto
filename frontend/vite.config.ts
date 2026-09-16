@@ -1,4 +1,5 @@
 import { defineConfig, type Plugin } from "vite";
+import type { HLJSApi } from "highlight.js";
 import path from "path";
 import fs from "fs";
 
@@ -160,8 +161,19 @@ interface BundleConsumer {
   files?: string[];
 }
 
+/**
+ * A bundle is built per environment and the environments run one after
+ * another, so this hook fires once per build with only that build's output in
+ * `dist/`. A file a later build has yet to write is skipped rather than
+ * copied, and a production run empties each consumer first — once, before the
+ * first build's copy — so nothing an environment stopped emitting survives
+ * there. A name that is never emitted therefore goes missing rather than
+ * going stale, and the Rust side, which embeds these by name, fails to
+ * compile.
+ */
 function syncBundlePlugin(consumers: BundleConsumer[], replace: boolean): Plugin {
   let outDir = "";
+  const emptied = new Set<string>();
   return {
     name: "sync-bundle-to-consumers",
     apply: "build",
@@ -170,17 +182,22 @@ function syncBundlePlugin(consumers: BundleConsumer[], replace: boolean): Plugin
     },
     closeBundle() {
       for (const { dir, files } of consumers) {
-        if (replace) {
+        if (replace && !emptied.has(dir)) {
           fs.rmSync(dir, { recursive: true, force: true });
+          emptied.add(dir);
         }
         fs.mkdirSync(dir, { recursive: true });
         if (files) {
           for (const file of files) {
+            const source = path.join(outDir, file);
+            if (!fs.existsSync(source)) {
+              continue;
+            }
             const destination = path.join(dir, file);
             // A listed file may sit in a subdirectory of its own (the icon
             // sprite does), which `replace` above has just removed.
             fs.mkdirSync(path.dirname(destination), { recursive: true });
-            fs.copyFileSync(path.join(outDir, file), destination);
+            fs.copyFileSync(source, destination);
           }
         } else {
           fs.cpSync(outDir, dir, { recursive: true });
@@ -193,19 +210,100 @@ function syncBundlePlugin(consumers: BundleConsumer[], replace: boolean): Plugin
 /** Crates that embed the bundle. */
 const bundleConsumers: BundleConsumer[] = [
   // The app compiles in the ES module and the stylesheet and serves them from
-  // its own protocol; the sprite it writes into each window's document. The
-  // IIFE build is the Quick Look extension's and is listed below, so naming
-  // these three keeps 4.8 MB the app never reads out of its binary.
+  // its own protocol; the sprite it writes into each window's document. Naming
+  // these three keeps the page's bundles, listed below, out of a binary that
+  // already carries everything they hold.
   {
     dir: path.resolve(import.meta.dirname, "../crates/arto/assets/frontend"),
     files: ["main.js", "main.css", "icons/tabler-sprite.svg"],
   },
-  // The page crate inlines only the stylesheet and the IIFE bundle.
+  // The page crate inlines the stylesheet, the page runtime, and whichever
+  // library bundles the document it is writing calls for.
   {
     dir: path.resolve(import.meta.dirname, "../crates/arto-page/assets/frontend"),
-    files: ["main.css", "main.iife.js"],
+    files: [
+      "main.css",
+      "page.iife.js",
+      "page-mermaid.iife.js",
+      "page-math.iife.js",
+      "page-hljs-common.iife.js",
+      "page-hljs-common.txt",
+      "page-hljs-all.iife.js",
+      "page-hljs-all.txt",
+    ],
   },
 ];
+
+/**
+ * A library a page loads only when its document needs it.
+ *
+ * Each is built as an IIFE of its own, because that is the only way to leave
+ * one out of a page: the IIFE format cannot code-split, so a dynamic import
+ * would fold straight back into the bundle it was split from.
+ */
+const pageLibraries = [
+  // The environment name is Vite's, which allows no dash; the entry name is
+  // the file's, on both sides of the build.
+  { environment: "pageMermaid", entry: "page-mermaid", global: "ArtoPageMermaid" },
+  { environment: "pageMath", entry: "page-math", global: "ArtoPageMath" },
+  // Two builds of one library, of which a page takes at most one: the
+  // languages highlight.js calls common are a seventh of all of them, and
+  // cover what nearly every document writes its code blocks in.
+  { environment: "pageHljsCommon", entry: "page-hljs-common", global: "ArtoPageHljsCommon" },
+  { environment: "pageHljsAll", entry: "page-hljs-all", global: "ArtoPageHljsAll" },
+] as const;
+
+/**
+ * Write down the languages a highlight.js bundle answers to, beside it.
+ *
+ * `arto-page` reads the body it is writing to choose between the two builds,
+ * and the choice is only as good as its idea of what is in them — a name
+ * hard-coded on the Rust side would go quietly wrong on the next highlight.js
+ * release. So the list is build output, like the bundle it describes, and the
+ * aliases are in it because a fence saying `sh` is asking for `bash`.
+ */
+function hljsManifestPlugin(
+  environment: string,
+  load: () => Promise<{ default: HLJSApi }>,
+  fileName: string,
+): Plugin {
+  return {
+    name: `hljs-manifest:${fileName}`,
+    apply: "build",
+    applyToEnvironment: (candidate) => candidate.name === environment,
+    async generateBundle() {
+      const { default: hljs } = await load();
+      const names = hljs
+        .listLanguages()
+        .flatMap((name) => [name, ...(hljs.getLanguage(name)?.aliases ?? [])]);
+      this.emitFile({
+        type: "asset",
+        fileName,
+        source: `${[...new Set(names)].sort().join("\n")}\n`,
+      });
+    },
+  };
+}
+
+/** The build options for one IIFE entry under `src/`. */
+function iifeEnvironment(entry: string, name: string) {
+  return {
+    // Everything here runs in a WebView. Without this an environment of its
+    // own is taken for a server's, and every dependency is left external —
+    // which for a bundle that has to be inlined whole means left out.
+    consumer: "client" as const,
+    build: {
+      // Only the app's build, which runs first, may empty `dist/`.
+      emptyOutDir: false,
+      lib: {
+        entry: path.resolve(import.meta.dirname, `src/${entry}.ts`),
+        formats: ["iife" as const],
+        name,
+        fileName: () => `${entry}.iife.js`,
+      },
+    },
+  };
+}
 
 export default defineConfig(({ mode }) => {
   // The Nix build sets VITE_OUT_DIR to its output path and copies the bundle
@@ -217,33 +315,70 @@ export default defineConfig(({ mode }) => {
   return {
     base: "/assets/frontend/",
     root: ".",
-    plugins: [iconSpritePlugin(), primerThemesPlugin(), syncBundlePlugin(consumers, production)],
+    plugins: [
+      iconSpritePlugin(),
+      primerThemesPlugin(),
+      hljsManifestPlugin(
+        "pageHljsCommon",
+        () => import("highlight.js/lib/common"),
+        "page-hljs-common.txt",
+      ),
+      hljsManifestPlugin("pageHljsAll", () => import("highlight.js"), "page-hljs-all.txt"),
+      syncBundlePlugin(consumers, production),
+    ],
     build: {
       outDir,
       // In dev mode, keep existing files for incremental updates
       // In production, clean the directory to avoid shipping stale artifacts
       emptyOutDir: production,
       cssCodeSplit: false,
-      lib: {
-        entry: path.resolve(import.meta.dirname, "src/main.ts"),
-        // ES build (`main.js`) drives the desktop app; the IIFE build
-        // (`main.iife.js`) exposes `window.ArtoRenderer` for the Quick Look
-        // preview extension, whose WebView loads HTML under an opaque origin
-        // where ES modules are not reliable on older macOS.
-        formats: ["es", "iife"],
-        name: "ArtoRenderer",
-        fileName: (format) => (format === "iife" ? "main.iife.js" : "main.js"),
-      },
       rollupOptions: {
         output: {
-          // Emit one self-contained chunk per format (no split chunks) so both
-          // `main.js` and `main.iife.js` are single files with assets inlined.
+          // Emit one self-contained chunk per entry (no split chunks), so each
+          // bundle is a single file with its assets inlined — which is what
+          // lets a page carry one inline and leave another out.
           codeSplitting: false,
           assetFileNames: ({ names }) => {
             if (names.some((n) => n.endsWith(".css"))) return "main.css";
             return "[name][extname]";
           },
         },
+      },
+    },
+    environments: {
+      // `main.js`, the ES module the desktop app loads, with every library
+      // built in: the app keeps one bundle for as long as it runs.
+      client: {
+        build: {
+          lib: {
+            entry: path.resolve(import.meta.dirname, "src/main.ts"),
+            formats: ["es"],
+            fileName: () => "main.js",
+          },
+        },
+      },
+      // `page.iife.js` exposes `window.ArtoRenderer` for a standalone page,
+      // whose WebView — Quick Look's — loads HTML under an opaque origin
+      // where ES modules are not reliable on older macOS. It leaves the
+      // libraries below to their own bundles.
+      page: iifeEnvironment("page", "ArtoRenderer"),
+      ...Object.fromEntries(
+        pageLibraries.map(({ environment, entry, global }) => [
+          environment,
+          iifeEnvironment(entry, global),
+        ]),
+      ),
+    },
+    builder: {
+      // One after another, and the app's first: it is the build that may
+      // empty `dist/`, and the copies into each crate are made as each
+      // build finishes.
+      async buildApp(builder) {
+        await builder.build(builder.environments.client);
+        await builder.build(builder.environments.page);
+        for (const { environment } of pageLibraries) {
+          await builder.build(builder.environments[environment]);
+        }
       },
     },
   };
