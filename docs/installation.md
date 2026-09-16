@@ -77,6 +77,9 @@ console program, because it is the copy people run from a terminal and only
 such a program makes the shell wait for it — see [CLI usage](./cli.md).
 Double-click it instead and it hides the console it was given.
 
+Both carry the Microsoft C runtime inside them, so neither asks for the Visual
+C++ redistributable to be installed first.
+
 macOS has no such download on purpose. Most of what makes Arto worth
 installing there — the Finder associations and the Quick Look preview — is
 carried by the app bundle rather than by the executable inside it, so the DMG

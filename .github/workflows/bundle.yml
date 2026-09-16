@@ -56,8 +56,8 @@ jobs:
             {"target":"macos","os":"macos-latest","standalone":"","artifacts":"./target/dx/arto/bundle/**/*.dmg"},
             {"target":"ubuntu","os":"ubuntu-latest","standalone":"arto-linux-x86_64","artifacts":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage\n./dist/arto-linux-x86_64"},
             {"target":"ubuntu-arm64","os":"ubuntu-24.04-arm","standalone":"arto-linux-aarch64","artifacts":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage\n./dist/arto-linux-aarch64"},
-            {"target":"windows","os":"windows-latest","standalone":"arto-windows-x86_64.exe","artifacts":"./target/dx/arto/bundle/**/*-setup.exe\n./dist/arto-windows-x86_64.exe"},
-            {"target":"windows-arm64","os":"windows-11-arm","standalone":"arto-windows-aarch64.exe","artifacts":"./target/dx/arto/bundle/**/*-setup.exe\n./dist/arto-windows-aarch64.exe"}
+            {"target":"windows","os":"windows-latest","standalone":"arto-windows-x86_64.exe","triple":"x86_64-pc-windows-msvc","artifacts":"./target/dx/arto/bundle/**/*-setup.exe\n./dist/arto-windows-x86_64.exe"},
+            {"target":"windows-arm64","os":"windows-11-arm","standalone":"arto-windows-aarch64.exe","triple":"aarch64-pc-windows-msvc","artifacts":"./target/dx/arto/bundle/**/*-setup.exe\n./dist/arto-windows-aarch64.exe"}
           ]'
           matrix="$(jq -c --argjson want "$TARGETS" '[.[] | select(.target as $t | $want | index($t))]' <<<"$legs")"
           if [ "$(jq length <<<"$matrix")" = "0" ]; then
@@ -193,10 +193,14 @@ jobs:
         shell: pwsh
         env:
           NAME: ${{ matrix.standalone }}
+          # `just standalone` names the target so that the static CRT stays off
+          # build scripts and proc macros, which puts the binary under the
+          # triple rather than in `target/release`.
+          TRIPLE: ${{ matrix.triple }}
         run: |
           $empty = Join-Path $env:RUNNER_TEMP 'nothing-here'
           New-Item -ItemType Directory -Force -Path dist, $empty | Out-Null
-          Copy-Item target/release/arto.exe (Join-Path 'dist' $env:NAME)
+          Copy-Item "target/$env:TRIPLE/release/arto.exe" (Join-Path 'dist' $env:NAME)
           $binary = Join-Path $env:GITHUB_WORKSPACE (Join-Path 'dist' $env:NAME)
           # The download is the copy that gets run from a terminal, so unlike
           # the bundled app it has to be a console-subsystem image — nothing

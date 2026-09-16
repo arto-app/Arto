@@ -67,7 +67,8 @@ build: frontend::assets arto::build
 # Look extension — is exactly what this does not carry. Everything the app
 # itself needs is compiled in, so the binary runs from wherever it is put.
 #
-# The application as one executable, at target/release/arto
+# The application as one executable, at target/release/arto — on Windows at
+# target/<triple>/release/arto.exe, for the reason the recipe there gives.
 standalone: frontend::assets arto::standalone
 
 # Gate for release artifacts; see the arto recipe for what it rejects.

@@ -7,3 +7,27 @@
 # other projects while letting Arto build.
 [build]
 rustc-wrapper = ""
+
+# Link the Microsoft C runtime into the executable instead of importing it.
+#
+# A default MSVC build imports VCRUNTIME140.dll and, because the WebView2
+# loader Arto links is C++ with exceptions, VCRUNTIME140_1.dll. Neither ships
+# with Windows: they arrive with the Visual C++ redistributable, which a
+# developer's machine has and a reader's may not. Where it is missing nothing
+# starts — the loader refuses the image before `main`, with "VCRUNTIME140_1.dll
+# was not found" and nothing else — and a viewer that a double-click has to
+# open cannot ask for a runtime to be installed first.
+#
+# The cost is a few hundred kilobytes and CRT fixes arriving with Arto's own
+# releases rather than with Windows Update. Nothing here hands a CRT object
+# across a module boundary — WebView2 runs in its own processes — so a private
+# copy is safe.
+#
+# WebView2LoaderStatic.lib carries no `/DEFAULTLIB` for a CRT of its own, so it
+# takes whichever one the final link uses, and the `cc` crate compiles ring's C
+# with `/MT` on its own once this feature is set.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
