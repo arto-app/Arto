@@ -181,11 +181,3 @@ export async function initMermaidWindow(source: string, diagramId: string): Prom
   // Expose globally for Rust to call
   window.mermaidWindowController = controller;
 }
-
-// Function called from main markdown viewer to open window
-export function openMermaidWindow(source: string): void {
-  // Call Rust function via dioxus bridge
-  if (typeof window.handleMermaidWindowOpen === "function") {
-    window.handleMermaidWindowOpen(source);
-  }
-}
