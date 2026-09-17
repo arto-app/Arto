@@ -154,6 +154,7 @@ mod headings;
 mod line_endings;
 mod options;
 mod post_process;
+mod sanitize;
 
 pub use engine::*;
 pub use headings::*;
@@ -266,8 +267,12 @@ fn render(
 ) -> Result<RenderResult> {
     let pipeline = run_pipeline(markdown, base_path, options, with_toc)?;
 
-    let (html_output, images) =
-        post_process_html_tags(&pipeline.raw_html, &pipeline.base_dir, &options.images);
+    let (html_output, images) = post_process_html_tags(
+        &pipeline.raw_html,
+        &pipeline.base_dir,
+        &options.images,
+        options.raw_html,
+    );
 
     Ok(RenderResult {
         html: prepend_frontmatter(&pipeline.frontmatter_html, html_output),
