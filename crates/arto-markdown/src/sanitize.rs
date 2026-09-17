@@ -57,14 +57,79 @@ const URL_ATTRIBUTES: &[&str] = &[
     "xlink:href",
 ];
 
+/// Resolve the numeric character references in `value`, terminated or not.
+///
+/// `html_escape` reads a reference the way the spec spells one, so `&#106`
+/// without its semicolon stays four characters of text to it. A browser
+/// reading an attribute value consumes the digits anyway and files the missing
+/// semicolon as a parse error, which makes `&#106avascript:` a `javascript:`
+/// URL to the only reader whose opinion decides whether it runs. They are
+/// resolved here so that what [`is_script_url`] tests is what will be
+/// followed.
+///
+/// This feeds the test alone. The attribute keeps the spelling the document
+/// gave it or loses the attribute entirely, so a reference resolved too
+/// eagerly here costs a document nothing.
+fn decode_numeric_references(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    let mut rest = value;
+
+    while let Some(start) = rest.find("&#") {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + 2..];
+        let (radix, prefix) = match after.as_bytes().first() {
+            Some(b'x' | b'X') => (16, 1),
+            _ => (10, 0),
+        };
+        let digits = &after[prefix..];
+        let end = digits
+            .find(|c: char| !c.is_digit(radix))
+            .unwrap_or(digits.len());
+
+        if end == 0 {
+            // `&#` with no number behind it is text, not a reference.
+            out.push_str("&#");
+            rest = after;
+            continue;
+        }
+
+        match u32::from_str_radix(&digits[..end], radix)
+            .ok()
+            .and_then(char::from_u32)
+        {
+            Some(resolved) => out.push(resolved),
+            // A number naming no character (a surrogate, or past the last code
+            // point) is left as it was written.
+            None => {
+                out.push_str("&#");
+                out.push_str(&after[..prefix + end]);
+            }
+        }
+        rest = digits[end..].strip_prefix(';').unwrap_or(&digits[end..]);
+    }
+
+    out.push_str(rest);
+    out
+}
+
 /// Whether following `value` as a URL would run script.
 ///
-/// The scheme compared is the one a browser reads rather than the one written:
-/// ASCII whitespace and NUL are stripped out of a URL before its scheme is
-/// parsed, so `java&#9;script:alert(1)` names the same scheme as
-/// `javascript:alert(1)` and has to fail the same test.
+/// The scheme compared is the one a browser will read rather than the one
+/// written, which takes two passes the attribute has not had.
+///
+/// The first is decoding. `lol_html` hands an attribute value over exactly as
+/// the document spelled it — entities and all, as its own documentation says —
+/// while the browser resolves them before it looks for a scheme. So
+/// `&#106;avascript:alert(1)` is `javascript:alert(1)` to everything that
+/// matters and has to be to this.
+///
+/// The second is that ASCII whitespace and NUL are dropped from a URL before
+/// its scheme is parsed, so `java&Tab;script:alert(1)` names that same scheme
+/// once the tab it decodes to is taken back out.
 fn is_script_url(value: &str) -> bool {
-    let normalized: String = value
+    let numeric = decode_numeric_references(value);
+    let decoded = html_escape::decode_html_entities(&numeric);
+    let normalized: String = decoded
         .chars()
         .filter(|c| !c.is_ascii_whitespace() && *c != '\0')
         .collect();
@@ -123,6 +188,57 @@ mod tests {
         assert!(is_script_url("java\tscript:alert(1)"));
         assert!(is_script_url("java\nscript:alert(1)"));
         assert!(is_script_url("java\0script:alert(1)"));
+    }
+
+    /// The document is read as written, so a scheme can be spelled in entities
+    /// that only become letters once the browser resolves them.
+    #[test]
+    fn script_urls_are_recognised_through_their_entities() {
+        assert!(is_script_url("&#106;avascript:alert(1)"));
+        assert!(is_script_url("&#x6A;avascript:alert(1)"));
+        assert!(is_script_url("&#106;&#97;&#118;&#97;script:alert(1)"));
+        // An entity that decodes to one of the characters stripped from a URL
+        // before its scheme is read.
+        assert!(is_script_url("java&Tab;script:alert(1)"));
+        assert!(is_script_url("java&NewLine;script:alert(1)"));
+    }
+
+    /// A browser consumes the digits of a numeric reference whether or not the
+    /// semicolon that should end it is there, so an unterminated one hides a
+    /// scheme just as well as a terminated one.
+    #[test]
+    fn an_unterminated_numeric_reference_hides_nothing() {
+        assert!(is_script_url("&#106avascript:alert(1)"));
+        assert!(is_script_url("&#0000106avascript:alert(1)"));
+        // A hexadecimal reference is read as greedily here as a browser reads
+        // one, so an unterminated `&#x6A` swallows the `a` that follows it
+        // instead of resolving to the `j` of `javascript` — which is why the
+        // hexadecimal spelling of this only works terminated, as above.
+        assert_eq!(
+            decode_numeric_references("&#x6Aavascript:"),
+            "\u{6aa}vascript:"
+        );
+    }
+
+    #[test]
+    fn text_that_only_looks_like_a_numeric_reference_survives_decoding() {
+        assert_eq!(decode_numeric_references("plain"), "plain");
+        // `&#` with no number behind it is text.
+        assert_eq!(decode_numeric_references("a&#b"), "a&#b");
+        assert_eq!(decode_numeric_references("a&#xz"), "a&#xz");
+        // A number naming no character stays as written.
+        assert_eq!(decode_numeric_references("&#xD800;"), "&#xD800");
+        // The ordinary case, either way round.
+        assert_eq!(decode_numeric_references("&#106;a"), "ja");
+        assert_eq!(decode_numeric_references("&#106a"), "ja");
+    }
+
+    #[test]
+    fn an_ordinary_url_may_carry_entities_of_its_own() {
+        // A query string is where `&amp;` belongs, and decoding it must not
+        // turn the URL into something the filter objects to.
+        assert!(!is_script_url("https://example.com/?a=1&amp;b=2"));
+        assert!(!is_script_url("./notes.md?x=1&amp;y=2"));
     }
 
     #[test]

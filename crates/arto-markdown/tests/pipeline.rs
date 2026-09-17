@@ -1241,6 +1241,20 @@ fn filtering_raw_html_takes_the_script_out_of_it() {
 }
 
 #[test]
+fn a_script_url_spelled_in_entities_is_still_a_script_url() {
+    // The attribute reaches the filter as the document spelled it, and the
+    // browser is what resolves `&#106;` back into a `j`. A filter reading only
+    // what was written would hand the reader a link that runs on click.
+    let source = indoc! {r#"
+        <a href="&#106;avascript:alert(1)">follow me</a>
+    "#};
+
+    let filtered = render(source);
+    assert!(!filtered.contains("avascript:"), "{filtered}");
+    assert!(filtered.contains("follow me"), "{filtered}");
+}
+
+#[test]
 fn allowing_raw_html_allows_all_of_it() {
     // `Allow` is the setting for a document the reader trusts, and it has
     // always meant every raw node through untouched. Filtering it would be a
