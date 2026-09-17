@@ -5,7 +5,8 @@ use std::cell::RefCell;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use crate::{DeferredImage, ImageResolution};
+use crate::sanitize::is_unsafe_attribute;
+use crate::{DeferredImage, ImageResolution, RawHtml};
 
 /// Maximum byte size of a local image that will be inlined as a data URL.
 ///
@@ -390,6 +391,9 @@ fn inline_srcset(
 ///   how a reference becomes a file.
 /// - `<a href="…">`: convert local links to `<span data-md-link="…">` for in-app
 ///   navigation; a Markdown target that does not exist is marked `md-link-missing`
+/// - every element, unless `raw_html` is [`RawHtml::Allow`]: drop the
+///   attributes [`crate::sanitize`] names as script the document brought with
+///   it
 ///
 /// Returns the rewritten HTML and, under [`ImageResolution::Deferred`], the
 /// images the host is now expected to serve.
@@ -397,6 +401,7 @@ pub(super) fn post_process_html_tags(
     html_str: &str,
     base_dir: &Path,
     resolution: &ImageResolution,
+    raw_html: RawHtml,
 ) -> (String, Vec<DeferredImage>) {
     let canonical_base = base_dir
         .canonicalize()
@@ -410,8 +415,30 @@ pub(super) fn post_process_html_tags(
     // would be a compile error rather than a silently empty list.
     let collected = RefCell::new(DeferredImages::default());
 
+    // Appended before every other handler because handlers run in the order
+    // they were appended, and the anchor handler below adds the one `on*`
+    // attribute Arto itself relies on. A filter running after it would take
+    // that attribute straight back off again.
+    let mut settings = Settings::new();
+    if raw_html != RawHtml::Allow {
+        settings = settings.append_element_content_handler(element!("*", |el| {
+            // Every name is read before any of them is removed: the attribute
+            // list borrows the element, and removing one needs it back.
+            let unsafe_attributes: Vec<String> = el
+                .attributes()
+                .iter()
+                .filter(|attribute| is_unsafe_attribute(&attribute.name(), &attribute.value()))
+                .map(|attribute| attribute.name())
+                .collect();
+            for name in unsafe_attributes {
+                el.remove_attribute(&name);
+            }
+            Ok(())
+        }));
+    }
+
     let mut rewriter = HtmlRewriter::new(
-        Settings::new()
+        settings
             .append_element_content_handler(element!("img[src]", |el| {
                 if let Some(src) = el.get_attribute("src") {
                     if let Some(resolved) =
@@ -508,9 +535,16 @@ mod tests {
     use std::fs;
     use tempfile::TempDir;
 
-    /// The rewritten HTML alone, for the tests that only look at the markup.
+    /// The rewritten HTML alone, filtered as a document is by default, for the
+    /// tests that only look at the markup.
     fn post_process(html: &str, base_dir: &Path) -> String {
-        post_process_html_tags(html, base_dir, &ImageResolution::DataUrl).0
+        post_process_with(html, base_dir, RawHtml::Filter)
+    }
+
+    /// The same, for the tests that are about which raw-HTML setting is in
+    /// force.
+    fn post_process_with(html: &str, base_dir: &Path, raw_html: RawHtml) -> String {
+        post_process_html_tags(html, base_dir, &ImageResolution::DataUrl, raw_html).0
     }
 
     // ========================================================================
@@ -1070,5 +1104,79 @@ mod tests {
             result.contains("data:image/png;base64,"),
             "./../ relative path should be converted to data URL: {result}"
         );
+    }
+
+    /// GFM's tagfilter escapes `<script>` but knows nothing about the `on*`
+    /// family, so a filtered document arrives still carrying whichever of them
+    /// it was written with. None of them may survive the rewrite.
+    #[test]
+    fn filtered_html_loses_its_event_handlers() {
+        let temp = TempDir::new().unwrap();
+        let html = r#"<img src="missing.png" onerror="alert(1)"><p ontoggle="alert(2)">text</p>"#;
+        let result = post_process(html, temp.path());
+
+        assert!(!result.contains("onerror"), "{result}");
+        assert!(!result.contains("ontoggle"), "{result}");
+        assert!(!result.contains("alert"), "{result}");
+        // Only the handlers go; the element and its other attributes stay.
+        assert!(result.contains("<p>text</p>"), "{result}");
+    }
+
+    /// A `javascript:` URL runs when the link is followed, so it is script by
+    /// another route and goes the same way. The anchor itself is left standing:
+    /// a link with nowhere to go is still the text the author wrote.
+    #[test]
+    fn filtered_html_loses_its_script_urls() {
+        let temp = TempDir::new().unwrap();
+        let html = r#"<a href="javascript:alert(1)">click</a>"#;
+        let result = post_process(html, temp.path());
+
+        assert!(!result.contains("javascript:"), "{result}");
+        assert!(result.contains("click"), "{result}");
+    }
+
+    /// The filter runs before the anchor handler, which is what lets that
+    /// handler add the `onmousedown` in-app navigation is driven by. Were the
+    /// order the other way round, every Markdown link would stop working.
+    #[test]
+    fn the_filter_leaves_artos_own_link_handler_alone() {
+        let temp = TempDir::new().unwrap();
+        let target = temp.path().join("notes.md");
+        fs::write(&target, "# Notes").unwrap();
+
+        let html = r#"<a href="notes.md">notes</a>"#;
+        let result = post_process(html, temp.path());
+
+        assert!(result.contains("onmousedown"), "{result}");
+        assert!(result.contains("data-md-link"), "{result}");
+    }
+
+    /// An ordinary document is all ordinary attributes, and the filter is not
+    /// allowed to cost it any of them.
+    #[test]
+    fn ordinary_attributes_survive_the_filter() {
+        let temp = TempDir::new().unwrap();
+        let html = r#"<p class="note" id="first" title="javascript:not-a-url">text</p>"#;
+        let result = post_process(html, temp.path());
+
+        assert!(result.contains(r#"class="note""#), "{result}");
+        assert!(result.contains(r#"id="first""#), "{result}");
+        // `title` is shown rather than followed, so what looks like a scheme in
+        // it is just the text it says.
+        assert!(result.contains("javascript:not-a-url"), "{result}");
+    }
+
+    /// `Allow` is the setting that says the document is trusted, and it means
+    /// what it says: raw HTML goes through untouched, handlers and all.
+    #[test]
+    fn allow_passes_event_handlers_through() {
+        let temp = TempDir::new().unwrap();
+        let html = r#"<p onclick="alert(1)">text</p>"#;
+
+        let filtered = post_process_with(html, temp.path(), RawHtml::Filter);
+        assert!(!filtered.contains("onclick"), "{filtered}");
+
+        let allowed = post_process_with(html, temp.path(), RawHtml::Allow);
+        assert!(allowed.contains("onclick"), "{allowed}");
     }
 }

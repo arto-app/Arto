@@ -1216,6 +1216,69 @@ fn raw_html_is_filtered_by_default() {
 }
 
 #[test]
+fn filtering_raw_html_takes_the_script_out_of_it() {
+    // The tag filter escapes `<script>`, so a document that wants to run
+    // anyway writes it as an attribute instead. Neither spelling may reach the
+    // reader under the default setting, which is the one that says the
+    // document is not trusted.
+    let source = indoc! {r#"
+        <img src="nothing.png" onerror="alert(1)">
+
+        <a href="javascript:alert(2)">follow me</a>
+
+        <p ontoggle="alert(3)">text</p>
+    "#};
+
+    let filtered = render(source);
+    assert!(!filtered.contains("onerror"), "{filtered}");
+    assert!(!filtered.contains("ontoggle"), "{filtered}");
+    assert!(!filtered.contains("javascript:"), "{filtered}");
+    assert!(!filtered.contains("alert"), "{filtered}");
+
+    // What the markup said, minus the script, is still there to read.
+    assert!(filtered.contains("follow me"), "{filtered}");
+    assert!(filtered.contains("text"), "{filtered}");
+}
+
+#[test]
+fn allowing_raw_html_allows_all_of_it() {
+    // `Allow` is the setting for a document the reader trusts, and it has
+    // always meant every raw node through untouched. Filtering it would be a
+    // different setting wearing its name.
+    let source = indoc! {r#"
+        <p onclick="alert(1)">text</p>
+    "#};
+
+    let allowed = render_with(
+        source,
+        RenderOptions {
+            raw_html: RawHtml::Allow,
+            ..Default::default()
+        },
+    );
+    assert!(allowed.contains("onclick"), "{allowed}");
+}
+
+#[test]
+fn filtering_leaves_an_ordinary_document_whole() {
+    // The filter reads every element of every document, so the cost of getting
+    // it wrong is paid by markup that was never dangerous.
+    let source = indoc! {r#"
+        <kbd id="key" class="mod">Cmd</kbd>
+
+        <details><summary>More</summary>Hidden</details>
+
+        [a link](https://example.com)
+    "#};
+
+    let filtered = render(source);
+    assert!(filtered.contains(r#"id="key""#), "{filtered}");
+    assert!(filtered.contains(r#"class="mod""#), "{filtered}");
+    assert!(filtered.contains("<details>"), "{filtered}");
+    assert!(filtered.contains("https://example.com"), "{filtered}");
+}
+
+#[test]
 fn the_gfm_baseline_survives_every_option_being_turned_off() {
     // Tables, task lists, strikethrough and footnotes are what a document
     // written for GitHub contains, so nothing a reader can switch may take
