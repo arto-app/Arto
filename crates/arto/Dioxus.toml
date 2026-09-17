@@ -5,7 +5,19 @@ default_platform = "desktop"
 [bundle]
 identifier = "com.lambdalisue.Arto"
 publisher = "lambdalisue"
-icon = ["../../platform/macos/bundle/Arto.icns", "assets/Arto.png"]
+# One artwork per platform's format: the .icns goes into the macOS bundle, the
+# .png into the Linux packages, and the .ico is linked into arto.exe as its
+# icon resource — the icon Explorer draws on the executable, on the Start menu
+# shortcut and, through the ProgID's `arto.exe,0`, on every document Arto
+# opens. The CLI takes the first `.ico` in this list for that; with none in it
+# the executable is stamped with the CLI's own default icon instead, which is
+# Dioxus' logo. Regenerate the .ico from `assets/Arto.png` with
+# platform/windows/make-icon.py.
+icon = [
+  "../../platform/macos/bundle/Arto.icns",
+  "../../platform/windows/Arto.ico",
+  "assets/Arto.png",
+]
 copyright = "Copyright 2025 lambdalisue"
 category = "Utility"
 short_description = "A GitHub Markdown viewer"
@@ -40,6 +52,10 @@ depends = [
 # the counterpart to CFBundleDocumentTypes in the macOS Info.plist.
 [bundle.windows.nsis]
 installer_hooks = "../../platform/windows/file-associations.nsh"
+# The installer's own icon. The `[bundle] icon` list above is what the
+# installed executable wears; this is only the setup program's window and its
+# file in Downloads, and NSIS draws its own logo without it.
+installer_icon = "../../platform/windows/Arto.ico"
 
 [bundle.macos]
 license = "../../LICENSE"

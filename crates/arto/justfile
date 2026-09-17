@@ -215,9 +215,16 @@ standalone:
 # all need it to. The installer's copy stays the GUI-subsystem build, which is
 # what keeps a command prompt from opening behind a document. See the comment
 # at the top of `src/main.rs`.
+#
+# The target is named even though it is the host's, because that is what keeps
+# the static CRT (.cargo/config.toml) to the binary: without `--target`, cargo
+# hands those flags to build scripts and proc macros as well, and a proc macro
+# is a library rustc loads rather than a program that ships. `dx bundle` names
+# the target for its own reasons, so the installer's copy is already built this
+# way.
 [windows]
 standalone:
-  cargo build --release --package arto --features windows-console
+  cargo build --release --package arto --features windows-console --target {{ arch() }}-pc-windows-msvc
 
 # Release artifacts are built with the platform's native toolchain, but a
 # bundle built inside the Nix devShell links against /nix/store paths and is
@@ -230,10 +237,11 @@ standalone:
 verify-bundle:
   "{{root}}/platform/macos/verify-bundle.sh" "{{target}}/dx/arto/release/macos/Arto.app" arto
 
-# Reject a bundled binary that would open a command prompt behind the document
+# Reject a bundled binary that would open a command prompt behind the document,
+# need a runtime Windows does not ship, or wear somebody else's icon
 [windows]
 verify-bundle:
-  pwsh -NoProfile -File "{{root}}/platform/windows/verify-bundle.ps1" "{{target}}/dx/arto/release/windows/app/arto.exe" -Expect gui
+  pwsh -NoProfile -File "{{root}}/platform/windows/verify-bundle.ps1" "{{target}}/dx/arto/release/windows/app/arto.exe" -Expect gui -Icon "{{root}}/platform/windows/Arto.ico"
 
 [linux]
 verify-bundle:
