@@ -80,10 +80,16 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         run: cargo publish --workspace --allow-dirty
 
+  # Ubuntu rather than macOS: this job only moves files, and it needs
+  # `timeout`, which a macOS runner does not have.
   release:
     needs: bundle
-    runs-on: blacksmith-6vcpu-macos-15
-    timeout-minutes: 15
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    # Over half a gigabyte of assets, of which the two Windows installers are
+    # ~200 MB each. 15 minutes left no room for a single upload to stall and be
+    # retried: v0.36.3 was cancelled part-way through, with five assets missing
+    # and the Homebrew dispatch skipped along with it.
+    timeout-minutes: 45
     permissions:
       contents: write
     steps:
@@ -177,23 +183,70 @@ jobs:
           For more information, see the [README](https://github.com/${REPO}).
           <!-- ARTO_INSTALLATION_END -->
           BODY_EOF
-      - uses: ncipollo/release-action@v1.21.0
-        with:
-          tag: ${{ github.event.release.tag_name }}
-          allowUpdates: true
-          # Lenient so a missing Linux artifact or Windows installer (tolerated
-          # build failures) does not block the release. The macOS .dmg is
-          # still effectively required: the release only runs after the
-          # mandatory macOS build, and the dispatch job fails if the aarch64
-          # DMG is absent.
-          artifactErrorsFailBuild: false
-          # The `arto-*` entries are the standalone binaries; the installers
-          # are all named `Arto_<version>_…` or `arto_<version>_…`, so nothing
-          # matches twice.
-          artifacts: ./artifacts/**/*.dmg,./artifacts/**/*.deb,./artifacts/**/*.AppImage,./artifacts/**/*-setup.exe,./artifacts/**/arto-linux-*,./artifacts/**/arto-windows-*
-          removeArtifacts: true
-          makeLatest: true
-          bodyFile: release_body.md
+      - name: Update the release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release edit "$TAG" --notes-file release_body.md --latest
+      # Uploaded one file at a time, under a timeout, rather than handed to an
+      # action that uploads the set in one call: a single upload that stalls is
+      # what cost v0.36.3, where the request never returned, the job hit its
+      # timeout with the release half attached, and nothing said which files
+      # had missed it. A stall is killed and retried here, and whatever is
+      # still missing at the end is named.
+      #
+      # `--clobber` replaces an asset already on the release, which is what
+      # makes a re-run of this job safe. Deleting the whole set first — what
+      # the previous action did — would have meant a second failure leaving the
+      # release with less on it than the first one did.
+      - name: Attach the installers to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          # `-type f` because the artifact directories are named after the
+          # build legs (`arto-windows-arm64`), so a name pattern alone matches
+          # those as well as the files inside them. The `arto-*` entries are
+          # the standalone binaries; the installers are all named
+          # `Arto_<version>_…` or `arto_<version>_…`, so nothing matches twice.
+          mapfile -t assets < <(find ./artifacts -type f \( \
+            -name '*.dmg' -o -name '*.deb' -o -name '*.AppImage' \
+            -o -name '*-setup.exe' \
+            -o -name 'arto-linux-*' -o -name 'arto-windows-*' \
+          \) | sort)
+
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "::error::no artifacts to attach" >&2
+            exit 1
+          fi
+
+          failed=()
+          for asset in "${assets[@]}"; do
+            name="$(basename "$asset")"
+            for attempt in 1 2 3; do
+              if timeout 300 gh release upload "$TAG" "$asset" --clobber; then
+                echo "attached ${name}"
+                continue 2
+              fi
+              echo "::warning::attaching ${name} failed (attempt ${attempt})"
+              sleep $((attempt * 10))
+            done
+            failed+=("$name")
+          done
+
+          # A missing Linux package or Windows installer is tolerated, the way
+          # the build legs that produce them are: they must not hold up the
+          # macOS release. The .dmg is the one that cannot be missing — it is
+          # what most readers download and what the Homebrew tap is built from
+          # — so its absence, uploaded or not, fails the job.
+          for name in "${failed[@]}"; do
+            echo "::warning::${name} is not on the release"
+          done
+          if ! gh release view "$TAG" --json assets \
+            -q '.assets[].name' | grep -q '\.dmg$'; then
+            echo "::error::the macOS .dmg is not on the release" >&2
+            exit 1
+          fi
 
   dispatch:
     needs: release
