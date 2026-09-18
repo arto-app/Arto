@@ -85,10 +85,12 @@ jobs:
   release:
     needs: bundle
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    # Over half a gigabyte of assets, of which the two Windows installers are
-    # ~200 MB each. 15 minutes left no room for a single upload to stall and be
-    # retried: v0.36.3 was cancelled part-way through, with five assets missing
-    # and the Homebrew dispatch skipped along with it.
+    # v0.36.3 was cancelled part-way through: the Windows installers were
+    # ~200 MB each then, an upload of one stalled, and 15 minutes left no room
+    # to retry it — five assets missed the release and the Homebrew dispatch
+    # was skipped along with them. The installers are a fraction of that now
+    # (see the WebView2 note in crates/arto/Dioxus.toml), but the budget stays
+    # generous, because the retries below need somewhere to go.
     timeout-minutes: 45
     permissions:
       contents: write
