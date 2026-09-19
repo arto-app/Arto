@@ -57,6 +57,23 @@ installer_hooks = "../../platform/windows/file-associations.nsh"
 # file in Downloads, and NSIS draws its own logo without it.
 installer_icon = "../../platform/windows/Arto.ico"
 
+# Fetch the WebView2 runtime during installation instead of carrying it.
+#
+# Arto renders through WebView2, which Windows 11 ships and Windows 10 usually
+# has from Edge, but not always — so the installer has to be able to put it
+# there. The CLI defaults to `OfflineInstaller`, which embeds Microsoft's full
+# runtime installer: that is where nearly all of the ~200 MB each setup.exe
+# weighed came from, for a viewer whose .dmg is 19 MB. The bootstrapper is
+# ~2 MB and downloads the runtime only on a machine that lacks it.
+#
+# The cost is that installing needs a working connection on such a machine.
+# Nothing else about Arto does — the app itself renders offline, and the
+# single-binary download stays the way to install without a network.
+[bundle.windows.webview_install_mode.DownloadBootstrapper]
+# The runtime is a few hundred megabytes to fetch, so let Microsoft's installer
+# show its own progress rather than leaving the setup window looking stalled.
+silent = false
+
 [bundle.macos]
 license = "../../LICENSE"
 provider_short_name = "Alisue"

@@ -52,6 +52,17 @@ sudo pacman -S webkit2gtk-4.1           # Arch
 
 Both artifacts are built on Ubuntu 24.04, so they require glibc 2.39 or newer (Ubuntu 24.04+, Debian 13+, Fedora 40+). On older distributions, build from source or use Nix.
 
+## Windows
+
+Download the `Arto_<version>_x64-setup.exe` — or `_arm64-` — from the
+[releases] page and run it. It installs Arto, adds it to the Start menu and
+registers the Markdown files it opens.
+
+Arto renders through Microsoft's WebView2 runtime. Windows 11 ships it and
+Windows 10 usually has it from Edge, but where it is missing the installer
+fetches it, so that first install needs a working connection. Nothing after it
+does: the app renders offline.
+
 ## A single binary
 
 Every release also carries the application as one executable, for Linux and
