@@ -4074,9 +4074,9 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "open"
-version = "5.4.3"
+version = "5.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c603ab8300cf18bc3b14146b19fe3dfcc4843ae5a400cd0e7a30b95aa366634"
+checksum = "aa576c76302b7b808eecc68061e67336c47833ef9d22caa74dda10fa9675eebc"
 dependencies = [
  "is-wsl",
  "libc",
@@ -4143,27 +4143,27 @@ dependencies = [
 
 [[package]]
 name = "ox_content_allocator"
-version = "3.1.0"
+version = "3.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d90ebc2924ebb77d032f47c76d2824883dbc0f1430e6c29042f3f94ae2ed7351"
+checksum = "b0e747c12fe629654b47d856e52047d56d95b6778ad7177089199b3c9f66ee6d"
 dependencies = [
  "bumpalo",
 ]
 
 [[package]]
 name = "ox_content_ast"
-version = "3.1.0"
+version = "3.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7b7107317a3cd693e40aba322db99e37aa1c31fa2ac301619b98c4fdda84587"
+checksum = "1972e3c6409f7528593d4e40484bbd6a6c49af0c3947256f240803f753e96a6c"
 dependencies = [
  "ox_content_allocator",
 ]
 
 [[package]]
 name = "ox_content_parser"
-version = "3.1.0"
+version = "3.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b37ec355cda60ed9435295b11be302008318e073d96f4a89c54cf46aca593a2"
+checksum = "3d358bcb32ffdfa2f8694d78bfd8263a9209a478b4a7bccfc027e4d42fd190de"
 dependencies = [
  "compact_str",
  "memchr",
@@ -4176,9 +4176,9 @@ dependencies = [
 
 [[package]]
 name = "ox_content_renderer"
-version = "3.1.0"
+version = "3.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94aacb6a33b0ca8ceb4d2923cb4ca8807aa8edb6181f93f5178e5ca94f47d447"
+checksum = "d694feb155309bbaf39843588d2a6a7050770c478b5fbf28aa55dbdfbf635bfc"
 dependencies = [
  "compact_str",
  "memchr",
@@ -5733,7 +5733,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -6125,9 +6125,9 @@ checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
 name = "ureq"
-version = "3.4.0"
+version = "3.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "972d7902c8735f2695410b8aed7df6ed12a47394aa1c8d7af49f0497b731a94d"
+checksum = "af5546be8f5378d5414f83733f5c9a2526f4645829edbc1c41790aeef1b38e8b"
 dependencies = [
  "base64 0.23.1",
  "flate2",
@@ -6142,9 +6142,9 @@ dependencies = [
 
 [[package]]
 name = "ureq-proto"
-version = "0.6.1"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da5f78b09e6941e1a0f2e30e695e4b120377b54d5e0aec11b594bb57b3971613"
+checksum = "f86fd172ccca569e458f61b6bdd6220965a9ef36e672a6852953b51a0e1583be"
 dependencies = [
  "base64 0.23.1",
  "http",
@@ -6190,9 +6190,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.26.0"
+version = "1.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5772d71c9be8a8a6ac2117d949c5b224c1b72241bb611d9a3012edcf8af7812"
+checksum = "2ef6dac1e96601b4fb3acccccff2139741fcb757cb9a36089bf5be91cfb285ce"
 dependencies = [
  "getrandom 0.4.3",
  "js-sys",
