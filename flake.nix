@@ -85,7 +85,7 @@
               # 2. Run: nix build .#frontend-assets
               # 3. Copy the expected hash from error message
               # 4. Update hash value below
-              hash = "sha256-eDckAG/1tvByYhf2QhqJMW8xt39UE2v60DrOYufSENA=";
+              hash = "sha256-DGJzR/ktMBtkCP81l0eQULkwH6bSnfbdhF5i5hhSoVo=";
               fetcherVersion = 3;
             };
 
