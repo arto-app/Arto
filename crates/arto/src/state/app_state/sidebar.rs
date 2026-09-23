@@ -288,6 +288,28 @@ impl AppState {
         self.show_face(Face::Places);
     }
 
+    /// Move a root up to the folder above it.
+    ///
+    /// Which root moves is the one asked about, and it moves in place: a place
+    /// is rewritten where it sits on the list, and the window's own folder
+    /// becomes its parent. The folder it was is a child of the new root, so
+    /// opening the way down to it leaves what was on screen on screen.
+    ///
+    /// A root with nothing above it — the top of the filesystem — stays.
+    pub fn move_root_up(&mut self, root: &Path, place: bool) {
+        let Some(parent) = root.parent().map(Path::to_path_buf) else {
+            return;
+        };
+        let group = if place {
+            crate::bookmarks::replace_bookmark(root, &parent);
+            Group::Bookmark
+        } else {
+            self.add_root(&parent);
+            Group::Current
+        };
+        self.sidebar.write().expand_towards(group, &parent, root);
+    }
+
     /// Make room in the tree for a document that is about to be opened.
     ///
     /// Implicit: a root that already covers it is expanded down to it, and

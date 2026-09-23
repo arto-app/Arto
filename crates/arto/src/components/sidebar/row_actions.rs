@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use crate::components::bookmark_button::BookmarkButton;
 use crate::components::icon::{Icon, IconName};
-use crate::state::{AppState, Group};
+use crate::state::AppState;
 
 /// What a listed document can be done to, without opening it.
 ///
@@ -59,31 +59,18 @@ pub fn RowActions(
             // folder becomes its parent. A single arrow that changed the group
             // below the one it was drawn in left the row it was pressed on
             // sitting exactly where it was.
-            if root {
-                if let Some(parent) = path.parent().map(std::path::Path::to_path_buf) {
-                    button {
-                        class: "left-sidebar-row-action",
-                        title: if place { "Move this place up a folder" } else { "Go up to the folder above" },
-                        onclick: {
-                            let path = path.clone();
-                            move |evt: Event<MouseData>| {
-                                evt.stop_propagation();
-                                if place {
-                                    crate::bookmarks::replace_bookmark(&path, &parent);
-                                    // The folder it was is one of the new
-                                    // root's children, so opening it leaves
-                                    // what was on screen on screen.
-                                    state
-                                        .sidebar
-                                        .write()
-                                        .expand_towards(Group::Bookmark, &parent, &path);
-                                } else {
-                                    state.add_root(&parent);
-                                }
-                            }
-                        },
-                        Icon { name: IconName::FolderUp, size: 12 }
-                    }
+            if root && path.parent().is_some() {
+                button {
+                    class: "left-sidebar-row-action",
+                    title: if place { "Move this place up a folder" } else { "Go up to the folder above" },
+                    onclick: {
+                        let path = path.clone();
+                        move |evt: Event<MouseData>| {
+                            evt.stop_propagation();
+                            state.move_root_up(&path, place);
+                        }
+                    },
+                    Icon { name: IconName::FolderUp, size: 12 }
                 }
             }
 
