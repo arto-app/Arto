@@ -3,7 +3,9 @@ use dioxus::prelude::*;
 
 use crate::components::document_name::DocumentName;
 use crate::components::icon::{Icon, IconName};
-use crate::components::sidebar::context_menu::{open_row_context_menu, SidebarItemKind};
+use crate::components::sidebar::context_menu::{
+    open_row_context_menu, SidebarItemKind, SidebarRowRole,
+};
 use crate::components::sidebar::row_actions::RowActions;
 use crate::state::{AppState, FocusedPanel, Group};
 use crate::visits::{Bucket, Visit, VISITS, VISITS_CHANGED};
@@ -121,6 +123,7 @@ pub fn RecentFace() -> Element {
                                                     state,
                                                     &path,
                                                     SidebarItemKind::File,
+                                                    SidebarRowRole::Entry,
                                                     &evt,
                                                 );
                                             }
