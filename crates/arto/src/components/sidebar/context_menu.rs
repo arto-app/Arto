@@ -21,6 +21,37 @@ impl SidebarItemKind {
     }
 }
 
+/// Where the row the menu was raised on sits, which is a different question
+/// from what it holds.
+///
+/// A root is the one row whose parent folder is not already drawn above it, so
+/// it is the only row where going up is an offer worth making — and the one
+/// row where rooting the tree at it would be nothing at all.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SidebarRowRole {
+    /// A row inside a tree, or a listed document.
+    Entry,
+    /// The top of the tree this window is standing in.
+    CurrentRoot,
+    /// The top of one of the bookmarked trees.
+    PlaceRoot,
+}
+
+impl SidebarRowRole {
+    /// Whether this row heads a tree rather than sitting inside one.
+    pub fn is_root(self) -> bool {
+        !matches!(self, Self::Entry)
+    }
+}
+
+/// The folder this row can be moved up to, when moving up means anything on it.
+pub(super) fn folder_above(path: &Path, role: SidebarRowRole) -> Option<PathBuf> {
+    if !role.is_root() {
+        return None;
+    }
+    path.parent().map(Path::to_path_buf)
+}
+
 /// Estimated width of the context menu (CSS `min-width: 200px` + padding/border).
 const MENU_WIDTH: i32 = 220;
 /// Estimated height of the tallest menu variant (a directory with every section).
@@ -41,6 +72,7 @@ pub struct SidebarContextMenuData {
     pub position: (i32, i32),
     pub path: PathBuf,
     pub kind: SidebarItemKind,
+    pub role: SidebarRowRole,
 }
 
 /// Raise the panel's menu on a row, wherever the row is drawn.
@@ -52,6 +84,7 @@ pub fn open_row_context_menu(
     mut state: AppState,
     path: &std::path::Path,
     kind: SidebarItemKind,
+    role: SidebarRowRole,
     evt: &Event<MouseData>,
 ) {
     evt.prevent_default();
@@ -72,6 +105,7 @@ pub fn open_row_context_menu(
             viewport,
             path.to_path_buf(),
             kind,
+            role,
         )));
 }
 
@@ -82,6 +116,7 @@ impl SidebarContextMenuData {
         viewport: (i32, i32),
         path: PathBuf,
         kind: SidebarItemKind,
+        role: SidebarRowRole,
     ) -> Self {
         let position =
             clamp_menu_position(cursor, (MENU_WIDTH, MENU_HEIGHT), viewport, VIEWPORT_MARGIN);
@@ -89,6 +124,7 @@ impl SidebarContextMenuData {
             position,
             path,
             kind,
+            role,
         }
     }
 }
@@ -108,9 +144,11 @@ pub fn SidebarContextMenu(
     position: (i32, i32),
     path: PathBuf,
     kind: SidebarItemKind,
+    role: SidebarRowRole,
     on_close: EventHandler<()>,
     on_open: EventHandler<()>,
     on_open_in_new_window: EventHandler<()>,
+    on_go_to_parent: EventHandler<()>,
     on_change_root_directory: EventHandler<()>,
     on_toggle_bookmark: EventHandler<()>,
     on_copy_path: EventHandler<()>,
@@ -148,13 +186,38 @@ pub fn SidebarContextMenu(
             onclick: move |evt| evt.stop_propagation(),
 
             // === Section 1: Open operations ===
-            ContextMenuItem {
-                label: open_label,
-                icon: Some(if is_file { IconName::File } else { IconName::FolderOpen }),
-                on_click: move |_| on_open.call(()),
+
+            // A root is already open — it is the thing being looked at — so
+            // what it is missing is the way out of the top of it. The folder
+            // above a root is the only one the tree does not already draw.
+            if role.is_root() {
+                if folder_above(&path, role).is_some() {
+                    ContextMenuItem {
+                        label: if role == SidebarRowRole::PlaceRoot {
+                            "Move Place Up a Directory"
+                        } else {
+                            "Go to Parent Directory"
+                        },
+                        shortcut: if role == SidebarRowRole::CurrentRoot {
+                            shortcut("directory.parent")
+                        } else {
+                            None
+                        },
+                        icon: Some(IconName::FolderUp),
+                        on_click: move |_| on_go_to_parent.call(()),
+                    }
+                }
+            } else {
+                ContextMenuItem {
+                    label: open_label,
+                    icon: Some(if is_file { IconName::File } else { IconName::FolderOpen }),
+                    on_click: move |_| on_open.call(()),
+                }
             }
 
-            if !is_file {
+            // Rooting the tree at the folder it is already rooted at is no
+            // offer, so the window's own folder is the one row without it.
+            if !is_file && role != SidebarRowRole::CurrentRoot {
                 ContextMenuItem {
                     label: "Change Root Directory",
                     shortcut: shortcut("cursor.enter"),
@@ -248,6 +311,28 @@ mod tests {
     }
 
     #[test]
+    fn only_a_root_can_be_moved_to_the_folder_above() {
+        // Every other row already has the folder above it on screen.
+        assert_eq!(folder_above(Path::new("/a/b"), SidebarRowRole::Entry), None);
+        assert_eq!(
+            folder_above(Path::new("/a/b"), SidebarRowRole::CurrentRoot),
+            Some(PathBuf::from("/a"))
+        );
+        assert_eq!(
+            folder_above(Path::new("/a/b"), SidebarRowRole::PlaceRoot),
+            Some(PathBuf::from("/a"))
+        );
+    }
+
+    #[test]
+    fn the_top_of_the_filesystem_has_nothing_above_it() {
+        assert_eq!(
+            folder_above(Path::new("/"), SidebarRowRole::CurrentRoot),
+            None
+        );
+    }
+
+    #[test]
     fn new_clamps_the_position_at_a_corner() {
         // Clamping through the public constructor.
         let data = SidebarContextMenuData::new(
@@ -255,6 +340,7 @@ mod tests {
             (1000, 800),
             PathBuf::from("/tmp/example.md"),
             SidebarItemKind::File,
+            SidebarRowRole::Entry,
         );
         assert_eq!(
             data.position,

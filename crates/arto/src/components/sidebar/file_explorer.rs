@@ -6,6 +6,7 @@ use tokio::sync::oneshot;
 
 use super::context_menu::{
     context_action_should_proceed, open_row_context_menu, SidebarContextMenu, SidebarItemKind,
+    SidebarRowRole,
 };
 use crate::components::icon::{Icon, IconName};
 use crate::components::sidebar::reorder::{drop_class, drop_side, DragRow};
@@ -308,7 +309,12 @@ fn RootSubtree(
             oncontextmenu: {
                 let root = root.clone();
                 move |evt: Event<MouseData>| {
-                    open_row_context_menu(state, &root, SidebarItemKind::Directory, &evt);
+                    let role = if group == Group::Bookmark {
+                        SidebarRowRole::PlaceRoot
+                    } else {
+                        SidebarRowRole::CurrentRoot
+                    };
+                    open_row_context_menu(state, &root, SidebarItemKind::Directory, role, &evt);
                 }
             },
             onclick: {
@@ -498,7 +504,7 @@ fn FileTreeNode(
             } else {
                 SidebarItemKind::File
             };
-            open_row_context_menu(state, &path, kind, &evt);
+            open_row_context_menu(state, &path, kind, SidebarRowRole::Entry, &evt);
         }
     };
 
@@ -641,6 +647,7 @@ pub fn SidebarContextMenuHost() -> Element {
 
     let path = data.path.clone();
     let is_dir = data.kind.is_dir();
+    let role = data.role;
 
     // Handler for "Open File" / "Open Directory"
     let handle_open = {
@@ -657,6 +664,20 @@ pub fn SidebarContextMenuHost() -> Element {
             } else {
                 state.open_from_panel(&path);
             }
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    // Handler for "Go to Parent Directory" / "Move Place Up a Directory"
+    //
+    // Unguarded by existence, unlike every other action here: this one reads
+    // nothing off the filesystem, and a root whose folder was deleted while
+    // the menu was open is exactly the root that has to be got out of. The
+    // same arrow on the row itself has never asked either.
+    let handle_go_to_parent = {
+        let path = path.clone();
+        move |_| {
+            state.move_root_up(&path, role == SidebarRowRole::PlaceRoot);
             state.close_sidebar_context_menu();
         }
     };
@@ -742,9 +763,11 @@ pub fn SidebarContextMenuHost() -> Element {
             position: data.position,
             path: path.clone(),
             kind: data.kind,
+            role,
             on_close: move |_| state.close_sidebar_context_menu(),
             on_open: handle_open,
             on_open_in_new_window: handle_open_in_new_window,
+            on_go_to_parent: handle_go_to_parent,
             on_change_root_directory: handle_change_root_directory,
             on_toggle_bookmark: handle_toggle_bookmark,
             on_copy_path: handle_copy_path,
