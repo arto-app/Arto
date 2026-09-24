@@ -64,9 +64,31 @@
   z-index: var(--z-context-submenu);
 }
 
-/* Flip the submenu to the left of its parent when the menu sits near the
-   viewport's right edge, so the flyout stays on-screen. The direction is
-   decided in Rust (submenu_opens_left) from the clamped menu position. */
+/* The flyout stands a few pixels clear of its row; this bridges the gap, so
+   the pointer is over the flyout for every pixel of the way across. */
+.context-submenu::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -9px;
+  width: 9px;
+}
+
+/* A flyout with no room on the right opens on the left of its row instead,
+   its bridge on its right. Measured once it is drawn: see
+   `frontend/src/submenu-fit.ts`. */
+.context-submenu.opens-left {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  margin-right: 4px;
+}
+
+.context-submenu.opens-left::before {
+  left: auto;
+  right: -9px;
+}
 
 .submenu-arrow {
   margin-left: auto;

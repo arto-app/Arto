@@ -437,24 +437,12 @@ state.sidebar_context_menu.set(Some(SidebarContextMenuData::new(
 )));
 ```
 
-**2. Submenu hover behavior:**
-```rust
-// A flyout opens while the pointer rests on its parent item
-let mut show_submenu = use_signal(|| false);
-
-div {
-    class: "context-menu-item has-submenu",
-    onmouseenter: move |_| show_submenu.set(true),
-    onmouseleave: move |_| show_submenu.set(false),
-
-    span { "Copy As" }
-    span { class: "submenu-arrow", "›" }
-
-    if *show_submenu.read() {
-        div { class: "context-submenu", /* items */ }
-    }
-}
-```
+**2. Submenu hover behavior:** use `ContextMenuSubmenu`
+(`components/context_menu/menu_item.rs`) rather than a hand-rolled
+`onmouseenter`/`onmouseleave` pair. The flyout opens on enter and closes a
+moment after the pointer leaves, and `.context-submenu::before` bridges the
+gap beside the row — a flyout that closed at once could not be reached
+diagonally across the rows below.
 
 **3. Backdrop for outside-click closing:**
 ```rust

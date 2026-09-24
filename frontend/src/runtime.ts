@@ -14,6 +14,7 @@ import {
   getSavedMermaidElement,
   getSavedMathElement,
 } from "./context-menu-handler";
+import { fitSubmenu } from "./submenu-fit";
 import { rasterizeMathBlock, rasterizeMermaidBlock } from "./special-block-rasterizer";
 import * as findInPage from "./find-in-page";
 import * as keyboardInterceptor from "./keyboard-interceptor";
@@ -34,6 +35,8 @@ declare global {
         restoreSelection: typeof restoreSelection;
         /** Cleanup saved element references when context menu closes. */
         cleanup: typeof cleanupElementReferences;
+        /** Keep a submenu's flyout on screen once it is drawn. */
+        fitSubmenu: typeof fitSubmenu;
       };
       render: {
         /** Register a callback to be called when rendering (Mermaid, KaTeX, etc.) completes */
@@ -259,6 +262,7 @@ export function init(): void {
       setup: setupContextMenu,
       restoreSelection,
       cleanup: cleanupElementReferences,
+      fitSubmenu,
     },
     render: {
       onComplete: (callback) => renderCoordinator.onRenderComplete(callback),
