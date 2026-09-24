@@ -73,7 +73,11 @@ configuration: the types, the file locations, and `Config::load()` (with keybind
 render) and `Config::save()`, all returning a `ConfigError`. It never logs above debug and
 never holds a global. The desktop app wraps it in `crates/arto/src/config.rs`,
 where the loaded instance lives behind a lock (`CONFIG`) and changes are
-broadcast to windows (`CONFIG_CHANGED_BROADCAST`). Other consumers, such as
+broadcast to windows (`CONFIG_CHANGED_BROADCAST`). `watch_config_files`,
+started once at launch, reads both files again when they change on disk —
+following symlinks to where they really are — and broadcasts only when the
+result differs, so the preferences window's own saves do not echo. A file
+that fails to parse mid-edit keeps the configuration in use. Other consumers, such as
 `arto page` and the Quick Look extension, can call `Config::load()` directly
 without pulling in the app.
 

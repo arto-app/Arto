@@ -114,7 +114,7 @@ impl PendingEdit {
 /// and on to disk. Nothing is lost by closing the window, and nothing has to
 /// be confirmed — which is also what lets the header say which pane you are in
 /// instead of holding a button and a status.
-fn use_auto_save(config: Signal<Config>) {
+fn use_auto_save(mut config: Signal<Config>) {
     let pending = use_hook(|| Arc::new(PendingEdit::default()));
 
     use_effect({
@@ -139,6 +139,26 @@ fn use_auto_save(config: Signal<Config>) {
                     pending.flush();
                 }
             });
+        }
+    });
+
+    // The file can change under the page — edited by hand while it is open —
+    // and the page has to show what the next edit will be made to: saving an
+    // edit on top of what it loaded would write the hand edit away. An edit
+    // still settling here is newer than either, so it is left to land.
+    use_future({
+        let pending = pending.clone();
+        move || {
+            let pending = pending.clone();
+            async move {
+                let mut rx = CONFIG_CHANGED_BROADCAST.subscribe();
+                while rx.recv().await.is_ok() {
+                    let current = CONFIG.read().clone();
+                    if pending.config.lock().is_none() && *config.peek() != current {
+                        config.set(current);
+                    }
+                }
+            }
         }
     });
 
