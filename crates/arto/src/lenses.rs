@@ -13,6 +13,7 @@
 //!   as it is written, with each block's original on hover.
 
 mod agent;
+mod app_server;
 mod cache;
 mod controller;
 mod http;

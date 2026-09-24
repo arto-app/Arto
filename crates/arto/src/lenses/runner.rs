@@ -16,8 +16,8 @@ pub(crate) const MAX_OUTPUT: usize = 16 * 1024 * 1024;
 
 /// How much of the end of stderr is kept, and how many of its lines a
 /// failure reports — enough to say why it failed, not a chatty tool's log.
-const STDERR_TAIL_BYTES: usize = 64 * 1024;
-const STDERR_LINES: usize = 5;
+pub(crate) const STDERR_TAIL_BYTES: usize = 64 * 1024;
+pub(crate) const STDERR_LINES: usize = 5;
 
 /// Why a run of the command produced no answer.
 #[derive(Debug, thiserror::Error)]
@@ -181,7 +181,7 @@ pub(crate) fn complete_text(bytes: &[u8]) -> &str {
 }
 
 /// The last `limit` bytes of `stderr`.
-async fn read_tail(stderr: Option<impl AsyncRead + Unpin>, limit: usize) -> Vec<u8> {
+pub(crate) async fn read_tail(stderr: Option<impl AsyncRead + Unpin>, limit: usize) -> Vec<u8> {
     let mut tail = Vec::new();
     let Some(mut stderr) = stderr else {
         return tail;
@@ -200,7 +200,7 @@ async fn read_tail(stderr: Option<impl AsyncRead + Unpin>, limit: usize) -> Vec<
 }
 
 /// The last `count` non-empty lines of `text`.
-fn tail_lines(text: &str, count: usize) -> String {
+pub(crate) fn tail_lines(text: &str, count: usize) -> String {
     let lines: Vec<&str> = text
         .lines()
         .filter(|line| !line.trim().is_empty())
@@ -211,17 +211,17 @@ fn tail_lines(text: &str, count: usize) -> String {
 /// Kills the process group of a command that has not finished when it is
 /// dropped. `kill_on_drop` reaches only the command itself; this reaches
 /// what it started.
-struct GroupGuard {
+pub(crate) struct GroupGuard {
     #[cfg_attr(not(unix), allow(dead_code))]
     pid: Option<u32>,
 }
 
 impl GroupGuard {
-    fn new(pid: Option<u32>) -> Self {
+    pub(crate) fn new(pid: Option<u32>) -> Self {
         Self { pid }
     }
 
-    fn disarm(&mut self) {
+    pub(crate) fn disarm(&mut self) {
         self.pid = None;
     }
 }

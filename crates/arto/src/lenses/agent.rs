@@ -30,7 +30,7 @@ const MAX_CONTEXT: usize = 131_072;
 
 /// What an agent is told it is, in place of its own system prompt where it
 /// allows one.
-const SYSTEM_PROMPT: &str = "You transform Markdown for a reader. The message holds an \
+pub(crate) const SYSTEM_PROMPT: &str = "You transform Markdown for a reader. The message holds an \
     instruction and the text to work on. Follow the instruction exactly and write only what \
     it asks for: no preamble, no explanation, no code fence around the answer.";
 
@@ -41,8 +41,9 @@ pub(crate) enum OutputFormat {
     Text,
     /// Claude's `stream-json` events; the text is in the deltas.
     ClaudeStream,
-    /// Codex's JSONL events; the answer arrives whole, as the agent message.
-    CodexEvents,
+    /// What `codex app-server` wrote: JSON-RPC messages, the text in the
+    /// agent message's deltas.
+    CodexAppServer,
     /// Ollama's chat stream: one JSON object per line, the text in its
     /// message.
     OllamaChat,
@@ -140,6 +141,9 @@ fn context_for(message: &str) -> usize {
 pub(crate) enum Transport {
     /// A program, run with the request on stdin.
     Process { argv: Vec<String> },
+    /// `codex app-server`, asked in a thread of its own (see
+    /// [`super::app_server`]).
+    AppServer { argv: Vec<String> },
     /// A server, asked over HTTP.
     Server(Server),
 }
@@ -273,23 +277,22 @@ fn program_invocation(
             OutputFormat::ClaudeStream
         }
         _ => {
+            // Not `codex exec`: it reports the answer only once it is whole.
+            // The sandbox, the ephemeral thread and the system prompt are
+            // asked for when the thread starts (see `super::app_server`).
             argv.extend(
                 [
-                    "exec",
-                    "--json",
-                    "--ephemeral",
-                    "--skip-git-repo-check",
-                    "--sandbox",
-                    "read-only",
-                    "--ignore-user-config",
-                    "--ignore-rules",
-                    "--color",
-                    "never",
+                    "app-server",
                     // A read-only sandbox still lets the agent run commands
                     // that read files, and the document it is handed can ask
                     // it to — to read what lies beside the document and write
                     // it into the answer. A lens hands over text to be read,
-                    // so every tool is turned off.
+                    // so every tool is turned off, and so is what the user's
+                    // configuration could bring in besides.
+                    "--disable",
+                    "plugins",
+                    "--disable",
+                    "hooks",
                     "--disable",
                     "shell_tool",
                     "--disable",
@@ -308,15 +311,18 @@ fn program_invocation(
                 .map(String::from),
             );
             if let Some(model) = model {
-                argv.extend(["--model".to_string(), model.to_string()]);
+                // The value is read as TOML, whose basic strings JSON's are.
+                argv.extend(["-c".to_string(), format!("model={}", json!(model))]);
             }
-            // The message comes on stdin.
-            argv.push("-".to_string());
-            OutputFormat::CodexEvents
+            OutputFormat::CodexAppServer
         }
     };
+    let transport = match agent {
+        LensAgent::Claude => Transport::Process { argv },
+        _ => Transport::AppServer { argv },
+    };
     Invocation {
-        transport: Transport::Process { argv },
+        transport,
         format,
         input: Input::Message { prompt },
         path: search_path(program.parent()),
@@ -397,6 +403,9 @@ pub(crate) struct Decoder {
     /// How much of the output has been read, up to the last whole line.
     consumed: usize,
     answer: String,
+    /// The message whose deltas `answer` is made of, for an agent that
+    /// names them.
+    item: Option<String>,
     /// The answer as the agent reported it when it finished, which wins
     /// over what was pieced together from the stream.
     reported: Option<String>,
@@ -409,6 +418,7 @@ impl Decoder {
             format,
             consumed: 0,
             answer: String::new(),
+            item: None,
             reported: None,
             error: None,
         }
@@ -469,19 +479,7 @@ impl Decoder {
                     self.reported = text(&event["result"]);
                 }
             }
-            (OutputFormat::CodexEvents, Some("item.completed")) => {
-                if event["item"]["type"] == "agent_message" {
-                    if let Some(message) = text(&event["item"]["text"]) {
-                        self.answer = message;
-                    }
-                }
-            }
-            (OutputFormat::CodexEvents, Some("turn.failed")) => {
-                self.error = text(&event["error"]["message"]).or(Some("codex failed".to_string()));
-            }
-            (OutputFormat::CodexEvents, Some("error")) => {
-                self.error = text(&event["message"]).or(Some("codex failed".to_string()));
-            }
+            (OutputFormat::CodexAppServer, _) => self.read_app_server_message(&event),
             (OutputFormat::OllamaChat, _) => {
                 if let Some(error) = text(&event["error"]) {
                     self.error = Some(error);
@@ -501,6 +499,45 @@ impl Decoder {
                     // A server that does not stream answers whole.
                     self.reported = Some(content);
                 }
+            }
+            _ => {}
+        }
+    }
+
+    fn read_app_server_message(&mut self, message: &Value) {
+        let params = &message["params"];
+        let failure = |error: &Value| {
+            error["message"]
+                .as_str()
+                .unwrap_or("codex failed")
+                .to_string()
+        };
+        match message["method"].as_str() {
+            Some("item/agentMessage/delta") => {
+                // Only the last message is the answer, as `item/completed`
+                // says; one that came before it is not carried into it.
+                let item = params["itemId"].as_str().unwrap_or_default();
+                if self.item.as_deref() != Some(item) {
+                    self.item = Some(item.to_string());
+                    self.answer.clear();
+                }
+                self.answer
+                    .push_str(params["delta"].as_str().unwrap_or_default());
+            }
+            Some("item/completed") if params["item"]["type"] == "agentMessage" => {
+                if let Some(text) = params["item"]["text"].as_str() {
+                    self.reported = Some(text.to_string());
+                }
+            }
+            Some("turn/completed") if params["turn"]["status"] == "failed" => {
+                self.error = Some(failure(&params["turn"]["error"]));
+            }
+            Some("error") if params["willRetry"] != true => {
+                self.error = Some(failure(&params["error"]));
+            }
+            // A request the server refused.
+            None if message.get("error").is_some() => {
+                self.error = Some(failure(&message["error"]));
             }
             _ => {}
         }
@@ -586,23 +623,31 @@ mod tests {
     }
 
     #[test]
-    fn codex_runs_read_only_and_reads_stdin() {
+    fn codex_is_asked_through_its_app_server_with_its_tools_off() {
         let run = invocation(&lens(Some(LensAgent::Codex), None));
-        let argv = argv(&run);
-        assert_eq!(&argv[1..3], ["exec", "--json"]);
-        let sandbox = argv.iter().position(|arg| arg == "--sandbox").unwrap();
-        assert_eq!(argv[sandbox + 1], "read-only");
+        let Transport::AppServer { argv } = &run.transport else {
+            panic!("not the app server: {:?}", run.transport);
+        };
+        assert_eq!(argv[1], "app-server");
         let disabled: Vec<&str> = argv
             .windows(2)
             .filter(|pair| pair[0] == "--disable")
             .map(|pair| pair[1].as_str())
             .collect();
-        for tool in ["shell_tool", "unified_exec"] {
+        for tool in ["shell_tool", "unified_exec", "plugins", "hooks"] {
             assert!(disabled.contains(&tool), "{tool} is left on: {argv:?}");
         }
-        assert!(!argv.iter().any(|arg| arg == "--model"));
-        assert_eq!(argv.last().map(String::as_str), Some("-"));
-        assert_eq!(run.format, OutputFormat::CodexEvents);
+        assert!(!argv.iter().any(|arg| arg.starts_with("model=")));
+        assert_eq!(run.format, OutputFormat::CodexAppServer);
+    }
+
+    #[test]
+    fn codex_is_given_the_model_as_a_toml_string() {
+        let run = invocation(&lens(Some(LensAgent::Codex), Some("gpt-5.5")));
+        let Transport::AppServer { argv } = &run.transport else {
+            panic!("not the app server: {:?}", run.transport);
+        };
+        assert_eq!(&argv[argv.len() - 2..], ["-c", r#"model="gpt-5.5""#]);
     }
 
     #[test]
@@ -769,43 +814,73 @@ mod tests {
         );
     }
 
-    /// What `codex exec --json` wrote for a short answer.
-    const CODEX_EVENTS: &str = concat!(
-        r#"{"type":"thread.started","thread_id":"t"}"#,
+    /// What `codex app-server` wrote for a short answer, cut to the messages
+    /// that matter and a few that do not.
+    const CODEX_APP_SERVER: &str = concat!(
+        r#"{"id":1,"result":{"userAgent":"codex"}}"#,
         "\n",
-        r#"{"type":"turn.started"}"#,
+        r#"{"method":"thread/started","params":{"thread":{"id":"t"}}}"#,
         "\n",
-        r#"{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"thinking"}}"#,
+        r#"{"method":"item/started","params":{"item":{"type":"reasoning","id":"rs_1"}}}"#,
         "\n",
-        r#"{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"The sea whispers.\nWaves answer."}}"#,
+        r##"{"method":"item/agentMessage/delta","params":{"threadId":"t","turnId":"u","itemId":"msg_1","delta":"# 見出"}}"##,
         "\n",
-        r#"{"type":"turn.completed","usage":{"input_tokens":1,"output_tokens":1}}"#,
+        r#"{"method":"item/agentMessage/delta","params":{"threadId":"t","turnId":"u","itemId":"msg_1","delta":"し\n\n本文。"}}"#,
+        "\n",
+        r##"{"method":"item/completed","params":{"item":{"type":"agentMessage","id":"msg_1","text":"# 見出し\n\n本文。","phase":"final_answer"}}}"##,
+        "\n",
+        r#"{"method":"turn/completed","params":{"threadId":"t","turn":{"id":"u","status":"completed","error":null}}}"#,
         "\n",
     );
 
     #[test]
-    fn codex_answers_with_its_message() {
-        let mut decoder = Decoder::new(OutputFormat::CodexEvents);
+    fn codex_answers_as_its_deltas_arrive() {
+        let mut decoder = Decoder::new(OutputFormat::CodexAppServer);
+        let line_end = |n: usize| CODEX_APP_SERVER.match_indices('\n').nth(n).unwrap().0 + 1;
+        assert_eq!(decoder.feed(&CODEX_APP_SERVER[..line_end(2)]), "");
+        assert_eq!(decoder.feed(&CODEX_APP_SERVER[..line_end(3)]), "# 見出");
         assert_eq!(
-            decoder.feed(CODEX_EVENTS),
-            "The sea whispers.\nWaves answer."
-        );
-        assert_eq!(
-            decoder.finish(CODEX_EVENTS).as_deref(),
-            Ok("The sea whispers.\nWaves answer.")
+            decoder.finish(CODEX_APP_SERVER).as_deref(),
+            Ok("# 見出し\n\n本文。")
         );
     }
 
     #[test]
-    fn codex_reports_a_failure() {
+    fn codex_answers_with_its_last_message_only() {
         let output = concat!(
-            r#"{"type":"turn.started"}"#,
+            r#"{"method":"item/agentMessage/delta","params":{"itemId":"a","delta":"Let me look."}}"#,
             "\n",
-            r#"{"type":"turn.failed","error":{"message":"stream disconnected"}}"#,
+            r#"{"method":"item/agentMessage/delta","params":{"itemId":"b","delta":"Answer"}}"#,
+            "\n",
         );
         assert_eq!(
-            Decoder::new(OutputFormat::CodexEvents).finish(output),
+            Decoder::new(OutputFormat::CodexAppServer)
+                .finish(output)
+                .as_deref(),
+            Ok("Answer")
+        );
+    }
+
+    #[test]
+    fn codex_reports_a_failed_turn_but_not_an_error_it_retries() {
+        let output = concat!(
+            r#"{"method":"error","params":{"error":{"message":"reconnecting"},"willRetry":true}}"#,
+            "\n",
+            r#"{"method":"turn/completed","params":{"turn":{"status":"failed","error":{"message":"stream disconnected"}}}}"#,
+            "\n",
+        );
+        assert_eq!(
+            Decoder::new(OutputFormat::CodexAppServer).finish(output),
             Err("stream disconnected".to_string())
+        );
+    }
+
+    #[test]
+    fn codex_reports_a_request_it_refused() {
+        let output = r#"{"id":3,"error":{"code":-32600,"message":"unknown model"}}"#;
+        assert_eq!(
+            Decoder::new(OutputFormat::CodexAppServer).finish(output),
+            Err("unknown model".to_string())
         );
     }
 

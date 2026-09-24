@@ -1,10 +1,10 @@
 //! Running a lens's command on its requests: a bounded number at a time,
 //! each answer handed on the moment it arrives.
 
-use super::agent::{ApiKey, Decoder, Input, Invocation, Transport};
-use super::http;
+use super::agent::{ApiKey, Decoder, Input, Invocation, Transport, SYSTEM_PROMPT};
 use super::job::{Job, Request};
 use super::runner;
+use super::{app_server, http};
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -43,6 +43,21 @@ impl Runner {
                     argv,
                     self.cwd.as_deref(),
                     invocation.path.as_deref(),
+                    &input,
+                    self.timeout,
+                    |written| on_output(decoder.feed(written)),
+                )
+                .await
+            }
+            Transport::AppServer { argv } => {
+                let thread = app_server::Thread {
+                    instructions: SYSTEM_PROMPT,
+                    cwd: self.cwd.as_deref(),
+                };
+                app_server::run(
+                    argv,
+                    invocation.path.as_deref(),
+                    thread,
                     &input,
                     self.timeout,
                     |written| on_output(decoder.feed(written)),

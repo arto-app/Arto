@@ -81,7 +81,7 @@ async fn look_up(source: &ModelSource) -> Result<Vec<String>, String> {
             let help = run(&invocation, argv, &["--help"]).await?;
             Ok(claude_models(&help))
         }
-        (Transport::Process { argv }, LensAgent::Codex) => {
+        (Transport::AppServer { argv }, LensAgent::Codex) => {
             let catalog = run(&invocation, argv, &["debug", "models"]).await?;
             codex_models(&catalog)
         }

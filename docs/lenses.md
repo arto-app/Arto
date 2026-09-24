@@ -166,7 +166,7 @@ would mark the block like any other note.
 | `agent` | Asked through | The answer arrives |
 | --- | --- | --- |
 | `claude` | `claude -p` with no tools, no MCP servers, no settings or hooks, no slash commands, and a short system prompt of Arto's own, so `CLAUDE.md` files near the document do not turn it into an agent | as it is written |
-| `codex` | `codex exec` with its tools turned off — no shell, no web search — a read-only sandbox, no user configuration or rules, and no session kept | whole, when it is done |
+| `codex` | `codex app-server` with its tools turned off — no shell, no web search — plugins, hooks and every MCP server its configuration names disabled, a read-only sandbox, a short system prompt of Arto's own, and no session kept | as it is written |
 | `ollama` | Ollama's own chat API, with the context sized to the request | as it is written |
 | `openai` | An OpenAI-compatible chat completions API: LM Studio, llama.cpp's server, vLLM, OpenAI, OpenRouter and the like | as it is written |
 
