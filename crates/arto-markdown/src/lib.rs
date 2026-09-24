@@ -164,6 +164,7 @@
 //! class and `frontend/src/code-copy.ts` adds the copy button to every
 //! `pre`.
 
+mod block;
 mod engine;
 mod frontmatter;
 mod headings;
@@ -172,6 +173,7 @@ mod options;
 mod post_process;
 mod sanitize;
 
+pub use block::*;
 pub use engine::*;
 pub use headings::*;
 pub use options::*;
@@ -273,6 +275,109 @@ pub fn render_to_html_with_toc(
     options: &RenderOptions,
 ) -> Result<RenderResult> {
     render(markdown.as_ref(), base_path.as_ref(), options, true)
+}
+
+/// Render Markdown that was not read from the file it is shown with — a
+/// translation of the whole document, a summary of a block — the way a
+/// document is rendered, frontmatter included.
+///
+/// The result carries no source ranges: they would point into the file, at
+/// text that is not what was rendered. Images resolve against `base_path`
+/// like the file's own.
+///
+/// Nothing in it is fetched from elsewhere: an image, a video poster or any
+/// other media from another host is dropped, leaving an image's alt text.
+/// What is rendered here was written by a model, and a document can talk a
+/// model into putting what it read into an image's address — which showing
+/// the answer would then send to whoever the address names, whichever agent
+/// the reader chose to keep the document to. A link stays, since it is only
+/// followed when clicked.
+pub fn render_detached(
+    markdown: impl AsRef<str>,
+    base_path: impl AsRef<Path>,
+    options: &RenderOptions,
+) -> Result<RenderResult> {
+    let mut rendered = render(markdown.as_ref(), base_path.as_ref(), options, false)?;
+    let local = match &options.images {
+        ImageResolution::Deferred { base_url } => Some(base_url.as_str()),
+        _ => None,
+    };
+    rendered.html = detach(&rendered.html, local);
+    Ok(rendered)
+}
+
+/// Whether `url` makes the page fetch something from another host: an
+/// absolute or protocol-relative address that is neither inline data nor
+/// under `local`, where the app serves images from.
+///
+/// Read the way a browser's URL parser reads it on a page served over
+/// http: tabs and newlines dropped, a backslash taken for a slash — so
+/// `\\host/x` is as protocol-relative as `//host/x`.
+fn is_remote(url: &str, local: Option<&str>) -> bool {
+    let url: String = url
+        .chars()
+        .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
+        .map(|c| if c == '\\' { '/' } else { c })
+        .collect();
+    let url = url.trim_matches(|c: char| c <= ' ');
+    if local.is_some_and(|local| url.starts_with(local)) {
+        return false;
+    }
+    if url.starts_with("//") {
+        return true;
+    }
+    match url.split_once(':') {
+        Some((scheme, _)) => {
+            let is_scheme = !scheme.is_empty()
+                && scheme
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'));
+            is_scheme && !scheme.eq_ignore_ascii_case("data")
+        }
+        None => false,
+    }
+}
+
+/// `html` without its `data-source-range` attributes, and without media
+/// fetched from anywhere but `local` (see [`render_detached`]).
+fn detach(html: &str, local: Option<&str>) -> String {
+    let fetches_elsewhere = |el: &lol_html::html_content::Element| {
+        let srcset = el.get_attribute("srcset").unwrap_or_default();
+        ["src", "poster", "data"]
+            .iter()
+            .filter_map(|name| el.get_attribute(name))
+            .chain(
+                srcset
+                    .split(',')
+                    .filter_map(|candidate| candidate.split_whitespace().next())
+                    .map(str::to_string),
+            )
+            .any(|url| is_remote(&url, local))
+    };
+    let settings = lol_html::Settings::new()
+        .append_element_content_handler(lol_html::element!("[data-source-range]", |el| {
+            el.remove_attribute("data-source-range");
+            Ok(())
+        }))
+        .append_element_content_handler(lol_html::element!(
+            "img, video, audio, source, track, picture, object, embed, input",
+            move |el| {
+                if fetches_elsewhere(el) {
+                    let alt = el.get_attribute("alt").unwrap_or_default();
+                    el.replace(&alt, lol_html::html_content::ContentType::Text);
+                }
+                Ok(())
+            }
+        ));
+    let mut output = Vec::new();
+    let mut rewriter = lol_html::HtmlRewriter::new(settings, |chunk: &[u8]| {
+        output.extend_from_slice(chunk);
+    });
+    let rewritten = rewriter.write(html.as_bytes()).and(rewriter.end());
+    match rewritten.map(|_| String::from_utf8(output)) {
+        Ok(Ok(html)) => html,
+        _ => html.to_string(),
+    }
 }
 
 fn render(
