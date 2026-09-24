@@ -8,6 +8,7 @@
 /// still in the DOM via document.contains(). If stale, rescan from .markdown-body.
 
 import { toElement } from "./scroll-controller";
+import { readSourceRange } from "./source-range";
 import { extractTableDelimited, formatTableAsMarkdown } from "./table-utils";
 
 const CURSOR_CLASS = "content-cursor-active";
@@ -390,9 +391,9 @@ export function getLinkHref(): string {
 export function getSourceLineRange(): [number, number] | null {
   const el = getCurrentElement();
   if (!el || !(el instanceof HTMLElement)) return null;
-  const range = readSourceLineRange(el);
-  if (range.start === null) return null;
-  return [range.start, range.end ?? range.start];
+  const range = readSourceRange(el);
+  if (!range) return null;
+  return [range.start.line, range.end.line];
 }
 
 export function getCurrentElement(): Element | null {
@@ -432,17 +433,6 @@ function extractLanguage(codeEl: Element): string | null {
     }
   }
   return null;
-}
-
-function readSourceLineRange(el: HTMLElement): { start: number | null; end: number | null } {
-  const s = el.dataset.sourceLine;
-  const e = el.dataset.sourceLineEnd;
-  const startVal = s !== undefined ? parseInt(s, 10) : NaN;
-  const endVal = e !== undefined ? parseInt(e, 10) : NaN;
-  return {
-    start: !isNaN(startVal) ? startVal : null,
-    end: !isNaN(endVal) ? endVal : null,
-  };
 }
 
 // extractTableDelimited, escapeDelimitedField, formatTableAsMarkdown

@@ -21,7 +21,7 @@
 //!    `mermaid` and `math` blocks and `$…$` expressions by the
 //!    `preprocessed-*` containers described below. A second pass over the
 //!    rendered HTML turns the byte range on each block element into the
-//!    `data-source-line` attributes described below, gives GitHub alerts
+//!    `data-source-range` described below, gives GitHub alerts
 //!    the class names GitHub uses, and keeps the heading
 //!    ids when a table of contents was requested.
 //! 3. **Post-processing** with lol_html: local images are inlined as data
@@ -29,24 +29,40 @@
 //!
 //! # HTML contract
 //!
-//! ## Source lines
+//! ## Source ranges
 //!
-//! Block elements carry `data-source-line="N"`, the 1-based line of the
-//! file where the block starts: `p`, `h1`–`h6`, `blockquote`, `hr`, `tr`
-//! and `div.markdown-alert`. Blocks that span several lines also carry
-//! `data-source-line-end="N"`: `ul`, `ol`, `li`, `table`, `pre` and
-//! `div.preprocessed-math-display`. Code blocks additionally carry
-//! `data-source-line-start="N"`, the line their content starts on (the
-//! line after the fence, or the same line for an indented block), so the
-//! frontend can count newlines inside `<code>` down to the exact line.
+//! Every element rendered from a block of the source carries
+//! `data-source-range="L:C-L:C"`, the range of the file it was rendered from:
+//! paragraphs, headings, quotes and alerts, lists and their items, tables
+//! down to each cell, rules, code blocks, definition lists, footnote
+//! definitions and the Mermaid and math containers. Elements the pipeline
+//! makes up, such as an alert's title, carry none.
 //!
-//! The numbers are not monotonic in document order: footnote definitions
+//! Lines and columns are 1-based, lines count through the whole file
+//! (frontmatter included) and columns count Unicode code points, so the
+//! range reads the way an editor shows it. Both ends are inclusive: the end
+//! is the last character of the block, not the one after it.
+//!
+//! A range is the source the element shows, without surrounding
+//! whitespace: a table cell starts after the padding inside its pipes, and
+//! an alert's body starts after the `[!KIND]` marker. It is a span of the
+//! file, so a block nested in a quote or a list keeps that container's
+//! markers on every line after its first.
+//!
+//! A code block's `<code>` carries the range of its content — from the
+//! first column of the line after the opening fence, or of the first line
+//! of an indented block, even when that line is blank — so the frontend can
+//! count the newlines inside `<code>` down to the exact line. A code block
+//! with no content has no range on its `<code>`.
+//!
+//! The ranges are not monotonic in document order: footnote definitions
 //! are moved to the section at the end while keeping the lines they were
 //! written on, so that section reports lines from the middle of the file.
 //!
-//! Readers: `frontend/src/context-menu-handler.ts` (copy path with line)
-//! and `frontend/src/content-cursor.ts` (keyboard cursor) resolve line
-//! ranges from these; the app receives the range through
+//! Readers: `frontend/src/source-range.ts` parses the attribute for
+//! `frontend/src/context-menu-handler.ts` (copy path with line),
+//! `frontend/src/content-cursor.ts` (keyboard cursor) and
+//! `frontend/src/scroll-anchor.ts`; the app receives the range through
 //! `crates/arto/src/components/content/context_menu/data.rs` and turns it
 //! back into text in `crates/arto/src/utils/source_lines.rs`.
 //!
@@ -298,9 +314,9 @@ mod tests {
             .unwrap()
             .html;
 
-        assert!(result.contains("<h1 data-source-line="));
+        assert!(result.contains("<h1 data-source-range="));
         assert!(result.contains("Hello"));
-        assert!(result.contains("<p data-source-line="));
+        assert!(result.contains("<p data-source-range="));
         assert!(result.contains("This is a test."));
     }
 
@@ -446,7 +462,7 @@ mod tests {
             .html;
 
         assert!(
-            result.contains("<h1 data-source-line="),
+            result.contains("<h1 data-source-range="),
             "Should render heading"
         );
         assert!(
@@ -531,8 +547,8 @@ mod tests {
             "H2 should have id attribute"
         );
         assert!(
-            html.contains("data-source-line="),
-            "Headings should have source line attributes"
+            html.contains("data-source-range="),
+            "Headings should have source ranges"
         );
     }
 
@@ -597,490 +613,6 @@ mod tests {
         assert_eq!(headings.len(), 2);
         assert_eq!(headings[0].text, "Heading 1");
         assert_eq!(headings[1].text, "Heading 2");
-    }
-
-    // ========================================================================
-    // Source line annotation integration tests
-    // ========================================================================
-
-    #[test]
-    fn test_source_line_basic_elements() {
-        let markdown = indoc! {"
-            # Heading
-
-            Paragraph text.
-
-            - item1
-            - item2
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(r#"<h1 data-source-line="1">"#),
-            "Heading should be on line 1: {result}"
-        );
-        assert!(
-            result.contains(r#"<p data-source-line="3">"#),
-            "Paragraph should be on line 3: {result}"
-        );
-        assert!(
-            result.contains(r#"<ul data-source-line="5""#),
-            "List should be on line 5: {result}"
-        );
-        assert!(
-            result.contains(r#"<li data-source-line="5""#),
-            "First item should be on line 5: {result}"
-        );
-        assert!(
-            result.contains(r#"<li data-source-line="6""#),
-            "Second item should be on line 6: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_with_frontmatter() {
-        let markdown = indoc! {"
-            ---
-            title: Test
-            ---
-
-            # Heading
-
-            Content here.
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(r#"<h1 data-source-line="5">"#),
-            "Heading should be on line 5 (after frontmatter): {result}"
-        );
-        assert!(
-            result.contains(r#"<p data-source-line="7">"#),
-            "Paragraph should be on line 7: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_code_block() {
-        let markdown = indoc! {"
-            # Title
-
-            ```rust
-            fn main() {}
-            ```
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(
-                r#"<pre data-source-line="3" data-source-line-end="5" data-source-line-start="4"><code class="language-rust">"#
-            ),
-            "Code block should be on line 3 with content starting at line 4: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_code_block_multiline() {
-        let markdown = indoc! {"
-            ```rust
-            fn main() {
-                println!();
-            }
-            ```
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(
-                r#"<pre data-source-line="1" data-source-line-end="5" data-source-line-start="2">"#
-            ),
-            "Code block should start at line 1 with content at line 2: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_blockquote() {
-        let markdown = indoc! {"
-            # Title
-
-            > This is a quote
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(r#"<blockquote data-source-line="3">"#),
-            "Blockquote should be on line 3: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_hr() {
-        let markdown = indoc! {"
-            Above
-
-            ---
-
-            Below
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(r#"<hr data-source-line="3">"#),
-            "HR should be on line 3: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_ordered_list() {
-        let markdown = indoc! {"
-            1. first
-            2. second
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(r#"<ol data-source-line="1""#),
-            "Ordered list should be on line 1: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_table() {
-        let markdown = indoc! {"
-            | A | B |
-            |---|---|
-            | 1 | 2 |
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(r#"data-source-line="1""#),
-            "Table should have source line: {result}"
-        );
-        assert!(
-            result.contains(r#"data-source-line-end="3""#),
-            "Table should have source line end: {result}"
-        );
-        assert!(result.contains("<th"), "Table head should render: {result}");
-        assert!(result.contains("<td"), "Table data should render: {result}");
-        assert!(
-            result.contains(r#"<tr data-source-line="#),
-            "Table rows should have source line: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_table_multirow() {
-        let markdown = indoc! {"
-            | A | B |
-            |---|---|
-            | 1 | 2 |
-            | 3 | 4 |
-            | 5 | 6 |
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(r#"<tr data-source-line="3">"#),
-            "First body row should be line 3: {result}"
-        );
-        assert!(
-            result.contains(r#"<tr data-source-line="4">"#),
-            "Second body row should be line 4: {result}"
-        );
-        assert!(
-            result.contains(r#"<tr data-source-line="5">"#),
-            "Third body row should be line 5: {result}"
-        );
-        assert!(
-            result.contains(r#"data-source-line-end="5""#),
-            "Table should span to line 5: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_alert_content() {
-        let markdown = indoc! {"
-            > [!NOTE]
-            > This is a note
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(r#"data-source-line="1""#),
-            "Alert div should have source line 1: {result}"
-        );
-        assert!(
-            result.contains(r#"<p data-source-line="2">"#),
-            "Alert content paragraph should have source line 2: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_after_alert() {
-        let markdown = indoc! {"
-            > [!NOTE]
-            > This is a note
-
-            # Heading After Alert
-
-            Paragraph after alert.
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(r#"<h1 data-source-line="4">"#),
-            "Heading after alert should be on line 4: {result}"
-        );
-        assert!(
-            result.contains(r#"<p data-source-line="6">"#),
-            "Paragraph after alert should be on line 6: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_code_block_after_alert() {
-        let markdown = indoc! {"
-            > [!TIP]
-            > Some tip
-
-            ```rust
-            fn main() {}
-            ```
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(
-                r#"<pre data-source-line="4" data-source-line-end="6" data-source-line-start="5"><code class="language-rust">"#
-            ),
-            "Code block after alert should be on line 4 with content at line 5: {result}"
-        );
-    }
-
-    // ========================================================================
-    // Source line annotation tests for preprocessed blocks
-    // ========================================================================
-
-    #[test]
-    fn test_source_line_mermaid_block() {
-        let markdown = indoc! {"
-            # Title
-
-            ```mermaid
-            graph TD
-                A-->B
-            ```
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(r#"data-source-line="3""#),
-            "Mermaid block should have data-source-line: {result}"
-        );
-        assert!(
-            result.contains(r#"data-source-line-end="6""#),
-            "Mermaid block should have data-source-line-end: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_math_display() {
-        let markdown = indoc! {"
-            # Title
-
-            $$
-            x = \\frac{-b}{2a}
-            $$
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(r#"data-source-line="3""#),
-            "Display math should have data-source-line: {result}"
-        );
-        assert!(
-            result.contains(r#"data-source-line-end="5""#),
-            "Display math should have data-source-line-end: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_math_block() {
-        let markdown = indoc! {"
-            # Title
-
-            ```math
-            E = mc^2
-            ```
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(r#"data-source-line="3""#),
-            "Math code block should have data-source-line: {result}"
-        );
-        assert!(
-            result.contains(r#"data-source-line-end="5""#),
-            "Math code block should have data-source-line-end: {result}"
-        );
-    }
-
-    // ========================================================================
-    // New integration tests
-    // ========================================================================
-
-    #[test]
-    fn test_source_line_table_with_frontmatter() {
-        let markdown = indoc! {"
-            ---
-            title: Test
-            ---
-
-            | A | B |
-            |---|---|
-            | 1 | 2 |
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        // Table starts on line 5 of original (after 4 frontmatter lines)
-        assert!(
-            result.contains(r#"<table data-source-line="5""#),
-            "Table should be on line 5 after frontmatter: {result}"
-        );
-        assert!(
-            result.contains(r#"data-source-line-end="7""#),
-            "Table should end on line 7: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_mermaid_after_alert() {
-        let markdown = indoc! {"
-            > [!NOTE]
-            > Some note
-
-            ```mermaid
-            graph TD
-                A-->B
-            ```
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        // Mermaid block starts on line 4 of original
-        assert!(
-            result.contains(r#"data-source-line="4""#),
-            "Mermaid block after alert should have correct source line: {result}"
-        );
-        assert!(
-            result.contains(r#"data-source-line-end="7""#),
-            "Mermaid block should have correct end line: {result}"
-        );
-    }
-
-    #[test]
-    fn test_source_line_multiple_tables() {
-        let markdown = indoc! {"
-            | A |
-            |---|
-            | 1 |
-
-            | X |
-            |---|
-            | Y |
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        // First table: lines 1-3
-        assert!(
-            result.contains(r#"<table data-source-line="1""#),
-            "First table should be on line 1: {result}"
-        );
-        assert!(
-            result.contains(r#"data-source-line-end="3""#),
-            "First table should end on line 3: {result}"
-        );
-        // Second table: lines 5-7
-        assert!(
-            result.contains(r#"<table data-source-line="5""#),
-            "Second table should be on line 5: {result}"
-        );
-        assert!(
-            result.contains(r#"data-source-line-end="7""#),
-            "Second table should end on line 7: {result}"
-        );
     }
 
     // ========================================================================
@@ -1161,15 +693,15 @@ mod tests {
         let result = render_with_autolink(markdown, &md_path, true);
 
         assert!(
-            result.contains(r#"<h1 data-source-line="1">"#),
+            result.contains(r#"<h1 data-source-range="1:1-1:7">"#),
             "Heading should be on line 1: {result}"
         );
         assert!(
-            result.contains(r#"<p data-source-line="3">"#),
+            result.contains(r#"<p data-source-range="3:1-3:19">"#),
             "URL paragraph should be on line 3: {result}"
         );
         assert!(
-            result.contains(r#"<p data-source-line="5">"#),
+            result.contains(r#"<p data-source-range="5:1-5:9">"#),
             "After paragraph should be on line 5: {result}"
         );
     }
@@ -1242,15 +774,15 @@ mod tests {
 
         // Verify correct source lines for each alert
         assert!(
-            result.contains(r#"data-source-line="1""#),
+            result.contains(r#"data-source-range="1:1-"#),
             "First alert should be on line 1: {result}"
         );
         assert!(
-            result.contains(r#"data-source-line="4""#),
+            result.contains(r#"data-source-range="4:1-"#),
             "Second alert should be on line 4: {result}"
         );
         assert!(
-            result.contains(r#"data-source-line="7""#),
+            result.contains(r#"data-source-range="7:1-"#),
             "Third alert should be on line 7: {result}"
         );
     }

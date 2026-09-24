@@ -3,220 +3,220 @@ source: crates/arto-markdown/tests/samples.rs
 expression: html
 input_file: samples/02-blocks.md
 ---
-<h1 data-source-line="1">Block Syntax</h1>
-<p data-source-line="3">Structure above the paragraph level. Previous: <span data-md-link="./01-inline.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Inline syntax</span>.</p>
-<h2 data-source-line="5">Headings</h2>
-<h1 data-source-line="7">Level 1</h1>
-<h2 data-source-line="8">Level 2</h2>
-<h3 data-source-line="9">Level 3</h3>
-<h4 data-source-line="10">Level 4</h4>
-<h5 data-source-line="11">Level 5</h5>
-<h6 data-source-line="12">Level 6</h6>
-<h1 data-source-line="14">Setext heading level 1</h1>
-<h2 data-source-line="17">Setext heading level 2</h2>
-<h3 data-source-line="20">Heading with <code>code</code>, <strong>bold</strong>, and a <span data-md-link="./README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">link</span></h3>
-<h3 data-source-line="22">日本語の見出し</h3>
-<h3 data-source-line="24">Repeated Title</h3>
-<h3 data-source-line="26">Repeated Title</h3>
-<p data-source-line="28"><strong>Expected:</strong> six sizes, the two setext headings match levels 1 and 2, inline
+<h1 data-source-range="1:1-1:14">Block Syntax</h1>
+<p data-source-range="3:1-3:79">Structure above the paragraph level. Previous: <span data-md-link="./01-inline.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Inline syntax</span>.</p>
+<h2 data-source-range="5:1-5:11">Headings</h2>
+<h1 data-source-range="7:1-7:9">Level 1</h1>
+<h2 data-source-range="8:1-8:10">Level 2</h2>
+<h3 data-source-range="9:1-9:11">Level 3</h3>
+<h4 data-source-range="10:1-10:12">Level 4</h4>
+<h5 data-source-range="11:1-11:13">Level 5</h5>
+<h6 data-source-range="12:1-12:14">Level 6</h6>
+<h1 data-source-range="14:1-15:22">Setext heading level 1</h1>
+<h2 data-source-range="17:1-18:22">Setext heading level 2</h2>
+<h3 data-source-range="20:1-20:60">Heading with <code>code</code>, <strong>bold</strong>, and a <span data-md-link="./README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">link</span></h3>
+<h3 data-source-range="22:1-22:11">日本語の見出し</h3>
+<h3 data-source-range="24:1-24:18">Repeated Title</h3>
+<h3 data-source-range="26:1-26:18">Repeated Title</h3>
+<p data-source-range="28:1-33:50"><strong>Expected:</strong> six sizes, the two setext headings match levels 1 and 2, inline
 formatting inside headings is applied, and the table of contents lists every
 heading here including the Japanese one and both “Repeated Title” entries.
 Clicking either “Repeated Title” in the table of contents scrolls to the right
 one. Whether clicking the Japanese heading scrolls depends on the engine: an
 anchor made only of ASCII letters is empty for it.</p>
-<h2 data-source-line="35">Paragraphs</h2>
-<p data-source-line="37">A paragraph is one or more lines of text.
+<h2 data-source-range="35:1-35:13">Paragraphs</h2>
+<p data-source-range="37:1-38:47">A paragraph is one or more lines of text.
 Consecutive lines belong to the same paragraph.</p>
-<p data-source-line="40">A blank line starts a new paragraph. Leading spaces   are collapsed,
+<p data-source-range="40:1-41:49">A blank line starts a new paragraph. Leading spaces   are collapsed,
 and trailing spaces on the last line are ignored.</p>
-<p data-source-line="43"><strong>Expected:</strong> two paragraphs; the internal spacing is single spaces.</p>
-<h2 data-source-line="45">Block quotes</h2>
-<blockquote data-source-line="47">
-<p data-source-line="47">A single-line quote.</p>
+<p data-source-range="43:1-43:68"><strong>Expected:</strong> two paragraphs; the internal spacing is single spaces.</p>
+<h2 data-source-range="45:1-45:15">Block quotes</h2>
+<blockquote data-source-range="47:1-47:22">
+<p data-source-range="47:3-47:22">A single-line quote.</p>
 </blockquote>
-<blockquote data-source-line="49">
-<p data-source-line="49">A quote with <strong>formatting</strong>, <code>code</code>, and a <span data-md-link="./README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">link</span>.
+<blockquote data-source-range="49:1-52:39">
+<p data-source-range="49:3-50:47">A quote with <strong>formatting</strong>, <code>code</code>, and a <span data-md-link="./README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">link</span>.
 The second line continues the same paragraph.</p>
-<p data-source-line="52">A second paragraph in the same quote.</p>
+<p data-source-range="52:3-52:39">A second paragraph in the same quote.</p>
 </blockquote>
-<blockquote data-source-line="54">
-<p data-source-line="54">Lazy continuation: this line starts with the marker
+<blockquote data-source-range="54:1-55:54">
+<p data-source-range="54:3-55:54">Lazy continuation: this line starts with the marker
 and this one does not, but still belongs to the quote.</p>
 </blockquote>
-<blockquote data-source-line="57">
-<p data-source-line="57">Level 1</p>
-<blockquote data-source-line="58">
-<p data-source-line="58">Level 2</p>
-<blockquote data-source-line="59">
-<p data-source-line="59">Level 3</p>
+<blockquote data-source-range="57:1-59:11">
+<p data-source-range="57:3-57:9">Level 1</p>
+<blockquote data-source-range="58:2-59:11">
+<p data-source-range="58:4-58:10">Level 2</p>
+<blockquote data-source-range="59:3-59:11">
+<p data-source-range="59:5-59:11">Level 3</p>
 </blockquote>
 </blockquote>
 </blockquote>
-<blockquote data-source-line="61">
-<p data-source-line="61">A quote containing other blocks:</p>
-<ul data-source-line="63" data-source-line-end="64">
-<li data-source-line="63" data-source-line-end="63">a list item</li>
-<li data-source-line="64" data-source-line-end="64">another one</li>
+<blockquote data-source-range="61:1-72:11">
+<p data-source-range="61:3-61:34">A quote containing other blocks:</p>
+<ul data-source-range="63:3-64:15">
+<li data-source-range="63:3-63:15">a list item</li>
+<li data-source-range="64:3-64:15">another one</li>
 </ul>
-<pre data-source-line="66" data-source-line-end="68" data-source-line-start="67"><code class="language-rust">fn quoted() {}
+<pre data-source-range="66:3-68:5"><code data-source-range="67:1-67:16" class="language-rust">fn quoted() {}
 </code></pre>
-<table data-source-line="70" data-source-line-end="72">
+<table data-source-range="70:3-72:11">
 <thead>
-<tr data-source-line="70">
-<th>a</th>
-<th>b</th>
+<tr data-source-range="70:3-70:11">
+<th data-source-range="70:5-70:5">a</th>
+<th data-source-range="70:9-70:9">b</th>
 </tr>
 </thead>
 <tbody>
-<tr data-source-line="72">
-<td>1</td>
-<td>2</td>
+<tr data-source-range="72:3-72:11">
+<td data-source-range="72:5-72:5">1</td>
+<td data-source-range="72:9-72:9">2</td>
 </tr>
 </tbody>
 </table>
 </blockquote>
-<p data-source-line="74"><strong>Expected:</strong> a vertical bar on the left of every quote; three nested bars for
+<p data-source-range="74:1-75:77"><strong>Expected:</strong> a vertical bar on the left of every quote; three nested bars for
 the nested one; the list, code block, and table render inside the last quote.</p>
-<h2 data-source-line="77">Lists</h2>
-<h3 data-source-line="79">Unordered</h3>
-<ul data-source-line="81" data-source-line-end="86">
-<li data-source-line="81" data-source-line-end="81">Hyphen marker</li>
-<li data-source-line="82" data-source-line-end="85">Second item
-<ul data-source-line="83" data-source-line-end="85">
-<li data-source-line="83" data-source-line-end="83">Nested with two spaces</li>
-<li data-source-line="84" data-source-line-end="85">Another nested item
-<ul data-source-line="85" data-source-line-end="85">
-<li data-source-line="85" data-source-line-end="85">Third level</li>
+<h2 data-source-range="77:1-77:8">Lists</h2>
+<h3 data-source-range="79:1-79:13">Unordered</h3>
+<ul data-source-range="81:1-86:25">
+<li data-source-range="81:1-81:15">Hyphen marker</li>
+<li data-source-range="82:1-85:17">Second item
+<ul data-source-range="83:3-85:17">
+<li data-source-range="83:3-83:26">Nested with two spaces</li>
+<li data-source-range="84:3-85:17">Another nested item
+<ul data-source-range="85:5-85:17">
+<li data-source-range="85:5-85:17">Third level</li>
 </ul>
 </li>
 </ul>
 </li>
-<li data-source-line="86" data-source-line-end="86">Back to the first level</li>
+<li data-source-range="86:1-86:25">Back to the first level</li>
 </ul>
-<ul data-source-line="88" data-source-line-end="89">
-<li data-source-line="88" data-source-line-end="88">Asterisk marker</li>
-<li data-source-line="89" data-source-line-end="89">Second item</li>
+<ul data-source-range="88:1-89:13">
+<li data-source-range="88:1-88:17">Asterisk marker</li>
+<li data-source-range="89:1-89:13">Second item</li>
 </ul>
-<ul data-source-line="91" data-source-line-end="92">
-<li data-source-line="91" data-source-line-end="91">Plus marker</li>
-<li data-source-line="92" data-source-line-end="92">Second item</li>
+<ul data-source-range="91:1-92:13">
+<li data-source-range="91:1-91:13">Plus marker</li>
+<li data-source-range="92:1-92:13">Second item</li>
 </ul>
-<p data-source-line="94"><strong>Expected:</strong> three separate lists (marker changes start a new list), bullets
+<p data-source-range="94:1-95:31"><strong>Expected:</strong> three separate lists (marker changes start a new list), bullets
 change style per nesting level.</p>
-<h3 data-source-line="97">Ordered</h3>
-<ol data-source-line="99" data-source-line-end="103">
-<li data-source-line="99" data-source-line-end="99">First</li>
-<li data-source-line="100" data-source-line-end="102">Second
-<ol data-source-line="101" data-source-line-end="102">
-<li data-source-line="101" data-source-line-end="101">Nested first</li>
-<li data-source-line="102" data-source-line-end="102">Nested second</li>
+<h3 data-source-range="97:1-97:11">Ordered</h3>
+<ol data-source-range="99:1-103:8">
+<li data-source-range="99:1-99:8">First</li>
+<li data-source-range="100:1-102:19">Second
+<ol data-source-range="101:4-102:19">
+<li data-source-range="101:4-101:18">Nested first</li>
+<li data-source-range="102:4-102:19">Nested second</li>
 </ol>
 </li>
-<li data-source-line="103" data-source-line-end="103">Third</li>
+<li data-source-range="103:1-103:8">Third</li>
 </ol>
-<ol start="3" data-source-line="105" data-source-line-end="107">
-<li data-source-line="105" data-source-line-end="105">Starts at three with a parenthesis</li>
-<li data-source-line="106" data-source-line-end="106">Four</li>
-<li data-source-line="107" data-source-line-end="107">Five</li>
+<ol start="3" data-source-range="105:1-107:7">
+<li data-source-range="105:1-105:37">Starts at three with a parenthesis</li>
+<li data-source-range="106:1-106:7">Four</li>
+<li data-source-range="107:1-107:7">Five</li>
 </ol>
-<p data-source-line="109"><strong>Expected:</strong> the second list starts at 3.</p>
-<h3 data-source-line="111">Loose and tight</h3>
-<ul data-source-line="113" data-source-line-end="118">
-<li data-source-line="113" data-source-line-end="113"><p data-source-line="113">Tight item one</p>
+<p data-source-range="109:1-109:42"><strong>Expected:</strong> the second list starts at 3.</p>
+<h3 data-source-range="111:1-111:19">Loose and tight</h3>
+<ul data-source-range="113:1-118:16">
+<li data-source-range="113:1-113:16"><p data-source-range="113:3-113:16">Tight item one</p>
 </li>
-<li data-source-line="114" data-source-line-end="114"><p data-source-line="114">Tight item two</p>
+<li data-source-range="114:1-114:16"><p data-source-range="114:3-114:16">Tight item two</p>
 </li>
-<li data-source-line="116" data-source-line-end="116"><p data-source-line="116">Loose item one</p>
+<li data-source-range="116:1-116:16"><p data-source-range="116:3-116:16">Loose item one</p>
 </li>
-<li data-source-line="118" data-source-line-end="118"><p data-source-line="118">Loose item two</p>
+<li data-source-range="118:1-118:16"><p data-source-range="118:3-118:16">Loose item two</p>
 </li>
 </ul>
-<p data-source-line="120"><strong>Expected:</strong> the second list has vertical space between its items; the first
+<p data-source-range="120:1-121:9"><strong>Expected:</strong> the second list has vertical space between its items; the first
 does not.</p>
-<h3 data-source-line="123">Items containing blocks</h3>
-<ol data-source-line="125" data-source-line-end="139">
-<li data-source-line="125" data-source-line-end="137"><p data-source-line="125">A paragraph item.</p>
-<p data-source-line="127">A second paragraph inside the same item.</p>
-<pre data-source-line="129" data-source-line-end="131" data-source-line-start="130"><code class="language-bash">echo &quot;code inside a list item&quot;
+<h3 data-source-range="123:1-123:27">Items containing blocks</h3>
+<ol data-source-range="125:1-139:35">
+<li data-source-range="125:1-137:20"><p data-source-range="125:4-125:20">A paragraph item.</p>
+<p data-source-range="127:4-127:43">A second paragraph inside the same item.</p>
+<pre data-source-range="129:4-131:6"><code data-source-range="130:1-130:33" class="language-bash">echo &quot;code inside a list item&quot;
 </code></pre>
-<blockquote data-source-line="133">
-<p data-source-line="133">A quote inside a list item.</p>
+<blockquote data-source-range="133:4-133:32">
+<p data-source-range="133:6-133:32">A quote inside a list item.</p>
 </blockquote>
-<table data-source-line="135" data-source-line-end="137">
+<table data-source-range="135:4-137:20">
 <thead>
-<tr data-source-line="135">
-<th>inside</th>
-<th>list</th>
+<tr data-source-range="135:4-135:20">
+<th data-source-range="135:6-135:11">inside</th>
+<th data-source-range="135:15-135:18">list</th>
 </tr>
 </thead>
 <tbody>
-<tr data-source-line="137">
-<td>a</td>
-<td>b</td>
+<tr data-source-range="137:4-137:20">
+<td data-source-range="137:6-137:6">a</td>
+<td data-source-range="137:15-137:15">b</td>
 </tr>
 </tbody>
 </table>
 </li>
-<li data-source-line="139" data-source-line-end="139"><p data-source-line="139">The next item, still numbered 2.</p>
+<li data-source-range="139:1-139:35"><p data-source-range="139:4-139:35">The next item, still numbered 2.</p>
 </li>
 </ol>
-<p data-source-line="141"><strong>Expected:</strong> everything between the two numbers is indented to the item’s
+<p data-source-range="141:1-142:41"><strong>Expected:</strong> everything between the two numbers is indented to the item’s
 text, and the numbering continues with 2.</p>
-<h3 data-source-line="144">Task lists</h3>
-<ul data-source-line="146" data-source-line-end="151">
-<li data-source-line="146" data-source-line-end="146"><input type="checkbox" checked disabled> Done</li>
-<li data-source-line="147" data-source-line-end="147"><input type="checkbox" disabled> Not done</li>
-<li data-source-line="148" data-source-line-end="150"><input type="checkbox" checked disabled> Done with <strong>bold</strong> and <code>code</code>
-<ul data-source-line="149" data-source-line-end="150">
-<li data-source-line="149" data-source-line-end="149"><input type="checkbox" disabled> Nested task</li>
-<li data-source-line="150" data-source-line-end="150"><input type="checkbox" checked disabled> Nested done task</li>
+<h3 data-source-range="144:1-144:14">Task lists</h3>
+<ul data-source-range="146:1-151:21">
+<li data-source-range="146:1-146:10"><input type="checkbox" checked disabled> Done</li>
+<li data-source-range="147:1-147:14"><input type="checkbox" disabled> Not done</li>
+<li data-source-range="148:1-150:24"><input type="checkbox" checked disabled> Done with <strong>bold</strong> and <code>code</code>
+<ul data-source-range="149:3-150:24">
+<li data-source-range="149:3-149:19"><input type="checkbox" disabled> Nested task</li>
+<li data-source-range="150:3-150:24"><input type="checkbox" checked disabled> Nested done task</li>
 </ul>
 </li>
-<li data-source-line="151" data-source-line-end="151"><input type="checkbox" disabled> <del>Struck</del> task</li>
+<li data-source-range="151:1-151:21"><input type="checkbox" disabled> <del>Struck</del> task</li>
 </ul>
-<p data-source-line="153"><strong>Expected:</strong> checkboxes instead of bullets, checked where marked, and the
+<p data-source-range="153:1-154:29"><strong>Expected:</strong> checkboxes instead of bullets, checked where marked, and the
 checkboxes are not clickable.</p>
-<h2 data-source-line="156">Horizontal rules</h2>
-<p data-source-line="158">Three markers render the same rule:</p>
-<hr data-source-line="160">
-<hr data-source-line="162">
-<hr data-source-line="164">
-<p data-source-line="166"><strong>Expected:</strong> three identical horizontal lines.</p>
-<h2 data-source-line="168">Code blocks</h2>
-<h3 data-source-line="170">Fenced with a language</h3>
-<pre data-source-line="172" data-source-line-end="178" data-source-line-start="173"><code class="language-rust">fn main() {
+<h2 data-source-range="156:1-156:19">Horizontal rules</h2>
+<p data-source-range="158:1-158:35">Three markers render the same rule:</p>
+<hr data-source-range="160:1-160:3">
+<hr data-source-range="162:1-162:3">
+<hr data-source-range="164:1-164:3">
+<p data-source-range="166:1-166:47"><strong>Expected:</strong> three identical horizontal lines.</p>
+<h2 data-source-range="168:1-168:14">Code blocks</h2>
+<h3 data-source-range="170:1-170:26">Fenced with a language</h3>
+<pre data-source-range="172:1-178:3"><code data-source-range="173:1-177:1" class="language-rust">fn main() {
     let numbers = vec![1, 2, 3, 4, 5];
     let sum: i32 = numbers.iter().sum();
     println!(&quot;Sum: {sum}&quot;);
 }
 </code></pre>
-<pre data-source-line="180" data-source-line-end="184" data-source-line-start="181"><code class="language-javascript">const greeting = (name) =&gt; {
+<pre data-source-range="180:1-184:3"><code data-source-range="181:1-183:2" class="language-javascript">const greeting = (name) =&gt; {
   console.log(`Hello, ${name}!`);
 };
 </code></pre>
-<pre data-source-line="186" data-source-line-end="193" data-source-line-start="187"><code class="language-python">def fibonacci(n):
+<pre data-source-range="186:1-193:3"><code data-source-range="187:1-192:23" class="language-python">def fibonacci(n):
     &quot;&quot;&quot;Generate Fibonacci sequence up to n terms.&quot;&quot;&quot;
     a, b = 0, 1
     for _ in range(n):
         yield a
         a, b = b, a + b
 </code></pre>
-<pre data-source-line="195" data-source-line-end="199" data-source-line-start="196"><code class="language-bash">#!/usr/bin/env bash
+<pre data-source-range="195:1-199:3"><code data-source-range="196:1-198:41" class="language-bash">#!/usr/bin/env bash
 set -euo pipefail
 cargo build --release &amp;&amp; cargo test --all
 </code></pre>
-<pre data-source-line="201" data-source-line-end="205" data-source-line-start="202"><code class="language-toml">[package]
+<pre data-source-range="201:1-205:3"><code data-source-range="202:1-204:16" class="language-toml">[package]
 name = &quot;arto&quot;
 edition = &quot;2021&quot;
 </code></pre>
-<pre data-source-line="207" data-source-line-end="209" data-source-line-start="208"><code class="language-json">{ &quot;name&quot;: &quot;arto&quot;, &quot;features&quot;: [&quot;async&quot;, &quot;serde&quot;], &quot;count&quot;: 3, &quot;ok&quot;: true }
+<pre data-source-range="207:1-209:3"><code data-source-range="208:1-208:74" class="language-json">{ &quot;name&quot;: &quot;arto&quot;, &quot;features&quot;: [&quot;async&quot;, &quot;serde&quot;], &quot;count&quot;: 3, &quot;ok&quot;: true }
 </code></pre>
-<pre data-source-line="211" data-source-line-end="216" data-source-line-start="212"><code class="language-yaml">title: Arto
+<pre data-source-range="211:1-216:3"><code data-source-range="212:1-215:12" class="language-yaml">title: Arto
 tags: [markdown, reader]
 nested:
   key: value
 </code></pre>
-<pre data-source-line="218" data-source-line-end="227" data-source-line-start="219"><code class="language-diff"> fn calculate_sum(numbers: &amp;[i32]) -&gt; i32 {
+<pre data-source-range="218:1-227:3"><code data-source-range="219:1-226:2" class="language-diff"> fn calculate_sum(numbers: &amp;[i32]) -&gt; i32 {
 -    let mut sum = 0;
 -    for num in numbers {
 -        sum += num;
@@ -225,251 +225,251 @@ nested:
 +    numbers.iter().sum()
  }
 </code></pre>
-<pre data-source-line="229" data-source-line-end="231" data-source-line-start="230"><code class="language-html">&lt;div class=&quot;card&quot;&gt;&lt;a href=&quot;#&quot;&gt;link&lt;/a&gt;&lt;/div&gt;
+<pre data-source-range="229:1-231:3"><code data-source-range="230:1-230:44" class="language-html">&lt;div class=&quot;card&quot;&gt;&lt;a href=&quot;#&quot;&gt;link&lt;/a&gt;&lt;/div&gt;
 </code></pre>
-<pre data-source-line="233" data-source-line-end="235" data-source-line-start="234"><code class="language-css">.card { color: tomato; border: 1px solid; }
+<pre data-source-range="233:1-235:3"><code data-source-range="234:1-234:43" class="language-css">.card { color: tomato; border: 1px solid; }
 </code></pre>
-<pre data-source-line="237" data-source-line-end="239" data-source-line-start="238"><code class="language-sql">SELECT id, name FROM users WHERE active = true ORDER BY name;
+<pre data-source-range="237:1-239:3"><code data-source-range="238:1-238:61" class="language-sql">SELECT id, name FROM users WHERE active = true ORDER BY name;
 </code></pre>
-<p data-source-line="241"><strong>Expected:</strong> each block is highlighted for its language, the diff block colors
+<p data-source-range="241:1-242:68"><strong>Expected:</strong> each block is highlighted for its language, the diff block colors
 removed and added lines, and every block has a copy button on hover.</p>
-<h3 data-source-line="244">Fenced without a language</h3>
-<pre data-source-line="246" data-source-line-end="249" data-source-line-start="247"><code>plain text, no highlighting
+<h3 data-source-range="244:1-244:29">Fenced without a language</h3>
+<pre data-source-range="246:1-249:3"><code data-source-range="247:1-248:31">plain text, no highlighting
 &lt;b&gt;tags are shown literally&lt;/b&gt;
 </code></pre>
-<p data-source-line="251"><strong>Expected:</strong> monospaced, no colors, the tags are visible as text.</p>
-<h3 data-source-line="253">Unknown language and info string</h3>
-<pre data-source-line="255" data-source-line-end="257" data-source-line-start="256"><code class="language-made-up-language">still rendered as a code block
+<p data-source-range="251:1-251:66"><strong>Expected:</strong> monospaced, no colors, the tags are visible as text.</p>
+<h3 data-source-range="253:1-253:36">Unknown language and info string</h3>
+<pre data-source-range="255:1-257:3"><code data-source-range="256:1-256:30" class="language-made-up-language">still rendered as a code block
 </code></pre>
-<p data-source-line="259"><strong>Expected:</strong> a plain code block; the info string is not shown.</p>
-<h3 data-source-line="261">Tilde fence and fence inside a fence</h3>
-<pre data-source-line="263" data-source-line-end="267" data-source-line-start="264"><code class="language-markdown">```rust
+<p data-source-range="259:1-259:63"><strong>Expected:</strong> a plain code block; the info string is not shown.</p>
+<h3 data-source-range="261:1-261:40">Tilde fence and fence inside a fence</h3>
+<pre data-source-range="263:1-267:3"><code data-source-range="264:1-266:3" class="language-markdown">```rust
 fn inner() {}
 ```
 </code></pre>
-<pre data-source-line="269" data-source-line-end="273" data-source-line-start="270"><code class="language-markdown">```
+<pre data-source-range="269:1-273:4"><code data-source-range="270:1-272:3" class="language-markdown">```
 three backticks inside four
 ```
 </code></pre>
-<p data-source-line="275"><strong>Expected:</strong> two code blocks whose content shows the inner fences literally.</p>
-<h3 data-source-line="277">Indented code block</h3>
-<pre data-source-line="279" data-source-line-end="281" data-source-line-start="279"><code>Four leading spaces make a code block.
+<p data-source-range="275:1-275:77"><strong>Expected:</strong> two code blocks whose content shows the inner fences literally.</p>
+<h3 data-source-range="277:1-277:23">Indented code block</h3>
+<pre data-source-range="279:5-281:26"><code data-source-range="279:1-281:26">Four leading spaces make a code block.
 Indentation inside is preserved:
     eight spaces here.
 </code></pre>
-<p data-source-line="283"><strong>Expected:</strong> a code block identical in style to the fenced ones.</p>
-<h3 data-source-line="285">Long lines</h3>
-<pre data-source-line="287" data-source-line-end="289" data-source-line-start="288"><code class="language-text">This line is intentionally long so that the code block has to scroll horizontally rather than wrap: 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+<p data-source-range="283:1-283:65"><strong>Expected:</strong> a code block identical in style to the fenced ones.</p>
+<h3 data-source-range="285:1-285:14">Long lines</h3>
+<pre data-source-range="287:1-289:3"><code data-source-range="288:1-288:209" class="language-text">This line is intentionally long so that the code block has to scroll horizontally rather than wrap: 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
 </code></pre>
-<p data-source-line="291"><strong>Expected:</strong> a horizontal scrollbar inside the block; the page itself does not
+<p data-source-range="291:1-292:16"><strong>Expected:</strong> a horizontal scrollbar inside the block; the page itself does not
 scroll sideways.</p>
-<h2 data-source-line="294">Tables</h2>
-<table data-source-line="296" data-source-line-end="299">
+<h2 data-source-range="294:1-294:9">Tables</h2>
+<table data-source-range="296:1-299:59">
 <thead>
-<tr data-source-line="296">
-<th align="left">Left aligned</th>
-<th align="center">Center aligned</th>
-<th align="right">Right aligned</th>
-<th>Default</th>
+<tr data-source-range="296:1-296:59">
+<th align="left" data-source-range="296:3-296:14">Left aligned</th>
+<th align="center" data-source-range="296:18-296:31">Center aligned</th>
+<th align="right" data-source-range="296:35-296:47">Right aligned</th>
+<th data-source-range="296:51-296:57">Default</th>
 </tr>
 </thead>
 <tbody>
-<tr data-source-line="298">
-<td align="left">left</td>
-<td align="center">center</td>
-<td align="right">right</td>
-<td>default</td>
+<tr data-source-range="298:1-298:59">
+<td align="left" data-source-range="298:3-298:6">left</td>
+<td align="center" data-source-range="298:22-298:27">center</td>
+<td align="right" data-source-range="298:43-298:47">right</td>
+<td data-source-range="298:51-298:57">default</td>
 </tr>
-<tr data-source-line="299">
-<td align="left">a</td>
-<td align="center">b</td>
-<td align="right">c</td>
-<td>d</td>
+<tr data-source-range="299:1-299:59">
+<td align="left" data-source-range="299:3-299:3">a</td>
+<td align="center" data-source-range="299:24-299:24">b</td>
+<td align="right" data-source-range="299:47-299:47">c</td>
+<td data-source-range="299:51-299:51">d</td>
 </tr>
 </tbody>
 </table>
-<p data-source-line="301"><strong>Expected:</strong> the header and cells follow the alignment row.</p>
-<table data-source-line="303" data-source-line-end="311">
+<p data-source-range="301:1-301:60"><strong>Expected:</strong> the header and cells follow the alignment row.</p>
+<table data-source-range="303:1-311:52">
 <thead>
-<tr data-source-line="303">
-<th>Formatting in cells</th>
-<th>Result</th>
+<tr data-source-range="303:1-303:52">
+<th data-source-range="303:3-303:21">Formatting in cells</th>
+<th data-source-range="303:25-303:30">Result</th>
 </tr>
 </thead>
 <tbody>
-<tr data-source-line="305">
-<td><code>code</code></td>
-<td>monospaced</td>
+<tr data-source-range="305:1-305:52">
+<td data-source-range="305:3-305:8"><code>code</code></td>
+<td data-source-range="305:25-305:34">monospaced</td>
 </tr>
-<tr data-source-line="306">
-<td><strong>bold</strong> and <em>em</em></td>
-<td>styled</td>
+<tr data-source-range="306:1-306:52">
+<td data-source-range="306:3-306:19"><strong>bold</strong> and <em>em</em></td>
+<td data-source-range="306:25-306:30">styled</td>
 </tr>
-<tr data-source-line="307">
-<td><span data-md-link="./README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">link</span></td>
-<td>opens the index</td>
+<tr data-source-range="307:1-307:52">
+<td data-source-range="307:3-307:21"><span data-md-link="./README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">link</span></td>
+<td data-source-range="307:25-307:39">opens the index</td>
 </tr>
-<tr data-source-line="308">
-<td><del>struck</del></td>
-<td>struck through</td>
+<tr data-source-range="308:1-308:52">
+<td data-source-range="308:3-308:12"><del>struck</del></td>
+<td data-source-range="308:25-308:38">struck through</td>
 </tr>
-<tr data-source-line="309">
-<td>escaped pipe |</td>
-<td>one visible pipe</td>
+<tr data-source-range="309:1-309:52">
+<td data-source-range="309:3-309:17">escaped pipe |</td>
+<td data-source-range="309:25-309:40">one visible pipe</td>
 </tr>
-<tr data-source-line="310">
-<td><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiM0QTkwRTIiLz4KICA8dGV4dCB4PSIxMDAiIHk9IjUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj4KICAgIFNhbXBsZSBJbWFnZQogIDwvdGV4dD4KPC9zdmc+Cg==" alt="img"></td>
-<td>an image</td>
+<tr data-source-range="310:1-310:52">
+<td data-source-range="310:3-310:29"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiM0QTkwRTIiLz4KICA8dGV4dCB4PSIxMDAiIHk9IjUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj4KICAgIFNhbXBsZSBJbWFnZQogIDwvdGV4dD4KPC9zdmc+Cg==" alt="img"></td>
+<td data-source-range="310:33-310:40">an image</td>
 </tr>
-<tr data-source-line="311">
+<tr data-source-range="311:1-311:52">
 <td></td>
-<td>empty first cell</td>
+<td data-source-range="311:25-311:40">empty first cell</td>
 </tr>
 </tbody>
 </table>
-<p data-source-line="313"><strong>Expected:</strong> inline formatting works inside cells; the <code>\|</code> shows as a pipe
+<p data-source-range="313:1-314:60"><strong>Expected:</strong> inline formatting works inside cells; the <code>\|</code> shows as a pipe
 without splitting the cell; the empty cell keeps its column.</p>
-<table data-source-line="316" data-source-line-end="318">
+<table data-source-range="316:1-318:139">
 <thead>
-<tr data-source-line="316">
-<th>Wide</th>
-<th>table</th>
-<th>with</th>
-<th>many</th>
-<th>columns</th>
-<th>to</th>
-<th>force</th>
-<th>horizontal</th>
-<th>scrolling</th>
-<th>inside</th>
-<th>the</th>
-<th>table</th>
-<th>wrapper</th>
-<th>instead</th>
-<th>of</th>
-<th>the</th>
-<th>page</th>
+<tr data-source-range="316:1-316:139">
+<th data-source-range="316:3-316:6">Wide</th>
+<th data-source-range="316:10-316:14">table</th>
+<th data-source-range="316:18-316:21">with</th>
+<th data-source-range="316:25-316:28">many</th>
+<th data-source-range="316:32-316:38">columns</th>
+<th data-source-range="316:42-316:43">to</th>
+<th data-source-range="316:47-316:51">force</th>
+<th data-source-range="316:55-316:64">horizontal</th>
+<th data-source-range="316:68-316:76">scrolling</th>
+<th data-source-range="316:80-316:85">inside</th>
+<th data-source-range="316:89-316:91">the</th>
+<th data-source-range="316:95-316:99">table</th>
+<th data-source-range="316:103-316:109">wrapper</th>
+<th data-source-range="316:113-316:119">instead</th>
+<th data-source-range="316:123-316:124">of</th>
+<th data-source-range="316:128-316:130">the</th>
+<th data-source-range="316:134-316:137">page</th>
 </tr>
 </thead>
 <tbody>
-<tr data-source-line="318">
-<td>1</td>
-<td>2</td>
-<td>3</td>
-<td>4</td>
-<td>5</td>
-<td>6</td>
-<td>7</td>
-<td>8</td>
-<td>9</td>
-<td>10</td>
-<td>11</td>
-<td>12</td>
-<td>13</td>
-<td>14</td>
-<td>15</td>
-<td>16</td>
-<td>17</td>
+<tr data-source-range="318:1-318:139">
+<td data-source-range="318:3-318:3">1</td>
+<td data-source-range="318:10-318:10">2</td>
+<td data-source-range="318:18-318:18">3</td>
+<td data-source-range="318:25-318:25">4</td>
+<td data-source-range="318:32-318:32">5</td>
+<td data-source-range="318:42-318:42">6</td>
+<td data-source-range="318:47-318:47">7</td>
+<td data-source-range="318:55-318:55">8</td>
+<td data-source-range="318:68-318:68">9</td>
+<td data-source-range="318:80-318:81">10</td>
+<td data-source-range="318:89-318:90">11</td>
+<td data-source-range="318:95-318:96">12</td>
+<td data-source-range="318:103-318:104">13</td>
+<td data-source-range="318:113-318:114">14</td>
+<td data-source-range="318:123-318:124">15</td>
+<td data-source-range="318:128-318:129">16</td>
+<td data-source-range="318:134-318:135">17</td>
 </tr>
 </tbody>
 </table>
-<p data-source-line="320"><strong>Expected:</strong> the table scrolls horizontally on its own.</p>
-<p data-source-line="322">Header only:</p>
-<table data-source-line="324" data-source-line-end="325">
+<p data-source-range="320:1-320:56"><strong>Expected:</strong> the table scrolls horizontally on its own.</p>
+<p data-source-range="322:1-322:12">Header only:</p>
+<table data-source-range="324:1-325:19">
 <thead>
-<tr data-source-line="324">
-<th>Just</th>
-<th>a header</th>
+<tr data-source-range="324:1-324:19">
+<th data-source-range="324:3-324:6">Just</th>
+<th data-source-range="324:10-324:17">a header</th>
 </tr>
 </thead>
 </table>
-<p data-source-line="327"><strong>Expected:</strong> a table with a header row and no body.</p>
-<h2 data-source-line="329">Footnotes</h2>
-<p data-source-line="331">A sentence with a footnote<sup><a href="#fn-1" id="fnref-1">1</a></sup>, another with a named one<sup><a href="#fn-named" id="fnref-named">2</a></sup>, and the
+<p data-source-range="327:1-327:52"><strong>Expected:</strong> a table with a header row and no body.</p>
+<h2 data-source-range="329:1-329:12">Footnotes</h2>
+<p data-source-range="331:1-332:31">A sentence with a footnote<sup><a href="#fn-1" id="fnref-1">1</a></sup>, another with a named one<sup><a href="#fn-named" id="fnref-named">2</a></sup>, and the
 first one referenced again<sup><a href="#fn-1" id="fnref-1-2">1</a></sup>.</p>
-<p data-source-line="343"><strong>Expected:</strong> superscript markers in the text, the definitions collected at
+<p data-source-range="343:1-345:49"><strong>Expected:</strong> superscript markers in the text, the definitions collected at
 the bottom of the document, each with a back-reference arrow, and the named
 footnote showing two paragraphs and a code block.</p>
-<h2 data-source-line="347">GitHub alerts</h2>
-<div class="markdown-alert markdown-alert-note" data-source-line="349" dir="auto">
+<h2 data-source-range="347:1-347:16">GitHub alerts</h2>
+<div class="markdown-alert markdown-alert-note" data-source-range="349:1-350:72" dir="auto">
 <p class="markdown-alert-title" dir="auto"><span class="alert-icon" data-alert-type="note"></span>NOTE</p>
-<p data-source-line="350">Useful information that users should know, even when skimming content.</p>
+<p data-source-range="350:3-350:72">Useful information that users should know, even when skimming content.</p>
 </div>
-<div class="markdown-alert markdown-alert-tip" data-source-line="352" dir="auto">
+<div class="markdown-alert markdown-alert-tip" data-source-range="352:1-353:56" dir="auto">
 <p class="markdown-alert-title" dir="auto"><span class="alert-icon" data-alert-type="tip"></span>TIP</p>
-<p data-source-line="353">Helpful advice for doing things better or more easily.</p>
+<p data-source-range="353:3-353:56">Helpful advice for doing things better or more easily.</p>
 </div>
-<div class="markdown-alert markdown-alert-important" data-source-line="355" dir="auto">
+<div class="markdown-alert markdown-alert-important" data-source-range="355:1-356:59" dir="auto">
 <p class="markdown-alert-title" dir="auto"><span class="alert-icon" data-alert-type="important"></span>IMPORTANT</p>
-<p data-source-line="356">Key information users need to know to achieve their goal.</p>
+<p data-source-range="356:3-356:59">Key information users need to know to achieve their goal.</p>
 </div>
-<div class="markdown-alert markdown-alert-warning" data-source-line="358" dir="auto">
+<div class="markdown-alert markdown-alert-warning" data-source-range="358:1-359:68" dir="auto">
 <p class="markdown-alert-title" dir="auto"><span class="alert-icon" data-alert-type="warning"></span>WARNING</p>
-<p data-source-line="359">Urgent info that needs immediate user attention to avoid problems.</p>
+<p data-source-range="359:3-359:68">Urgent info that needs immediate user attention to avoid problems.</p>
 </div>
-<div class="markdown-alert markdown-alert-caution" data-source-line="361" dir="auto">
+<div class="markdown-alert markdown-alert-caution" data-source-range="361:1-362:62" dir="auto">
 <p class="markdown-alert-title" dir="auto"><span class="alert-icon" data-alert-type="caution"></span>CAUTION</p>
-<p data-source-line="362">Advises about risks or negative outcomes of certain actions.</p>
+<p data-source-range="362:3-362:62">Advises about risks or negative outcomes of certain actions.</p>
 </div>
-<div class="markdown-alert markdown-alert-note" data-source-line="364" dir="auto">
+<div class="markdown-alert markdown-alert-note" data-source-range="364:1-374:26" dir="auto">
 <p class="markdown-alert-title" dir="auto"><span class="alert-icon" data-alert-type="note"></span>NOTE</p>
-<p data-source-line="365">An alert with several blocks:</p>
-<ul data-source-line="367" data-source-line-end="368">
-<li data-source-line="367" data-source-line-end="367">a list item</li>
-<li data-source-line="368" data-source-line-end="368">another one</li>
+<p data-source-range="365:3-365:31">An alert with several blocks:</p>
+<ul data-source-range="367:3-368:15">
+<li data-source-range="367:3-367:15">a list item</li>
+<li data-source-range="368:3-368:15">another one</li>
 </ul>
-<pre data-source-line="370" data-source-line-end="372" data-source-line-start="371"><code class="language-rust">fn inside_alert() {}
+<pre data-source-range="370:3-372:5"><code data-source-range="371:1-371:22" class="language-rust">fn inside_alert() {}
 </code></pre>
-<p data-source-line="374">And a closing paragraph.</p>
+<p data-source-range="374:3-374:26">And a closing paragraph.</p>
 </div>
-<div class="markdown-alert markdown-alert-note" data-source-line="376" dir="auto">
+<div class="markdown-alert markdown-alert-note" data-source-range="376:1-377:21" dir="auto">
 <p class="markdown-alert-title" dir="auto"><span class="alert-icon" data-alert-type="note"></span>NOTE</p>
-<p data-source-line="377">A lowercase marker.</p>
+<p data-source-range="377:3-377:21">A lowercase marker.</p>
 </div>
-<blockquote data-source-line="379">
-<p data-source-line="379">Not an alert: the marker [!NOTE] is not at the start of the quote.</p>
+<blockquote data-source-range="379:1-379:68">
+<p data-source-range="379:3-379:68">Not an alert: the marker [!NOTE] is not at the start of the quote.</p>
 </blockquote>
-<p data-source-line="381"><strong>Expected:</strong> five alerts with a colored bar and a title matching the kind, the
+<p data-source-range="381:1-386:60"><strong>Expected:</strong> five alerts with a colored bar and a title matching the kind, the
 multi-block alert keeps its list, code, and paragraph inside the bar, and the
 last quote is an ordinary quote with the bracketed text visible. The lowercase
 marker currently renders as an ordinary quote with <code>[!note]</code> visible, because
 only uppercase markers are recognized (tracked in #222); an engine that
 compares the marker case-insensitively shows a Note instead.</p>
-<h2 data-source-line="388">HTML blocks</h2>
+<h2 data-source-range="388:1-388:14">HTML blocks</h2>
 <details>
 <summary>Click to expand</summary>
-<p data-source-line="393">Markdown <strong>inside</strong> a details block still renders.</p>
-<ul data-source-line="395" data-source-line-end="396">
-<li data-source-line="395" data-source-line-end="395">list item</li>
-<li data-source-line="396" data-source-line-end="396">another</li>
+<p data-source-range="393:1-393:50">Markdown <strong>inside</strong> a details block still renders.</p>
+<ul data-source-range="395:1-396:9">
+<li data-source-range="395:1-395:11">list item</li>
+<li data-source-range="396:1-396:9">another</li>
 </ul>
 </details>
 <details open>
 <summary>Expanded by default</summary>
-<p data-source-line="403">The <code>open</code> attribute keeps this one visible.</p>
+<p data-source-range="403:1-403:44">The <code>open</code> attribute keeps this one visible.</p>
 </details>
 <div align="center">
-<p data-source-line="409">Centered block via a <code>div</code>.</p>
+<p data-source-range="409:1-409:27">Centered block via a <code>div</code>.</p>
 </div>
 <table>
   <tr><th>Raw</th><th>HTML table</th></tr>
   <tr><td>a</td><td>b</td></tr>
 </table>
 <!-- An HTML comment block: nothing from it may appear in the output. -->
-<p data-source-line="420"><strong>Expected:</strong> a collapsed and an expanded disclosure, a centered paragraph, a
+<p data-source-range="420:1-421:35"><strong>Expected:</strong> a collapsed and an expanded disclosure, a centered paragraph, a
 table, and no trace of the comment.</p>
-<hr data-source-line="423">
-<p data-source-line="425">Previous: <span data-md-link="./01-inline.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Inline syntax</span> · Next: <span data-md-link="./03-math-and-diagrams.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Math and diagrams</span></p>
+<hr data-source-range="423:1-423:3">
+<p data-source-range="425:1-425:96">Previous: <span data-md-link="./01-inline.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Inline syntax</span> · Next: <span data-md-link="./03-math-and-diagrams.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Math and diagrams</span></p>
 <section class="footnotes" aria-label="Footnotes">
 <ol>
-<li id="fn-1" data-source-line="334" data-source-line-end="334">
-<p data-source-line="334">The first footnote.</p>
+<li id="fn-1" data-source-range="334:1-334:25">
+<p data-source-range="334:7-334:25">The first footnote.</p>
 <a href="#fnref-1" aria-label="Back to reference 1">↩</a> <a href="#fnref-1-2" aria-label="Back to reference 1, occurrence 2">↩</a>
 </li>
-<li id="fn-named" data-source-line="335" data-source-line-end="341">
-<p data-source-line="335">A footnote with several paragraphs.</p>
-<p data-source-line="337">The second paragraph is indented by four spaces.</p>
-<pre data-source-line="339" data-source-line-end="341" data-source-line-start="340"><code class="language-rust">fn footnotes_can_hold_code() {}
+<li id="fn-named" data-source-range="335:1-341:7">
+<p data-source-range="335:11-335:45">A footnote with several paragraphs.</p>
+<p data-source-range="337:5-337:52">The second paragraph is indented by four spaces.</p>
+<pre data-source-range="339:5-341:7"><code data-source-range="340:1-340:35" class="language-rust">fn footnotes_can_hold_code() {}
 </code></pre>
 <a href="#fnref-named" aria-label="Back to reference 2">↩</a>
 </li>

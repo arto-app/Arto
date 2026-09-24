@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ScrollAnchor {
     /// 1-based line of the file the block at the top of the view came from,
-    /// as the rendered HTML reports it in `data-source-line`. Zero is the top
+    /// as the rendered HTML reports it in `data-source-range`. Zero is the top
     /// of the document.
     pub line: u32,
     /// How far into that block the top edge of the view sits, from 0 at its

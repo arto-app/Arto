@@ -35,7 +35,16 @@ pub(super) fn extract_and_render_frontmatter(markdown: &str) -> (String, String,
         return (String::new(), markdown.to_string(), 0);
     };
 
-    let content = rest[closing_end..].trim_start();
+    // Only whole blank lines go: the body keeps the indentation of its first
+    // line, which may be an indented code block, and starts at the beginning
+    // of a line so that its columns are the file's.
+    let content = {
+        let after = &rest[closing_end..];
+        let blank = after.len() - after.trim_start().len();
+        after[..blank]
+            .rfind('\n')
+            .map_or(after, |newline| &after[newline + 1..])
+    };
 
     // Count lines consumed before content starts
     let consumed_bytes = markdown.len() - content.len();
@@ -246,6 +255,16 @@ mod tests {
         let (_html, content, frontmatter_lines) = extract_and_render_frontmatter(markdown);
         assert_eq!(frontmatter_lines, 4); // "---\ntitle: Test\n---\n\n"
         assert!(content.starts_with("# Content"));
+    }
+
+    #[test]
+    fn test_the_body_keeps_the_indentation_of_its_first_line() {
+        // Only blank lines go, so an indented code block right after the
+        // frontmatter stays one.
+        let (_html, content, frontmatter_lines) =
+            extract_and_render_frontmatter("---\ntitle: Test\n---\n\n    code\n");
+        assert_eq!(content, "    code\n");
+        assert_eq!(frontmatter_lines, 4);
     }
 
     #[test]

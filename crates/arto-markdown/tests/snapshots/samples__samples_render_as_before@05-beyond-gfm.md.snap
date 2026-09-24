@@ -3,56 +3,56 @@ source: crates/arto-markdown/tests/samples.rs
 expression: html
 input_file: samples/05-beyond-gfm.md
 ---
-<h1 data-source-line="1">Beyond GitHub Flavored Markdown</h1>
-<p data-source-line="3">Nothing on this page is part of CommonMark or the GFM specification, and
+<h1 data-source-range="1:1-1:33">Beyond GitHub Flavored Markdown</h1>
+<p data-source-range="3:1-9:75">Nothing on this page is part of CommonMark or the GFM specification, and
 viewers disagree on it: GitHub renders some of it (emoji shortcodes, bare
 autolinks, math in table cells), a plain GFM renderer renders none of it, and
 Arto renders whatever subset its Markdown engine supports. That makes this
 file the place where an engine change becomes visible: every section shows
 the source in a code span, the rendered form right below it, and what the
 other renderers show instead. Previous: <span data-md-link="./04-frontmatter.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Frontmatter</span>.</p>
-<p data-source-line="11">Use it in two ways. After changing the engine, walk through it once and note
+<p data-source-range="11:1-14:7">Use it in two ways. After changing the engine, walk through it once and note
 which sections switched. When writing documents meant to look the same on
 GitHub and in Arto, avoid everything on this page except the constructs both
 render.</p>
-<h2 data-source-line="16">Smart punctuation</h2>
-<p data-source-line="18">Source: <code>&quot;double quotes&quot; &#39;single quotes&#39; -- en dash --- em dash ... ellipsis</code></p>
-<p data-source-line="20">“double quotes” ‘single quotes’ – en dash — em dash … ellipsis</p>
-<p data-source-line="22"><strong>Engine with smart punctuation:</strong> curly quotes “ ” ‘ ’, an en dash –, an em
+<h2 data-source-range="16:1-16:20">Smart punctuation</h2>
+<p data-source-range="18:1-18:77">Source: <code>&quot;double quotes&quot; &#39;single quotes&#39; -- en dash --- em dash ... ellipsis</code></p>
+<p data-source-range="20:1-20:67">“double quotes” ‘single quotes’ – en dash — em dash … ellipsis</p>
+<p data-source-range="22:1-24:66"><strong>Engine with smart punctuation:</strong> curly quotes “ ” ‘ ’, an en dash –, an em
 dash —, and a single ellipsis character ….
 <strong>Plain GFM:</strong> straight quotes and the literal <code>--</code>, <code>---</code>, <code>...</code>.</p>
-<p data-source-line="26">Apostrophes: it’s, don’t, the ’90s.</p>
-<h2 data-source-line="28">Superscript</h2>
-<p data-source-line="30">Source: <code>x^2^ + y^2^ = r^2^</code> and <code>E = mc^2^</code></p>
-<p data-source-line="32">x<sup>2</sup> + y<sup>2</sup> = r<sup>2</sup> and E = mc<sup>2</sup></p>
-<p data-source-line="34"><strong>Engine with superscript:</strong> the 2s are raised.
+<p data-source-range="26:1-26:35">Apostrophes: it’s, don’t, the ’90s.</p>
+<h2 data-source-range="28:1-28:14">Superscript</h2>
+<p data-source-range="30:1-30:44">Source: <code>x^2^ + y^2^ = r^2^</code> and <code>E = mc^2^</code></p>
+<p data-source-range="32:1-32:32">x<sup>2</sup> + y<sup>2</sup> = r<sup>2</sup> and E = mc<sup>2</sup></p>
+<p data-source-range="34:1-36:41"><strong>Engine with superscript:</strong> the 2s are raised.
 <strong>Plain GFM:</strong> the carets stay visible. Compare with the raw HTML form
 x<sup>2</sup>, which every engine raises.</p>
-<h2 data-source-line="38">Subscript and single tildes</h2>
-<p data-source-line="40">Source: <code>H~2~O</code> and <code>CO~2~</code></p>
-<p data-source-line="42">H<sub>2</sub>O and CO<sub>2</sub></p>
-<p data-source-line="44"><strong>Engine with subscript:</strong> the numbers are lowered.
+<h2 data-source-range="38:1-38:30">Subscript and single tildes</h2>
+<p data-source-range="40:1-40:27">Source: <code>H~2~O</code> and <code>CO~2~</code></p>
+<p data-source-range="42:1-42:15">H<sub>2</sub>O and CO<sub>2</sub></p>
+<p data-source-range="44:1-48:42"><strong>Engine with subscript:</strong> the numbers are lowered.
 <strong>GitHub:</strong> treats single tildes as strikethrough, so it shows H<del>2</del>O with the
 digit struck through.
 <strong>Plain CommonMark:</strong> the tildes stay visible. Compare with the raw HTML form
 H<sub>2</sub>O, which every engine lowers.</p>
-<h2 data-source-line="50">Definition lists</h2>
-<p data-source-line="52">Source:</p>
-<pre data-source-line="54" data-source-line-end="61" data-source-line-start="55"><code class="language-markdown">Markdown
+<h2 data-source-range="50:1-50:19">Definition lists</h2>
+<p data-source-range="52:1-52:7">Source:</p>
+<pre data-source-range="54:1-61:3"><code data-source-range="55:1-60:40" class="language-markdown">Markdown
 : A lightweight markup language with plain text formatting syntax.
 
 CommonMark
 : A strongly defined, highly compatible specification of Markdown.
 : A second definition for the same term.
 </code></pre>
-<dl>
-<dt>Markdown</dt>
-<dd>A lightweight markup language with plain text formatting syntax.</dd>
-<dt>CommonMark</dt>
-<dd>A strongly defined, highly compatible specification of Markdown.</dd>
-<dd>A second definition for the same term.</dd>
+<dl data-source-range="63:1-68:40">
+<dt data-source-range="63:1-63:8">Markdown</dt>
+<dd data-source-range="64:1-64:66">A lightweight markup language with plain text formatting syntax.</dd>
+<dt data-source-range="66:1-66:10">CommonMark</dt>
+<dd data-source-range="67:1-67:66">A strongly defined, highly compatible specification of Markdown.</dd>
+<dd data-source-range="68:1-68:40">A second definition for the same term.</dd>
 </dl>
-<p data-source-line="70"><strong>Engine with definition lists:</strong> each term on its own line with the
+<p data-source-range="70:1-73:33"><strong>Engine with definition lists:</strong> each term on its own line with the
 definitions indented below it.
 <strong>Plain GFM:</strong> paragraphs beginning with a colon. Compare with the raw HTML
 form, which every engine renders:</p>
@@ -62,57 +62,57 @@ form, which every engine renders:</p>
 <dt>CommonMark</dt>
 <dd>A strongly defined, highly compatible specification of Markdown.</dd>
 </dl>
-<h2 data-source-line="82">Wiki links</h2>
-<p data-source-line="84">Source: <code>[[README]]</code> and <code>[[README|Back to the index]]</code></p>
-<p data-source-line="86"><span data-md-link="README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">README</span> and <span data-md-link="README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Back to the index</span></p>
-<p data-source-line="88"><strong>Engine with wiki links:</strong> two links; the second shows the text after the bar.
+<h2 data-source-range="82:1-82:13">Wiki links</h2>
+<p data-source-range="84:1-84:55">Source: <code>[[README]]</code> and <code>[[README|Back to the index]]</code></p>
+<p data-source-range="86:1-86:43"><span data-md-link="README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">README</span> and <span data-md-link="README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Back to the index</span></p>
+<p data-source-range="88:1-91:48"><strong>Engine with wiki links:</strong> two links; the second shows the text after the bar.
 A target without a file extension names a Markdown document, so both open
 <code>README.md</code> inside Arto.
 <strong>Plain GFM:</strong> the double brackets stay visible.</p>
-<h2 data-source-line="93">Heading attributes</h2>
-<p data-source-line="95">Source: <code>### Custom identifier {#custom-heading-id .highlight}</code></p>
-<h3 data-source-line="97" id="custom-heading-id" class="highlight">Custom identifier</h3>
-<p data-source-line="99"><strong>Engine with heading attributes:</strong> the braces disappear from the heading and
+<h2 data-source-range="93:1-93:21">Heading attributes</h2>
+<p data-source-range="95:1-95:63">Source: <code>### Custom identifier {#custom-heading-id .highlight}</code></p>
+<h3 data-source-range="97:1-97:53" id="custom-heading-id" class="highlight">Custom identifier</h3>
+<p data-source-range="99:1-103:55"><strong>Engine with heading attributes:</strong> the braces disappear from the heading and
 the table of contents, and the anchor is the one the block names, so
 <a href="#custom-heading-id">this link</a> scrolls here while
 <a href="#custom-identifier">this one</a> does not.
 <strong>Plain GFM:</strong> the braces are part of the heading text.</p>
-<h2 data-source-line="105">Math in table cells</h2>
-<p data-source-line="107">Source: a table whose cells contain <code>$E = mc^2$</code> and <code>$\sum_{i=1}^{n} i$</code></p>
-<table data-source-line="109" data-source-line-end="112">
+<h2 data-source-range="105:1-105:22">Math in table cells</h2>
+<p data-source-range="107:1-107:73">Source: a table whose cells contain <code>$E = mc^2$</code> and <code>$\sum_{i=1}^{n} i$</code></p>
+<table data-source-range="109:1-112:36">
 <thead>
-<tr data-source-line="109">
-<th>Formula</th>
-<th>Meaning</th>
+<tr data-source-range="109:1-109:36">
+<th data-source-range="109:3-109:9">Formula</th>
+<th data-source-range="109:24-109:30">Meaning</th>
 </tr>
 </thead>
 <tbody>
-<tr data-source-line="111">
-<td><span class="preprocessed-math-inline" data-original-content="E = mc^2">E = mc^2</span></td>
-<td>mass-energy</td>
+<tr data-source-range="111:1-111:36">
+<td data-source-range="111:3-111:12"><span class="preprocessed-math-inline" data-original-content="E = mc^2">E = mc^2</span></td>
+<td data-source-range="111:24-111:34">mass-energy</td>
 </tr>
-<tr data-source-line="112">
-<td><span class="preprocessed-math-inline" data-original-content="\sum_{i=1}^{n} i">\sum_{i=1}^{n} i</span></td>
-<td>a sum</td>
+<tr data-source-range="112:1-112:36">
+<td data-source-range="112:3-112:20"><span class="preprocessed-math-inline" data-original-content="\sum_{i=1}^{n} i">\sum_{i=1}^{n} i</span></td>
+<td data-source-range="112:24-112:28">a sum</td>
 </tr>
 </tbody>
 </table>
-<p data-source-line="114"><strong>Engine with math in cells:</strong> two typeset formulas.
+<p data-source-range="114:1-118:5"><strong>Engine with math in cells:</strong> two typeset formulas.
 <strong>Otherwise:</strong> the dollar signs stay visible inside the cells while the same
 formulas in the Inline math section of
 <span data-md-link="./03-math-and-diagrams.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Math and diagrams</span> are typeset. GitHub typesets
 both.</p>
-<h2 data-source-line="120">Emoji shortcodes</h2>
-<p data-source-line="122">Source: <code>:tada: :rocket: :white_check_mark:</code></p>
-<p data-source-line="124">Shortcodes: :tada: :rocket: :white_check_mark:</p>
-<p data-source-line="126"><strong>GitHub:</strong> three emoji.
+<h2 data-source-range="120:1-120:19">Emoji shortcodes</h2>
+<p data-source-range="122:1-122:44">Source: <code>:tada: :rocket: :white_check_mark:</code></p>
+<p data-source-range="124:1-124:46">Shortcodes: :tada: :rocket: :white_check_mark:</p>
+<p data-source-range="126:1-128:9"><strong>GitHub:</strong> three emoji.
 <strong>Arto:</strong> the shortcodes stay as text; use the emoji characters 🎉 🚀 ✅
 directly.</p>
-<h2 data-source-line="130">Autolinks without a scheme</h2>
-<p data-source-line="132">Source: <code>www.example.com</code> and <code>contact@example.com</code></p>
-<p data-source-line="134"><a href="http://www.example.com">www.example.com</a> and <a href="mailto:contact@example.com">contact@example.com</a></p>
-<p data-source-line="136"><strong>GitHub and engines with GFM autolink literals:</strong> both become links.
+<h2 data-source-range="130:1-130:29">Autolinks without a scheme</h2>
+<p data-source-range="132:1-132:51">Source: <code>www.example.com</code> and <code>contact@example.com</code></p>
+<p data-source-range="134:1-134:39"><a href="http://www.example.com">www.example.com</a> and <a href="mailto:contact@example.com">contact@example.com</a></p>
+<p data-source-range="136:1-138:5"><strong>GitHub and engines with GFM autolink literals:</strong> both become links.
 <strong>Otherwise:</strong> plain text, while <a href="https://example.com">https://example.com</a> on the same page is a
 link.</p>
-<hr data-source-line="140">
-<p data-source-line="142">Previous: <span data-md-link="./04-frontmatter.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Frontmatter</span> · Back to the <span data-md-link="./README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">index</span></p>
+<hr data-source-range="140:1-140:3">
+<p data-source-range="142:1-142:79">Previous: <span data-md-link="./04-frontmatter.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Frontmatter</span> · Back to the <span data-md-link="./README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">index</span></p>

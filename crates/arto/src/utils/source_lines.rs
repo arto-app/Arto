@@ -4,8 +4,8 @@ use std::path::Path;
 
 /// Read a source file and extract lines in the range `start..=end` (1-based, inclusive).
 ///
-/// The rendered HTML carries `data-source-line` attributes (see arto-markdown);
-/// this is the step that turns such a range back into the original text.
+/// The rendered HTML carries `data-source-range` attributes (see arto-markdown); this is
+/// the step that turns the lines of such a range back into the original text.
 ///
 /// Uses `BufReader` to read line-by-line, avoiding loading the entire file into memory.
 ///

@@ -3,6 +3,7 @@
  * Detects the type of element that was right-clicked and reports to Rust.
  */
 
+import { readSourceRange } from "./source-range";
 import { extractTableDelimited, formatTableAsMarkdown } from "./table-utils";
 
 export type ContentContextType =
@@ -51,12 +52,21 @@ interface CodePosition {
 }
 
 /**
+ * The `<code>` of the code block `el` is, or is the content of.
+ */
+function codeBlockContent(el: HTMLElement): HTMLElement | null {
+  if (el.tagName === "PRE") return el.querySelector(":scope > code");
+  if (el.tagName === "CODE" && el.parentElement?.tagName === "PRE") return el;
+  return null;
+}
+
+/**
  * Find the source line number by walking up the DOM tree to find
- * the nearest ancestor with a data-source-line attribute.
+ * the nearest ancestor with a data-source-range.
  *
- * For code blocks (<pre> with data-source-line-start), computes the
- * exact line by counting newlines from the start of the code content
- * to the given position. This is necessary because highlight.js
+ * Inside a code block, computes the exact line by counting newlines from
+ * the start of the `<code>` content, whose range starts on its first
+ * line, to the given position. This is necessary because highlight.js
  * replaces <code> innerHTML, destroying any per-line annotations.
  *
  * @param position - Explicit position for code block offset calculation.
@@ -66,21 +76,15 @@ function findSourceLine(node: Node | null, position?: CodePosition): number | nu
   let current: Node | null = node;
   while (current && current !== document.body) {
     if (current instanceof HTMLElement) {
-      // Check for code block with per-line start info
-      const lineStart = current.dataset.sourceLineStart;
-      if (lineStart !== undefined) {
-        const startLine = parseInt(lineStart, 10);
-        if (!isNaN(startLine)) {
-          const offset = position ? computeCodeBlockLineOffset(current, position) : 0;
-          return startLine + offset;
-        }
+      const code = codeBlockContent(current);
+      const content = code ? readSourceRange(code) : null;
+      if (code && content) {
+        const offset = position ? computeCodeBlockLineOffset(code, position) : 0;
+        return content.start.line + offset;
       }
 
-      const line = current.dataset.sourceLine;
-      if (line !== undefined) {
-        const parsed = parseInt(line, 10);
-        if (!isNaN(parsed)) return parsed;
-      }
+      const range = readSourceRange(current);
+      if (range) return range.start.line;
       // Stop at markdown-body boundary
       if (current.classList.contains("markdown-body")) return null;
     }
@@ -93,9 +97,8 @@ function findSourceLine(node: Node | null, position?: CodePosition): number | nu
  * Compute the line offset within a code block by counting newlines
  * from <code> start to the given position.
  */
-function computeCodeBlockLineOffset(preElement: HTMLElement, position: CodePosition): number {
-  const codeEl = preElement.querySelector("code");
-  if (!codeEl || !codeEl.contains(position.container)) return 0;
+function computeCodeBlockLineOffset(codeEl: HTMLElement, position: CodePosition): number {
+  if (!codeEl.contains(position.container)) return 0;
 
   const range = document.createRange();
   range.setStart(codeEl, 0);
@@ -217,17 +220,11 @@ interface DetectedContext {
 }
 
 /**
- * Read data-source-line and data-source-line-end from an element.
+ * The first and last source line of an element's data-source-range.
  */
 function readSourceLineRange(el: HTMLElement): { start: number | null; end: number | null } {
-  const s = el.dataset.sourceLine;
-  const e = el.dataset.sourceLineEnd;
-  const startVal = s !== undefined ? parseInt(s, 10) : NaN;
-  const endVal = e !== undefined ? parseInt(e, 10) : NaN;
-  return {
-    start: !isNaN(startVal) ? startVal : null,
-    end: !isNaN(endVal) ? endVal : null,
-  };
+  const range = readSourceRange(el);
+  return { start: range?.start.line ?? null, end: range?.end.line ?? null };
 }
 
 /**
@@ -306,7 +303,7 @@ function detectContext(target: HTMLElement): DetectedContext {
     // Check for image
     if (current.tagName === "IMG") {
       const img = current as HTMLImageElement;
-      // Image is inline within <p data-source-line="N">, use parent's line
+      // Image is inline within a <p data-source-range>, use parent's line
       const line = findSourceLine(current);
       // `currentSrc` is the candidate the browser actually picked, which for a
       // <picture> or a srcset is not what `src` holds: copying or opening the

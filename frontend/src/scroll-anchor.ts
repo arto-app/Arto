@@ -8,8 +8,8 @@
  * open — and a document full of diagrams is still growing under the reader
  * for as long as they keep scrolling into undrawn ones.
  *
- * An anchor names a block instead: the `data-source-line` of the block at the
- * top of the view, and how far into that block the top edge sits. Restoring
+ * An anchor names a block instead: the line the `data-source-range` of the
+ * block at the top of the view starts on, and how far into that block the top edge sits. Restoring
  * looks the block up and measures it as it is now, so a height that has
  * changed since costs nothing.
  *
@@ -18,6 +18,7 @@
  */
 
 import { scrollContainer, scrollerTop, settleAt } from "./scroll-destination";
+import { readSourceRange } from "./source-range";
 
 /** Where the reader is, as `crates/arto/src/scroll_anchor.rs` spells it. */
 export interface ScrollAnchor {
@@ -66,15 +67,14 @@ function blocks(): HTMLElement[] {
   // is no first block to ask whether it is still connected.
   if (body !== cachedBody || cachedBlocks.length === 0 || !cachedBlocks[0].isConnected) {
     cachedBody = body;
-    cachedBlocks = Array.from(body.querySelectorAll<HTMLElement>(":scope > [data-source-line]"));
+    cachedBlocks = Array.from(body.querySelectorAll<HTMLElement>(":scope > [data-source-range]"));
   }
   return cachedBlocks;
 }
 
-/** The line a block reports, or `null` when it is not a number. */
+/** The line a block starts on, or `null` when it names no range. */
 function lineOf(block: HTMLElement): number | null {
-  const line = Number(block.dataset.sourceLine);
-  return Number.isFinite(line) ? line : null;
+  return readSourceRange(block)?.start.line ?? null;
 }
 
 /**
