@@ -1,32 +1,35 @@
-//! The agents a lens can name instead of a command — command-line agents it
-//! runs, and servers it asks over HTTP — and how the answer is read out of
-//! what each writes.
+//! The agents a lens can name instead of a command, behind one shape: how
+//! what a lens runs is reached, and how the answer is read out of what it
+//! writes.
+//!
+//! This module holds what every agent shares — finding a program, asking a
+//! server, reading a stream a line at a time. What sets one agent apart
+//! lives in its adapter in `agent/`: a [`ProgramAgent`] for a command-line
+//! agent Arto runs, a [`ServerAgent`] for a server it asks over HTTP. The
+//! agent's static facts — its name, where a server is by default — are the
+//! configuration's ([`arto_config::AgentProfile`]).
+//!
+//! Adding an agent is its variant and profile in `arto-config`, an adapter
+//! module here, and its line in [`adapter`].
 //!
 //! Every command-line agent is run as a plain text transformer — no tools it
 //! could act with, no session left behind, as little of its own
 //! configuration as it allows — because a lens asks a question about a text,
 //! and anything the agent loads beyond that (MCP servers, hooks, the
 //! `CLAUDE.md` files around the document) only makes each run slower and its
-//! answer less predictable. The flags and the formats below are the agents'
-//! own and change with them; the recorded outputs in the tests are what
-//! keeps this module honest about them.
+//! answer less predictable. The flags and the formats in the adapters are
+//! the agents' own and change with them; the recorded outputs in their tests
+//! are what keeps them honest about them.
 
-use arto_config::{Lens, LensAgent};
+mod claude;
+mod codex;
+mod ollama;
+mod openai;
+
+use arto_config::{AgentReach, Lens, LensAgent};
 use serde_json::{json, Value};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
-
-/// Where an Ollama server is when the lens does not say.
-const OLLAMA_ENDPOINT: &str = "http://127.0.0.1:11434";
-
-/// Where an OpenAI-compatible server is when the lens does not say: OpenAI
-/// itself.
-const OPENAI_ENDPOINT: &str = "https://api.openai.com/v1";
-
-/// The bounds of the context an Ollama model is loaded with when the lens
-/// leaves it to Arto.
-const MIN_CONTEXT: usize = 4096;
-const MAX_CONTEXT: usize = 131_072;
 
 /// What an agent is told it is, in place of its own system prompt where it
 /// allows one.
@@ -34,29 +37,100 @@ pub(crate) const SYSTEM_PROMPT: &str = "You transform Markdown for a reader. The
     instruction and the text to work on. Follow the instruction exactly and write only what \
     it asks for: no preamble, no explanation, no code fence around the answer.";
 
-/// How the answer is written to stdout.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum OutputFormat {
-    /// The answer itself, as it is generated.
-    Text,
-    /// Claude's `stream-json` events; the text is in the deltas.
-    ClaudeStream,
-    /// What `codex app-server` wrote: JSON-RPC messages, the text in the
-    /// agent message's deltas.
-    CodexAppServer,
-    /// Ollama's chat stream: one JSON object per line, the text in its
-    /// message.
-    OllamaChat,
-    /// An OpenAI-compatible chat completion stream: server-sent events whose
-    /// data carries the text in the choice's delta.
-    OpenAiStream,
+/// Reads the answer out of what an agent writes, one event at a time.
+pub(crate) trait Reader: Sync {
+    /// The JSON in `line`, for an agent that wraps its events.
+    fn event<'a>(&self, line: &'a str) -> &'a str {
+        line
+    }
+
+    /// Take in `event`, one of the agent's, parsed.
+    fn read(&self, event: &Value, answer: &mut Answer);
+
+    /// The models `listing` names, which the agent wrote when asked what it
+    /// offers.
+    fn models(&self, listing: &str) -> Result<Vec<String>, String>;
 }
 
-/// Which API a server speaks.
+/// A command-line agent Arto runs.
+pub(crate) trait ProgramAgent: Reader {
+    /// The arguments after the program, asking `model` when the lens names
+    /// one.
+    fn args(&self, model: Option<&str>) -> Vec<String>;
+
+    /// How the request is handed over.
+    fn conversation(&self) -> Conversation {
+        Conversation::Stdin
+    }
+
+    /// The arguments, in place of [`Self::args`], that make it print the
+    /// models it offers.
+    fn models_args(&self) -> &'static [&'static str];
+}
+
+/// How a program is spoken to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Api {
-    Ollama,
-    OpenAi,
+pub(crate) enum Conversation {
+    /// The request on stdin, the answer on stdout.
+    Stdin,
+    /// Codex's app server protocol (see [`super::app_server`]).
+    AppServer,
+}
+
+/// A server Arto asks over HTTP.
+pub(crate) trait ServerAgent: Reader {
+    /// Where, under the endpoint, it is asked.
+    fn chat_path(&self) -> &'static str;
+
+    /// Where, under the endpoint, it lists its models.
+    fn models_path(&self) -> &'static str;
+
+    /// The request body asking `server` about `message`: a chat completion
+    /// by default, which most servers take.
+    fn body(&self, server: &Server, message: &str) -> Value {
+        chat_body(server, message)
+    }
+}
+
+/// The adapter for one agent.
+#[derive(Clone, Copy)]
+pub(crate) enum Adapter {
+    Program(&'static dyn ProgramAgent),
+    Server(&'static dyn ServerAgent),
+}
+
+impl Adapter {
+    fn reader(self) -> &'static dyn Reader {
+        match self {
+            Self::Program(agent) => agent,
+            Self::Server(agent) => agent,
+        }
+    }
+}
+
+/// The adapter for `agent`.
+pub(crate) fn adapter(agent: LensAgent) -> Adapter {
+    match agent {
+        LensAgent::Claude => Adapter::Program(&claude::Claude),
+        LensAgent::Codex => Adapter::Program(&codex::Codex),
+        LensAgent::Ollama => Adapter::Server(&ollama::Ollama),
+        LensAgent::Openai => Adapter::Server(&openai::OpenAi),
+    }
+}
+
+/// What reads `agent`'s answer and the models it offers.
+pub(crate) fn reader(agent: LensAgent) -> &'static dyn Reader {
+    adapter(agent).reader()
+}
+
+/// A chat completion request asking `server` about `message`, streamed.
+pub(crate) fn chat_body(server: &Server, message: &str) -> Value {
+    let mut messages = Vec::new();
+    if let Some(system) = &server.system {
+        messages.push(json!({"role": "system", "content": system}));
+    }
+    messages.push(json!({"role": "user", "content": message}));
+    json!({"model": server.model, "messages": messages, "stream": true})
 }
 
 /// Where a server's API key comes from.
@@ -73,11 +147,7 @@ pub(crate) enum ApiKey {
 /// What the API key of the server `lens` asks is filed under, if it asks a
 /// server: its endpoint, or the one it defaults to.
 pub(crate) fn key_account(lens: &Lens) -> Option<String> {
-    let default = match lens.agent? {
-        LensAgent::Ollama => OLLAMA_ENDPOINT,
-        LensAgent::Openai => OPENAI_ENDPOINT,
-        LensAgent::Claude | LensAgent::Codex => return None,
-    };
+    let default = lens.agent?.server()?.endpoint;
     let endpoint = lens
         .endpoint
         .as_deref()
@@ -89,51 +159,25 @@ pub(crate) fn key_account(lens: &Lens) -> Option<String> {
 /// How a request reaches a server.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Server {
-    pub api: Api,
+    pub agent: LensAgent,
     pub url: String,
+    pub models_url: String,
     pub model: String,
     pub system: Option<String>,
-    /// Ollama: the context to load the model with; sized to the request
-    /// when `None`.
+    /// The context to load the model with, for a server that takes it;
+    /// sized to the request when `None`.
     pub context_length: Option<u32>,
     pub api_key: ApiKey,
 }
 
 impl Server {
-    /// Where the server lists the models it offers.
-    pub(crate) fn models_url(&self) -> String {
-        let (chat, models) = match self.api {
-            Api::Ollama => ("/api/chat", "/api/tags"),
-            Api::OpenAi => ("/chat/completions", "/models"),
-        };
-        let base = self.url.strip_suffix(chat).unwrap_or(&self.url);
-        format!("{base}{models}")
-    }
-
     /// The request body asking the server about `message`.
     pub(crate) fn body(&self, message: &str) -> String {
-        let mut messages = Vec::new();
-        if let Some(system) = &self.system {
-            messages.push(json!({"role": "system", "content": system}));
+        match adapter(self.agent) {
+            Adapter::Server(agent) => agent.body(self, message).to_string(),
+            Adapter::Program(_) => unreachable!("{:?} is not a server", self.agent),
         }
-        messages.push(json!({"role": "user", "content": message}));
-        let mut body = json!({"model": self.model, "messages": messages, "stream": true});
-        if self.api == Api::Ollama {
-            let context = self
-                .context_length
-                .map_or_else(|| context_for(message), |length| length as usize);
-            body["options"] = json!({ "num_ctx": context });
-        }
-        body.to_string()
     }
-}
-
-/// A context that holds `message` and an answer as long as it, rounded up
-/// so that requests of a similar size share a loaded model. A character is
-/// counted as a token, which overestimates English and fits Japanese.
-fn context_for(message: &str) -> usize {
-    let needed = message.chars().count() * 2 + 1024;
-    needed.next_power_of_two().clamp(MIN_CONTEXT, MAX_CONTEXT)
 }
 
 /// How what a lens runs is reached.
@@ -161,8 +205,10 @@ pub(crate) enum Input {
 /// How to run a lens's command.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Invocation {
+    /// The agent whose answer is read out of what it writes; a command of
+    /// the reader's own writes the answer itself.
+    pub agent: Option<LensAgent>,
     pub transport: Transport,
-    pub format: OutputFormat,
     /// How the request is handed over.
     pub input: Input,
     /// `PATH` for a program — the command, or the one that prints an API
@@ -179,153 +225,63 @@ pub(crate) fn invocation(lens: &Lens) -> Invocation {
         .filter(|prompt| !prompt.trim().is_empty());
     let Some(agent) = lens.agent else {
         return Invocation {
+            agent: None,
             transport: Transport::Process {
                 argv: lens.command.clone(),
             },
-            format: OutputFormat::Text,
             input: Input::Json,
             path: search_path(None),
         };
     };
     let model = lens.model.as_deref().filter(|model| !model.is_empty());
-    let (api, format, default_endpoint, path) = match agent {
-        LensAgent::Ollama => (
-            Api::Ollama,
-            OutputFormat::OllamaChat,
-            OLLAMA_ENDPOINT,
-            "/api/chat",
-        ),
-        LensAgent::Openai => (
-            Api::OpenAi,
-            OutputFormat::OpenAiStream,
-            OPENAI_ENDPOINT,
-            "/chat/completions",
-        ),
-        LensAgent::Claude | LensAgent::Codex => {
-            return program_invocation(lens, agent, model, prompt)
+    let (transport, path) = match (agent.profile().reach, adapter(agent)) {
+        (AgentReach::Program { name }, Adapter::Program(program_agent)) => {
+            let program = lens
+                .program
+                .clone()
+                .or_else(|| find_program(name))
+                .unwrap_or_else(|| PathBuf::from(name));
+            let mut argv = vec![program.to_string_lossy().into_owned()];
+            argv.extend(program_agent.args(model));
+            let transport = match program_agent.conversation() {
+                Conversation::Stdin => Transport::Process { argv },
+                Conversation::AppServer => Transport::AppServer { argv },
+            };
+            (transport, search_path(program.parent()))
         }
-    };
-    // Trimmed as `key_account` files the key: a URL pasted with a trailing
-    // newline would otherwise be asked as written and fail.
-    let endpoint = lens
-        .endpoint
-        .as_deref()
-        .map(str::trim)
-        .filter(|endpoint| !endpoint.is_empty())
-        .unwrap_or(default_endpoint);
-    let api_key = if !lens.api_key_command.is_empty() {
-        ApiKey::Command(lens.api_key_command.clone())
-    } else {
-        key_account(lens).map_or(ApiKey::None, ApiKey::Stored)
+        (AgentReach::Server(profile), Adapter::Server(server_agent)) => {
+            // Trimmed as `key_account` files the key: a URL pasted with a
+            // trailing newline would otherwise be asked as written and fail.
+            let endpoint = lens
+                .endpoint
+                .as_deref()
+                .map(str::trim)
+                .filter(|endpoint| !endpoint.is_empty())
+                .unwrap_or(profile.endpoint)
+                .trim_end_matches('/');
+            let api_key = if !lens.api_key_command.is_empty() {
+                ApiKey::Command(lens.api_key_command.clone())
+            } else {
+                key_account(lens).map_or(ApiKey::None, ApiKey::Stored)
+            };
+            let server = Server {
+                agent,
+                url: format!("{endpoint}{}", server_agent.chat_path()),
+                models_url: format!("{endpoint}{}", server_agent.models_path()),
+                model: model.unwrap_or_default().to_string(),
+                system: lens.system.clone(),
+                context_length: lens.context_length,
+                api_key,
+            };
+            (Transport::Server(server), search_path(None))
+        }
+        _ => unreachable!("{agent:?}: its profile and its adapter reach it differently"),
     };
     Invocation {
-        transport: Transport::Server(Server {
-            api,
-            url: format!("{}{path}", endpoint.trim_end_matches('/')),
-            model: model.unwrap_or_default().to_string(),
-            system: lens.system.clone(),
-            context_length: lens.context_length,
-            api_key,
-        }),
-        format,
-        input: Input::Message { prompt },
-        path: search_path(None),
-    }
-}
-
-/// How to run the command-line `agent` for `lens`.
-fn program_invocation(
-    lens: &Lens,
-    agent: LensAgent,
-    model: Option<&str>,
-    prompt: Option<String>,
-) -> Invocation {
-    let name = match agent {
-        LensAgent::Claude => "claude",
-        _ => "codex",
-    };
-    let program = lens
-        .program
-        .clone()
-        .or_else(|| find_program(name))
-        .unwrap_or_else(|| PathBuf::from(name));
-    let mut argv = vec![program.to_string_lossy().into_owned()];
-    let format = match agent {
-        LensAgent::Claude => {
-            argv.extend(
-                [
-                    "-p",
-                    "--no-session-persistence",
-                    "--tools",
-                    "",
-                    "--strict-mcp-config",
-                    "--setting-sources",
-                    "",
-                    "--disable-slash-commands",
-                    "--system-prompt",
-                    SYSTEM_PROMPT,
-                    "--output-format",
-                    "stream-json",
-                    "--include-partial-messages",
-                    "--verbose",
-                ]
-                .map(String::from),
-            );
-            if let Some(model) = model {
-                argv.extend(["--model".to_string(), model.to_string()]);
-            }
-            OutputFormat::ClaudeStream
-        }
-        _ => {
-            // Not `codex exec`: it reports the answer only once it is whole.
-            // The sandbox, the ephemeral thread and the system prompt are
-            // asked for when the thread starts (see `super::app_server`).
-            argv.extend(
-                [
-                    "app-server",
-                    // A read-only sandbox still lets the agent run commands
-                    // that read files, and the document it is handed can ask
-                    // it to — to read what lies beside the document and write
-                    // it into the answer. A lens hands over text to be read,
-                    // so every tool is turned off, and so is what the user's
-                    // configuration could bring in besides.
-                    "--disable",
-                    "plugins",
-                    "--disable",
-                    "hooks",
-                    "--disable",
-                    "shell_tool",
-                    "--disable",
-                    "unified_exec",
-                    "--disable",
-                    "apps",
-                    "--disable",
-                    "browser_use",
-                    "--disable",
-                    "computer_use",
-                    "--disable",
-                    "image_generation",
-                    "-c",
-                    "web_search=\"disabled\"",
-                ]
-                .map(String::from),
-            );
-            if let Some(model) = model {
-                // The value is read as TOML, whose basic strings JSON's are.
-                argv.extend(["-c".to_string(), format!("model={}", json!(model))]);
-            }
-            OutputFormat::CodexAppServer
-        }
-    };
-    let transport = match agent {
-        LensAgent::Claude => Transport::Process { argv },
-        _ => Transport::AppServer { argv },
-    };
-    Invocation {
+        agent: Some(agent),
         transport,
-        format,
         input: Input::Message { prompt },
-        path: search_path(program.parent()),
+        path,
     }
 }
 
@@ -397,14 +353,12 @@ fn is_executable(path: &Path) -> bool {
     }
 }
 
-/// Reads the answer out of what the command writes, as it writes it.
-pub(crate) struct Decoder {
-    format: OutputFormat,
-    /// How much of the output has been read, up to the last whole line.
-    consumed: usize,
-    answer: String,
-    /// The message whose deltas `answer` is made of, for an agent that
-    /// names them.
+/// The answer as an agent's events tell it.
+#[derive(Debug, Default)]
+pub(crate) struct Answer {
+    text: String,
+    /// The message whose deltas `text` is made of, for an agent that names
+    /// them.
     item: Option<String>,
     /// The answer as the agent reported it when it finished, which wins
     /// over what was pieced together from the stream.
@@ -412,144 +366,106 @@ pub(crate) struct Decoder {
     error: Option<String>,
 }
 
+impl Answer {
+    /// Add `delta` to the answer.
+    pub(crate) fn push(&mut self, delta: &str) {
+        self.text.push_str(delta);
+    }
+
+    /// Add `delta` to the answer when it belongs to message `item`; one
+    /// that belongs to another starts the answer over, so that only the
+    /// last message is the answer.
+    pub(crate) fn push_to(&mut self, item: &str, delta: &str) {
+        if self.item.as_deref() != Some(item) {
+            self.item = Some(item.to_string());
+            self.text.clear();
+        }
+        self.text.push_str(delta);
+    }
+
+    /// The whole answer, as the agent reports it when it is done.
+    pub(crate) fn report(&mut self, text: impl Into<String>) {
+        self.reported = Some(text.into());
+    }
+
+    /// Why the agent has no answer.
+    pub(crate) fn fail(&mut self, error: impl Into<String>) {
+        self.error = Some(error.into());
+    }
+
+    fn finish(self) -> Result<String, String> {
+        match self.error {
+            Some(error) => Err(error),
+            None => Ok(self.reported.unwrap_or(self.text)),
+        }
+    }
+}
+
+/// Reads the answer out of what the command writes, as it writes it.
+pub(crate) struct Decoder {
+    /// `None` for a command whose output is the answer itself.
+    reader: Option<&'static dyn Reader>,
+    /// How much of the output has been read, up to the last whole line.
+    consumed: usize,
+    answer: Answer,
+}
+
 impl Decoder {
-    pub(crate) fn new(format: OutputFormat) -> Self {
+    /// A decoder for what `agent` writes, or a command of the reader's own
+    /// when it is `None`.
+    pub(crate) fn new(agent: Option<LensAgent>) -> Self {
         Self {
-            format,
+            reader: agent.map(reader),
             consumed: 0,
-            answer: String::new(),
-            item: None,
-            reported: None,
-            error: None,
+            answer: Answer::default(),
         }
     }
 
     /// The answer so far, given everything the command has written so far.
     pub(crate) fn feed<'a>(&'a mut self, output: &'a str) -> &'a str {
-        if self.format == OutputFormat::Text {
+        let Some(reader) = self.reader else {
             return output;
-        }
+        };
         while let Some(end) = output[self.consumed..].find('\n') {
             let line = &output[self.consumed..self.consumed + end];
             self.consumed += end + 1;
-            self.read_event(line);
+            read_line(reader, line, &mut self.answer);
         }
-        &self.answer
+        &self.answer.text
     }
 
     /// The whole answer, given everything the command wrote; or why the
     /// agent says it has none.
     pub(crate) fn finish(mut self, output: &str) -> Result<String, String> {
-        if self.format == OutputFormat::Text {
+        let Some(reader) = self.reader else {
             return Ok(output.to_string());
-        }
+        };
         self.feed(output);
-        let rest = output[self.consumed..].to_string();
-        self.read_event(&rest);
-        match self.error {
-            Some(error) => Err(error),
-            None => Ok(self.reported.unwrap_or(self.answer)),
-        }
-    }
-
-    fn read_event(&mut self, line: &str) {
-        let line = line.trim();
-        // A server-sent event carries its JSON after `data:`.
-        let line = match self.format {
-            OutputFormat::OpenAiStream => line.strip_prefix("data:").map_or(line, str::trim),
-            _ => line,
-        };
-        let Ok(event) = serde_json::from_str::<Value>(line) else {
-            return;
-        };
-        let text = |value: &Value| value.as_str().map(str::to_string);
-        match (self.format, event["type"].as_str()) {
-            (OutputFormat::ClaudeStream, Some("stream_event")) => {
-                let delta = &event["event"]["delta"];
-                if event["event"]["type"] == "content_block_delta" && delta["type"] == "text_delta"
-                {
-                    self.answer
-                        .push_str(delta["text"].as_str().unwrap_or_default());
-                }
-            }
-            (OutputFormat::ClaudeStream, Some("result")) => {
-                if event["is_error"].as_bool().unwrap_or(false) {
-                    self.error = text(&event["result"]).or_else(|| text(&event["subtype"]));
-                } else {
-                    self.reported = text(&event["result"]);
-                }
-            }
-            (OutputFormat::CodexAppServer, _) => self.read_app_server_message(&event),
-            (OutputFormat::OllamaChat, _) => {
-                if let Some(error) = text(&event["error"]) {
-                    self.error = Some(error);
-                } else if let Some(content) = event["message"]["content"].as_str() {
-                    self.answer.push_str(content);
-                }
-            }
-            (OutputFormat::OpenAiStream, _) => {
-                let choice = &event["choices"][0];
-                if let Some(error) =
-                    text(&event["error"]["message"]).or_else(|| text(&event["error"]))
-                {
-                    self.error = Some(error);
-                } else if let Some(content) = choice["delta"]["content"].as_str() {
-                    self.answer.push_str(content);
-                } else if let Some(content) = text(&choice["message"]["content"]) {
-                    // A server that does not stream answers whole.
-                    self.reported = Some(content);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn read_app_server_message(&mut self, message: &Value) {
-        let params = &message["params"];
-        let failure = |error: &Value| {
-            error["message"]
-                .as_str()
-                .unwrap_or("codex failed")
-                .to_string()
-        };
-        match message["method"].as_str() {
-            Some("item/agentMessage/delta") => {
-                // Only the last message is the answer, as `item/completed`
-                // says; one that came before it is not carried into it.
-                let item = params["itemId"].as_str().unwrap_or_default();
-                if self.item.as_deref() != Some(item) {
-                    self.item = Some(item.to_string());
-                    self.answer.clear();
-                }
-                self.answer
-                    .push_str(params["delta"].as_str().unwrap_or_default());
-            }
-            Some("item/completed") if params["item"]["type"] == "agentMessage" => {
-                if let Some(text) = params["item"]["text"].as_str() {
-                    self.reported = Some(text.to_string());
-                }
-            }
-            Some("turn/completed") if params["turn"]["status"] == "failed" => {
-                self.error = Some(failure(&params["turn"]["error"]));
-            }
-            Some("error") if params["willRetry"] != true => {
-                self.error = Some(failure(&params["error"]));
-            }
-            // A request the server refused.
-            None if message.get("error").is_some() => {
-                self.error = Some(failure(&message["error"]));
-            }
-            _ => {}
-        }
+        read_line(reader, &output[self.consumed..], &mut self.answer);
+        self.answer.finish()
     }
 }
 
+fn read_line(reader: &dyn Reader, line: &str, answer: &mut Answer) {
+    let line = reader.event(line.trim());
+    if let Ok(event) = serde_json::from_str::<Value>(line) {
+        reader.read(&event, answer);
+    }
+}
+
+/// The text `value` holds, if it is a string.
+pub(crate) fn text(value: &Value) -> Option<String> {
+    value.as_str().map(str::to_string)
+}
+
+/// Lets an adapter's tests read what the agent wrote, and look at how a lens
+/// runs it.
 #[cfg(test)]
-mod tests {
+pub(crate) mod testing {
     use super::*;
     use arto_config::LensDisplay;
 
-    fn lens(agent: Option<LensAgent>, model: Option<&str>) -> Lens {
+    pub(crate) fn lens(agent: Option<LensAgent>, model: Option<&str>) -> Lens {
         Lens {
             id: "t".to_string(),
             label: "T".to_string(),
@@ -575,17 +491,42 @@ mod tests {
         }
     }
 
-    fn argv(run: &Invocation) -> &[String] {
+    pub(crate) fn argv(run: &Invocation) -> &[String] {
         match &run.transport {
-            Transport::Process { argv } => argv,
+            Transport::Process { argv } | Transport::AppServer { argv } => argv,
             other => panic!("not a program: {other:?}"),
         }
     }
 
-    fn server(run: &Invocation) -> &Server {
+    pub(crate) fn server(run: &Invocation) -> &Server {
         match &run.transport {
             Transport::Server(server) => server,
             other => panic!("not a server: {other:?}"),
+        }
+    }
+
+    /// The answer in `output`, all of what `agent` wrote.
+    pub(crate) fn answer(agent: LensAgent, output: &str) -> Result<String, String> {
+        Decoder::new(Some(agent)).finish(output)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::testing::*;
+    use super::*;
+
+    #[test]
+    fn every_agent_is_reached_the_way_its_profile_says() {
+        for agent in LensAgent::ALL {
+            let program = matches!(agent.profile().reach, AgentReach::Program { .. });
+            assert_eq!(
+                matches!(adapter(agent), Adapter::Program(_)),
+                program,
+                "{agent:?}"
+            );
+            // Would panic if the two disagreed.
+            invocation(&lens(Some(agent), Some("m")));
         }
     }
 
@@ -593,117 +534,53 @@ mod tests {
     fn a_command_runs_as_written_and_reads_json() {
         let run = invocation(&lens(None, None));
         assert_eq!(argv(&run), ["my-tool", "--flag"]);
-        assert_eq!(run.format, OutputFormat::Text);
+        assert_eq!(run.agent, None);
         assert_eq!(run.input, Input::Json);
     }
 
     #[test]
-    fn claude_runs_bare_and_streams() {
-        let run = invocation(&lens(Some(LensAgent::Claude), Some("sonnet")));
-        let argv = argv(&run);
-        assert_eq!(argv[0], "/opt/agents/bin/agent");
-        assert_eq!(&argv[1..3], ["-p", "--no-session-persistence"]);
-        for flag in [
-            "--strict-mcp-config",
-            "--disable-slash-commands",
-            "--include-partial-messages",
-        ] {
-            assert!(argv.iter().any(|arg| arg == flag), "{flag}: {argv:?}");
+    fn an_agent_is_handed_the_prompt_as_a_message() {
+        for agent in LensAgent::ALL {
+            let run = invocation(&lens(Some(agent), Some("m")));
+            assert_eq!(run.agent, Some(agent));
+            assert_eq!(
+                run.input,
+                Input::Message {
+                    prompt: Some("Translate.".to_string())
+                }
+            );
         }
-        let tools = argv.iter().position(|arg| arg == "--tools").unwrap();
-        assert_eq!(argv[tools + 1], "");
-        assert_eq!(&argv[argv.len() - 2..], ["--model", "sonnet"]);
-        assert_eq!(run.format, OutputFormat::ClaudeStream);
-        assert_eq!(
-            run.input,
-            Input::Message {
-                prompt: Some("Translate.".to_string())
-            }
-        );
     }
 
     #[test]
-    fn codex_is_asked_through_its_app_server_with_its_tools_off() {
-        let run = invocation(&lens(Some(LensAgent::Codex), None));
-        let Transport::AppServer { argv } = &run.transport else {
-            panic!("not the app server: {:?}", run.transport);
-        };
-        assert_eq!(argv[1], "app-server");
-        let disabled: Vec<&str> = argv
-            .windows(2)
-            .filter(|pair| pair[0] == "--disable")
-            .map(|pair| pair[1].as_str())
-            .collect();
-        for tool in ["shell_tool", "unified_exec", "plugins", "hooks"] {
-            assert!(disabled.contains(&tool), "{tool} is left on: {argv:?}");
-        }
-        assert!(!argv.iter().any(|arg| arg.starts_with("model=")));
-        assert_eq!(run.format, OutputFormat::CodexAppServer);
+    fn the_program_directory_comes_first_on_the_path() {
+        let run = invocation(&lens(Some(LensAgent::Claude), None));
+        assert_eq!(argv(&run)[0], "/opt/agents/bin/agent");
+        let path = run.path.expect("a path");
+        let first = std::env::split_paths(&path).next();
+        assert_eq!(first, Some(PathBuf::from("/opt/agents/bin")));
     }
 
     #[test]
-    fn codex_is_given_the_model_as_a_toml_string() {
-        let run = invocation(&lens(Some(LensAgent::Codex), Some("gpt-5.5")));
-        let Transport::AppServer { argv } = &run.transport else {
-            panic!("not the app server: {:?}", run.transport);
-        };
-        assert_eq!(&argv[argv.len() - 2..], ["-c", r#"model="gpt-5.5""#]);
-    }
-
-    #[test]
-    fn ollama_is_asked_on_its_own_api_with_a_context_sized_to_the_request() {
-        let run = invocation(&lens(Some(LensAgent::Ollama), Some("qwen3:4b-instruct")));
-        let server = server(&run);
-        assert_eq!(server.url, "http://127.0.0.1:11434/api/chat");
-        assert_eq!(run.format, OutputFormat::OllamaChat);
-
-        let body: Value = serde_json::from_str(&server.body("short")).unwrap();
-        assert_eq!(body["model"], "qwen3:4b-instruct");
-        assert_eq!(body["stream"], true);
-        assert_eq!(
-            body["messages"],
-            json!([{"role": "user", "content": "short"}])
-        );
-        assert_eq!(body["options"]["num_ctx"], MIN_CONTEXT);
-
-        let long: Value = serde_json::from_str(&server.body(&"語".repeat(10_000))).unwrap();
-        assert_eq!(long["options"]["num_ctx"], 32_768);
-    }
-
-    #[test]
-    fn a_context_length_the_lens_names_wins() {
-        let mut ollama = lens(Some(LensAgent::Ollama), Some("m"));
-        ollama.context_length = Some(8192);
-        ollama.endpoint = Some("http://gpu-box:11434/".to_string());
-        let run = invocation(&ollama);
-
-        assert_eq!(server(&run).url, "http://gpu-box:11434/api/chat");
-        let body: Value = serde_json::from_str(&server(&run).body("x")).unwrap();
-        assert_eq!(body["options"]["num_ctx"], 8192);
-    }
-
-    #[test]
-    fn a_context_is_bounded() {
-        assert_eq!(context_for(""), MIN_CONTEXT);
-        assert_eq!(context_for(&"x".repeat(1_000_000)), MAX_CONTEXT);
-    }
-
-    #[test]
-    fn an_openai_server_is_asked_its_chat_completions_with_the_system_prompt() {
-        let mut openai = lens(Some(LensAgent::Openai), Some("gpt-5-mini"));
-        openai.endpoint = Some("https://api.openai.com/v1".to_string());
-        openai.system = Some("Japanese".to_string());
-        openai.api_key_command = vec!["security".to_string(), "find-generic-password".to_string()];
+    fn a_server_is_asked_under_its_endpoint_or_the_one_it_defaults_to() {
+        let mut openai = lens(Some(LensAgent::Openai), Some("m"));
+        openai.endpoint = Some("http://gpu-box:1234/v1/".to_string());
         let run = invocation(&openai);
-        let server = server(&run);
+        assert_eq!(server(&run).url, "http://gpu-box:1234/v1/chat/completions");
+        assert_eq!(server(&run).models_url, "http://gpu-box:1234/v1/models");
 
-        assert_eq!(server.url, "https://api.openai.com/v1/chat/completions");
-        assert_eq!(
-            server.api_key,
-            ApiKey::Command(openai.api_key_command.clone())
-        );
-        assert_eq!(run.format, OutputFormat::OpenAiStream);
-        let body: Value = serde_json::from_str(&server.body("Hello")).unwrap();
+        let ollama = invocation(&lens(Some(LensAgent::Ollama), Some("m")));
+        assert_eq!(server(&ollama).url, "http://127.0.0.1:11434/api/chat");
+    }
+
+    #[test]
+    fn a_server_is_asked_its_chat_with_the_system_prompt() {
+        let mut openai = lens(Some(LensAgent::Openai), Some("gpt-5-mini"));
+        openai.system = Some("Japanese".to_string());
+        let body: Value =
+            serde_json::from_str(&server(&invocation(&openai)).body("Hello")).unwrap();
+        assert_eq!(body["model"], "gpt-5-mini");
+        assert_eq!(body["stream"], true);
         assert_eq!(
             body["messages"],
             json!([
@@ -711,7 +588,6 @@ mod tests {
                 {"role": "user", "content": "Hello"},
             ])
         );
-        assert!(body.get("options").is_none(), "{body}");
     }
 
     #[test]
@@ -753,214 +629,55 @@ mod tests {
     #[test]
     fn a_server_has_a_key_account_even_at_its_default_endpoint() {
         let ollama = lens(Some(LensAgent::Ollama), Some("m"));
-        assert_eq!(key_account(&ollama).as_deref(), Some(OLLAMA_ENDPOINT));
+        assert_eq!(
+            key_account(&ollama).as_deref(),
+            Some("http://127.0.0.1:11434")
+        );
         assert_eq!(key_account(&lens(Some(LensAgent::Claude), None)), None);
         assert_eq!(
             key_account(&lens(Some(LensAgent::Openai), Some("m"))).as_deref(),
-            Some(OPENAI_ENDPOINT),
+            Some("https://api.openai.com/v1"),
             "OpenAI itself when no endpoint is set"
         );
     }
 
     #[test]
-    fn the_program_directory_comes_first_on_the_path() {
-        let run = invocation(&lens(Some(LensAgent::Claude), None));
-        let path = run.path.expect("a path");
-        let first = std::env::split_paths(&path).next();
-        assert_eq!(first, Some(PathBuf::from("/opt/agents/bin")));
-    }
-
-    /// What `claude -p --output-format stream-json --include-partial-messages`
-    /// wrote for a short answer, cut to the events that matter and a few
-    /// that do not.
-    const CLAUDE_STREAM: &str = concat!(
-        r##"{"type":"system","subtype":"init","session_id":"s"}"##,
-        "\n",
-        r##"{"type":"stream_event","event":{"type":"message_start","message":{}}}"##,
-        "\n",
-        r##"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"hmm"}}}"##,
-        "\n",
-        r##"{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"# 見出"}}}"##,
-        "\n",
-        r##"{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"し\n\n本文。"}}}"##,
-        "\n",
-        r##"{"type":"assistant","message":{"content":[{"type":"text","text":"# 見出し\n\n本文。"}]}}"##,
-        "\n",
-        r##"{"type":"result","subtype":"success","is_error":false,"result":"# 見出し\n\n本文。"}"##,
-        "\n",
-    );
-
-    #[test]
-    fn claude_answers_as_its_deltas_arrive() {
-        let mut decoder = Decoder::new(OutputFormat::ClaudeStream);
-        let line_end = |n: usize| CLAUDE_STREAM.match_indices('\n').nth(n).unwrap().0 + 1;
-        assert_eq!(decoder.feed(&CLAUDE_STREAM[..line_end(2)]), "");
-        // A line the command is still writing is not read yet.
-        assert_eq!(decoder.feed(&CLAUDE_STREAM[..line_end(2) + 20]), "");
-        assert_eq!(decoder.feed(&CLAUDE_STREAM[..line_end(3)]), "# 見出");
-        assert_eq!(decoder.feed(CLAUDE_STREAM), "# 見出し\n\n本文。");
-        assert_eq!(
-            decoder.finish(CLAUDE_STREAM).as_deref(),
-            Ok("# 見出し\n\n本文。")
-        );
-    }
-
-    #[test]
-    fn claude_reports_a_failure() {
-        let output = r#"{"type":"result","subtype":"error_during_execution","is_error":true,"result":"Credit balance is too low"}"#;
-        assert_eq!(
-            Decoder::new(OutputFormat::ClaudeStream).finish(output),
-            Err("Credit balance is too low".to_string())
-        );
-    }
-
-    /// What `codex app-server` wrote for a short answer, cut to the messages
-    /// that matter and a few that do not.
-    const CODEX_APP_SERVER: &str = concat!(
-        r#"{"id":1,"result":{"userAgent":"codex"}}"#,
-        "\n",
-        r#"{"method":"thread/started","params":{"thread":{"id":"t"}}}"#,
-        "\n",
-        r#"{"method":"item/started","params":{"item":{"type":"reasoning","id":"rs_1"}}}"#,
-        "\n",
-        r##"{"method":"item/agentMessage/delta","params":{"threadId":"t","turnId":"u","itemId":"msg_1","delta":"# 見出"}}"##,
-        "\n",
-        r#"{"method":"item/agentMessage/delta","params":{"threadId":"t","turnId":"u","itemId":"msg_1","delta":"し\n\n本文。"}}"#,
-        "\n",
-        r##"{"method":"item/completed","params":{"item":{"type":"agentMessage","id":"msg_1","text":"# 見出し\n\n本文。","phase":"final_answer"}}}"##,
-        "\n",
-        r#"{"method":"turn/completed","params":{"threadId":"t","turn":{"id":"u","status":"completed","error":null}}}"#,
-        "\n",
-    );
-
-    #[test]
-    fn codex_answers_as_its_deltas_arrive() {
-        let mut decoder = Decoder::new(OutputFormat::CodexAppServer);
-        let line_end = |n: usize| CODEX_APP_SERVER.match_indices('\n').nth(n).unwrap().0 + 1;
-        assert_eq!(decoder.feed(&CODEX_APP_SERVER[..line_end(2)]), "");
-        assert_eq!(decoder.feed(&CODEX_APP_SERVER[..line_end(3)]), "# 見出");
-        assert_eq!(
-            decoder.finish(CODEX_APP_SERVER).as_deref(),
-            Ok("# 見出し\n\n本文。")
-        );
-    }
-
-    #[test]
-    fn codex_answers_with_its_last_message_only() {
-        let output = concat!(
-            r#"{"method":"item/agentMessage/delta","params":{"itemId":"a","delta":"Let me look."}}"#,
-            "\n",
-            r#"{"method":"item/agentMessage/delta","params":{"itemId":"b","delta":"Answer"}}"#,
-            "\n",
-        );
-        assert_eq!(
-            Decoder::new(OutputFormat::CodexAppServer)
-                .finish(output)
-                .as_deref(),
-            Ok("Answer")
-        );
-    }
-
-    #[test]
-    fn codex_reports_a_failed_turn_but_not_an_error_it_retries() {
-        let output = concat!(
-            r#"{"method":"error","params":{"error":{"message":"reconnecting"},"willRetry":true}}"#,
-            "\n",
-            r#"{"method":"turn/completed","params":{"turn":{"status":"failed","error":{"message":"stream disconnected"}}}}"#,
-            "\n",
-        );
-        assert_eq!(
-            Decoder::new(OutputFormat::CodexAppServer).finish(output),
-            Err("stream disconnected".to_string())
-        );
-    }
-
-    #[test]
-    fn codex_reports_a_request_it_refused() {
-        let output = r#"{"id":3,"error":{"code":-32600,"message":"unknown model"}}"#;
-        assert_eq!(
-            Decoder::new(OutputFormat::CodexAppServer).finish(output),
-            Err("unknown model".to_string())
-        );
-    }
-
-    /// What Ollama's `/api/chat` streams for a short answer.
-    const OLLAMA_CHAT: &str = concat!(
-        r##"{"model":"m","message":{"role":"assistant","content":"# 見"},"done":false}"##,
-        "\n",
-        r##"{"model":"m","message":{"role":"assistant","content":"出し\n\n本文。"},"done":false}"##,
-        "\n",
-        r##"{"model":"m","message":{"role":"assistant","content":""},"done":true,"done_reason":"stop"}"##,
-        "\n",
-    );
-
-    #[test]
-    fn ollama_answers_as_its_messages_arrive() {
-        let mut decoder = Decoder::new(OutputFormat::OllamaChat);
-        let first_line = OLLAMA_CHAT.find('\n').unwrap() + 1;
-        assert_eq!(decoder.feed(&OLLAMA_CHAT[..first_line]), "# 見");
-        assert_eq!(
-            decoder.finish(OLLAMA_CHAT).as_deref(),
-            Ok("# 見出し\n\n本文。")
-        );
-    }
-
-    #[test]
-    fn ollama_reports_a_failure() {
-        let output = r#"{"error":"model \"qwen9\" not found, try pulling it first"}"#;
-        assert_eq!(
-            Decoder::new(OutputFormat::OllamaChat).finish(output),
-            Err(r#"model "qwen9" not found, try pulling it first"#.to_string())
-        );
-    }
-
-    /// What an OpenAI-compatible server streams for a short answer.
-    const OPENAI_STREAM: &str = concat!(
-        r#"data: {"id":"c","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant","content":""}}]}"#,
-        "\n\n",
-        r#"data: {"id":"c","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"こんにち"}}]}"#,
-        "\n\n",
-        r#"data: {"id":"c","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"は"},"finish_reason":"stop"}]}"#,
-        "\n\n",
-        "data: [DONE]\n\n",
-    );
-
-    #[test]
-    fn an_openai_server_answers_as_its_events_arrive() {
-        let mut decoder = Decoder::new(OutputFormat::OpenAiStream);
-        let two_events = OPENAI_STREAM.match_indices("\n\n").nth(1).unwrap().0 + 2;
-        assert_eq!(decoder.feed(&OPENAI_STREAM[..two_events]), "こんにち");
-        assert_eq!(decoder.finish(OPENAI_STREAM).as_deref(), Ok("こんにちは"));
-    }
-
-    #[test]
-    fn an_openai_server_that_does_not_stream_answers_whole() {
-        let output = r#"{"choices":[{"index":0,"message":{"role":"assistant","content":"全文"}}]}"#;
-        assert_eq!(
-            Decoder::new(OutputFormat::OpenAiStream)
-                .finish(output)
-                .as_deref(),
-            Ok("全文")
-        );
-    }
-
-    #[test]
-    fn an_openai_server_reports_a_failure() {
-        let output =
-            r#"{"error":{"message":"Incorrect API key provided","type":"invalid_request_error"}}"#;
-        assert_eq!(
-            Decoder::new(OutputFormat::OpenAiStream).finish(output),
-            Err("Incorrect API key provided".to_string())
-        );
+    fn a_line_still_being_written_is_not_read_yet() {
+        let line = r#"{"model":"m","message":{"content":"one"}}"#;
+        let output = format!("{line}\n{}", &line[..20]);
+        let mut decoder = Decoder::new(Some(LensAgent::Ollama));
+        assert_eq!(decoder.feed(&output), "one");
     }
 
     #[test]
     fn text_is_the_answer_as_it_is() {
-        let mut decoder = Decoder::new(OutputFormat::Text);
+        let mut decoder = Decoder::new(None);
         assert_eq!(decoder.feed("half"), "half");
         assert_eq!(
             decoder.finish("half and whole").as_deref(),
             Ok("half and whole")
         );
+    }
+
+    #[test]
+    fn only_the_last_message_is_the_answer() {
+        let mut answer = Answer::default();
+        answer.push_to("a", "Let me look.");
+        answer.push_to("b", "Ans");
+        answer.push_to("b", "wer");
+        assert_eq!(answer.finish().as_deref(), Ok("Answer"));
+    }
+
+    #[test]
+    fn what_the_agent_reports_wins_and_a_failure_wins_over_both() {
+        let mut answer = Answer::default();
+        answer.push("pieced");
+        answer.report("reported");
+        assert_eq!(answer.finish().as_deref(), Ok("reported"));
+
+        let mut answer = Answer::default();
+        answer.report("reported");
+        answer.fail("no");
+        assert_eq!(answer.finish(), Err("no".to_string()));
     }
 }

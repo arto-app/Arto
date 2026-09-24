@@ -370,7 +370,7 @@ mod tests {
         let Transport::AppServer { argv } = &invocation.transport else {
             panic!("not the app server");
         };
-        let mut decoder = Decoder::new(invocation.format);
+        let mut decoder = Decoder::new(invocation.agent);
         let started = std::time::Instant::now();
         let mut arrivals = Vec::new();
         let output = run(

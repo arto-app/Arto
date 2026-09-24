@@ -1,3 +1,4 @@
+use crate::LensAgent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -37,29 +38,6 @@ pub enum LensUnit {
 impl LensUnit {
     fn is_document(&self) -> bool {
         *self == Self::Document
-    }
-}
-
-/// Something Arto knows how to ask and how to read the answer of: the lens
-/// gives it a prompt instead of a whole command.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum LensAgent {
-    /// The `claude` command-line agent.
-    Claude,
-    /// The `codex` command-line agent.
-    Codex,
-    /// An Ollama server, through its own API, which unlike its
-    /// OpenAI-compatible one takes the context length with each request.
-    Ollama,
-    /// A server with an OpenAI-compatible chat completions API.
-    Openai,
-}
-
-impl LensAgent {
-    /// Whether Arto asks it over HTTP rather than running a program.
-    pub fn is_server(self) -> bool {
-        matches!(self, Self::Ollama | Self::Openai)
     }
 }
 
@@ -335,7 +313,10 @@ impl Lens {
             self.endpoint = None;
             self.api_key_command.clear();
         }
-        if agent != Some(LensAgent::Ollama) {
+        if !agent
+            .and_then(LensAgent::server)
+            .is_some_and(|server| server.context_length)
+        {
             self.context_length = None;
         }
     }
@@ -367,18 +348,17 @@ fn runner_error(lens: &Lens) -> Option<LensError> {
         .iter()
         .find(|(_, set)| *set)
         .map(|(field, _)| *field);
-    match lens.agent {
-        None if !has_command => Some(LensError::NothingToRun(id())),
-        Some(_) if !lens.command.is_empty() => Some(LensError::AgentAndCommand(id())),
-        Some(LensAgent::Openai | LensAgent::Ollama)
-            if lens.model.as_deref().is_none_or(str::is_empty) =>
-        {
+    let server = lens.agent.and_then(LensAgent::server);
+    match (lens.agent, server) {
+        (None, _) if !has_command => Some(LensError::NothingToRun(id())),
+        (Some(_), _) if !lens.command.is_empty() => Some(LensError::AgentAndCommand(id())),
+        (_, Some(_)) if lens.model.as_deref().is_none_or(str::is_empty) => {
             Some(LensError::MissingModel(id()))
         }
-        Some(LensAgent::Openai) if lens.context_length.is_some() => {
+        (_, Some(server)) if !server.context_length && lens.context_length.is_some() => {
             Some(LensError::NotForAgent(id(), "contextLength"))
         }
-        Some(agent) if agent.is_server() => None,
+        (_, Some(_)) => None,
         _ => misplaced.map(|field| LensError::NotForAgent(id(), field)),
     }
 }

@@ -36,7 +36,7 @@ impl Runner {
             Input::Json => request.to_json(),
             Input::Message { prompt } => request.to_message(prompt.as_deref()),
         };
-        let mut decoder = Decoder::new(invocation.format);
+        let mut decoder = Decoder::new(invocation.agent);
         let output = match &invocation.transport {
             Transport::Process { argv } => {
                 runner::run(
@@ -158,7 +158,6 @@ pub(crate) async fn run_jobs(
 
 #[cfg(all(test, unix))]
 mod tests {
-    use super::super::agent::OutputFormat;
     use super::super::job;
     use super::*;
     use arto_config::{Lens, LensDisplay};
@@ -196,7 +195,7 @@ mod tests {
                 transport: Transport::Process {
                     argv: vec!["sh".to_string(), "-c".to_string(), script.to_string()],
                 },
-                format: OutputFormat::Text,
+                agent: None,
                 input: match prompt {
                     Some(prompt) => Input::Message {
                         prompt: Some(prompt.to_string()),

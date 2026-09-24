@@ -124,13 +124,11 @@ impl LensRecipe {
     /// aliases, the stronger one for a whole document; `codex` knows its
     /// own. A server's models are the reader's to name.
     pub fn model(self, agent: LensAgent) -> Option<&'static str> {
-        match agent {
-            LensAgent::Claude => Some(match self {
-                Self::TranslatePage => "sonnet",
-                _ => "haiku",
-            }),
-            LensAgent::Codex | LensAgent::Ollama | LensAgent::Openai => None,
-        }
+        let models = agent.profile().recipe_models?;
+        Some(match self {
+            Self::TranslatePage => models.document,
+            _ => models.block,
+        })
     }
 
     /// The lens `blanks` make of the recipe, called `id`.

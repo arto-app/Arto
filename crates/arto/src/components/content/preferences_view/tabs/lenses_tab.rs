@@ -229,13 +229,8 @@ fn RecipePicker(
                     ChoiceRow {
                         name: "recipe-agent".to_string(),
                         label: "Asks".to_string(),
-                        description: Some(match filled.agent {
-                            LensAgent::Claude => "The claude command, signed in as you already are.",
-                            LensAgent::Codex => "The codex command, signed in as you already are.",
-                            LensAgent::Ollama => "A model running on this machine through Ollama; nothing leaves it.",
-                            LensAgent::Openai => "OpenAI, or a server with an OpenAI-compatible API.",
-                        }.to_string()),
-                        options: [LensAgent::Claude, LensAgent::Codex, LensAgent::Ollama, LensAgent::Openai]
+                        description: Some(filled.agent.profile().introduction.to_string()),
+                        options: LensAgent::ALL
                             .into_iter()
                             .map(|agent| ChoiceItem { value: agent, label: agent_name(Some(agent)).to_string() })
                             .collect::<Vec<_>>(),
@@ -259,10 +254,10 @@ fn RecipePicker(
                         value: filled.model.clone(),
                         on_input: move |text: String| blanks.write().model = text,
                     }
-                    if filled.agent == LensAgent::Openai {
+                    if let Some(server) = filled.agent.server().filter(|server| server.remote) {
                         TextField {
                             label: "Endpoint",
-                            hint: "The base URL, the part before /chat/completions. Left empty, https://api.openai.com/v1 — OpenAI itself.",
+                            hint: server.endpoint_hint,
                             value: filled.endpoint.clone(),
                             monospace: true,
                             on_input: move |text: String| blanks.write().endpoint = text,
@@ -401,13 +396,7 @@ fn prompt_hint(display: LensDisplay) -> &'static str {
 }
 
 fn agent_name(agent: Option<LensAgent>) -> &'static str {
-    match agent {
-        Some(LensAgent::Claude) => "Claude",
-        Some(LensAgent::Codex) => "Codex",
-        Some(LensAgent::Ollama) => "Ollama",
-        Some(LensAgent::Openai) => "OpenAI",
-        None => "Command",
-    }
+    agent.map_or("Command", |agent| agent.profile().name)
 }
 
 /// One lens: what it is called and does at a glance, dragged by that line
@@ -514,7 +503,7 @@ fn LensCard(
 /// runner read.
 #[component]
 fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
-    let server = lens.agent.is_some_and(LensAgent::is_server);
+    let server = lens.agent.and_then(LensAgent::server);
     let is_command = lens.agent.is_none();
     // Bumped when the stored key changes, so the models are asked for again
     // with it: a server that refused to list them without one may now.
@@ -601,21 +590,15 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
             ChoiceRow {
                 name: format!("lens-{index}-agent"),
                 label: "Asks".to_string(),
-                description: Some(match lens.agent {
-                    Some(LensAgent::Claude) => "The claude command, signed in as you already are.",
-                    Some(LensAgent::Codex) => "The codex command, signed in as you already are.",
-                    Some(LensAgent::Ollama) => "An Ollama server, through its own API.",
-                    Some(LensAgent::Openai) => "A server with an OpenAI-compatible API — LM Studio, llama.cpp, OpenAI and the like.",
-                    None => "A program of your own, handed the request as JSON.",
-                }.to_string()),
-                options: [
-                    Some(LensAgent::Claude),
-                    Some(LensAgent::Codex),
-                    Some(LensAgent::Ollama),
-                    Some(LensAgent::Openai),
-                    None,
-                ]
+                description: Some(
+                    lens.agent
+                        .map_or("A program of your own, handed the request as JSON.", |agent| agent.profile().description)
+                        .to_string(),
+                ),
+                options: LensAgent::ALL
+                    .map(Some)
                     .into_iter()
+                    .chain([None])
                     .map(|agent| ChoiceItem { value: agent, label: agent_name(agent).to_string() })
                     .collect::<Vec<_>>(),
                 selected: lens.agent,
@@ -635,7 +618,7 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
                     index,
                     source: ModelSource::of(&lens),
                     key_revision,
-                    hint: if server { "Required: the model the server runs." } else { "Left empty, the agent's own default." },
+                    hint: if server.is_some() { "Required: the model the server runs." } else { "Left empty, the agent's own default." },
                     value: lens.model.clone().unwrap_or_default(),
                     on_input: move |text: String| edit(config, index, |lens| lens.model = optional(text)),
                 }
@@ -655,14 +638,10 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
                 }
             }
 
-            if server {
+            if server.is_some() {
                 TextField {
                     label: "Endpoint",
-                    hint: if lens.agent == Some(LensAgent::Openai) {
-                        "The base URL, the part before /chat/completions. Left empty, https://api.openai.com/v1 — OpenAI itself."
-                    } else {
-                        "Left empty, http://127.0.0.1:11434."
-                    },
+                    hint: server.map_or("", |server| server.endpoint_hint),
                     value: lens.endpoint.clone().unwrap_or_default(),
                     monospace: true,
                     on_input: move |text: String| edit(config, index, |lens| lens.endpoint = optional(text)),
@@ -699,7 +678,7 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
                 }
             }
 
-            if lens.agent == Some(LensAgent::Ollama) {
+            if server.is_some_and(|server| server.context_length) {
                 NumberField {
                     label: "Context length",
                     hint: "In tokens. Left empty, sized to each request.",
