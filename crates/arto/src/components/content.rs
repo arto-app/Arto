@@ -37,6 +37,10 @@ pub fn Content() -> Element {
     // position.
     let content = use_memo(move || state.document.read().content.clone());
 
+    // Here rather than in the file viewer, which is gone by the time the
+    // reader has left for a page with no Markdown on it.
+    use_effect(move || crate::lenses::follow_rerender(state));
+
     // Use CSS zoom property for vector-based scaling (not transform: scale)
     // This ensures fonts and images remain sharp at any zoom level.
     // Applied to a wrapper INSIDE the scroll container (.content) rather than

@@ -18,6 +18,7 @@ pub(super) fn setup_window_listeners(mut state: AppState) {
         while rx.recv().await.is_ok() {
             let next = state.config_revision.read().wrapping_add(1);
             state.config_revision.set(next);
+            crate::lenses::close_unoffered(state);
         }
     });
 

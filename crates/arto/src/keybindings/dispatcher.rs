@@ -185,6 +185,9 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
 
         // --- Contents ---
         Action::ContentsToggle => state.toggle_contents(),
+        Action::LensStop => crate::lenses::stop(state),
+        Action::LensHide => crate::lenses::hide(state),
+        Action::Lens(place) => crate::lenses::toggle(state, usize::from(*place)),
         Action::ContentsNext => step_contents(&mut state, true),
         Action::ContentsPrev => step_contents(&mut state, false),
         Action::ContentsConfirm => confirm_contents(&mut state),

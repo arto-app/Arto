@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use super::context_menu::ContextMenuData;
 use super::context_menu_state::{open_context_menu, ContentContextMenuState};
 use crate::document_link::{open_document_link, scroll_to_heading_js, LinkOpen};
+use crate::lenses::RenderedSource;
 use crate::markdown::render_to_html_with_toc;
 use crate::scroll_anchor::ScrollAnchor;
 use crate::state::{AppState, DocumentContent};
@@ -57,6 +58,22 @@ pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
     use_image_window_handler();
     use_clipboard_handlers();
     use_context_menu_handler(file);
+    // A page that is gone has no source; the lens following it closes.
+    use_drop(move || {
+        let mut source = state.rendered_source;
+        if let Ok(mut rendered) = source.try_write() {
+            *rendered = None;
+        };
+    });
+
+    // The render the page shows, which lenses check the blocks they are
+    // offered against: right after a re-render the page may briefly still
+    // hold the previous one.
+    let generation = state
+        .rendered_source
+        .read()
+        .as_ref()
+        .map(|rendered| rendered.generation.to_string());
 
     rsx! {
         div {
@@ -64,6 +81,7 @@ pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
             class: if *state.content_full_width.read() { "full-width" },
             article {
                 class: "markdown-body",
+                "data-render-generation": generation,
                 dangerous_inner_html: "{html}"
             }
             // Context menu is rendered at App level to avoid re-rendering content
@@ -98,6 +116,9 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                             Ok((rendered, headings)) => {
                                 html.set(rendered);
                                 state.headings.set(headings);
+                                state
+                                    .rendered_source
+                                    .set(Some(RenderedSource::new(file.clone(), content)));
                                 tracing::trace!("Rendered as Markdown: {:?}", &file);
                             }
                             Err(e) => {
@@ -114,6 +135,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                                 );
                                 html.set(plain_html);
                                 state.headings.set(Vec::new());
+                                state.rendered_source.set(None);
                             }
                         }
                     } else {
@@ -126,6 +148,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                         );
                         html.set(plain_html);
                         state.headings.set(Vec::new());
+                        state.rendered_source.set(None);
                     }
 
                     // Re-apply search highlighting after content changes
@@ -142,6 +165,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                     state.update_document(move |document| {
                         document.content = DocumentContent::FileError(file_clone, error_msg);
                     });
+                    state.rendered_source.set(None);
                     html.set(String::new());
                 }
             }

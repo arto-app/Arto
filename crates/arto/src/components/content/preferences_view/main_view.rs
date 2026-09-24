@@ -1,6 +1,6 @@
 use super::tabs::{
     about_tab::AboutTab, appearance_tab::AppearanceTab, keybindings_tab::KeybindingsTab,
-    markdown_tab::MarkdownTab, panel_tab::PanelTab, reading_tab::ReadingTab,
+    lenses_tab::LensesTab, markdown_tab::MarkdownTab, panel_tab::PanelTab, reading_tab::ReadingTab,
     startup_tab::StartupTab, window_tab::WindowTab,
 };
 use crate::components::icon::{Icon, IconName};
@@ -22,12 +22,13 @@ pub enum PreferencesTab {
     Window,
     Startup,
     Keybindings,
+    Lenses,
     About,
 }
 
 impl PreferencesTab {
     /// The panes in the order the navigation lists them.
-    const ALL: [Self; 7] = [
+    const ALL: [Self; 8] = [
         Self::Appearance,
         Self::Markdown,
         Self::Reading,
@@ -35,6 +36,7 @@ impl PreferencesTab {
         Self::Window,
         Self::Startup,
         Self::Keybindings,
+        Self::Lenses,
     ];
 
     fn title(self) -> &'static str {
@@ -46,6 +48,7 @@ impl PreferencesTab {
             Self::Window => "Window",
             Self::Startup => "Startup",
             Self::Keybindings => "Keybindings",
+            Self::Lenses => "Lenses",
             Self::About => "About",
         }
     }
@@ -59,6 +62,7 @@ impl PreferencesTab {
             Self::Window => IconName::AppWindow,
             Self::Startup => IconName::Power,
             Self::Keybindings => IconName::Command,
+            Self::Lenses => IconName::Aperture,
             Self::About => IconName::InfoCircle,
         }
     }
@@ -283,6 +287,9 @@ pub fn PreferencesView(snapshot: PreferencesSnapshot) -> Element {
                         },
                         PreferencesTab::Keybindings => rsx! {
                             KeybindingsTab { config }
+                        },
+                        PreferencesTab::Lenses => rsx! {
+                            LensesTab { config }
                         },
                         PreferencesTab::About => rsx! {
                             AboutTab {}

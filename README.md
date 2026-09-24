@@ -50,6 +50,8 @@ Markdown is where documentation, communication and thinking now live, and readin
 
 **Rich content** — Mermaid diagrams and KaTeX math where they stand, drawn as they come into view so a long document opens as quickly as a short one. The context menu copies a selection as Markdown, a code block with or without its fence, a table as Markdown, CSV or TSV, and an image as Markdown or as the image itself — as well as the document's path, with the line you are on or a range of them.
 
+**Lenses** — Claude, Codex, a local model through Ollama or any OpenAI-compatible server asked about the document you are reading, the file itself never changed: a translation taking the document's places block by block from the top, each original a point at its right margin away; a summary opened from the header; a note kept beside each paragraph. Nothing is sent anywhere until you open a lens, and then only to what you configured — see [Lenses](./docs/lenses.md).
+
 **Fitting in** — GitHub's own themes, including dimmed, high contrast and the colour-vision ones, with a separate choice for light and dark mode and the system deciding which applies. Keybindings ship as Default, Vim, Emacs and Clear presets, every binding editable and chord sequences supported. Zoom by keyboard or trackpad with the level remembered, `⌘P` to print or save a PDF through a stylesheet made for paper, and — on macOS — `Space` on a Markdown file previews it rendered, in the Finder preview pane too.
 
 <sub>Shortcuts above are the macOS defaults; `⌘` is `Ctrl` on Linux and Windows. All of them are rebindable — see [Keybindings](./docs/keybindings.md).</sub>

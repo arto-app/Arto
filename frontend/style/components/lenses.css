@@ -1,0 +1,426 @@
+/* =================================
+   Lenses
+   =================================
+
+   A configured command's answer shown with the document — see
+   `src/lenses.ts` for the marks beside blocks and
+   `crates/arto/src/components/lens_controls.rs` for the header. The marks
+   stay quiet: the document is what is being read. */
+
+.markdown-body .lens-pending {
+  opacity: var(--opacity-secondary);
+  transition: opacity var(--transition-normal);
+}
+
+.markdown-body .lens-failed {
+  box-shadow: -3px 0 0 -1px color-mix(in srgb, var(--error-color) 60%, transparent);
+}
+
+.markdown-body td.lens-failed,
+.markdown-body th.lens-failed {
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--error-color) 60%, transparent);
+}
+
+.markdown-body .lens-annotated {
+  position: relative;
+}
+
+/* An answer about text that has since changed: shown, since it is still
+   mostly right, but set apart until it is regenerated. A translated block
+   carries a dashed rule in its margin; a note's mark goes hollow. */
+.markdown-body > .lens-answered.lens-outdated {
+  box-shadow: -10px 0 0 -8px var(--warning-color);
+  opacity: var(--opacity-hover);
+}
+
+.markdown-body .lens-marker.lens-marker-outdated {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--accent-color);
+}
+
+.markdown-body .lens-marker {
+  position: absolute;
+  top: 0.45em;
+  left: -18px;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--accent-color);
+  opacity: var(--opacity-muted);
+  cursor: help;
+}
+
+.markdown-body td > .lens-marker,
+.markdown-body th > .lens-marker {
+  left: 3px;
+}
+
+.markdown-body .lens-marker:hover {
+  opacity: 1;
+}
+
+/* The way to an answered block's original, in the right margin beside
+   the block under the pointer — the left one holds the marks of the lenses
+   over the page. Its padding reaches a few pixels back into the block, so
+   the pointer on its way over never crosses a gap that would take it away. */
+.lens-original-handle {
+  position: fixed;
+  z-index: calc(var(--z-context-menu) - 1);
+  display: flex;
+  padding: 3px 3px 3px 8px;
+  color: var(--text-secondary);
+  opacity: 0;
+  visibility: hidden;
+  cursor: help;
+  transition:
+    opacity var(--transition-fast),
+    visibility var(--transition-fast);
+}
+
+.lens-original-handle.is-visible {
+  opacity: var(--opacity-muted);
+  visibility: visible;
+}
+
+.lens-original-handle:hover {
+  color: var(--accent-color);
+  opacity: 1;
+}
+
+/* Drawn at the top of the document, like the row hover note, so no
+   scrolling box clips it. */
+.lens-popover {
+  position: fixed;
+  z-index: var(--z-context-menu);
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(480px, calc(100vw - 16px));
+  max-height: 50vh;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  /* Lifted off the page by its shadow rather than set apart by a tint: it
+     reads as a card laid over the document, not as more of it. */
+  background: var(--bg-color);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-color);
+  font-size: var(--font-size-md);
+  line-height: 1.55;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition:
+    opacity var(--transition-fast) ease,
+    transform var(--transition-fast) ease,
+    visibility var(--transition-fast);
+}
+
+.lens-popover.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lens-popover {
+    transform: none;
+  }
+}
+
+/* One lens's part of a popover, or of the summaries' panel: a head naming
+   the lens, then its answer. Parts are divided by a hairline across the
+   whole card, so two answers never read as one. */
+.lens-popover-section,
+.lens-answer-section {
+  padding: 10px 14px 12px;
+}
+
+.lens-popover-section + .lens-popover-section,
+.lens-answer-section + .lens-answer-section {
+  border-top: 1px solid var(--border-color);
+}
+
+.lens-popover-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+/* The lens's name: quiet, with a dot in the accent to mark where a part
+   begins at a glance. */
+.lens-popover-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.lens-popover-caption::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent-color);
+}
+
+/* What is wrong with an answer, said beside the name rather than after it. */
+.lens-popover-badge {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.lens-popover-badge.is-warning {
+  background: color-mix(in srgb, var(--warning-color) 14%, transparent);
+  color: var(--warning-color);
+}
+
+.lens-popover-badge.is-danger {
+  background: color-mix(in srgb, var(--error-color) 12%, transparent);
+  color: var(--error-color);
+}
+
+/* The block keeps its Markdown styling but not the page's ground or size. */
+.lens-popover-section > .markdown-body {
+  background: transparent;
+  font-size: inherit;
+}
+
+.lens-popover-section > .markdown-body > :first-child,
+.lens-answer-section > .markdown-body > :first-child {
+  margin-top: 0;
+}
+
+.lens-popover-section > .markdown-body > :last-child,
+.lens-answer-section > .markdown-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* The hourglass shown while lenses are being answered: it rests, turns
+   over, rests and turns over again, the way one is kept running — so a
+   wait for the first answer does not read as a stall. Shown at full
+   strength, since the quiet resting shade of the band would hide the very
+   motion that says something is at work. */
+.header .nav-button.lens-working,
+.header:hover .nav-button.lens-working {
+  opacity: 1;
+}
+
+.lens-hourglass {
+  animation: lens-hourglass 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes lens-hourglass {
+  0%,
+  35% {
+    transform: rotate(0deg);
+  }
+
+  50%,
+  85% {
+    transform: rotate(180deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lens-hourglass {
+    animation: lens-breathing 2.4s ease-in-out infinite;
+  }
+
+  @keyframes lens-breathing {
+    50% {
+      opacity: 0.4;
+    }
+  }
+}
+
+/* The lens glyph carries a dot while a lens has answers from before the
+   document changed, or failed; hovering it says which. */
+.lens-glyph {
+  position: relative;
+}
+
+.lens-glyph.needs-attention::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--warning-color);
+}
+
+/* A block a page lens has answered for arrives with a short fade, so the
+   replacement moving down the page is seen as it happens. */
+.markdown-body > .lens-answered {
+  animation: lens-arrive var(--transition-slow) ease-out;
+}
+
+@keyframes lens-arrive {
+  from {
+    opacity: 0.35;
+  }
+}
+
+/* Which page lens takes the page, or the document as written: a menu hung
+   from the lens glyph, in the header's own dropdown dress. */
+.lens-switch-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: var(--z-dropdown);
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-color);
+  box-shadow: var(--shadow-md);
+}
+
+.lens-switch-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-color);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.lens-switch-item:hover {
+  background: var(--hover-bg);
+}
+
+.lens-switch-check {
+  width: 14px;
+  color: var(--accent-color);
+  text-align: center;
+}
+
+.lens-switch-note {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+/* A lens being answered, in the hourglass's list: not a choice, so it does
+   not light up under the pointer; its stop button does. */
+.lens-working-row {
+  cursor: default;
+}
+
+.lens-working-row:hover {
+  background: none;
+}
+
+.lens-row-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.lens-row-action:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.lens-switch-heading {
+  padding: 6px 10px 2px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lens-switch-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border-color);
+}
+
+.lens-popover-anchor {
+  position: relative;
+  display: flex;
+}
+
+/* A lens's one answer about the whole document, opened from the header. */
+.lens-answer {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: var(--z-dropdown);
+  box-sizing: border-box;
+  /* Wider with the document's zoom, which its contents are drawn at. */
+  width: min(calc(520px * var(--lens-zoom, 1)), calc(100vw - 32px));
+  max-height: 60vh;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  /* The same card as a block's popover, for the same reason. */
+  background: var(--bg-color);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-color);
+  font-size: var(--font-size-md);
+  line-height: 1.55;
+}
+
+.lens-answer-section {
+  zoom: var(--lens-zoom, 1);
+}
+
+.lens-answer-section > .markdown-body {
+  background: transparent;
+  font-size: inherit;
+}
+
+.lens-answer-waiting {
+  color: var(--text-secondary);
+}
+
+/* Catches the click that puts the answer away; below the answer itself. */
+.lens-answer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-dropdown) - 1);
+}
+
+.lens-answer-failed {
+  color: var(--error-color);
+  white-space: pre-wrap;
+}
+
+/* A lens's regenerate button sits at the end of its row, or after the
+   hourglass while it is being answered. */
+.lens-row-action.lens-row-action-end {
+  margin-left: auto;
+}

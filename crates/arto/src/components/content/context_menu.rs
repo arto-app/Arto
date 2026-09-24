@@ -4,6 +4,7 @@ mod copy_path_as;
 mod copy_table_as;
 mod data;
 mod image_ops;
+mod lens_ops;
 mod source_ops;
 
 pub use data::*;
@@ -22,6 +23,7 @@ use copy_code_as::CopyCodeAsSubmenu;
 use copy_path_as::CopyPathAsSubmenu;
 use copy_table_as::CopyTableAsSubmenu;
 use image_ops::{CopyImageAsSubmenu, CopySpecialBlockAsSubmenu};
+use lens_ops::LensItems;
 use source_ops::LinkContextItems;
 
 #[component]
@@ -85,6 +87,9 @@ pub fn ContentContextMenu(
 
     let has_table = table_csv.is_some();
     let has_file = current_file.is_some();
+    let has_lenses = state.rendered_source.read().is_some()
+        && (!crate::lenses::offered_lenses().is_empty()
+            || !crate::lenses::open_runs(&state).is_empty());
     let has_any_submenu = has_selection
         || has_file
         || copy_code_source.is_some()
@@ -423,6 +428,12 @@ pub fn ContentContextMenu(
                     }
                 },
                 _ => rsx! {},
+            }
+
+            // === Section 5: Lenses ===
+            if has_lenses {
+                ContextMenuSeparator {}
+                LensItems { on_close: on_close }
             }
         }
     }

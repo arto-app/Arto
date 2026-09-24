@@ -9,7 +9,9 @@
 //! share their names with arto-markdown's originals, which take the options
 //! as one more argument, and a glob would import those only to shadow them.
 
-pub use arto_markdown::{HeadingInfo, ImageResolution, RawHtml, RenderOptions};
+pub use arto_markdown::{
+    BlockKind, HeadingInfo, ImageResolution, RawHtml, RenderOptions, SourcePosition, SourceRange,
+};
 
 use crate::config::CONFIG;
 use anyhow::Result;
@@ -53,4 +55,57 @@ pub fn extract_source_selection(
     selected_text: impl AsRef<str>,
 ) -> Option<String> {
     arto_markdown::extract_source_selection(source, selected_text, &render_options())
+}
+
+/// The content of one rendered block, read out of the source it was
+/// rendered from, with the same preferences so that the same text counts as
+/// syntax.
+pub fn block_content(
+    source: impl AsRef<str>,
+    kind: BlockKind,
+    range: &SourceRange,
+    until: Option<SourcePosition>,
+) -> Option<String> {
+    arto_markdown::block_content(source.as_ref(), kind, range, until, &render_options())
+}
+
+/// Render Markdown that was not read from the document at `base_path` —
+/// what a lens answered — serving its images like the document's own.
+///
+/// Raw HTML is escaped, whatever the reader allows their documents: an
+/// answer is written by a model the document can talk into anything, and
+/// the filter a reader trusts their own documents to lets through markup
+/// that fetches — a stylesheet, a style's `url()`, an address written in
+/// character references — which would carry what the model read to whoever
+/// it names. A document's `<kbd>` shows as written in its translation; that
+/// is the price of not trusting the model's markup.
+pub fn render_detached(markdown: impl AsRef<str>, base_path: impl AsRef<Path>) -> Result<String> {
+    let rendered =
+        arto_markdown::render_detached(markdown, base_path, &detached_options(render_options()))?;
+    crate::assets::images::register(rendered.images);
+    Ok(rendered.html)
+}
+
+/// `options` with raw HTML escaped.
+fn detached_options(options: RenderOptions) -> RenderOptions {
+    RenderOptions {
+        raw_html: RawHtml::Escape,
+        ..options
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_answer_is_rendered_with_its_raw_html_escaped() {
+        for reader in [RawHtml::Allow, RawHtml::Filter, RawHtml::Escape] {
+            let options = RenderOptions {
+                raw_html: reader,
+                ..RenderOptions::default()
+            };
+            assert_eq!(detached_options(options).raw_html, RawHtml::Escape);
+        }
+    }
 }

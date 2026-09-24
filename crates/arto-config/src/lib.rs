@@ -16,6 +16,8 @@ mod behavior;
 mod color_theme;
 mod directory_config;
 mod file_open_behavior;
+mod lens_recipes;
+mod lenses;
 mod persistence;
 mod sidebar_config;
 mod theme;
@@ -31,6 +33,8 @@ pub use behavior::*;
 pub use color_theme::*;
 pub use directory_config::*;
 pub use file_open_behavior::*;
+pub use lens_recipes::*;
+pub use lenses::*;
 pub use persistence::*;
 pub use sidebar_config::*;
 pub use theme::*;
@@ -54,6 +58,8 @@ pub struct Config {
     pub window_position: WindowPositionConfig,
     pub window_size: WindowSizeConfig,
     pub zoom: ZoomConfig,
+    /// Commands the reader can look at a document through.
+    pub lenses: Vec<Lens>,
     /// Keybindings live in their own file (`mappings.json`), so they are
     /// neither read from nor written to `config.json`.
     #[serde(skip_serializing, skip_deserializing, default)]
@@ -227,6 +233,25 @@ mod tests {
                 on_startup: StartupBehavior::LastClosed,
                 on_new_window: NewWindowBehavior::LastFocused,
             },
+            lenses: vec![Lens {
+                id: "summarize".to_string(),
+                label: "Summarize".to_string(),
+                display: LensDisplay::Popover,
+                agent: None,
+                model: None,
+                prompt: None,
+                program: None,
+                system: None,
+                endpoint: None,
+                api_key_command: Vec::new(),
+                context_length: None,
+                command: vec!["llm".to_string(), "Summarize this".to_string()],
+                context: 1,
+                concurrency: 2,
+                timeout_seconds: 30,
+                unit: Default::default(),
+                shortcut: None,
+            }],
             keybindings: BindingSet {
                 global: vec![KeyAction {
                     key: "Ctrl+k".to_string(),

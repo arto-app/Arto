@@ -7,6 +7,7 @@ use crate::components::bookmark_button::BookmarkButton;
 use crate::components::find::HeaderFind;
 use crate::components::header::breadcrumb_menu::Breadcrumb;
 use crate::components::icon::{Icon, IconName};
+use crate::components::lens_controls::LensControls;
 use crate::components::theme_selector::ThemeSelector;
 use crate::state::AppState;
 
@@ -133,6 +134,8 @@ pub fn Header() -> Element {
                 class: "header-right",
 
                 if reading {
+                LensControls {}
+
                 // Search button
                 button {
                     class: "nav-button search-button",

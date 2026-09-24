@@ -1360,3 +1360,410 @@
   background: var(--error-color);
   color: white;
 }
+
+/* ========================================
+   Lenses
+   ======================================== */
+
+.lens-empty {
+  padding: 12px 0;
+}
+
+/* One lens: a summary line that opens it, and its settings below. */
+.lens-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-color);
+  position: relative;
+}
+
+.lens-card.open {
+  border-color: var(--accent-bg);
+}
+
+.lens-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 4px;
+  cursor: grab;
+}
+
+.lens-card-summary {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-color);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lens-card-summary:hover {
+  background: var(--hover-bg);
+}
+
+.lens-card-label {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+}
+
+.lens-card-meta {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.lens-card-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.lens-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--hit-size);
+  height: var(--hit-size);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-color);
+  opacity: var(--opacity-muted);
+  cursor: pointer;
+  transition: opacity var(--transition-quiet) ease;
+}
+
+.lens-icon-button:hover {
+  background: var(--hover-bg);
+  opacity: 1;
+}
+
+.lens-icon-button.active {
+  opacity: var(--opacity-active);
+}
+
+/* What keeps the lens out of the menus, in the words the log uses. */
+.lens-card-problem {
+  margin: 0;
+  padding: 0 14px 10px;
+  color: var(--error-color);
+  font-size: var(--font-size-sm);
+}
+
+.lens-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 14px 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* The choices in a lens sit among its fields, not as sections of the pane. */
+.lens-form .preference-item {
+  padding: 0;
+}
+
+.lens-form .preference-item + .preference-item {
+  border-top: none;
+}
+
+.lens-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lens-field-label {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.lens-field-hint {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.lens-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+textarea.lens-input {
+  resize: vertical;
+}
+
+.lens-input.monospace {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.lens-input:focus {
+  outline: none;
+  border-color: var(--accent-bg);
+}
+
+.lens-field-number .lens-input {
+  width: 120px;
+}
+
+.lens-add-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.lens-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.lens-button:hover {
+  background: var(--hover-bg);
+}
+
+.lens-button-danger {
+  border-color: var(--error-color);
+  color: var(--error-color);
+}
+
+/* Where a dragged lens would land: the same straight line the sidebar
+   draws, above or below by the way the lens is travelling. */
+.lens-drop-before::before,
+.lens-drop-after::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: color-mix(in srgb, currentcolor 55%, transparent);
+}
+
+.lens-drop-before::before {
+  top: -6px;
+}
+
+.lens-drop-after::after {
+  bottom: -6px;
+}
+
+/* The lens that is in the air. */
+.lens-card.dragging {
+  opacity: var(--opacity-muted);
+}
+
+/* The models the agent offers, a click away when there are few. */
+.lens-model-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lens-model-chip {
+  padding: 3px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-color);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  cursor: pointer;
+}
+
+.lens-model-chip:hover {
+  color: var(--text-color);
+  background: var(--hover-bg);
+}
+
+.lens-model-chip.selected {
+  border-color: var(--accent-bg);
+  color: var(--accent-color);
+}
+
+.lens-field-status {
+  font-style: italic;
+}
+
+/* Three cards side by side need room for their sentences. */
+.lens-form .option-cards {
+  flex-wrap: wrap;
+}
+
+.lens-form .option-card {
+  flex: 1 1 180px;
+}
+
+/* What the agent is sent, folded away under the prompt until asked for. */
+.lens-message > summary {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.lens-message > pre {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The API key: a field and its buttons on one line, or what is stored. */
+.lens-key-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lens-key-line .lens-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.lens-key-stored {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-color);
+  font-size: var(--font-size-md);
+  overflow-wrap: anywhere;
+}
+
+.lens-field-error {
+  color: var(--error-color);
+}
+
+/* Recipes: lenses written in advance, laid out as cards with room to read
+   what each does, then the few blanks the chosen one leaves. */
+.lens-recipes {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 4px;
+}
+
+.lens-recipe-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.lens-recipe-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast) ease,
+    background var(--transition-fast) ease;
+}
+
+.lens-recipe-card:hover {
+  border-color: var(--hover-border);
+  background: var(--bg-secondary);
+}
+
+.lens-recipe-card.selected {
+  border-color: var(--accent-bg);
+  background: color-mix(in srgb, var(--accent-bg) 8%, transparent);
+}
+
+.lens-recipe-card:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.lens-recipe-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lens-recipe-icon {
+  flex-shrink: 0;
+  color: var(--accent-color);
+}
+
+.lens-recipe-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.lens-recipe-desc {
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* How the answer is shown, in the words the lens form uses. */
+.lens-recipe-tag {
+  margin-top: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+/* The blanks of the chosen recipe, set apart from the cards above. */
+.lens-recipes > .lens-form {
+  padding: 16px 18px;
+  border: 1px solid var(--accent-bg);
+  border-radius: var(--radius-lg);
+}
+
+/* The two languages a translation goes between, side by side. */
+.lens-language-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.lens-language-swap {
+  padding-top: 30px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-lg);
+}
