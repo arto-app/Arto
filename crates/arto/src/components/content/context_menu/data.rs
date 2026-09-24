@@ -14,10 +14,10 @@ pub enum ContentContext {
     CodeBlock {
         content: String,
         language: Option<String>,
-        /// Block source line start (1-based, from data-source-line)
+        /// Block source line start (1-based, the first line of data-source-range)
         #[serde(default)]
         source_line: Option<u32>,
-        /// Block source line end (1-based, from data-source-line-end)
+        /// Block source line end (1-based, the last line of data-source-range)
         #[serde(default)]
         source_line_end: Option<u32>,
     },

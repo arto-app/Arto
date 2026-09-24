@@ -22,7 +22,7 @@ Order of operations, which must not change:
    become the `preprocessed-*` containers the frontend renders
    client-side, GitHub alerts (`> [!NOTE]`) become
    `<div class="markdown-alert …">`, the byte range on every block element
-   becomes the `data-source-line` attributes, and heading ids survive only
+   becomes its `data-source-range="L:C-L:C"`, and heading ids survive only
    when a table of contents was asked for.
 3. Post-process with `lol_html`: inline local images as data URLs, turn
    local Markdown links into `<span class="md-link" data-md-link="…">`.

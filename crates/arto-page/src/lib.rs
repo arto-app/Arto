@@ -713,8 +713,7 @@ mod tests {
 
     #[test]
     fn test_a_usual_language_takes_the_common_build() {
-        let rust =
-            r#"<pre data-source-line="1"><code class="language-rust">fn main() {}</code></pre>"#;
+        let rust = r#"<pre data-source-range="1:1-3:3"><code data-source-range="2:1-2:12" class="language-rust">fn main() {}</code></pre>"#;
 
         assert_eq!(highlighting_for(rust), Highlighting::Common);
         assert_eq!(libraries_for(rust), 1);
@@ -722,7 +721,7 @@ mod tests {
 
     #[test]
     fn test_an_unlabelled_block_takes_the_common_build_to_detect_with() {
-        let plain = r#"<pre data-source-line="1"><code>anything at all</code></pre>"#;
+        let plain = r#"<pre data-source-range="1:1-3:3"><code data-source-range="2:1-2:15">anything at all</code></pre>"#;
 
         assert_eq!(highlighting_for(plain), Highlighting::Common);
     }

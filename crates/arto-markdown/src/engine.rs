@@ -10,6 +10,7 @@
 //! a change inside this directory.
 
 mod annotate;
+mod code;
 mod hooks;
 mod lines;
 mod outline;
@@ -105,7 +106,8 @@ pub(crate) fn render(
         .render_with_hooks(&document, &mut hooks::ArtoHooks::new(body));
 
     let lines = LineTable::new(body, frontmatter_lines);
-    let annotated = annotate::annotate(&html, &lines, with_toc);
+    let code_contents = code::collect(&document, body);
+    let annotated = annotate::annotate(&html, &lines, &code_contents, with_toc);
 
     let headings = if with_toc {
         // The ids come back from the rendered headings, so the outline and
