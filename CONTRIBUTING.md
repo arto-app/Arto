@@ -86,6 +86,7 @@ Arto/
 ├── nix/              # Command wrappers used only by the Nix build
 ├── docs/images/      # Brand images (README header, logo) and README screenshots
 ├── samples/          # Sample Markdown files for manual testing
+├── schemas/          # JSON Schema of config.json, generated from arto-config
 └── flake.nix         # Nix flake for reproducible builds
 ```
 

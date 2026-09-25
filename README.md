@@ -14,6 +14,7 @@
   <a href="https://arto-app.github.io"><strong>Website</strong></a> ·
   <a href="./docs/installation.md">Install</a> ·
   <a href="./docs/cli.md">CLI</a> ·
+  <a href="./docs/configuration.md">Configuration</a> ·
   <a href="./docs/keybindings.md">Keybindings</a> ·
   <a href="./CONTRIBUTING.md">Contributing</a>
 </p>
