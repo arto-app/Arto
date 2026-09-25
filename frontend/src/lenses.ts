@@ -351,6 +351,11 @@ interface PageState {
   root: HTMLElement;
   original: Element[];
   /**
+   * The positions in `original` a whole answer's blocks take, in order;
+   * `null` for a block of the answer that has no place of its own.
+   */
+  places: (number | null)[];
+  /**
    * What took the place of the document's block at each position: the
    * elements the answer rendered to, and the HTML they were made from.
    */
@@ -407,6 +412,33 @@ function isTranslatable(el: Element): boolean {
 }
 
 /**
+ * Whether a top-level block is the document's raw HTML, which a whole
+ * answer has no block for: an answer's raw HTML is rendered escaped, as
+ * text between its blocks. Frontmatter and footnotes name no lines either,
+ * but an answer renders them as the document does.
+ */
+function isRawHtml(el: Element): boolean {
+  if (el.hasAttribute("data-source-range")) return false;
+  return !el.matches("details.frontmatter, section.footnotes");
+}
+
+/**
+ * The places a whole answer's blocks take among `original`. Markdown the
+ * document writes inside its raw HTML is a top-level block of the answer
+ * but nested in the document, with nowhere to go: its answer is passed
+ * over, and the blocks after it keep their pairing.
+ */
+function placesOf(original: Element[]): (number | null)[] {
+  return original.flatMap((el, index) => {
+    if (!isRawHtml(el)) return [index];
+    const nested = Array.from(el.querySelectorAll("[data-source-range]")).filter(
+      (block) => !el.contains(block.parentElement?.closest("[data-source-range]") ?? null),
+    );
+    return nested.map(() => null);
+  });
+}
+
+/**
  * Start showing a page lens over the document: returns the render it is
  * over, how many blocks the answer can take the places of, and what each
  * of the document's top-level blocks is.
@@ -420,17 +452,19 @@ export function beginPage(token: number): {
   const root = document.querySelector<HTMLElement>(".markdown-body");
   if (!root) return { generation: null, total: 0, blocks: [] };
   const original = Array.from(root.children);
+  const places = placesOf(original);
   pageState = {
     token,
     root,
     original,
+    places,
     answered: new Map(),
     shown: original,
   };
   const generation = Number(root.dataset.renderGeneration);
   return {
     generation: Number.isFinite(generation) ? generation : null,
-    total: original.length,
+    total: places.filter((place) => place !== null).length,
     blocks: original.map((el) => ({
       range: el.getAttribute("data-source-range"),
       translatable: isTranslatable(el),
@@ -482,7 +516,8 @@ function compose(page: PageState): void {
 
 /**
  * Show `html`, the answer so far to the whole document, in place of as many
- * of the document's blocks as it has: returns how many that is.
+ * of the document's blocks as it has — its raw HTML aside, which stays as
+ * written: returns how many that is.
  */
 export function showPage(token: number, html: string, outdated = false): number {
   const page = pageState;
@@ -490,9 +525,16 @@ export function showPage(token: number, html: string, outdated = false): number 
   const template = document.createElement("template");
   template.innerHTML = html;
   const blocks = Array.from(template.content.children);
-  blocks.forEach((block, index) => answer(page, index, block.outerHTML, outdated));
+  const { original, places } = page;
+  let reached = 0;
+  blocks.forEach((block, index) => {
+    const place = index < places.length ? places[index] : original.length + index - places.length;
+    if (place === null) return;
+    if (place < original.length) reached += 1;
+    answer(page, place, block.outerHTML, outdated);
+  });
   compose(page);
-  return Math.min(blocks.length, page.original.length);
+  return reached;
 }
 
 /**

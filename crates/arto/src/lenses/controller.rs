@@ -881,13 +881,13 @@ async fn on_block(run: Run<'_>) {
 async fn on_document(run: Run<'_>) {
     let page = run.lens.display == LensDisplay::Page;
     let total = if page {
-        let Some(blocks) = begin_page(run.source.generation, run.token).await else {
+        let Some(begun) = begin_page(run.source.generation, run.token).await else {
             return;
         };
         if run.lens.unit == LensUnit::Block {
-            return by_block(run, &blocks).await;
+            return by_block(run, &begun.blocks).await;
         }
-        blocks.len()
+        begun.total
     } else {
         1
     };
@@ -1005,24 +1005,29 @@ struct PageBlock {
     translatable: bool,
 }
 
+/// The page, ready to show a page lens's answer.
+#[derive(Debug, serde::Deserialize)]
+struct Begun {
+    generation: Option<u64>,
+    /// How many of the document's top-level blocks an answer to the whole
+    /// document takes the places of: all but its raw HTML, which the answer
+    /// shows escaped rather than as blocks.
+    total: usize,
+    blocks: Vec<PageBlock>,
+}
+
 /// Have the page get ready to show a page lens's answer over the render of
 /// `generation`, waiting for it to show that render; the document's
 /// top-level blocks, whose places the answer takes.
-async fn begin_page(generation: u64, token: u64) -> Option<Vec<PageBlock>> {
-    #[derive(serde::Deserialize)]
-    struct Begun {
-        generation: Option<u64>,
-        blocks: Vec<PageBlock>,
-    }
-
+async fn begin_page(generation: u64, token: u64) -> Option<Begun> {
     let js = format!(
-        "dioxus.send(window.Arto?.lenses?.beginPage?.({}) ?? {{ generation: null, blocks: [] }});",
+        "dioxus.send(window.Arto?.lenses?.beginPage?.({}) ?? {{ generation: null, total: 0, blocks: [] }});",
         json(&token)
     );
     for _ in 0..COLLECT_ATTEMPTS {
         let mut eval = document::eval(&js);
         match eval.recv::<Begun>().await {
-            Ok(begun) if begun.generation == Some(generation) => return Some(begun.blocks),
+            Ok(begun) if begun.generation == Some(generation) => return Some(begun),
             Ok(_) => {}
             Err(error) => {
                 tracing::debug!(?error, "the page did not get ready for the lens");
