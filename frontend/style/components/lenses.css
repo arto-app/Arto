@@ -187,10 +187,11 @@
   color: var(--error-color);
 }
 
-/* The block keeps its Markdown styling but not the page's ground or size. */
+/* The block keeps its Markdown styling but not the page's ground. It keeps
+   the page's text size too: a note set smaller than the text it is about
+   reads as an aside to squint at rather than as something to read. */
 .lens-popover-section > .markdown-body {
   background: transparent;
-  font-size: inherit;
 }
 
 .lens-popover-section > .markdown-body > :first-child,
@@ -398,9 +399,9 @@
   zoom: var(--lens-zoom, 1);
 }
 
+/* At the page's text size, like a block's popover. */
 .lens-answer-section > .markdown-body {
   background: transparent;
-  font-size: inherit;
 }
 
 .lens-answer-waiting {
