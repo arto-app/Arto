@@ -7,7 +7,7 @@
 //! nothing when there is nothing to say. A recipe carries that, and the
 //! lens it makes is an ordinary one, to be edited like any other.
 
-use crate::{Lens, LensAgent, LensCapability, LensDisplay, NOTHING_TO_ADD};
+use crate::{Lens, LensAgent, LensCapability, LensDisplay, LensTarget, NOTHING_TO_ADD};
 
 /// A lens written in advance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -117,6 +117,20 @@ impl LensRecipe {
             Self::TranslateBeside | Self::ExplainTerms | Self::Critique | Self::FactCheck => {
                 LensDisplay::Annotate
             }
+        }
+    }
+
+    /// What its lens is offered to look at: a summary is of a whole, an
+    /// explanation for a newcomer of the block they are stuck on.
+    pub fn on(self) -> LensTarget {
+        match self {
+            Self::Summarize => LensTarget::Document,
+            Self::ExplainBlock => LensTarget::Block,
+            Self::TranslatePage
+            | Self::TranslateBeside
+            | Self::ExplainTerms
+            | Self::Critique
+            | Self::FactCheck => LensTarget::Either,
         }
     }
 
@@ -248,6 +262,7 @@ impl LensRecipe {
         let mut lens = Lens::new(id);
         lens.label = label;
         lens.set_display(self.display());
+        lens.on = self.on();
         lens.set_agent(Some(blanks.agent));
         lens.prompt = Some(prompt);
         let model = blanks.model.trim();
@@ -314,6 +329,21 @@ mod tests {
                 );
                 assert_eq!(lens.display, recipe.display());
             }
+        }
+    }
+
+    #[test]
+    fn a_summary_is_offered_over_a_document_and_an_explanation_over_a_block() {
+        let lens = |recipe: LensRecipe| recipe.lens("l", &blanks(LensAgent::Claude, ""));
+        assert!(!lens(LensRecipe::Summarize).on_block());
+        assert!(lens(LensRecipe::Summarize).on_document());
+        assert!(lens(LensRecipe::ExplainBlock).on_block());
+        assert!(!lens(LensRecipe::ExplainBlock).on_document());
+        for recipe in [LensRecipe::Critique, LensRecipe::FactCheck] {
+            assert!(
+                lens(recipe).on_block() && lens(recipe).on_document(),
+                "{recipe:?}"
+            );
         }
     }
 

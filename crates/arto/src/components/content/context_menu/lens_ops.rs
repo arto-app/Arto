@@ -4,7 +4,7 @@ use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
 use crate::components::icon::IconName;
 use crate::lenses::{self, LensRun, Scope};
 use crate::state::AppState;
-use arto_config::{Lens, LensDisplay};
+use arto_config::Lens;
 
 /// The configured lenses, over the block the menu was opened on or the whole
 /// document.
@@ -12,9 +12,9 @@ use arto_config::{Lens, LensDisplay};
 /// A lens not yet open is an item that opens it. One that is open is a
 /// submenu of what can be done with it — show or hide it, stop it,
 /// regenerate what changed, forget its answers — so the menu holds one row
-/// per lens however many are open. A page lens looks at a whole document,
-/// so the block submenu leaves it out; a submenu with nothing in it is not
-/// drawn.
+/// per lens however many are open. Each submenu holds the lenses that are
+/// on what it looks at — a page lens is always on a whole document — and a
+/// submenu with nothing in it is not drawn.
 #[component]
 pub(super) fn LensItems(on_close: EventHandler<()>) -> Element {
     let offered = lenses::offered_lenses();
@@ -24,11 +24,19 @@ pub(super) fn LensItems(on_close: EventHandler<()>) -> Element {
             Scope::Cursor,
             offered
                 .iter()
-                .filter(|lens| lens.display != LensDisplay::Page)
+                .filter(|lens| lens.on_block())
                 .cloned()
                 .collect::<Vec<_>>(),
         ),
-        ("Lens on Document", Scope::Document, offered.clone()),
+        (
+            "Lens on Document",
+            Scope::Document,
+            offered
+                .iter()
+                .filter(|lens| lens.on_document())
+                .cloned()
+                .collect::<Vec<_>>(),
+        ),
     ];
 
     rsx! {

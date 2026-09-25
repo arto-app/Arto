@@ -139,8 +139,9 @@ edited lens without a restart. Name an `agent` Arto knows and give it a
 | `context` | `annotate`: blocks on each side handed over as context, at most 20 | `2` |
 | `concurrency` | `annotate`: runs in flight at once, 1 to 16 | `4` |
 | `timeoutSeconds` | How long one run may take before it counts as failed | `300` |
+| `on` | What the lens is offered to look at: `block`, `document` or `either`; a `page` lens looks at a whole document and cannot be `block` | `either` |
 | `unit` | `page`: `document` hands the whole document over in one run; `block` hands each top-level block over in a run of its own | `document` |
-| `shortcut` | Keys that open, show or hide the lens over the document while it is being read, written as in the keybindings: `Cmd+Shift+t`, or `g t` for one chord after another | — |
+| `shortcut` | Keys that open, show or hide the lens over the document — or, for a lens `on` a block, over the block the cursor is on — while it is being read, written as in the keybindings: `Cmd+Shift+t`, or `g t` for one chord after another | — |
 
 A lens has either an `agent` or a `command`. One with neither or both, a
 server agent with no `model`, a
@@ -278,8 +279,12 @@ An `annotate` run is given one block and its neighbours:
 
 Right-click the page and choose **Lens on Document** or **Lens on Block**, then
 the lens. Lens on Block looks at the block the right-click marked — for a
-table, a list or a quote, all of it — and offers only `popover` and
-`annotate` lenses, since a page is a whole document.
+table, a list or a quote, all of it. Each lists the lenses that are `on`
+what it looks at: a summary makes sense of a whole document, an explanation
+for a newcomer of the block they are stuck on, a critique of either. A
+`page` lens is never on a block, since a page is a whole document. A lens's
+shortcut shows it over the document, or, for a lens on a block only, over
+the block the cursor is on.
 
 The header holds one lens glyph while any lens is open, since it is narrow
 and the document is what is being read. While a lens is being answered an

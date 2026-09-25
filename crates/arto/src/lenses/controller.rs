@@ -138,20 +138,39 @@ pub(crate) fn show(state: AppState, token: u64) {
     start_with(state, &lens_id, scope, policy, true);
 }
 
-/// Show or hide over the document the lens at `place` among the offered
-/// lenses, as its shortcut does: open it when it is not open, hide it when
-/// it shows, and show it when it is hidden.
+/// Show or hide the lens at `place` among the offered lenses, as its
+/// shortcut does: open it when it is not open, hide it when it shows, and
+/// show it when it is hidden. It is shown over the document, or over the
+/// block the cursor is on for a lens that is on a block only.
 pub(crate) fn toggle(state: AppState, place: usize) {
     let Some(lens) = offered_lenses().into_iter().nth(place) else {
         return;
     };
+    let scope = shortcut_scope(&lens);
     let run = peek_open_runs(&state)
         .into_iter()
-        .find(|run| run.lens_id == lens.id && run.scope == Scope::Document);
+        .find(|run| run.lens_id == lens.id && run.scope == scope);
     match run {
         Some(run) if run.applied => hide_run(state, run.token),
         Some(run) => show(state, run.token),
-        None => start(state, &lens.id, Scope::Document),
+        None => start(state, &lens.id, scope),
+    }
+}
+
+/// Whether `lens` is on what `scope` looks at.
+fn is_on(lens: &Lens, scope: Scope) -> bool {
+    match scope {
+        Scope::Cursor => lens.on_block(),
+        Scope::Document => lens.on_document(),
+    }
+}
+
+/// What a lens's shortcut shows it over.
+fn shortcut_scope(lens: &Lens) -> Scope {
+    if lens.on_document() {
+        Scope::Document
+    } else {
+        Scope::Cursor
     }
 }
 
@@ -232,20 +251,25 @@ fn start_with(mut state: AppState, lens_id: &str, scope: Scope, policy: Policy, 
         tracing::warn!(lens_id, "no usable lens with this id");
         return;
     };
+    // A page is a document of its own, so a page lens always looks at the
+    // whole of one.
+    let page = lens.display == LensDisplay::Page;
+    let scope = if page { Scope::Document } else { scope };
+    // What the lens is not on it does not open over — a lens remembered
+    // with a document before it was set to a block, say.
+    if !is_on(&lens, scope) {
+        return;
+    }
     let policy = resolved(policy, &lens);
     for token in replaced_by(&peek_open_runs(&state), &lens) {
         dismiss(state, token);
     }
-    let page = lens.display == LensDisplay::Page;
     if page && shown {
         shelve_applied(state);
     }
     let Some(source) = state.rendered_source.peek().clone() else {
         return;
     };
-    // A page is a document of its own, so a page lens always looks at the
-    // whole of one.
-    let scope = if page { Scope::Document } else { scope };
 
     let token = next_serial();
     let run = LensRun {
@@ -311,14 +335,14 @@ pub(crate) fn close_unoffered(state: AppState) {
     }
 }
 
-/// The runs among `open` whose lens `offered` has no longer, or has with
-/// another display.
+/// The runs among `open` whose lens `offered` has no longer, has with
+/// another display, or has on something other than what the run looks at.
 fn unoffered(open: &[LensRun], offered: &[Lens]) -> Vec<u64> {
     open.iter()
         .filter(|run| {
-            !offered
-                .iter()
-                .any(|lens| lens.id == run.lens_id && lens.display == run.display)
+            !offered.iter().any(|lens| {
+                lens.id == run.lens_id && lens.display == run.display && is_on(lens, run.scope)
+            })
         })
         .map(|run| run.token)
         .collect()
@@ -1305,6 +1329,22 @@ mod tests {
     }
 
     #[test]
+    fn a_lens_opens_only_over_what_it_is_on_and_its_shortcut_follows() {
+        let mut lens = Lens::new("explain");
+        assert!(is_on(&lens, Scope::Cursor) && is_on(&lens, Scope::Document));
+        assert_eq!(shortcut_scope(&lens), Scope::Document);
+
+        lens.on = arto_config::LensTarget::Block;
+        assert!(is_on(&lens, Scope::Cursor));
+        assert!(!is_on(&lens, Scope::Document));
+        assert_eq!(shortcut_scope(&lens), Scope::Cursor);
+
+        lens.on = arto_config::LensTarget::Document;
+        assert!(!is_on(&lens, Scope::Cursor));
+        assert_eq!(shortcut_scope(&lens), Scope::Document);
+    }
+
+    #[test]
     fn a_lens_that_reads_local_files_asks_nothing_when_it_comes_back_by_itself() {
         let mut lens = Lens::new("digger");
         assert_eq!(resolved(Policy::Resumed, &lens), Policy::Kept);
@@ -1429,5 +1469,18 @@ mod tests {
         let offered = [lens("translate", "page"), lens("gloss", "popover")];
 
         assert_eq!(unoffered(&open, &offered), vec![2, 3]);
+    }
+
+    #[test]
+    fn a_lens_no_longer_on_what_it_was_opened_over_is_closed() {
+        let open = open(&[
+            ("explain", LensDisplay::Popover, 1),
+            ("gloss", LensDisplay::Annotate, 2),
+        ]);
+        let mut explain = lens("explain", "popover");
+        explain.on = arto_config::LensTarget::Block;
+        let offered = [explain, lens("gloss", "annotate")];
+
+        assert_eq!(unoffered(&open, &offered), vec![1]);
     }
 }

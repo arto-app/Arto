@@ -182,6 +182,7 @@ mod tests {
             concurrency: 1,
             timeout_seconds: 10,
             unit: Default::default(),
+            on: Default::default(),
             shortcut: None,
         }
     }

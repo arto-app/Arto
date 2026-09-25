@@ -3,7 +3,7 @@ use crate::components::icon::{Icon, IconName};
 use crate::components::reorder::{drop_side, DragRow};
 use crate::config::{
     lens_problems, unused_lens_id, usable_lenses, Config, Lens, LensAgent, LensDisplay, LensRecipe,
-    LensUnit, RecipeBlanks, MAX_LENS_CONCURRENCY, MAX_LENS_CONTEXT,
+    LensTarget, LensUnit, RecipeBlanks, MAX_LENS_CONCURRENCY, MAX_LENS_CONTEXT,
 };
 use crate::keybindings::lens_shortcut_holder;
 use crate::lenses::{
@@ -585,6 +585,26 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
                     ],
                     selected: lens.unit,
                     on_change: move |unit| edit(config, index, |lens| lens.unit = unit),
+                }
+            } else {
+                ChoiceRow {
+                    name: format!("lens-{index}-on"),
+                    label: "Looks at".to_string(),
+                    description: Some("Where the right-click menu offers it: Lens on Block, Lens on Document, or both. A shortcut shows a lens that looks at a block only over the block the cursor is on.".to_string()),
+                    options: LensTarget::ALL
+                        .into_iter()
+                        .map(|on| ChoiceItem {
+                            value: on,
+                            label: match on {
+                                LensTarget::Either => "Either",
+                                LensTarget::Block => "A block",
+                                LensTarget::Document => "The document",
+                            }
+                            .to_string(),
+                        })
+                        .collect::<Vec<_>>(),
+                    selected: lens.on,
+                    on_change: move |on| edit(config, index, |lens| lens.on = on),
                 }
             }
 

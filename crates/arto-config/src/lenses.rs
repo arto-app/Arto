@@ -41,6 +41,29 @@ impl LensUnit {
     }
 }
 
+/// What a lens is offered to look at: some questions are about one block —
+/// explain this paragraph — some only make sense of a whole — summarize it —
+/// and some fit either.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LensTarget {
+    /// The block a right-click marks, or the keyboard cursor is on.
+    Block,
+    /// The whole document.
+    Document,
+    #[default]
+    Either,
+}
+
+impl LensTarget {
+    /// Every target, in the order the preferences offer them.
+    pub const ALL: [LensTarget; 3] = [Self::Either, Self::Block, Self::Document];
+
+    fn is_either(&self) -> bool {
+        *self == Self::Either
+    }
+}
+
 impl LensDisplay {
     /// Whether the command runs once per block rather than once for all.
     pub fn is_per_block(self) -> bool {
@@ -150,6 +173,11 @@ pub struct Lens {
     /// How a `page` lens hands the document over.
     #[serde(default, skip_serializing_if = "LensUnit::is_document")]
     pub unit: LensUnit,
+    /// What the lens is offered to look at. A `page` lens takes the
+    /// document's places, so it looks at a whole document whatever this
+    /// says, and cannot be set to a block.
+    #[serde(default, skip_serializing_if = "LensTarget::is_either")]
+    pub on: LensTarget,
     /// The keys that show or hide the lens over the document, written as the
     /// keybindings are: `Cmd+Shift+t`, or `g t` for one chord after another.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -175,6 +203,8 @@ pub enum LensError {
     NotAllowed(String, LensCapability, &'static str),
     #[error("lens {0:?} hands the document over by block, which only a page lens does")]
     UnitWithoutPage(String),
+    #[error("lens {0:?} is a page lens, which looks at a whole document, not a block")]
+    PageOnBlock(String),
     #[error("lens {0:?} has a shortcut that cannot be read: {1}")]
     Shortcut(String, String),
     #[error("lens {0:?} must allow between 1 and {MAX_LENS_CONCURRENCY} runs at a time")]
@@ -261,6 +291,8 @@ fn own_problem(lens: &Lens) -> Option<LensError> {
         Some(LensError::Timeout(id()))
     } else if lens.unit == LensUnit::Block && lens.display != LensDisplay::Page {
         Some(LensError::UnitWithoutPage(id()))
+    } else if lens.on == LensTarget::Block && lens.display == LensDisplay::Page {
+        Some(LensError::PageOnBlock(id()))
     } else if let Some(Err(error)) = lens
         .shortcut
         .as_deref()
@@ -294,6 +326,7 @@ impl Lens {
             concurrency: default_concurrency(),
             timeout_seconds: default_timeout_seconds(),
             unit: LensUnit::default(),
+            on: LensTarget::default(),
             shortcut: None,
         }
     }
@@ -340,12 +373,25 @@ impl Lens {
     }
 
     /// Show the answer as `display` says, dropping the unit when the lens
-    /// no longer takes the page's places.
+    /// no longer takes the page's places, and a block to look at when it
+    /// now does.
     pub fn set_display(&mut self, display: LensDisplay) {
         self.display = display;
         if display != LensDisplay::Page {
             self.unit = LensUnit::Document;
+        } else if self.on == LensTarget::Block {
+            self.on = LensTarget::Either;
         }
+    }
+
+    /// Whether the lens is offered over one block.
+    pub fn on_block(&self) -> bool {
+        self.display != LensDisplay::Page && self.on != LensTarget::Document
+    }
+
+    /// Whether the lens is offered over the whole document.
+    pub fn on_document(&self) -> bool {
+        self.on != LensTarget::Block
     }
 }
 
@@ -415,6 +461,7 @@ mod tests {
             concurrency: 4,
             timeout_seconds: 300,
             unit: Default::default(),
+            on: Default::default(),
             shortcut: None,
         }
     }
@@ -618,6 +665,54 @@ mod tests {
         assert_eq!(lens.allow, [LensCapability::WebSearch], "the same agent");
         lens.set_agent(Some(LensAgent::Codex));
         assert!(lens.allow.is_empty());
+    }
+
+    #[test]
+    fn a_lens_is_offered_over_what_it_is_on() {
+        let mut lens = Lens::new("a");
+        assert!(lens.on_block() && lens.on_document(), "either by default");
+
+        lens.on = LensTarget::Block;
+        assert!(lens.on_block() && !lens.on_document());
+        lens.on = LensTarget::Document;
+        assert!(!lens.on_block() && lens.on_document());
+
+        lens.on = LensTarget::Either;
+        lens.set_display(LensDisplay::Page);
+        assert!(
+            !lens.on_block() && lens.on_document(),
+            "a page lens looks at a whole"
+        );
+    }
+
+    #[test]
+    fn a_page_lens_on_a_block_is_left_out_and_becoming_one_lets_go_of_the_block() {
+        let mut lens = Lens::new("page");
+        lens.on = LensTarget::Block;
+        lens.display = LensDisplay::Page;
+        assert_eq!(
+            lens_problems(std::slice::from_ref(&lens)),
+            [Some(LensError::PageOnBlock("page".to_string()))]
+        );
+
+        let mut lens = Lens::new("popover");
+        lens.on = LensTarget::Block;
+        lens.set_display(LensDisplay::Page);
+        assert_eq!(lens.on, LensTarget::Either);
+        assert_eq!(lens_problems(std::slice::from_ref(&lens)), [None]);
+    }
+
+    #[test]
+    fn what_a_lens_is_on_is_read_by_name_and_written_only_when_it_is_not_either() {
+        let parsed: Lens = serde_json::from_str(
+            r#"{"id": "t", "label": "T", "display": "popover", "agent": "claude", "on": "block"}"#,
+        )
+        .unwrap();
+        assert_eq!(parsed.on, LensTarget::Block);
+        assert_eq!(serde_json::to_value(&parsed).unwrap()["on"], "block");
+
+        let bare = serde_json::to_value(Lens::new("b")).unwrap();
+        assert!(bare.get("on").is_none(), "{bare}");
     }
 
     #[test]

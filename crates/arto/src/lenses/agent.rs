@@ -495,6 +495,7 @@ pub(crate) mod testing {
             concurrency: 1,
             timeout_seconds: 60,
             unit: Default::default(),
+            on: Default::default(),
             shortcut: None,
         }
     }

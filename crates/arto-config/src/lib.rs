@@ -253,6 +253,7 @@ mod tests {
                 concurrency: 2,
                 timeout_seconds: 30,
                 unit: Default::default(),
+                on: Default::default(),
                 shortcut: None,
             }],
             keybindings: BindingSet {
