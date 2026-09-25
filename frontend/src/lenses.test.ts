@@ -257,6 +257,74 @@ describe("page", () => {
     expect(texts()).toEqual(["題", "一つ目", "二つ目"]);
   });
 
+  test("the document's raw HTML keeps its place, since the answer shows it escaped as text", () => {
+    page(`
+      <p align="center"><img alt="Logo" src="logo.png"></p>
+      <h1 data-source-range="3:1-3:7">Title</h1>
+      <div align="center">Badges</div>
+      <p data-source-range="7:1-7:5">First</p>
+    `);
+
+    expect(beginPage(1)).toMatchObject({ total: 2 });
+    expect(
+      showPage(
+        1,
+        `&lt;p align="center"&gt;…&lt;/p&gt;<h1>題</h1>&lt;div align="center"&gt;…&lt;/div&gt;<p>一つ目</p>`,
+      ),
+    ).toBe(2);
+    expect(texts()).toEqual(["", "題", "Badges", "一つ目"]);
+    expect(document.querySelector(".markdown-body > p > img")).not.toBeNull();
+  });
+
+  test("frontmatter and footnotes are places the answer takes, though they name no lines", () => {
+    page(`
+      <details class="frontmatter"><summary>F</summary></details>
+      <p data-source-range="5:1-5:5">First</p>
+      <section class="footnotes"><ol><li>Note</li></ol></section>
+    `);
+
+    expect(beginPage(1)).toMatchObject({ total: 3 });
+    showPage(
+      1,
+      `<details class="frontmatter"><summary>訳F</summary></details><p>一つ目</p><section class="footnotes"><ol><li>注</li></ol></section>`,
+    );
+    expect(texts()).toEqual(["訳F", "一つ目", "注"]);
+  });
+
+  test("Markdown inside the document's raw HTML stays as written, and the blocks after it are still paired", () => {
+    page(`
+      <details><summary>More</summary>
+        <p data-source-range="3:1-3:6">Inside</p>
+        <ul data-source-range="5:1-5:8"><li data-source-range="5:1-5:8">Item</li></ul>
+      </details>
+      <p data-source-range="9:1-9:5">After</p>
+    `);
+
+    expect(beginPage(1)).toMatchObject({ total: 1 });
+    expect(
+      showPage(
+        1,
+        `&lt;details&gt;&lt;summary&gt;More&lt;/summary&gt;<p>中</p><ul><li>項目</li></ul>&lt;/details&gt;<p>後</p>`,
+      ),
+    ).toBe(1);
+    expect(texts().map((text) => text.replace(/\s+/g, " ").trim())).toEqual([
+      "More Inside Item",
+      "後",
+    ]);
+  });
+
+  test("an answer longer than the document follows it", () => {
+    page(`
+      <div align="center">Badges</div>
+      <p data-source-range="3:1-3:5">First</p>
+    `);
+    beginPage(1);
+
+    showPage(1, "<p>一つ目</p><p>余り</p>");
+
+    expect(texts()).toEqual(["Badges", "一つ目", "余り"]);
+  });
+
   test("a block already answered stays the same element as more arrives", () => {
     page(document_);
     beginPage(1);
