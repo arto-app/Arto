@@ -1,10 +1,11 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// The user's theme preference.
 ///
 /// `Auto` follows the operating system; resolving it to light or dark is the
 /// app's job, since it needs the system appearance.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum Theme {
     #[default]

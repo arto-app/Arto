@@ -14,8 +14,9 @@ categories = ["config"]
 [dependencies]
 # Sections owned by the crates that consume them.
 arto-keybindings.workspace = true
-arto-markdown.workspace = true
+arto-markdown = { workspace = true, features = ["schemars"] }
 dirs.workspace = true
+schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

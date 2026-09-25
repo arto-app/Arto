@@ -1,8 +1,9 @@
 use super::window_dimension::{WindowDimension, WindowDimensionUnit};
 use super::{NewWindowBehavior, StartupBehavior};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct WindowSize {
     pub width: WindowDimension,
@@ -22,7 +23,7 @@ impl WindowSize {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", default)]
 pub struct WindowSizeConfig {
     pub default_size: WindowSize,

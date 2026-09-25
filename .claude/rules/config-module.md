@@ -65,6 +65,21 @@ mod tests { ... }
 
 **Note:** In Arto's case, `lib.rs` also contains the `Config` struct definition and tests. This is acceptable for configuration entry points. The key principle is to avoid complex business logic in entry point modules.
 
+### JSON Schema
+
+Every type reachable from `Config` derives `schemars::JsonSchema`, and the
+schema generated from them is committed at `schemas/config.schema.json`,
+where the `$schema` line of every `config.json` points. Doc comments become
+the descriptions an editor shows on hover, so write them for the reader of
+`config.json`; a note for maintainers goes in a `//` comment instead. After
+changing a type, regenerate the file:
+
+```bash
+ARTO_UPDATE_SCHEMA=1 cargo test -p arto-config
+```
+
+`the_committed_schema_matches_the_types` fails until the file is regenerated.
+
 ### Library and App Split
 
 The crate owns everything that is true for every consumer of the

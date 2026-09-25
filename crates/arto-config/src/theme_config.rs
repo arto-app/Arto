@@ -1,6 +1,7 @@
 use super::behavior::{NewWindowBehavior, StartupBehavior};
 use crate::color_theme::ColorTheme;
 use crate::theme::Theme;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for theme-related settings
@@ -8,7 +9,7 @@ use serde::{Deserialize, Serialize};
 /// `lightTheme` and `darkTheme` carry their own defaults because a
 /// configuration written before they existed omits them, and because the dark
 /// slot defaults to something other than [`ColorTheme::default`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ThemeConfig {
     /// Default theme preference

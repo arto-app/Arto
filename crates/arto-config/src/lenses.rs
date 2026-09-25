@@ -1,4 +1,5 @@
 use crate::{LensAgent, LensCapability};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -6,7 +7,7 @@ use std::str::FromStr;
 
 /// How much of the document a lens hands its command, and where the answer
 /// is shown.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum LensDisplay {
     /// One run per block, with its neighbours as context; each answer is
@@ -21,7 +22,7 @@ pub enum LensDisplay {
 }
 
 /// How much of the document one run of a `page` lens is given.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum LensUnit {
     /// The whole document in one run, which a general model translates
@@ -44,7 +45,7 @@ impl LensUnit {
 /// What a lens is offered to look at: some questions are about one block —
 /// explain this paragraph — some only make sense of a whole — summarize it —
 /// and some fit either.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum LensTarget {
     /// The block a right-click marks, or the keyboard cursor is on.
@@ -107,7 +108,7 @@ fn default_timeout_seconds() -> u64 {
 
 /// A command the reader configured to look at a document through: its
 /// answer is shown with the document, which itself is never changed.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Lens {
     /// Unique among the lenses; also what cached answers are filed under.

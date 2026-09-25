@@ -5,11 +5,12 @@
 //! Adding an agent is a variant here and its [`AgentProfile`]; how it is run
 //! and how its answer is read belong to the desktop app's adapter for it.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Something Arto knows how to ask and how to read the answer of: the lens
 /// gives it a prompt instead of a whole command.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum LensAgent {
     /// The `claude` command-line agent.
@@ -28,7 +29,7 @@ pub enum LensAgent {
 /// An agent is run as a plain text transformer by default, because the
 /// document it is handed can talk it into anything its tools can do. What a
 /// lens allows is the reader's decision for that lens; it is never implied.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum LensCapability {
     /// Search the web and read what it finds, which a fact check needs.

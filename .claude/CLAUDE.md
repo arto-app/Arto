@@ -29,6 +29,7 @@ crate. Do NOT report completion while any of these fail.
 | `crates/arto-page/` | Standalone page renderer: `arto page` CLI and the Quick Look static library |
 | `frontend/` | TypeScript and CSS bundled into each crate's `assets/frontend/` by Vite |
 | `samples/` | Rendering samples; their HTML is snapshot-tested in `arto-markdown` |
+| `schemas/` | JSON Schema of `config.json`, generated from `arto-config` and kept in step by its tests |
 | `platform/` | OS-specific packaging (macOS bundle and Quick Look extension) |
 
 ## Where the details live
