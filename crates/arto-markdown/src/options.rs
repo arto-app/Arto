@@ -31,6 +31,7 @@ pub enum ImageResolution {
 /// restyle the page around the document, which is why the middle choice is
 /// the default rather than the permissive one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RawHtml {
     /// Write every raw HTML node through untouched.
@@ -59,6 +60,7 @@ pub enum RawHtml {
 /// baseline, where a construct's syntax collides with prose somebody actually
 /// writes: `$5 and $10` is not a formula, and `[[a]]` is not always a link.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase", default)]
 pub struct RenderOptions {
     /// Turn bare URLs into links.

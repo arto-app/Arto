@@ -1,3 +1,4 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::behavior::{NewWindowBehavior, StartupBehavior};
@@ -45,7 +46,7 @@ pub fn normalize_sidebar_zoom(zoom: f64) -> f64 {
 }
 
 /// Configuration for zoom-related settings
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ZoomConfig {
     /// Default zoom level (1.0 = 100%)

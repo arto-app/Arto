@@ -1,3 +1,4 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// One of GitHub's colour themes.
@@ -9,7 +10,7 @@ use serde::{Deserialize, Serialize};
 /// GitHub also ships a high-contrast pairing for the dimmed and colour-vision
 /// themes, applied when the operating system asks for increased contrast.
 /// Those are not offered as choices, here or on GitHub.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ColorTheme {
     #[default]

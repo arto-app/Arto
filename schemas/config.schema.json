@@ -1,0 +1,849 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Arto configuration",
+  "description": "Global application configuration",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "The JSON Schema editors validate this file against.",
+      "$ref": "#/$defs/SchemaUrl",
+      "default": "https://raw.githubusercontent.com/arto-app/Arto/main/schemas/config.schema.json"
+    },
+    "directory": {
+      "$ref": "#/$defs/DirectoryConfig",
+      "default": {
+        "defaultDirectory": null,
+        "onStartup": "default"
+      }
+    },
+    "fileOpen": {
+      "$ref": "#/$defs/FileOpenBehavior",
+      "default": "last_focused"
+    },
+    "lenses": {
+      "description": "Commands the reader can look at a document through.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Lens"
+      }
+    },
+    "markdown": {
+      "description": "How Markdown is rendered.",
+      "$ref": "#/$defs/RenderOptions",
+      "default": {
+        "autoLinkUrls": true,
+        "cjkEmphasis": true,
+        "definitionLists": true,
+        "headingAttributes": true,
+        "headingPermalinks": false,
+        "math": true,
+        "rawHtml": "filter",
+        "smartPunctuation": true,
+        "subscript": true,
+        "superscript": true,
+        "wikiLinks": true
+      }
+    },
+    "sidebar": {
+      "$ref": "#/$defs/SidebarConfig",
+      "default": {
+        "defaultPinned": false,
+        "defaultShowAllFiles": false,
+        "defaultWidth": 280.0,
+        "defaultZoomLevel": 1.0,
+        "minContentWidth": 640.0,
+        "onNewWindow": "default",
+        "onOpen": "keep_open",
+        "onStartup": "default",
+        "recentTrace": "hidden_when_sidebar",
+        "recentTraceCount": 6
+      }
+    },
+    "theme": {
+      "$ref": "#/$defs/ThemeConfig",
+      "default": {
+        "darkTheme": "dark",
+        "defaultTheme": "auto",
+        "lightTheme": "light",
+        "onNewWindow": "default",
+        "onStartup": "default"
+      }
+    },
+    "windowPosition": {
+      "$ref": "#/$defs/WindowPositionConfig",
+      "default": {
+        "defaultPosition": {
+          "x": {
+            "unit": "percent",
+            "value": 50.0
+          },
+          "y": {
+            "unit": "percent",
+            "value": 50.0
+          }
+        },
+        "defaultPositionMode": "coordinates",
+        "onNewWindow": "default",
+        "onStartup": "default",
+        "positionOffset": {
+          "x": 20,
+          "y": 20
+        }
+      }
+    },
+    "windowSize": {
+      "$ref": "#/$defs/WindowSizeConfig",
+      "default": {
+        "defaultSize": {
+          "height": {
+            "unit": "pixels",
+            "value": 800.0
+          },
+          "width": {
+            "unit": "pixels",
+            "value": 1000.0
+          }
+        },
+        "onNewWindow": "default",
+        "onStartup": "default"
+      }
+    },
+    "zoom": {
+      "$ref": "#/$defs/ZoomConfig",
+      "default": {
+        "defaultZoomLevel": 1.0,
+        "onNewWindow": "default",
+        "onStartup": "default"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ColorTheme": {
+      "description": "One of GitHub's colour themes.\n\nThe names are GitHub's own, and each has a matching block of Primer design\ntokens in the frontend stylesheet keyed by exactly this string, so a\nvariant renamed here renders as no theme at all.\n\nGitHub also ships a high-contrast pairing for the dimmed and colour-vision\nthemes, applied when the operating system asks for increased contrast.\nThose are not offered as choices, here or on GitHub.",
+      "type": "string",
+      "enum": [
+        "light",
+        "light_high_contrast",
+        "light_colorblind",
+        "light_tritanopia",
+        "dark",
+        "dark_dimmed",
+        "dark_high_contrast",
+        "dark_colorblind",
+        "dark_tritanopia"
+      ]
+    },
+    "DirectoryConfig": {
+      "description": "Where the file tree is rooted when the app starts.\n\nThere is no `onNewWindow` here: which folders a new window starts with is\ndecided by the command that opened it — Cmd+N carries the places alone,\nCmd+Shift+N duplicates this window's temporary roots as well — rather\nthan by a setting that has to guess between them.",
+      "type": "object",
+      "properties": {
+        "defaultDirectory": {
+          "description": "The folder the first window works in, beside the places. `None` starts\nwith the places alone.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "onStartup": {
+          "description": "Behavior on app startup: \"default\" or \"last_closed\"",
+          "$ref": "#/$defs/StartupBehavior"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "onStartup"
+      ]
+    },
+    "FileOpenBehavior": {
+      "description": "Behavior for routing externally opened files/directories.",
+      "oneOf": [
+        {
+          "description": "Always create a new window.",
+          "type": "string",
+          "const": "new_window"
+        },
+        {
+          "description": "Open in the last focused visible window when possible.",
+          "type": "string",
+          "const": "last_focused"
+        },
+        {
+          "description": "Open in a visible window on the cursor's current screen when possible.",
+          "type": "string",
+          "const": "current_screen"
+        }
+      ]
+    },
+    "Lens": {
+      "description": "A command the reader configured to look at a document through: its\nanswer is shown with the document, which itself is never changed.",
+      "type": "object",
+      "properties": {
+        "agent": {
+          "description": "The agent to run, which Arto knows how to call and to read; without\none, `command` is run instead.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LensAgent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allow": {
+          "description": "What the agent may do beyond reading the text it is handed; nothing\nwhen empty.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LensCapability"
+          }
+        },
+        "apiKeyCommand": {
+          "description": "A program and its arguments that print the server's API key — a\npassword manager — in place of the key Arto keeps in the system's\ncredential store for the endpoint. Neither is written into the\nconfiguration.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "command": {
+          "description": "Program and arguments of a command that is not a known agent, run as\nthey are, without a shell.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "concurrency": {
+          "description": "How many per-block runs may be in flight at once.",
+          "type": "integer",
+          "format": "uint",
+          "default": 4,
+          "minimum": 0
+        },
+        "context": {
+          "description": "How many blocks on each side a per-block run is handed as context.",
+          "type": "integer",
+          "format": "uint",
+          "default": 2,
+          "minimum": 0
+        },
+        "contextLength": {
+          "description": "Ollama: the context the model is loaded with, in tokens; sized to\neach request when absent. Ollama otherwise loads a model with the\nlongest context it takes, which for some models means tens of\ngigabytes of memory.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "display": {
+          "$ref": "#/$defs/LensDisplay"
+        },
+        "endpoint": {
+          "description": "The server's base URL. Ollama: its address, `http://127.0.0.1:11434`\nwhen absent. OpenAI: the part before `/chat/completions`, such as\n`https://api.openai.com/v1`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Unique among the lenses; also what cached answers are filed under.",
+          "type": "string"
+        },
+        "label": {
+          "description": "What the menus call it.",
+          "type": "string"
+        },
+        "model": {
+          "description": "The model the agent uses; its own default when absent.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "on": {
+          "description": "What the lens is offered to look at. A `page` lens takes the\ndocument's places, so it looks at a whole document whatever this\nsays, and cannot be set to a block.",
+          "$ref": "#/$defs/LensTarget"
+        },
+        "program": {
+          "description": "Where the agent's program is, when it is not found on its own.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "prompt": {
+          "description": "What the agent is asked to do with the text it is handed. Without one\nthe agent is handed the text alone, which is what a model trained for\na single task — a translation model — expects: it reads any\ninstruction as more text to work on.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "shortcut": {
+          "description": "The keys that show or hide the lens over the document, written as the\nkeybindings are: `Cmd+Shift+t`, or `g t` for one chord after another.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "system": {
+          "description": "The system prompt a server is given with every request. A model\ntrained for a single task may read its settings from it — the language\nto translate into, say.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeoutSeconds": {
+          "description": "How long one run may take before it counts as failed.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 300,
+          "minimum": 0
+        },
+        "unit": {
+          "description": "How a `page` lens hands the document over.",
+          "$ref": "#/$defs/LensUnit"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "display"
+      ]
+    },
+    "LensAgent": {
+      "description": "Something Arto knows how to ask and how to read the answer of: the lens\ngives it a prompt instead of a whole command.",
+      "oneOf": [
+        {
+          "description": "The `claude` command-line agent.",
+          "type": "string",
+          "const": "claude"
+        },
+        {
+          "description": "The `codex` command-line agent.",
+          "type": "string",
+          "const": "codex"
+        },
+        {
+          "description": "An Ollama server, through its own API, which unlike its\nOpenAI-compatible one takes the context length with each request.",
+          "type": "string",
+          "const": "ollama"
+        },
+        {
+          "description": "A server with an OpenAI-compatible chat completions API.",
+          "type": "string",
+          "const": "openai"
+        }
+      ]
+    },
+    "LensCapability": {
+      "description": "Something an agent is kept from unless the lens allows it.\n\nAn agent is run as a plain text transformer by default, because the\ndocument it is handed can talk it into anything its tools can do. What a\nlens allows is the reader's decision for that lens; it is never implied.",
+      "oneOf": [
+        {
+          "description": "Search the web and read what it finds, which a fact check needs.\nWhat leaves the machine is what the agent was already handed.",
+          "type": "string",
+          "const": "webSearch"
+        },
+        {
+          "description": "Read the files around the document.",
+          "type": "string",
+          "const": "readFiles"
+        },
+        {
+          "description": "Run commands. The agent's own sandbox, where it has one, still\nkeeps them from writing.",
+          "type": "string",
+          "const": "shell"
+        }
+      ]
+    },
+    "LensDisplay": {
+      "description": "How much of the document a lens hands its command, and where the answer\nis shown.",
+      "oneOf": [
+        {
+          "description": "One run per block, with its neighbours as context; each answer is\nkept beside its block and shown on hover — an explanation, a gloss.",
+          "type": "string",
+          "const": "annotate"
+        },
+        {
+          "description": "One run over the document or the block, and one answer, shown on\nrequest — a summary.",
+          "type": "string",
+          "const": "popover"
+        },
+        {
+          "description": "One run over the whole document, whose answer is a document of its\nown, shown in place of the page as it arrives — a translation.",
+          "type": "string",
+          "const": "page"
+        }
+      ]
+    },
+    "LensTarget": {
+      "description": "What a lens is offered to look at: some questions are about one block —\nexplain this paragraph — some only make sense of a whole — summarize it —\nand some fit either.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "either"
+          ]
+        },
+        {
+          "description": "The block a right-click marks, or the keyboard cursor is on.",
+          "type": "string",
+          "const": "block"
+        },
+        {
+          "description": "The whole document.",
+          "type": "string",
+          "const": "document"
+        }
+      ]
+    },
+    "LensUnit": {
+      "description": "How much of the document one run of a `page` lens is given.",
+      "oneOf": [
+        {
+          "description": "The whole document in one run, which a general model translates\nbest: it sees every part of what it is translating.",
+          "type": "string",
+          "const": "document"
+        },
+        {
+          "description": "Each of the document's top-level blocks in a run of its own, which\nis what a model trained on sentences and paragraphs — a small\ntranslation model — handles: handed a whole document, it drops and\nmerges blocks.",
+          "type": "string",
+          "const": "block"
+        }
+      ]
+    },
+    "NewWindowBehavior": {
+      "description": "Behavior when opening a new window",
+      "oneOf": [
+        {
+          "description": "Use the default setting",
+          "type": "string",
+          "const": "default"
+        },
+        {
+          "description": "Use the setting from the last focused window",
+          "type": "string",
+          "const": "last_focused"
+        }
+      ]
+    },
+    "OpenFromPanel": {
+      "description": "What the panel does once a document has been opened from one of its rows.\n\nTwo readings of the same list, and both are ordinary. One reader keeps the\npanel out and works down it, opening a document after a document; the other\ngoes to it to fetch one thing and wants the page to themselves once they\nhave it.",
+      "oneOf": [
+        {
+          "description": "The list stays where it is.",
+          "type": "string",
+          "const": "keep_open"
+        },
+        {
+          "description": "The panel puts itself away, leaving the document alone on screen. A\npinned panel unpins: what was asked for is the document by itself.",
+          "type": "string",
+          "const": "close_panel"
+        }
+      ]
+    },
+    "RawHtml": {
+      "description": "What becomes of raw HTML written into the Markdown.\n\nA document may embed markup the Markdown syntax cannot say — a `<kbd>`, a\n`<details>`, an `<img>` with a width — and passing it through is what\nmakes that work. The same passthrough lets a `<style>` or a `<script>`\nrestyle the page around the document, which is why the middle choice is\nthe default rather than the permissive one.",
+      "oneOf": [
+        {
+          "description": "Write every raw HTML node through untouched.",
+          "type": "string",
+          "const": "allow"
+        },
+        {
+          "description": "GFM's tagfilter: neutralize the tags that restyle or script the page\n(`<style>`, `<script>`, `<iframe>` and friends) by escaping their\nleading `<`, and leave all other markup working.",
+          "type": "string",
+          "const": "filter"
+        },
+        {
+          "description": "Escape every raw HTML node, so the document shows its own markup.",
+          "type": "string",
+          "const": "escape"
+        }
+      ]
+    },
+    "RecentTrace": {
+      "description": "When the margin trace — the documents read before this one, left at the\nedge of the page — is drawn.\n\nIt is the one window on the history nobody asks for, which is why it is\nthe one that can be turned off. Whatever is chosen here, the trace is\ndrawn only where there is a margin to draw it in: a window too narrow to\nkeep the document readable hides it, and so does a document set to the\nfull width, which leaves no margin at all. That is state, not a change to\nthis setting.",
+      "oneOf": [
+        {
+          "description": "Never drawn.",
+          "type": "string",
+          "const": "never"
+        },
+        {
+          "description": "Hidden while the panel is out, since it already lists documents.",
+          "type": "string",
+          "const": "hidden_when_sidebar"
+        },
+        {
+          "description": "Always drawn, where there is a margin for it.\n\n`hidden_when_full_width` is the old name of this: it named a choice\nthat is now simply what happens, since a document at full width has no\nmargin for the trace to be in. A configuration that still says it\nkeeps working and means this.",
+          "type": "string",
+          "const": "always"
+        }
+      ]
+    },
+    "RenderOptions": {
+      "description": "Choices that change how Markdown is rendered.\n\nThis is also the `markdown` section of Arto's `config.json`, so every\nconsumer of the pipeline (the app, `arto page`, Quick Look) exposes the\nsame options and reads the same user preferences. The struct carries\n`#[serde(default)]`, so a configuration file naming one option gets the\ndocumented default for every other.\n\nThe GFM baseline — tables, task lists, strikethrough, footnotes — is not\nhere. Those constructs are what a Markdown document written for GitHub\ncontains, and a reader that renders them as literal pipes and brackets is\nbroken rather than configured. What is here is the layer above that\nbaseline, where a construct's syntax collides with prose somebody actually\nwrites: `$5 and $10` is not a formula, and `[[a]]` is not always a link.",
+      "type": "object",
+      "properties": {
+        "autoLinkUrls": {
+          "description": "Turn bare URLs into links.",
+          "type": "boolean",
+          "default": true
+        },
+        "cjkEmphasis": {
+          "description": "Let emphasis pair when its delimiters sit against East Asian\npunctuation, so `**強調。**` is emphasized.\n\nCommonMark's flanking rules read the punctuation on either side of a\n`*` run to decide whether it may open or close, and East Asian\npunctuation blocks the run the way Latin punctuation does — except\nthat CJK text sets punctuation directly against the words, where Latin\ntext puts a space in between. Off is what GitHub renders.",
+          "type": "boolean",
+          "default": true
+        },
+        "definitionLists": {
+          "description": "Read PHP Markdown Extra / mdBook definition lists.",
+          "type": "boolean",
+          "default": true
+        },
+        "headingAttributes": {
+          "description": "Read a trailing `{#id .class}` on a heading as the id and classes to\nrender it with, rather than as part of its text.",
+          "type": "boolean",
+          "default": true
+        },
+        "headingPermalinks": {
+          "description": "Append a `#` link to each heading, the way GitHub does.",
+          "type": "boolean",
+          "default": false
+        },
+        "math": {
+          "description": "Read `$…$` and `$$…$$` as formulas for the math renderer.\n\nOff leaves a document that writes `$` for something else alone: two\nshell variables in one line (`echo $HOME/$USER`) otherwise pair up\ninto a formula spanning both.",
+          "type": "boolean",
+          "default": true
+        },
+        "rawHtml": {
+          "description": "What becomes of raw HTML written into the Markdown.",
+          "$ref": "#/$defs/RawHtml",
+          "default": "filter"
+        },
+        "smartPunctuation": {
+          "description": "Replace quotes, dashes and ellipses with their typographic forms.",
+          "type": "boolean",
+          "default": true
+        },
+        "subscript": {
+          "description": "Read `~text~` as subscript.\n\nOff keeps a lone `~` literal, which is what a document using tildes\nfor approximation (`~5 minutes`) means by it.",
+          "type": "boolean",
+          "default": true
+        },
+        "superscript": {
+          "description": "Read `^text^` as superscript.",
+          "type": "boolean",
+          "default": true
+        },
+        "wikiLinks": {
+          "description": "Read `[[target]]` and `[[target|label]]` as links to another document.",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "SchemaUrl": {
+      "description": "Where editors find the JSON Schema of this file.",
+      "type": "string"
+    },
+    "SidebarConfig": {
+      "description": "Configuration for sidebar-related settings",
+      "type": "object",
+      "properties": {
+        "defaultPinned": {
+          "description": "Whether sidebar is pinned to the layout by default",
+          "type": "boolean"
+        },
+        "defaultShowAllFiles": {
+          "description": "Whether to show all files (including non-markdown) by default",
+          "type": "boolean"
+        },
+        "defaultWidth": {
+          "description": "Default sidebar width in pixels",
+          "type": "number",
+          "format": "double",
+          "default": 280.0
+        },
+        "defaultZoomLevel": {
+          "description": "Default zoom level for sidebar content",
+          "type": "number",
+          "format": "double",
+          "default": 1.0
+        },
+        "minContentWidth": {
+          "description": "The width the document keeps while anything else can give way instead.\n\nEvery threshold in the layout is this number plus the width of what\nis still drawn beside the document, so raising it folds the trace,\nthe panel, the gutter and the rail at correspondingly wider windows.",
+          "type": "number",
+          "format": "double",
+          "default": 640.0
+        },
+        "onNewWindow": {
+          "description": "Behavior when opening a new window: \"default\" or \"last_focused\"",
+          "$ref": "#/$defs/NewWindowBehavior"
+        },
+        "onOpen": {
+          "description": "What the panel does once a document has been opened from it.",
+          "$ref": "#/$defs/OpenFromPanel",
+          "default": "keep_open"
+        },
+        "onStartup": {
+          "description": "Behavior on app startup: \"default\" or \"last_closed\"",
+          "$ref": "#/$defs/StartupBehavior"
+        },
+        "recentTrace": {
+          "description": "When the margin trace is drawn.",
+          "$ref": "#/$defs/RecentTrace",
+          "default": "hidden_when_sidebar"
+        },
+        "recentTraceCount": {
+          "description": "How many documents the margin trace names.",
+          "type": "integer",
+          "format": "uint",
+          "default": 6,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "defaultPinned",
+        "defaultShowAllFiles",
+        "onStartup",
+        "onNewWindow"
+      ]
+    },
+    "StartupBehavior": {
+      "description": "Behavior when application starts",
+      "oneOf": [
+        {
+          "description": "Use the default setting",
+          "type": "string",
+          "const": "default"
+        },
+        {
+          "description": "Use the setting from the last closed window",
+          "type": "string",
+          "const": "last_closed"
+        }
+      ]
+    },
+    "Theme": {
+      "description": "The user's theme preference.\n\n`Auto` follows the operating system; resolving it to light or dark is the\napp's job, since it needs the system appearance.",
+      "type": "string",
+      "enum": [
+        "auto",
+        "light",
+        "dark"
+      ]
+    },
+    "ThemeConfig": {
+      "description": "Configuration for theme-related settings\n\n`lightTheme` and `darkTheme` carry their own defaults because a\nconfiguration written before they existed omits them, and because the dark\nslot defaults to something other than [`ColorTheme::default`].",
+      "type": "object",
+      "properties": {
+        "darkTheme": {
+          "description": "Which of GitHub's themes to paint in dark mode",
+          "$ref": "#/$defs/ColorTheme",
+          "default": "dark"
+        },
+        "defaultTheme": {
+          "description": "Default theme preference",
+          "$ref": "#/$defs/Theme"
+        },
+        "lightTheme": {
+          "description": "Which of GitHub's themes to paint in light mode",
+          "$ref": "#/$defs/ColorTheme",
+          "default": "light"
+        },
+        "onNewWindow": {
+          "description": "Behavior when opening a new window: \"default\" or \"last_focused\"",
+          "$ref": "#/$defs/NewWindowBehavior"
+        },
+        "onStartup": {
+          "description": "Behavior on app startup: \"default\" or \"last_closed\"",
+          "$ref": "#/$defs/StartupBehavior"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "defaultTheme",
+        "onStartup",
+        "onNewWindow"
+      ]
+    },
+    "WindowDimension": {
+      "type": "object",
+      "properties": {
+        "unit": {
+          "$ref": "#/$defs/WindowDimensionUnit"
+        },
+        "value": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "unit"
+      ]
+    },
+    "WindowDimensionUnit": {
+      "type": "string",
+      "enum": [
+        "pixels",
+        "percent"
+      ]
+    },
+    "WindowPosition": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "$ref": "#/$defs/WindowDimension"
+        },
+        "y": {
+          "$ref": "#/$defs/WindowDimension"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "WindowPositionConfig": {
+      "type": "object",
+      "properties": {
+        "defaultPosition": {
+          "$ref": "#/$defs/WindowPosition",
+          "default": {
+            "x": {
+              "unit": "percent",
+              "value": 50.0
+            },
+            "y": {
+              "unit": "percent",
+              "value": 50.0
+            }
+          }
+        },
+        "defaultPositionMode": {
+          "$ref": "#/$defs/WindowPositionMode",
+          "default": "coordinates"
+        },
+        "onNewWindow": {
+          "description": "Behavior when opening a new window: \"default\" or \"last_focused\"",
+          "$ref": "#/$defs/NewWindowBehavior",
+          "default": "default"
+        },
+        "onStartup": {
+          "description": "Behavior on app startup: \"default\" or \"last_closed\"",
+          "$ref": "#/$defs/StartupBehavior",
+          "default": "default"
+        },
+        "positionOffset": {
+          "$ref": "#/$defs/WindowPositionOffset",
+          "default": {
+            "x": 20,
+            "y": 20
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "WindowPositionMode": {
+      "type": "string",
+      "enum": [
+        "coordinates",
+        "mouse"
+      ]
+    },
+    "WindowPositionOffset": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "y": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "WindowSize": {
+      "type": "object",
+      "properties": {
+        "height": {
+          "$ref": "#/$defs/WindowDimension"
+        },
+        "width": {
+          "$ref": "#/$defs/WindowDimension"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height"
+      ]
+    },
+    "WindowSizeConfig": {
+      "type": "object",
+      "properties": {
+        "defaultSize": {
+          "$ref": "#/$defs/WindowSize",
+          "default": {
+            "height": {
+              "unit": "pixels",
+              "value": 800.0
+            },
+            "width": {
+              "unit": "pixels",
+              "value": 1000.0
+            }
+          }
+        },
+        "onNewWindow": {
+          "description": "Behavior when opening a new window: \"default\" or \"last_focused\"",
+          "$ref": "#/$defs/NewWindowBehavior",
+          "default": "default"
+        },
+        "onStartup": {
+          "description": "Behavior on app startup: \"default\" or \"last_closed\"",
+          "$ref": "#/$defs/StartupBehavior",
+          "default": "default"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ZoomConfig": {
+      "description": "Configuration for zoom-related settings",
+      "type": "object",
+      "properties": {
+        "defaultZoomLevel": {
+          "description": "Default zoom level (1.0 = 100%)",
+          "type": "number",
+          "format": "double",
+          "default": 1.0
+        },
+        "onNewWindow": {
+          "description": "Behavior when opening a new window: \"default\" or \"last_focused\"",
+          "$ref": "#/$defs/NewWindowBehavior"
+        },
+        "onStartup": {
+          "description": "Behavior on app startup: \"default\" or \"last_closed\"",
+          "$ref": "#/$defs/StartupBehavior"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "onStartup",
+        "onNewWindow"
+      ]
+    }
+  }
+}

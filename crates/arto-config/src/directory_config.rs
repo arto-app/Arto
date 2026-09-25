@@ -1,4 +1,5 @@
 use super::behavior::StartupBehavior;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -8,7 +9,7 @@ use std::path::PathBuf;
 /// decided by the command that opened it — Cmd+N carries the places alone,
 /// Cmd+Shift+N duplicates this window's temporary roots as well — rather
 /// than by a setting that has to guess between them.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DirectoryConfig {
     /// The folder the first window works in, beside the places. `None` starts

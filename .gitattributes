@@ -3,3 +3,8 @@
 # HTML. SVG is the only image format git would treat as text; keep it out of
 # the conversion so every platform renders the same bytes.
 *.svg -text
+
+# Generated schemas are compared byte-for-byte against what the types
+# produce, and serde_json writes LF; a CRLF checkout would fail that test on
+# Windows without anything having changed.
+schemas/*.json text eol=lf

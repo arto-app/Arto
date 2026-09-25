@@ -1,5 +1,6 @@
 use super::behavior::{NewWindowBehavior, StartupBehavior};
 use super::zoom_config::DEFAULT_ZOOM_LEVEL;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Default sidebar width in pixels
@@ -40,7 +41,7 @@ fn default_sidebar_zoom_level() -> f64 {
 /// keep the document readable hides it, and so does a document set to the
 /// full width, which leaves no margin at all. That is state, not a change to
 /// this setting.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RecentTrace {
     /// Never drawn.
@@ -64,7 +65,7 @@ pub enum RecentTrace {
 /// panel out and works down it, opening a document after a document; the other
 /// goes to it to fetch one thing and wants the page to themselves once they
 /// have it.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum OpenFromPanel {
     /// The list stays where it is.
@@ -76,7 +77,7 @@ pub enum OpenFromPanel {
 }
 
 /// Configuration for sidebar-related settings
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SidebarConfig {
     /// Whether sidebar is pinned to the layout by default

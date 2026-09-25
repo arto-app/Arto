@@ -21,11 +21,17 @@ ox_content_ast = "3.1.0"
 ox_content_parser = "3.1.0"
 ox_content_renderer = "3.1.0"
 serde.workspace = true
+schemars = { workspace = true, optional = true }
 serde_yaml_ng = "0.10"
 sha2.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 url = "2"
+
+[features]
+# `JsonSchema` for the options that are also a section of Arto's `config.json`,
+# so the configuration crate can describe that file without redefining them.
+schemars = ["dep:schemars"]
 
 [dev-dependencies]
 indoc.workspace = true

@@ -10,6 +10,7 @@
 //! What stays out of this crate is the runtime side: the desktop app holds
 //! the live `Config` behind a lock and broadcasts changes to its windows.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 mod behavior;
@@ -20,6 +21,7 @@ mod lens_agents;
 mod lens_recipes;
 mod lenses;
 mod persistence;
+mod schema;
 mod sidebar_config;
 mod theme;
 mod theme_config;
@@ -38,6 +40,7 @@ pub use lens_agents::*;
 pub use lens_recipes::*;
 pub use lenses::*;
 pub use persistence::*;
+pub use schema::*;
 pub use sidebar_config::*;
 pub use theme::*;
 pub use theme_config::*;
@@ -47,13 +50,18 @@ pub use window_size_config::*;
 pub use zoom_config::*;
 
 /// Global application configuration
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", default)]
+#[schemars(title = "Arto configuration")]
 pub struct Config {
+    /// The JSON Schema editors validate this file against.
+    #[serde(rename = "$schema")]
+    pub schema: SchemaUrl,
     pub directory: DirectoryConfig,
     pub file_open: FileOpenBehavior,
-    /// Rendering choices, owned by the crate that renders (arto-markdown) so
-    /// every consumer of the pipeline shares one definition.
+    // Owned by the crate that renders (arto-markdown) so every consumer of
+    // the pipeline shares one definition.
+    /// How Markdown is rendered.
     pub markdown: RenderOptions,
     pub theme: ThemeConfig,
     pub sidebar: SidebarConfig,
@@ -172,6 +180,7 @@ mod tests {
     #[test]
     fn test_config_serialization_roundtrip() {
         let config = Config {
+            schema: SchemaUrl("https://example.com/config.schema.json".to_string()),
             theme: ThemeConfig {
                 default_theme: Theme::Dark,
                 light_theme: ColorTheme::LightHighContrast,
