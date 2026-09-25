@@ -13,10 +13,10 @@ use std::path::PathBuf;
 use crate::bookmarks::{move_bookmark, BOOKMARKS, BOOKMARKS_CHANGED};
 use crate::components::document_name::DocumentName;
 use crate::components::icon::{Icon, IconName};
+use crate::components::reorder::{drop_class, drop_side, DragRow};
 use crate::components::sidebar::context_menu::{
     open_row_context_menu, SidebarItemKind, SidebarRowRole,
 };
-use crate::components::sidebar::reorder::{drop_class, drop_side, DragRow};
 use crate::components::sidebar::row_actions::RowActions;
 use crate::state::{AppState, FocusedPanel};
 

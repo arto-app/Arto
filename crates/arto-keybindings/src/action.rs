@@ -105,6 +105,15 @@ pub enum Action {
     ContentsConfirm,
     ContentsClose,
 
+    // Lenses — stopping one, and back to the document as written
+    LensStop,
+    LensHide,
+    /// The configured lens at this place in the list, shown or hidden over
+    /// the document. Bound from each lens's own `shortcut` rather than from
+    /// the mappings, so that a lens moved or renamed keeps its key; the
+    /// binding is made again whenever the configuration changes.
+    Lens(u16),
+
     // Sidebar — the panel and which of its faces is showing
     SidebarToggleShowAllFiles,
     SidebarFacePlaces,
@@ -256,6 +265,7 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::ContentsClose,
         ],
     ),
+    ("Lenses", &[Action::LensStop, Action::LensHide]),
     (
         "Sidebar",
         &[
@@ -356,6 +366,10 @@ impl Action {
             // Contents
             Self::ContentsToggle => "Contents",
 
+            // Lenses
+            Self::LensStop => "Stop Lens",
+            Self::LensHide => "Hide Lens",
+
             // Sidebar
             Self::SidebarToggleShowAllFiles => "Show All Files",
             Self::SidebarFacePlaces => "Show Places",
@@ -409,6 +423,8 @@ pub const COMMAND_ACTIONS: &[Action] = &[
     Action::AppQuit,
     Action::AppGoToHomepage,
     Action::ContentsToggle,
+    Action::LensStop,
+    Action::LensHide,
     Action::SidebarToggleShowAllFiles,
     Action::SidebarFacePlaces,
     Action::SidebarFaceRecent,
@@ -469,6 +485,7 @@ macro_rules! action_strings {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 let s = match self {
                     $(Self::$variant => $str,)*
+                    Self::Lens(place) => return write!(f, "{LENS_PREFIX}{place}"),
                 };
                 f.write_str(s)
             }
@@ -478,6 +495,13 @@ macro_rules! action_strings {
             type Err = ActionParseError;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
+                let place = s
+                    .strip_prefix(LENS_PREFIX)
+                    .filter(|place| place.bytes().all(|b| b.is_ascii_digit()))
+                    .and_then(|place| place.parse::<u16>().ok());
+                if let Some(place) = place {
+                    return Ok(Self::Lens(place));
+                }
                 match s {
                     $($str => Ok(Self::$variant),)*
                     _ => Err(ActionParseError(s.to_string())),
@@ -486,6 +510,9 @@ macro_rules! action_strings {
         }
     };
 }
+
+/// How [`Action::Lens`] is written: the prefix, then the lens's place.
+const LENS_PREFIX: &str = "lens.";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActionParseError(pub(crate) String);
@@ -567,6 +594,8 @@ action_strings! {
     ContentsPrev => "contents.prev",
     ContentsConfirm => "contents.confirm",
     ContentsClose => "contents.close",
+    LensStop => "lens.stop",
+    LensHide => "lens.hide",
     SidebarToggleShowAllFiles => "sidebar.toggle_show_all_files",
     SidebarFacePlaces => "sidebar.face_places",
     SidebarFaceRecent => "sidebar.face_recent",
@@ -604,7 +633,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 89);
+        assert_eq!(all_actions().len(), 91);
     }
 
     #[test]
@@ -657,6 +686,15 @@ mod tests {
         assert!("unknown.action".parse::<Action>().is_err());
         assert!("".parse::<Action>().is_err());
         assert!("scroll".parse::<Action>().is_err());
+    }
+
+    #[test]
+    fn a_lens_is_named_by_its_place_among_the_lenses() {
+        assert_eq!("lens.0".parse::<Action>().unwrap(), Action::Lens(0));
+        assert_eq!(Action::Lens(3).to_string(), "lens.3");
+        assert_eq!("lens.hide".parse::<Action>().unwrap(), Action::LensHide);
+        assert!("lens.x".parse::<Action>().is_err());
+        assert!("lens.-1".parse::<Action>().is_err());
     }
 
     #[test]

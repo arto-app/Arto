@@ -14,6 +14,7 @@ import {
   getSavedMermaidElement,
   getSavedMathElement,
 } from "./context-menu-handler";
+import { fitSubmenu } from "./submenu-fit";
 import { rasterizeMathBlock, rasterizeMermaidBlock } from "./special-block-rasterizer";
 import * as findInPage from "./find-in-page";
 import * as keyboardInterceptor from "./keyboard-interceptor";
@@ -21,6 +22,7 @@ import * as mouseNavigation from "./mouse-navigation";
 import * as scrollController from "./scroll-controller";
 import * as contentCursor from "./content-cursor";
 import * as actionFeedback from "./action-feedback";
+import * as lenses from "./lenses";
 import * as viewportQueue from "./viewport-queue";
 import * as scrollAnchor from "./scroll-anchor";
 import type { ScrollAnchor } from "./scroll-anchor";
@@ -34,6 +36,8 @@ declare global {
         restoreSelection: typeof restoreSelection;
         /** Cleanup saved element references when context menu closes. */
         cleanup: typeof cleanupElementReferences;
+        /** Keep a submenu's flyout on screen once it is drawn. */
+        fitSubmenu: typeof fitSubmenu;
       };
       render: {
         /** Register a callback to be called when rendering (Mermaid, KaTeX, etc.) completes */
@@ -133,6 +137,20 @@ declare global {
       };
       feedback: {
         show: typeof actionFeedback.show;
+      };
+      lenses: {
+        collect: typeof lenses.collect;
+        markPending: typeof lenses.markPending;
+        annotate: typeof lenses.annotate;
+        annotateAll: typeof lenses.annotateAll;
+        fail: typeof lenses.fail;
+        settle: typeof lenses.settle;
+        restorePage: typeof lenses.restorePage;
+        restoreMarks: typeof lenses.restoreMarks;
+        beginPage: typeof lenses.beginPage;
+        showPage: typeof lenses.showPage;
+        showBlock: typeof lenses.showBlock;
+        showAnswers: typeof lenses.showAnswers;
       };
       print: {
         /** Switch to the light theme for printing; resolves after Mermaid re-renders. */
@@ -236,6 +254,8 @@ export function init(): void {
   // The full name of a row the panel had to cut, floating clear of the box
   // that scrolls it.
   setupRowHover();
+  // The answer a lens keeps beside a block, on hover over its mark.
+  lenses.setup();
   // The scrollbar, brought up to a native width by the pointer arriving at
   // the edge it is on.
   setupScrollbarReach();
@@ -259,6 +279,7 @@ export function init(): void {
       setup: setupContextMenu,
       restoreSelection,
       cleanup: cleanupElementReferences,
+      fitSubmenu,
     },
     render: {
       onComplete: (callback) => renderCoordinator.onRenderComplete(callback),
@@ -413,6 +434,20 @@ export function init(): void {
     },
     feedback: {
       show: actionFeedback.show,
+    },
+    lenses: {
+      collect: lenses.collect,
+      markPending: lenses.markPending,
+      annotate: lenses.annotate,
+      annotateAll: lenses.annotateAll,
+      fail: lenses.fail,
+      settle: lenses.settle,
+      restorePage: lenses.restorePage,
+      restoreMarks: lenses.restoreMarks,
+      beginPage: lenses.beginPage,
+      showPage: lenses.showPage,
+      showBlock: lenses.showBlock,
+      showAnswers: lenses.showAnswers,
     },
     print: {
       prepare: preparePrint,

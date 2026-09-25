@@ -1,13 +1,14 @@
-//! Dragging a row of a saved list to a new position.
+//! Dragging a row of a list to a new position: the sidebar's saved folders
+//! and places, and the lenses in the preferences.
 
 use std::path::PathBuf;
 
 /// One row being dragged, or one being rested on: where it is drawn, and what
-/// it is.
+/// it is — a path by default, for the sidebar's rows.
 ///
-/// The position travels with the path because it is what says which way the
+/// The position travels with the row because it is what says which way the
 /// dragged row is going, and that decides the side it lands on.
-pub type DragRow = (usize, PathBuf);
+pub type DragRow<K = PathBuf> = (usize, K);
 
 /// Which side of `row` the dragged row would land on, or `None` if this is not
 /// the row being rested on.
@@ -17,13 +18,18 @@ pub type DragRow = (usize, PathBuf);
 /// reachable — landing only ever before a row leaves nothing that can be made
 /// last — and the line does not jump as the pointer crosses the middle of a
 /// row.
-pub fn drop_side(dragging: &Option<DragRow>, target: &Option<DragRow>, row: usize) -> Option<bool> {
+pub fn drop_side<K>(
+    dragging: &Option<DragRow<K>>,
+    target: &Option<DragRow<K>>,
+    row: usize,
+) -> Option<bool> {
     let (from, _) = dragging.as_ref()?;
     let (to, _) = target.as_ref()?;
     (*to == row && from != to).then_some(from < to)
 }
 
-/// The class a row carries while it is the one a drag would land beside.
+/// The class a sidebar row carries while it is the one a drag would land
+/// beside.
 pub fn drop_class(side: Option<bool>) -> &'static str {
     match side {
         Some(true) => "left-sidebar-drop-after",

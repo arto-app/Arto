@@ -2,7 +2,7 @@
 
 use std::future::Future;
 
-use dioxus::core::spawn_forever;
+use dioxus::core::{spawn_forever, Task};
 
 /// Spawn a one-shot task that keeps running once the component that started
 /// it is gone.
@@ -22,6 +22,12 @@ use dioxus::core::spawn_forever;
 /// stop with its component still belongs in `use_future`.
 pub fn spawn_detached(future: impl Future<Output = ()> + 'static) {
     spawn_forever(future);
+}
+
+/// [`spawn_detached`] for work that runs until it is told to stop: the
+/// returned task is what stops it.
+pub fn spawn_detached_task(future: impl Future<Output = ()> + 'static) -> Task {
+    spawn_forever(future)
 }
 
 #[cfg(test)]

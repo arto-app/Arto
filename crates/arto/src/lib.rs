@@ -12,6 +12,7 @@ mod history;
 mod hooks;
 pub mod ipc;
 mod keybindings;
+mod lenses;
 mod markdown;
 #[cfg(target_os = "macos")]
 mod menu;
@@ -85,6 +86,9 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
 
     // Start IPC server to accept connections from future instances
     ipc::start_ipc_server();
+
+    // Pick up edits made to config.json outside the preferences window
+    config::watch_config_files();
 
     // Push CLI request to IPC event queue (MainApp will pop and apply it as initial state)
     //

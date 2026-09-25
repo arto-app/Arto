@@ -163,6 +163,15 @@ pub struct AppState {
     /// read this signal instead, so what the window did shows in the same
     /// frame as the document it did it to.
     pub visits_revision: Signal<u32>,
+    /// The source the document on screen was rendered from, which lenses
+    /// read out of. `None` while nothing Markdown is shown.
+    pub rendered_source: Signal<Option<crate::lenses::RenderedSource>>,
+    /// The page lenses open in this window: the one applied takes the
+    /// document's places, the others wait to be switched to.
+    pub page_lenses: Signal<Vec<crate::lenses::LensRun>>,
+    /// The lenses that mark blocks or open a popover, open over the page in
+    /// the order they were opened.
+    pub overlay_lenses: Signal<Vec<crate::lenses::LensRun>>,
 }
 
 impl AppState {
@@ -204,6 +213,9 @@ impl AppState {
             sidebar_context_menu: Signal::new(None),
             sidebar_refresh_counter: Signal::new(0),
             visits_revision: Signal::new(0),
+            rendered_source: Signal::new(None),
+            page_lenses: Signal::new(Vec::new()),
+            overlay_lenses: Signal::new(Vec::new()),
         }
     }
 }

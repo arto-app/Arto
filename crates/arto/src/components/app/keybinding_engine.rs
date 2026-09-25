@@ -69,9 +69,8 @@ fn push_menu_accelerators_to_js() {}
 /// [`crate::keybindings::reserved_key_overrides`]. Must be called within the
 /// Dioxus runtime (component task / spawn).
 fn push_reserved_key_overrides_to_js() {
-    use crate::config::CONFIG;
-
-    let keys = crate::keybindings::reserved_key_overrides(&CONFIG.read().keybindings);
+    let keys =
+        crate::keybindings::reserved_key_overrides(&crate::keybindings::effective_bindings());
     let json = serde_json::to_string(&keys).unwrap_or_else(|_| "[]".to_string());
     let _ = document::eval(&format!(
         r#"
@@ -99,14 +98,14 @@ pub(super) fn setup_keybinding_engine(
     mut state: AppState,
     shortcut_overlay_visibility: Signal<ShortcutOverlayVisibility>,
 ) {
-    use crate::config::{CONFIG, CONFIG_CHANGED_BROADCAST};
+    use crate::config::CONFIG_CHANGED_BROADCAST;
     use crate::keybindings::dispatcher::dispatch_action;
     use crate::keybindings::KeyChord;
     use crate::keybindings::{Action, KeyContext, KeyMatchResult};
     use std::cell::RefCell;
 
     // use_signal must be called at component render level (not inside use_hook)
-    let initial_config = CONFIG.read().keybindings.clone();
+    let initial_config = crate::keybindings::effective_bindings();
     let engine = use_signal(|| RefCell::new(crate::keybindings::engine_for(&initial_config)));
 
     // The keyboard loop is spawned from use_hook so it starts exactly once
@@ -223,7 +222,7 @@ pub(super) fn setup_keybinding_engine(
     use_future(move || async move {
         let mut rx = CONFIG_CHANGED_BROADCAST.subscribe();
         while rx.recv().await.is_ok() {
-            let new_config = CONFIG.read().keybindings.clone();
+            let new_config = crate::keybindings::effective_bindings();
             *engine.read().borrow_mut() = crate::keybindings::engine_for(&new_config);
             push_menu_accelerators_to_js();
             push_reserved_key_overrides_to_js();

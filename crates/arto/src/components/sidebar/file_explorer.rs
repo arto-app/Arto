@@ -9,7 +9,7 @@ use super::context_menu::{
     SidebarRowRole,
 };
 use crate::components::icon::{Icon, IconName};
-use crate::components::sidebar::reorder::{drop_class, drop_side, DragRow};
+use crate::components::reorder::{drop_class, drop_side, DragRow};
 use crate::components::sidebar::row_actions::RowActions;
 use crate::state::{AppState, FocusedPanel, Group};
 use crate::utils::{file::is_markdown_file, file_operations};
