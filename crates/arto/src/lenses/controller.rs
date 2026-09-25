@@ -58,6 +58,28 @@ enum Policy {
     Regenerate,
     /// For every place, whatever it answered before.
     All,
+    /// As `Kept`, for a lens the reader did not just ask for — one that
+    /// comes back with its document, or follows it as it changes. A lens
+    /// that reaches what is on this machine beyond the document asks
+    /// nothing then, as `Recall`.
+    Resumed,
+    /// Never: what it answered before is shown, and nothing else.
+    Recall,
+}
+
+/// What `policy` comes to for `lens`.
+///
+/// A lens allowed to read the files around a document is one the reader
+/// trusts with the documents they open it on — not with whatever the
+/// document became since, or any document it comes back with: a file that
+/// changed on disk may now ask it to read the files beside it and write
+/// them into its answer.
+fn resolved(policy: Policy, lens: &Lens) -> Policy {
+    match policy {
+        Policy::Resumed if lens.reaches_local() => Policy::Recall,
+        Policy::Resumed => Policy::Kept,
+        policy => policy,
+    }
 }
 
 /// Look at `scope` through the lens `lens_id`, showing what it answered
@@ -210,6 +232,7 @@ fn start_with(mut state: AppState, lens_id: &str, scope: Scope, policy: Policy, 
         tracing::warn!(lens_id, "no usable lens with this id");
         return;
     };
+    let policy = resolved(policy, &lens);
     for token in replaced_by(&peek_open_runs(&state), &lens) {
         dismiss(state, token);
     }
@@ -377,9 +400,13 @@ pub(crate) fn follow_rerender(state: AppState) {
     for run in peek_open_runs(&state) {
         match following(&run, rendered.as_ref()) {
             Follow::Keep => {}
-            Follow::Rerun(lens_id) => {
-                start_with(state, &lens_id, Scope::Document, Policy::Kept, run.applied)
-            }
+            Follow::Rerun(lens_id) => start_with(
+                state,
+                &lens_id,
+                Scope::Document,
+                Policy::Resumed,
+                run.applied,
+            ),
             Follow::Close => dismiss(state, run.token),
         }
     }
@@ -393,7 +420,13 @@ pub(crate) fn follow_rerender(state: AppState) {
         .collect();
     for lens in store.remembered(&rendered.path) {
         if !open.contains(&lens.id) {
-            start_with(state, &lens.id, Scope::Document, Policy::Kept, lens.shown);
+            start_with(
+                state,
+                &lens.id,
+                Scope::Document,
+                Policy::Resumed,
+                lens.shown,
+            );
         }
     }
 }
@@ -622,7 +655,7 @@ fn found(before: &Record, policy: Policy, slot: &str, key: &Key, claimed: &HashS
     }
     if let Some(answer) = before.fresh(key) {
         Found::Fresh(answer.to_string())
-    } else if policy == Policy::Regenerate || before.is_empty() {
+    } else if policy == Policy::Regenerate || (policy != Policy::Recall && before.is_empty()) {
         Found::Ask
     } else if let Some(answer) = before.stale(slot, claimed) {
         Found::Stale(answer.to_string())
@@ -1268,6 +1301,43 @@ mod tests {
             ),
             Found::Fresh("old".to_string()),
             "regenerating asks again only about what changed"
+        );
+    }
+
+    #[test]
+    fn a_lens_that_reads_local_files_asks_nothing_when_it_comes_back_by_itself() {
+        let mut lens = Lens::new("digger");
+        assert_eq!(resolved(Policy::Resumed, &lens), Policy::Kept);
+        lens.allow = vec![arto_config::LensCapability::WebSearch];
+        assert_eq!(resolved(Policy::Resumed, &lens), Policy::Kept);
+        lens.allow = vec![arto_config::LensCapability::ReadFiles];
+        assert_eq!(resolved(Policy::Resumed, &lens), Policy::Recall);
+        assert_eq!(
+            resolved(Policy::Kept, &lens),
+            Policy::Kept,
+            "the reader asked for it"
+        );
+
+        let before = record(&[("block:0", 1, "old")]);
+        let nothing = HashSet::new();
+        assert_eq!(
+            found(
+                &Record::default(),
+                Policy::Recall,
+                "block:0",
+                &[1; 32],
+                &nothing
+            ),
+            Found::Missing,
+            "not even the first time"
+        );
+        assert_eq!(
+            found(&before, Policy::Recall, "block:0", &[1; 32], &nothing),
+            Found::Fresh("old".to_string())
+        );
+        assert_eq!(
+            found(&before, Policy::Recall, "block:0", &[2; 32], &nothing),
+            Found::Stale("old".to_string())
         );
     }
 

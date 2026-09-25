@@ -23,6 +23,71 @@ pub enum LensAgent {
     Openai,
 }
 
+/// Something an agent is kept from unless the lens allows it.
+///
+/// An agent is run as a plain text transformer by default, because the
+/// document it is handed can talk it into anything its tools can do. What a
+/// lens allows is the reader's decision for that lens; it is never implied.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LensCapability {
+    /// Search the web and read what it finds, which a fact check needs.
+    /// What leaves the machine is what the agent was already handed.
+    WebSearch,
+    /// Read the files around the document.
+    ReadFiles,
+    /// Run commands. The agent's own sandbox, where it has one, still
+    /// keeps them from writing.
+    Shell,
+}
+
+impl LensCapability {
+    /// Every capability, in the order the preferences offer them.
+    pub const ALL: [LensCapability; 3] = [Self::WebSearch, Self::ReadFiles, Self::Shell];
+
+    /// Whether it lets the agent reach what is on this machine beyond the
+    /// document — which a document can ask it to copy into its answer, or
+    /// out through a search.
+    pub fn is_local(self) -> bool {
+        matches!(self, Self::ReadFiles | Self::Shell)
+    }
+
+    /// What the preferences call it.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::WebSearch => "Search the web",
+            Self::ReadFiles => "Read files around the document",
+            Self::Shell => "Run commands",
+        }
+    }
+
+    /// What allowing it means, beside the choice in the preferences.
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::WebSearch => {
+                "For a fact check. The agent may search for what the text says and read the pages it finds; what it sends out is what it was already handed."
+            }
+            Self::ReadFiles => {
+                "The document can ask the agent to read the files beside it and write them into its answer, or send them out through a search. Allow it only for documents you trust. Opened again by itself, the lens shows what it answered before and asks nothing."
+            }
+            Self::Shell => {
+                "Everything reading files allows, and whatever a command can do: codex keeps its commands from writing; claude does not. Allow it only for documents you trust."
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for LensCapability {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let spelled = match self {
+            Self::WebSearch => "webSearch",
+            Self::ReadFiles => "readFiles",
+            Self::Shell => "shell",
+        };
+        f.write_str(spelled)
+    }
+}
+
 /// What sets an agent apart from the others, short of running it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AgentProfile {
@@ -33,6 +98,8 @@ pub struct AgentProfile {
     /// What it is, beside the choice in a lens's settings.
     pub description: &'static str,
     pub reach: AgentReach,
+    /// What a lens can allow it.
+    pub capabilities: &'static [LensCapability],
     /// The models a recipe picks, when the agent names them the same for
     /// everyone; a server's are the reader's to name.
     pub recipe_models: Option<RecipeModels>,
@@ -82,6 +149,7 @@ impl LensAgent {
                 introduction: "The claude command, signed in as you already are.",
                 description: "The claude command, signed in as you already are.",
                 reach: AgentReach::Program { name: "claude" },
+                capabilities: &LensCapability::ALL,
                 recipe_models: Some(RecipeModels {
                     document: "sonnet",
                     block: "haiku",
@@ -92,6 +160,7 @@ impl LensAgent {
                 introduction: "The codex command, signed in as you already are.",
                 description: "The codex command, signed in as you already are.",
                 reach: AgentReach::Program { name: "codex" },
+                capabilities: &LensCapability::ALL,
                 recipe_models: None,
             },
             Self::Ollama => AgentProfile {
@@ -104,6 +173,7 @@ impl LensAgent {
                     remote: false,
                     context_length: true,
                 }),
+                capabilities: &[],
                 recipe_models: None,
             },
             Self::Openai => AgentProfile {
@@ -116,6 +186,7 @@ impl LensAgent {
                     remote: true,
                     context_length: false,
                 }),
+                capabilities: &[],
                 recipe_models: None,
             },
         }

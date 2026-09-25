@@ -26,7 +26,7 @@ mod codex;
 mod ollama;
 mod openai;
 
-use arto_config::{AgentReach, Lens, LensAgent};
+use arto_config::{AgentReach, Lens, LensAgent, LensCapability};
 use serde_json::{json, Value};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -55,8 +55,9 @@ pub(crate) trait Reader: Sync {
 /// A command-line agent Arto runs.
 pub(crate) trait ProgramAgent: Reader {
     /// The arguments after the program, asking `model` when the lens names
-    /// one.
-    fn args(&self, model: Option<&str>) -> Vec<String>;
+    /// one and letting the agent do what `allow` lists — only what its
+    /// profile offers, which the configuration has checked.
+    fn args(&self, model: Option<&str>, allow: &[LensCapability]) -> Vec<String>;
 
     /// How the request is handed over.
     fn conversation(&self) -> Conversation {
@@ -242,7 +243,7 @@ pub(crate) fn invocation(lens: &Lens) -> Invocation {
                 .or_else(|| find_program(name))
                 .unwrap_or_else(|| PathBuf::from(name));
             let mut argv = vec![program.to_string_lossy().into_owned()];
-            argv.extend(program_agent.args(model));
+            argv.extend(program_agent.args(model, &lens.allow));
             let transport = match program_agent.conversation() {
                 Conversation::Stdin => Transport::Process { argv },
                 Conversation::AppServer => Transport::AppServer { argv },
@@ -372,6 +373,12 @@ impl Answer {
         self.text.push_str(delta);
     }
 
+    /// Drop what was pieced together so far: a new message begins, and
+    /// only the last message is the answer.
+    pub(crate) fn start_over(&mut self) {
+        self.text.clear();
+    }
+
     /// Add `delta` to the answer when it belongs to message `item`; one
     /// that belongs to another starts the answer over, so that only the
     /// last message is the answer.
@@ -477,6 +484,7 @@ pub(crate) mod testing {
             system: None,
             endpoint: None,
             api_key_command: Vec::new(),
+            allow: Vec::new(),
             context_length: None,
             command: if agent.is_none() {
                 vec!["my-tool".to_string(), "--flag".to_string()]

@@ -246,6 +246,7 @@ mod tests {
                 system: None,
                 endpoint: None,
                 api_key_command: Vec::new(),
+                allow: Vec::new(),
                 context_length: None,
                 command: vec!["llm".to_string(), "Summarize this".to_string()],
                 context: 1,

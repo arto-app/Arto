@@ -134,6 +134,7 @@ edited lens without a restart. Name an `agent` Arto knows and give it a
 | `system` | `ollama`, `openai`: the system prompt sent with every request | — |
 | `contextLength` | `ollama`: the context the model is loaded with, in tokens | sized to each request |
 | `apiKeyCommand` | `ollama`, `openai`: a program and its arguments that print the API key, in place of the stored one | — |
+| `allow` | `claude`, `codex`: what the agent may do beyond reading the text it is handed — `webSearch`, `readFiles`, `shell`; see [What an agent is allowed](#what-an-agent-is-allowed) | nothing |
 | `command` | Instead of an `agent`: a program and its arguments, run as given | — |
 | `context` | `annotate`: blocks on each side handed over as context, at most 20 | `2` |
 | `concurrency` | `annotate`: runs in flight at once, 1 to 16 | `4` |
@@ -143,7 +144,8 @@ edited lens without a restart. Name an `agent` Arto knows and give it a
 
 A lens has either an `agent` or a `command`. One with neither or both, a
 server agent with no `model`, a
-server-only field on a command-line agent, an empty `id`, a `shortcut`
+server-only field on a command-line agent, something in `allow` its agent
+cannot be given, an empty `id`, a `shortcut`
 that cannot be read, a value outside
 those bounds, or an `id` another lens also uses is left out, and the others
 stay available. An unknown `display` or `agent` makes `config.json`
@@ -201,6 +203,32 @@ A model trained for a single task, such as a translation model, reads an
 instruction as more text to work on. Leave `prompt` out for one, so it is
 handed the text alone, and give it what it needs to know — the language to
 translate into, say — in `system`.
+
+### What an agent is allowed
+
+Left as it is, a command-line agent can do nothing but read the text it is
+handed and answer. That is not caution for its own sake: the document is
+handed to the agent, and a document can be written to talk an agent into
+anything its tools can do — to read the files beside it and write them into
+its answer, or send them out through a search. `allow` hands a lens more,
+one thing at a time, and only for that lens:
+
+| `allow` | The agent may | `claude` | `codex` |
+| --- | --- | --- | --- |
+| `webSearch` | search the web and read what it finds — what a fact check needs; it can send out only what it was already handed | `WebSearch`, `WebFetch` | live web search |
+| `readFiles` | read the files around the document | `Read`, `Grep`, `Glob` | commands, in its read-only sandbox |
+| `shell` | run commands | `Bash`, with nothing keeping it from writing | commands, in its read-only sandbox |
+
+`readFiles` and `shell` let the agent reach what is on this machine beyond
+the document, so allow them only for lenses you open over documents you
+trust. The menus mark such a lens with a warning sign, and one that opens
+again by itself — with a document it was open over, or as that document
+changes — shows what it answered before and asks nothing until you
+regenerate it: the file may have changed into something you would not have
+opened it over. Switching a lens to another agent clears `allow`.
+
+Ollama and OpenAI-compatible servers are asked for a chat completion, which
+has no tools to allow.
 
 ## A command of your own
 

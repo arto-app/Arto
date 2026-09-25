@@ -1,4 +1,4 @@
-use crate::LensAgent;
+use crate::{LensAgent, LensCapability};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -130,6 +130,10 @@ pub struct Lens {
     /// configuration.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub api_key_command: Vec<String>,
+    /// What the agent may do beyond reading the text it is handed; nothing
+    /// when empty.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allow: Vec<LensCapability>,
     /// Program and arguments of a command that is not a known agent, run as
     /// they are, without a shell.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -167,6 +171,8 @@ pub enum LensError {
     MissingModel(String),
     #[error("lens {0:?} sets {1}, which only a server agent uses")]
     NotForAgent(String, &'static str),
+    #[error("lens {0:?} allows {1}, which {2} cannot be given")]
+    NotAllowed(String, LensCapability, &'static str),
     #[error("lens {0:?} hands the document over by block, which only a page lens does")]
     UnitWithoutPage(String),
     #[error("lens {0:?} has a shortcut that cannot be read: {1}")]
@@ -282,6 +288,7 @@ impl Lens {
             endpoint: None,
             context_length: None,
             api_key_command: Vec::new(),
+            allow: Vec::new(),
             command: Vec::new(),
             context: default_context(),
             concurrency: default_concurrency(),
@@ -319,6 +326,17 @@ impl Lens {
         {
             self.context_length = None;
         }
+        // What was allowed one agent is not carried to another: an agent's
+        // tools reach differently, and the reader allowed the one they saw.
+        if changed {
+            self.allow.clear();
+        }
+    }
+
+    /// Whether the agent may reach what is on this machine beyond the
+    /// document.
+    pub fn reaches_local(&self) -> bool {
+        self.allow.iter().any(|capability| capability.is_local())
     }
 
     /// Show the answer as `display` says, dropping the unit when the lens
@@ -348,6 +366,17 @@ fn runner_error(lens: &Lens) -> Option<LensError> {
         .iter()
         .find(|(_, set)| *set)
         .map(|(field, _)| *field);
+    let offered = lens
+        .agent
+        .map_or(&[][..], |agent| agent.profile().capabilities);
+    if let Some(&capability) = lens
+        .allow
+        .iter()
+        .find(|capability| !offered.contains(capability))
+    {
+        let runner = lens.agent.map_or("a command", |agent| agent.profile().name);
+        return Some(LensError::NotAllowed(id(), capability, runner));
+    }
     let server = lens.agent.and_then(LensAgent::server);
     match (lens.agent, server) {
         (None, _) if !has_command => Some(LensError::NothingToRun(id())),
@@ -379,6 +408,7 @@ mod tests {
             system: None,
             endpoint: None,
             api_key_command: Vec::new(),
+            allow: Vec::new(),
             context_length: None,
             command: command.iter().map(|arg| arg.to_string()).collect(),
             context: 2,
@@ -519,6 +549,75 @@ mod tests {
                 LensError::Timeout("hasty".to_string()),
             ]
         );
+    }
+
+    #[test]
+    fn a_lens_allows_only_what_its_agent_can_be_given() {
+        let allowing = |mut lens: Lens, allow: &[LensCapability]| {
+            lens.allow = allow.to_vec();
+            lens
+        };
+        let lenses = [
+            allowing(
+                agent("checker", LensAgent::Claude, None, Some("Check.")),
+                &[LensCapability::WebSearch],
+            ),
+            allowing(
+                agent("digger", LensAgent::Codex, None, Some("Look.")),
+                &[LensCapability::ReadFiles, LensCapability::Shell],
+            ),
+            allowing(
+                agent("local", LensAgent::Ollama, Some("m"), None),
+                &[LensCapability::WebSearch],
+            ),
+            allowing(lens("own", &["x"]), &[LensCapability::Shell]),
+        ];
+
+        let (usable, errors) = usable_lenses(&lenses);
+
+        assert_eq!(
+            usable
+                .iter()
+                .map(|lens| lens.id.as_str())
+                .collect::<Vec<_>>(),
+            ["checker", "digger"]
+        );
+        assert_eq!(
+            errors,
+            [
+                LensError::NotAllowed("local".to_string(), LensCapability::WebSearch, "Ollama"),
+                LensError::NotAllowed("own".to_string(), LensCapability::Shell, "a command"),
+            ]
+        );
+        assert!(!lenses[0].reaches_local());
+        assert!(lenses[1].reaches_local());
+    }
+
+    #[test]
+    fn what_a_lens_allows_is_read_and_written_by_name_and_left_out_when_empty() {
+        let parsed: Lens = serde_json::from_str(
+            r#"{"id": "t", "label": "T", "display": "annotate", "agent": "claude", "allow": ["webSearch", "readFiles", "shell"]}"#,
+        )
+        .unwrap();
+        assert_eq!(parsed.allow, LensCapability::ALL);
+        let written = serde_json::to_value(&parsed).unwrap();
+        assert_eq!(
+            written["allow"],
+            serde_json::json!(["webSearch", "readFiles", "shell"])
+        );
+
+        let bare = serde_json::to_value(Lens::new("b")).unwrap();
+        assert!(bare.get("allow").is_none(), "{bare}");
+    }
+
+    #[test]
+    fn what_was_allowed_is_not_carried_to_another_agent() {
+        let mut lens = Lens::new("a");
+        lens.allow = vec![LensCapability::WebSearch];
+        lens.set_agent(Some(LensAgent::Claude));
+        assert_eq!(lens.allow, [LensCapability::WebSearch], "the same agent");
+        lens.set_agent(Some(LensAgent::Codex));
+        assert!(lens.allow.is_empty());
     }
 
     #[test]

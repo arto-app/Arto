@@ -2,6 +2,7 @@
 //! `stream-json` events.
 
 use super::{text, Answer, ProgramAgent, Reader, SYSTEM_PROMPT};
+use arto_config::LensCapability;
 use serde_json::Value;
 
 /// The aliases `claude` takes that its help may not name.
@@ -9,26 +10,45 @@ const ALIASES: [&str; 3] = ["opus", "sonnet", "haiku"];
 
 pub(super) struct Claude;
 
+/// The tools that give `capability`.
+fn tools(capability: LensCapability) -> &'static [&'static str] {
+    match capability {
+        LensCapability::WebSearch => &["WebSearch", "WebFetch"],
+        LensCapability::ReadFiles => &["Read", "Grep", "Glob"],
+        LensCapability::Shell => &["Bash"],
+    }
+}
+
 impl ProgramAgent for Claude {
-    fn args(&self, model: Option<&str>) -> Vec<String> {
-        let mut args: Vec<String> = [
-            "-p",
-            "--no-session-persistence",
-            "--tools",
-            "",
-            "--strict-mcp-config",
-            "--setting-sources",
-            "",
-            "--disable-slash-commands",
-            "--system-prompt",
-            SYSTEM_PROMPT,
-            "--output-format",
-            "stream-json",
-            "--include-partial-messages",
-            "--verbose",
-        ]
-        .map(String::from)
-        .into();
+    fn args(&self, model: Option<&str>, allow: &[LensCapability]) -> Vec<String> {
+        let tools = allow
+            .iter()
+            .flat_map(|&capability| tools(capability))
+            .copied()
+            .collect::<Vec<_>>()
+            .join(",");
+        let mut args: Vec<String> = vec!["-p".to_string(), "--no-session-persistence".to_string()];
+        // `--tools` makes them available, `--allowedTools` lets them run
+        // without the prompt `-p` has no one to answer.
+        args.extend(["--tools".to_string(), tools.clone()]);
+        if !tools.is_empty() {
+            args.extend(["--allowedTools".to_string(), tools]);
+        }
+        args.extend(
+            [
+                "--strict-mcp-config",
+                "--setting-sources",
+                "",
+                "--disable-slash-commands",
+                "--system-prompt",
+                SYSTEM_PROMPT,
+                "--output-format",
+                "stream-json",
+                "--include-partial-messages",
+                "--verbose",
+            ]
+            .map(String::from),
+        );
         if let Some(model) = model {
             args.extend(["--model".to_string(), model.to_string()]);
         }
@@ -45,7 +65,12 @@ impl Reader for Claude {
         match event["type"].as_str() {
             Some("stream_event") => {
                 let delta = &event["event"]["delta"];
-                if event["event"]["type"] == "content_block_delta" && delta["type"] == "text_delta"
+                // With tools, the text before a tool call is a message of
+                // its own; only the one after the last call is the answer.
+                if event["event"]["type"] == "message_start" {
+                    answer.start_over();
+                } else if event["event"]["type"] == "content_block_delta"
+                    && delta["type"] == "text_delta"
                 {
                     answer.push(delta["text"].as_str().unwrap_or_default());
                 }
@@ -128,6 +153,21 @@ mod tests {
         let tools = argv.iter().position(|arg| arg == "--tools").unwrap();
         assert_eq!(argv[tools + 1], "");
         assert_eq!(&argv[argv.len() - 2..], ["--model", "sonnet"]);
+        assert!(!argv.iter().any(|arg| arg == "--allowedTools"));
+    }
+
+    #[test]
+    fn claude_is_given_and_let_run_the_tools_the_lens_allows() {
+        let mut checker = lens(Some(LensAgent::Claude), None);
+        checker.allow = vec![LensCapability::WebSearch, LensCapability::Shell];
+        let run = invocation(&checker);
+        let argv = argv(&run);
+        let after = |flag: &str| {
+            let at = argv.iter().position(|arg| arg == flag).unwrap();
+            argv[at + 1].as_str()
+        };
+        assert_eq!(after("--tools"), "WebSearch,WebFetch,Bash");
+        assert_eq!(after("--allowedTools"), "WebSearch,WebFetch,Bash");
     }
 
     /// What `claude -p --output-format stream-json --include-partial-messages`
@@ -158,6 +198,22 @@ mod tests {
         assert_eq!(decoder.feed(&STREAM[..line_end(3)]), "# 見出");
         assert_eq!(decoder.feed(STREAM), "# 見出し\n\n本文。");
         assert_eq!(decoder.finish(STREAM).as_deref(), Ok("# 見出し\n\n本文。"));
+    }
+
+    #[test]
+    fn claude_streams_only_the_message_after_its_last_tool_call() {
+        let stream = concat!(
+            r##"{"type":"stream_event","event":{"type":"message_start","message":{"id":"m1"}}}"##,
+            "\n",
+            r##"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Let me search."}}}"##,
+            "\n",
+            r##"{"type":"stream_event","event":{"type":"message_start","message":{"id":"m2"}}}"##,
+            "\n",
+            r##"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Answer"}}}"##,
+            "\n",
+        );
+        let mut decoder = Decoder::new(Some(LensAgent::Claude));
+        assert_eq!(decoder.feed(stream), "Answer");
     }
 
     #[test]

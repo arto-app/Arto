@@ -175,6 +175,7 @@ mod tests {
             system: None,
             endpoint: None,
             api_key_command: Vec::new(),
+            allow: Vec::new(),
             context_length: None,
             command: Vec::new(),
             context: 0,

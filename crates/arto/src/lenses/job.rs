@@ -328,6 +328,7 @@ mod tests {
             system: None,
             endpoint: None,
             api_key_command: Vec::new(),
+            allow: Vec::new(),
             context_length: None,
             command: vec!["explain".to_string()],
             context,

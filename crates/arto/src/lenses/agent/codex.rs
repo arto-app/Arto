@@ -6,41 +6,42 @@
 //! the thread starts (see [`crate::lenses::app_server`]).
 
 use super::{Answer, Conversation, ProgramAgent, Reader};
+use arto_config::LensCapability;
 use serde_json::{json, Value};
 
 pub(super) struct Codex;
 
 impl ProgramAgent for Codex {
-    fn args(&self, model: Option<&str>) -> Vec<String> {
-        let mut args: Vec<String> = [
-            "app-server",
-            // A read-only sandbox still lets the agent run commands that
-            // read files, and the document it is handed can ask it to — to
-            // read what lies beside the document and write it into the
-            // answer. A lens hands over text to be read, so every tool is
-            // turned off, and so is what the user's configuration could
-            // bring in besides.
-            "--disable",
+    fn args(&self, model: Option<&str>, allow: &[LensCapability]) -> Vec<String> {
+        // A read-only sandbox still lets the agent run commands that read
+        // files, and the document it is handed can ask it to — to read what
+        // lies beside the document and write it into the answer. A lens
+        // hands over text to be read, so every tool is turned off unless the
+        // lens allows it, and so is what the user's configuration could
+        // bring in besides. The sandbox stays read-only whatever is allowed.
+        let mut disabled = vec![
             "plugins",
-            "--disable",
             "hooks",
-            "--disable",
-            "shell_tool",
-            "--disable",
-            "unified_exec",
-            "--disable",
             "apps",
-            "--disable",
             "browser_use",
-            "--disable",
             "computer_use",
-            "--disable",
             "image_generation",
-            "-c",
-            "web_search=\"disabled\"",
-        ]
-        .map(String::from)
-        .into();
+        ];
+        // Codex reads files by running commands; it has no other way.
+        let commands = allow.iter().any(|capability| capability.is_local());
+        if !commands {
+            disabled.extend(["shell_tool", "unified_exec"]);
+        }
+        let search = if allow.contains(&LensCapability::WebSearch) {
+            "live"
+        } else {
+            "disabled"
+        };
+        let mut args = vec!["app-server".to_string()];
+        for feature in disabled {
+            args.extend(["--disable".to_string(), feature.to_string()]);
+        }
+        args.extend(["-c".to_string(), format!("web_search={}", json!(search))]);
         if let Some(model) = model {
             // The value is read as TOML, whose basic strings JSON's are.
             args.extend(["-c".to_string(), format!("model={}", json!(model))]);
@@ -128,6 +129,39 @@ mod tests {
             assert!(disabled.contains(&tool), "{tool} is left on: {argv:?}");
         }
         assert!(!argv.iter().any(|arg| arg.starts_with("model=")));
+        assert!(argv.iter().any(|arg| arg == r#"web_search="disabled""#));
+    }
+
+    fn disabled(argv: &[String]) -> Vec<&str> {
+        argv.windows(2)
+            .filter(|pair| pair[0] == "--disable")
+            .map(|pair| pair[1].as_str())
+            .collect()
+    }
+
+    #[test]
+    fn codex_searches_live_when_the_lens_allows_it_and_still_runs_nothing() {
+        let mut checker = lens(Some(LensAgent::Codex), None);
+        checker.allow = vec![LensCapability::WebSearch];
+        let run = invocation(&checker);
+        let argv = argv(&run);
+        assert!(
+            argv.iter().any(|arg| arg == r#"web_search="live""#),
+            "{argv:?}"
+        );
+        assert!(disabled(argv).contains(&"shell_tool"));
+    }
+
+    #[test]
+    fn codex_runs_commands_when_the_lens_lets_it_read_files() {
+        let mut digger = lens(Some(LensAgent::Codex), None);
+        digger.allow = vec![LensCapability::ReadFiles];
+        let run = invocation(&digger);
+        let disabled = disabled(argv(&run));
+        for tool in ["shell_tool", "unified_exec"] {
+            assert!(!disabled.contains(&tool), "{tool} is off: {disabled:?}");
+        }
+        assert!(disabled.contains(&"plugins"), "{disabled:?}");
     }
 
     #[test]

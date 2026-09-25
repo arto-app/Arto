@@ -61,9 +61,17 @@ fn LensItem(lens: Lens, scope: Scope, on_close: EventHandler<()>) -> Element {
         on_close.call(());
     };
 
+    // A lens allowed to reach the files around the document says so where
+    // it is opened, so that it is not opened over a document not trusted
+    // with it by mistake for another.
+    let icon = if lens.reaches_local() {
+        IconName::AlertTriangle
+    } else {
+        IconName::Add
+    };
     match open {
         None => rsx! {
-            ContextMenuItem { label: lens.label.clone(), icon: Some(IconName::Add), on_click: start }
+            ContextMenuItem { label: lens.label.clone(), icon: Some(icon), on_click: start }
         },
         Some(run) => rsx! {
             ContextMenuSubmenu {

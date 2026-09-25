@@ -1,4 +1,4 @@
-use super::super::form_controls::{ChoiceItem, ChoiceRow, OptionCardItem, OptionCards};
+use super::super::form_controls::{ChoiceItem, ChoiceRow, OptionCardItem, OptionCards, ToggleRow};
 use crate::components::icon::{Icon, IconName};
 use crate::components::reorder::{drop_side, DragRow};
 use crate::config::{
@@ -312,6 +312,7 @@ fn recipe_icon(recipe: LensRecipe) -> IconName {
         LensRecipe::Summarize => IconName::ListDetails,
         LensRecipe::ExplainTerms => IconName::Vocabulary,
         LensRecipe::Critique => IconName::MessageReport,
+        LensRecipe::FactCheck => IconName::Search,
         LensRecipe::ExplainBlock => IconName::Bulb,
     }
 }
@@ -689,6 +690,23 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
                             edit(config, index, |lens| lens.context_length = length);
                         }
                     },
+                }
+            }
+
+            // Each off unless the reader turns it on for this lens.
+            for capability in lens.agent.map_or(&[][..], |agent| agent.profile().capabilities).iter().copied() {
+                ToggleRow {
+                    key: "{capability}",
+                    label: capability.label().to_string(),
+                    description: Some(capability.description().to_string()),
+                    checked: lens.allow.contains(&capability),
+                    on_change: move |on| edit(config, index, |lens| {
+                        lens.allow.retain(|allowed| *allowed != capability);
+                        if on {
+                            lens.allow.push(capability);
+                        }
+                    }),
+                    shipped: Some(false),
                 }
             }
 
