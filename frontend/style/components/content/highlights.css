@@ -80,3 +80,41 @@
     outline-offset: 2px;
   }
 }
+
+/* The reader's own highlights. A pinned search fills the whole line box; a
+   highlight is a marker drawn across the lower half, so a word both pinned
+   and highlighted still reads as both. They sit inside the other marks
+   (see `user-highlights.ts`), which is what draws them on top. */
+.markdown-body .user-highlight {
+  background-color: transparent;
+  background-image: linear-gradient(
+    to bottom,
+    transparent 55%,
+    var(--user-highlight-ink, var(--pinned-green)) 55%
+  );
+  border-radius: 0;
+  padding: 0;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.user-highlight[data-color="green"] {
+  --user-highlight-ink: var(--pinned-green);
+}
+.user-highlight[data-color="blue"] {
+  --user-highlight-ink: var(--pinned-blue);
+}
+.user-highlight[data-color="pink"] {
+  --user-highlight-ink: var(--pinned-pink);
+}
+.user-highlight[data-color="orange"] {
+  --user-highlight-ink: var(--pinned-orange);
+}
+.user-highlight[data-color="purple"] {
+  --user-highlight-ink: var(--pinned-purple);
+}
+
+/* Picked from the contents: the same flash a pinned match gets. */
+.user-highlight-flash {
+  animation: pinned-flash 0.5s ease-out;
+}

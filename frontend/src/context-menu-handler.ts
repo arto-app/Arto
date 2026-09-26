@@ -5,6 +5,7 @@
 
 import { readSourceRange } from "./source-range";
 import { extractTableDelimited, formatTableAsMarkdown } from "./table-utils";
+import { idsIn as highlightIdsIn } from "./user-highlights";
 
 export type ContentContextType =
   | { type: "general" }
@@ -33,6 +34,8 @@ export interface ContextMenuData {
   table_markdown: string | null;
   table_source_line: number | null;
   table_source_line_end: number | null;
+  /** The reader's highlights the selection touches, or the one clicked on. */
+  highlight_ids: string[];
 }
 
 interface TableData {
@@ -407,6 +410,11 @@ function getTextSelection(): { hasSelection: boolean; selectedText: string } {
   };
 }
 
+/** The selection as it was when the menu opened, or `null`. */
+export function getSavedRange(): Range | null {
+  return savedRange;
+}
+
 /**
  * Restore the previously saved selection
  */
@@ -581,6 +589,7 @@ export function setup(sendToRust: (data: ContextMenuData) => void): void {
       table_markdown: tableData?.markdown ?? null,
       table_source_line: tableData?.sourceLine ?? null,
       table_source_line_end: tableData?.sourceLineEnd ?? null,
+      highlight_ids: highlightIdsIn(hasSelection ? getSavedRange() : null, target),
     };
 
     sendToRust(data);

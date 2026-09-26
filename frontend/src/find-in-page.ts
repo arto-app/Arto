@@ -1,5 +1,6 @@
 import { refreshReadingPosition } from "./reading-position";
 import { toElement } from "./scroll-controller";
+import * as userHighlights from "./user-highlights";
 
 /**
  * Pinned search definition from Rust.
@@ -71,6 +72,23 @@ type SearchCallback = (data: {
 }) => void;
 
 let callback: SearchCallback | null = null;
+
+/**
+ * Mark the page with the reader's highlights out of the way.
+ *
+ * A search matches within one text node, and a highlight splits the text
+ * nodes it covers, so a query reaching across a highlight's edge would not be
+ * found. They are lifted while these marks are redrawn and put back after, on
+ * top: every search sees the text as written.
+ */
+function aroundHighlights(work: () => void): void {
+  userHighlights.lift();
+  try {
+    work();
+  } finally {
+    userHighlights.draw();
+  }
+}
 
 /**
  * Apply highlights for a search query.
@@ -297,6 +315,10 @@ function applyPinnedHighlights(): void {
 }
 
 export function find(query: string): void {
+  aroundHighlights(() => findWithin(query));
+}
+
+function findWithin(query: string): void {
   state.query = query;
   const container = document.querySelector(".markdown-body");
   if (!container) {
@@ -336,6 +358,10 @@ export function navigate(direction: "next" | "prev"): void {
 }
 
 export function clear(): void {
+  aroundHighlights(clearWithin);
+}
+
+function clearWithin(): void {
   state.query = "";
   clearSearchHighlights();
   const pinnedMatches = collectPinnedMatches();
@@ -351,9 +377,13 @@ export function setup(cb: SearchCallback): void {
  * This preserves highlights across tab navigation.
  */
 export function reapply(): void {
+  aroundHighlights(reapplyWithin);
+}
+
+function reapplyWithin(): void {
   // Re-apply search first so it wins on overlap
   if (state.query) {
-    find(state.query);
+    findWithin(state.query);
     return;
   }
 
@@ -401,11 +431,15 @@ export function navigateTo(index: number): void {
  * Set the list of pinned searches and re-apply highlights.
  */
 export function setPinned(pinned: PinnedSearchDef[]): void {
+  aroundHighlights(() => setPinnedWithin(pinned));
+}
+
+function setPinnedWithin(pinned: PinnedSearchDef[]): void {
   state.pinnedSearches = pinned;
 
   // Keep search highlights prioritized if a query is active
   if (state.query) {
-    find(state.query);
+    findWithin(state.query);
     return;
   }
 
