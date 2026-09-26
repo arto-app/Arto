@@ -89,6 +89,7 @@ pub enum Action {
     FileToggleBookmark,
     FileOpenLink,
     FileOpenLinkInNewWindow,
+    FilePreviewLink,
     FileSaveImageAs,
     FilePreferences,
     FileRevealInFinder,
@@ -253,6 +254,7 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::FileToggleBookmark,
             Action::FileOpenLink,
             Action::FileOpenLinkInNewWindow,
+            Action::FilePreviewLink,
             Action::FileSaveImageAs,
             Action::FilePreferences,
             Action::FileRevealInFinder,
@@ -622,6 +624,7 @@ action_strings! {
     FileToggleBookmark => "file.toggle_bookmark",
     FileOpenLink => "file.open_link",
     FileOpenLinkInNewWindow => "file.open_link_in_new_window",
+    FilePreviewLink => "file.preview_link",
     FileSaveImageAs => "file.save_image_as",
     FilePreferences => "file.preferences",
     FileRevealInFinder => "file.reveal_in_finder",
@@ -682,7 +685,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 98);
+        assert_eq!(all_actions().len(), 99);
     }
 
     #[test]

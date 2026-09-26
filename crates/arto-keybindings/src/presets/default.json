@@ -92,6 +92,10 @@
       "action": "file.open_link_in_new_window"
     },
     {
+      "key": "Cmd+Shift+Space",
+      "action": "file.preview_link"
+    },
+    {
       "key": "Cmd+d",
       "action": "file.toggle_bookmark"
     },
