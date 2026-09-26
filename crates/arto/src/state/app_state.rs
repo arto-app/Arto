@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::components::sidebar::context_menu::SidebarContextMenuData;
 use crate::config::{normalize_content_zoom, DEFAULT_ZOOM_LEVEL, ZOOM_STEP};
+use crate::highlights::{Highlight, HighlightId, HighlightPlace};
 use crate::markdown::{HeadingInfo, ReadingProfile};
 use crate::pinned_search::PinnedSearchId;
 use crate::scroll_anchor::ScrollAnchor;
@@ -124,6 +125,11 @@ pub struct AppState {
     pub search_matches: Signal<Vec<SearchMatch>>,
     /// Pinned search matches by ID
     pub pinned_matches: Signal<HashMap<PinnedSearchId, Vec<SearchMatch>>>,
+    /// The reader's highlights on the document shown, as kept.
+    pub highlights: Signal<Vec<Highlight>>,
+    /// Where the page found each of [`Self::highlights`], as it last said.
+    /// A highlight it has not reported on yet has no entry.
+    pub highlight_places: Signal<HashMap<HighlightId, HighlightPlace>>,
     /// Pending scroll position to restore after navigation (for back/forward).
     /// When Some, FileViewer will scroll to this position instead of resetting to top.
     pub pending_scroll_anchor: Signal<Option<ScrollAnchor>>,
@@ -221,6 +227,8 @@ impl AppState {
             search_query: Signal::new(None),
             search_matches: Signal::new(Vec::new()),
             pinned_matches: Signal::new(HashMap::new()),
+            highlights: Signal::new(Vec::new()),
+            highlight_places: Signal::new(HashMap::new()),
             pending_scroll_anchor: Signal::new(None),
             pending_scroll_fragment: Signal::new(None),
             current_scroll_anchor: Signal::new(ScrollAnchor::TOP),

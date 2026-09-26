@@ -28,6 +28,8 @@ use crate::utils::data_store::{record_file_name, write_atomically};
 
 pub use crate::highlight_color::HighlightColor;
 
+pub mod page;
+
 /// The version of the record format, so an older one is read as empty
 /// rather than misread.
 const VERSION: u32 = 1;
@@ -323,9 +325,99 @@ pub fn rebase_all(document: &Path, moves: &[(HighlightId, u32, u32)]) {
     });
 }
 
+/// Where the page found a highlight, if it did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HighlightPlace {
+    /// On the page, under the heading with this id — `None` above the first.
+    Found { heading: Option<String> },
+    /// Its words are not on the page any more.
+    Lost,
+}
+
+/// What the page found when it drew a document's highlights. Sent by
+/// `frontend/src/user-highlights.ts`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PageReport {
+    /// The document, as the app named it when it asked.
+    pub doc: String,
+    placed: Vec<Placed>,
+    orphans: Vec<HighlightId>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct Placed {
+    id: HighlightId,
+    start: u32,
+    line: u32,
+    heading: Option<String>,
+}
+
+impl PageReport {
+    /// Where each highlight is.
+    pub fn places(&self) -> std::collections::HashMap<HighlightId, HighlightPlace> {
+        let found = self.placed.iter().map(|placed| {
+            let place = HighlightPlace::Found {
+                heading: placed.heading.clone(),
+            };
+            (placed.id.clone(), place)
+        });
+        let lost = self
+            .orphans
+            .iter()
+            .map(|id| (id.clone(), HighlightPlace::Lost));
+        found.chain(lost).collect()
+    }
+
+    /// The highlights of `highlights` found somewhere else than they were
+    /// kept, as `(id, start, line)` for [`rebase_all`].
+    pub fn moves(&self, highlights: &[Highlight]) -> Vec<(HighlightId, u32, u32)> {
+        self.placed
+            .iter()
+            .filter(|placed| {
+                highlights.iter().any(|highlight| {
+                    highlight.id == placed.id
+                        && (highlight.anchor.start, highlight.anchor.line)
+                            != (placed.start, placed.line)
+                })
+            })
+            .map(|placed| (placed.id.clone(), placed.start, placed.line))
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_page_report_says_where_each_highlight_is_and_which_moved() {
+        let stay = Highlight::new(anchor("a", 3, 1), HighlightColor::Green);
+        let moved = Highlight::new(anchor("b", 10, 2), HighlightColor::Green);
+        let lost = Highlight::new(anchor("c", 20, 3), HighlightColor::Green);
+        let json = serde_json::json!({
+            "doc": "/a.md",
+            "placed": [
+                { "id": stay.id, "start": 3, "line": 1, "heading": null },
+                { "id": moved.id, "start": 14, "line": 4, "heading": "more" },
+            ],
+            "orphans": [lost.id],
+        });
+        let report: PageReport = serde_json::from_value(json).unwrap();
+
+        let places = report.places();
+        assert_eq!(places[&stay.id], HighlightPlace::Found { heading: None });
+        assert_eq!(
+            places[&moved.id],
+            HighlightPlace::Found {
+                heading: Some("more".to_string())
+            }
+        );
+        assert_eq!(places[&lost.id], HighlightPlace::Lost);
+        assert_eq!(
+            report.moves(&[stay, moved.clone(), lost]),
+            vec![(moved.id, 14, 4)]
+        );
+    }
 
     fn anchor(exact: &str, start: u32, line: u32) -> TextAnchor {
         TextAnchor {

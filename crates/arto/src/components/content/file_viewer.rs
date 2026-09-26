@@ -8,6 +8,7 @@ use super::context_menu_state::{open_context_menu, ContentContextMenuState};
 use crate::baselines::Change;
 use crate::config::CONFIG;
 use crate::document_link::{open_document_link, scroll_to_heading_js, LinkOpen};
+use crate::highlights::page::{show_js, take_up, use_page_highlights};
 use crate::lenses::RenderedSource;
 use crate::markdown::render_to_html_with_toc;
 use crate::scroll_anchor::ScrollAnchor;
@@ -62,6 +63,7 @@ pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
     use_image_window_handler();
     use_clipboard_handlers();
     use_context_menu_handler(file);
+    use_page_highlights(file, state);
     // A page that is gone has no source; the lens following it closes. It
     // has also been read: the window closed on it, or the welcome page took
     // its place.
@@ -74,6 +76,12 @@ pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
         let mut profile = state.reading_profile;
         if let Ok(mut profile) = profile.try_write() {
             *profile = None;
+        };
+        // Nor has it highlights, which the contents would otherwise go on
+        // listing.
+        let mut highlights = state.highlights;
+        if let Ok(mut kept) = highlights.try_write() {
+            kept.clear();
         };
     });
 
@@ -184,9 +192,20 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                         forget_changes(state);
                     }
 
+                    // The reader's highlights go on first: the search marks
+                    // are drawn around them. Only a rendered document has
+                    // any; plain text is one code block, which is not marked.
+                    let generation = state
+                        .rendered_source
+                        .peek()
+                        .as_ref()
+                        .map(|rendered| rendered.generation);
+                    let highlights = take_up(state, generation.and(Some(file.as_path())));
+                    let show = show_js(&file, &highlights, generation);
+
                     // Re-apply search highlighting after content changes
                     // This preserves search state across document changes
-                    reapply_search().await;
+                    reapply_search(&show).await;
                 }
                 Err(e) => {
                     // Failed to read as UTF-8 text (likely binary file)
@@ -400,10 +419,11 @@ fn handle_scroll_anchor(state: &mut AppState) {
     }
 }
 
-/// Re-apply search highlighting after DOM changes.
+/// Re-apply search highlighting after DOM changes, after running `before`
+/// (the script that draws the reader's highlights).
 /// This is called after content rendering to preserve search state across
 /// document changes.
-async fn reapply_search() {
+async fn reapply_search(before: &str) {
     // Use MutationObserver to detect when DOM is actually updated, then reapply.
     // This is more robust than RAF-based timing which is not guaranteed.
     //
@@ -413,12 +433,13 @@ async fn reapply_search() {
     // 3. Dioxus updates DOM (innerHTML changes)
     // 4. MutationObserver fires → reapply() is called
     // 5. Fallback timeout ensures reapply even if no mutation detected
-    let _ = document::eval(indoc::indoc! {r#"
+    let script = indoc::indoc! {r#"
         (() => {
             let called = false;
             const doReapply = () => {
                 if (called) return;
                 called = true;
+                __DRAW_HIGHLIGHTS__
                 window.Arto.search.reapply();
             };
 
@@ -463,8 +484,9 @@ async fn reapply_search() {
                 doReapply();
             }, 100);
         })();
-    "#})
-    .await;
+    "#}
+    .replace("__DRAW_HIGHLIGHTS__", before);
+    let _ = document::eval(&script).await;
 }
 
 /// Hook to watch file for changes and trigger reload
