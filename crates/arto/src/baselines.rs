@@ -50,6 +50,33 @@ static STORE: LazyLock<Option<Store>> = LazyLock::new(|| {
     })
 });
 
+/// A moment the version last read may move on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Moment {
+    /// The document was drawn: opened, or read again after it changed on
+    /// disk.
+    Rendered,
+    /// The reader went to another document, or the document went off the
+    /// screen with its window.
+    Left,
+    /// The reader said they have read what changed.
+    MarkedRead,
+}
+
+/// Whether the version on screen becomes the one last read at `moment`.
+///
+/// Leaving a document is what reading it to the end means here: whatever
+/// was on screen then has been seen. A document read for the first time is
+/// read in full by definition, so there is nothing to mark on it. Being
+/// drawn again while it is open moves nothing, so that what changed under
+/// the reader stays marked until they leave or say they have read it.
+pub fn advances(moment: Moment, has_baseline: bool) -> bool {
+    match moment {
+        Moment::Rendered => !has_baseline,
+        Moment::Left | Moment::MarkedRead => true,
+    }
+}
+
 /// The version of a document the reader last read.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -93,9 +120,11 @@ impl Store {
 
     /// Keep `source` as the version of `document` last read.
     ///
-    /// Returns whether it was kept: a document past the size limit is not.
+    /// Returns whether it was kept: a document past the size limit is not,
+    /// and loses the version it had, which no longer says what was read.
     pub(crate) fn advance(&self, document: &Path, source: &str) -> io::Result<bool> {
         if source.len() > self.max_document_bytes {
+            self.forget(document);
             return Ok(false);
         }
         let baseline = Baseline {
@@ -112,15 +141,64 @@ impl Store {
         Ok(true)
     }
 
+    /// What changed in `document` since it was last read, now that it is
+    /// drawn from `source` — keeping `source` as the version read when there
+    /// is none yet.
+    pub(crate) fn compare(
+        &self,
+        document: &Path,
+        source: &str,
+        ignore_whitespace: bool,
+    ) -> Comparison {
+        // A document that grew past the limit is shown without changes, and
+        // is not compared either: the cost of a diff is what the limit is for.
+        if source.len() > self.max_document_bytes {
+            self.forget(document);
+            return Comparison::default();
+        }
+        let baseline = self.load(document);
+        if advances(Moment::Rendered, baseline.is_some()) {
+            if let Err(error) = self.advance(document, source) {
+                tracing::warn!(%error, ?document, "the version last read was not kept");
+            }
+        }
+        baseline
+            .map(|baseline| Comparison {
+                changes: changes(&baseline.source, source, ignore_whitespace),
+                read_at: Some(baseline.read_at),
+            })
+            .unwrap_or_default()
+    }
+
+    fn forget(&self, document: &Path) {
+        if let Err(error) = fs::remove_file(self.file(document)) {
+            if error.kind() != io::ErrorKind::NotFound {
+                tracing::warn!(%error, ?document, "the version last read was not deleted");
+            }
+        }
+    }
+
     fn file(&self, document: &Path) -> PathBuf {
         self.root
             .join(record_file_name(&[&document.to_string_lossy()], "json.gz"))
     }
 }
 
-/// The version of `document` last read, from the app's store.
-pub fn load(document: &Path) -> Option<Baseline> {
-    STORE.as_ref()?.load(document)
+/// What changed in a document since it was last read, and when that was.
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct Comparison {
+    pub changes: Vec<Change>,
+    /// When the version compared with was read; `None` when there was none,
+    /// and nothing changed.
+    pub read_at: Option<DateTime<Local>>,
+}
+
+/// What changed in `document` since it was last read, from the app's store.
+pub fn compare(document: &Path, source: &str, ignore_whitespace: bool) -> Comparison {
+    STORE
+        .as_ref()
+        .map(|store| store.compare(document, source, ignore_whitespace))
+        .unwrap_or_default()
 }
 
 /// Keep `source` as the version of `document` last read, in the app's store.
@@ -175,6 +253,21 @@ mod tests {
     }
 
     #[test]
+    fn a_document_that_grew_past_the_limit_is_neither_compared_nor_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_path_buf(), MAX_BYTES, 10);
+        store.advance(Path::new(DOC), "short").unwrap();
+
+        assert_eq!(
+            store
+                .compare(Path::new(DOC), "much longer now", true)
+                .changes,
+            []
+        );
+        assert!(store.load(Path::new(DOC)).is_none());
+    }
+
+    #[test]
     fn versions_past_the_limit_lose_the_one_read_longest_ago() {
         let dir = tempfile::tempdir().unwrap();
         // Characters gzip cannot shrink much, so each file has a known weight.
@@ -189,6 +282,44 @@ mod tests {
 
         assert!(store.load(Path::new("/a.md")).is_none());
         assert!(store.load(Path::new("/c.md")).is_some());
+    }
+
+    #[test]
+    fn only_leaving_or_marking_read_moves_a_version_on() {
+        assert!(advances(Moment::Rendered, false));
+        assert!(!advances(Moment::Rendered, true));
+        assert!(advances(Moment::Left, true));
+        assert!(advances(Moment::MarkedRead, true));
+    }
+
+    #[test]
+    fn a_document_read_the_first_time_has_nothing_changed() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = store(&dir);
+
+        let first = store.compare(Path::new(DOC), "one\n", true);
+        assert_eq!(first.changes, []);
+        assert_eq!(first.read_at, None);
+        assert_eq!(store.load(Path::new(DOC)).unwrap().source, "one\n");
+    }
+
+    #[test]
+    fn a_document_drawn_again_is_compared_with_the_version_read() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = store(&dir);
+        store.advance(Path::new(DOC), "one\n").unwrap();
+
+        let read_at = store.load(Path::new(DOC)).unwrap().read_at;
+
+        let first = store.compare(Path::new(DOC), "one\ntwo\n", true);
+        let again = store.compare(Path::new(DOC), "one\ntwo\nthree\n", true);
+
+        assert_eq!(first.changes, [Change::Added { start: 2, end: 2 }]);
+        assert_eq!(again.changes, [Change::Added { start: 2, end: 3 }]);
+        // When it was read, so the page can say since when.
+        assert_eq!(first.read_at, Some(read_at));
+        assert_eq!(again.read_at, Some(read_at));
+        assert_eq!(store.load(Path::new(DOC)).unwrap().source, "one\n");
     }
 
     #[test]

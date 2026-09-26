@@ -23,6 +23,7 @@ import * as scrollController from "./scroll-controller";
 import * as contentCursor from "./content-cursor";
 import * as actionFeedback from "./action-feedback";
 import * as lenses from "./lenses";
+import * as changes from "./changes";
 import * as viewportQueue from "./viewport-queue";
 import * as scrollAnchor from "./scroll-anchor";
 import * as stickyTableHead from "./sticky-table-head";
@@ -147,6 +148,14 @@ declare global {
       feedback: {
         show: typeof actionFeedback.show;
       };
+      /** What changed since the document was last read, marked on the page. */
+      changes: {
+        set: typeof changes.set;
+        clear: typeof changes.clear;
+        next: typeof changes.next;
+        prev: typeof changes.prev;
+        first: typeof changes.first;
+      };
       lenses: {
         collect: typeof lenses.collect;
         markPending: typeof lenses.markPending;
@@ -270,6 +279,8 @@ export function init(): void {
   setupScrollbarReach();
   // A long table's header row, held at the top of the view while it is read.
   stickyTableHead.setup();
+  // What a mark of a change since last read means, over the mark.
+  changes.setup();
   // A key can move the content cursor without scrolling, and focus mode marks
   // the block the cursor is on.
   contentCursor.onCursorChange(refreshReadingPosition);
@@ -456,6 +467,13 @@ export function init(): void {
     },
     feedback: {
       show: actionFeedback.show,
+    },
+    changes: {
+      set: changes.set,
+      clear: changes.clear,
+      next: changes.next,
+      prev: changes.prev,
+      first: changes.first,
     },
     lenses: {
       collect: lenses.collect,

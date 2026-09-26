@@ -1,0 +1,90 @@
+/* =================================
+   What changed since last read
+   =================================
+
+   Marks on the blocks the document changed since the reader last read it —
+   see `src/changes.ts`. The blocks carry attributes; the marks are drawn from
+   them in a layer laid over the viewer, so they stand in the page's margin
+   and outside every block, a table or a code block that clips its own
+   overflow included. They are kept thin: they say where to look, the text
+   says what changed. */
+
+.markdown-viewer {
+  position: relative;
+}
+
+.markdown-viewer > [data-arto-change-marks] {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* A line down the margin beside the block: a 2px line in a wider strip, so
+   the pointer can find it — over it, `src/changes.ts` says what the mark
+   means. */
+.markdown-viewer > [data-arto-change-marks] > .change-mark {
+  --change-color: var(--accent-color);
+  position: absolute;
+  width: 12px;
+  background: linear-gradient(
+    to right,
+    transparent 5px,
+    var(--change-color) 5px 7px,
+    transparent 7px
+  );
+  opacity: var(--opacity-hover);
+  pointer-events: auto;
+  cursor: help;
+}
+
+.markdown-viewer > [data-arto-change-marks] > .change-mark[data-kind="added"] {
+  --change-color: var(--data-green-color-emphasis);
+}
+
+/* Where lines were taken out: a short hairline in the margin, under the
+   block they followed or over the one they preceded, in a taller strip for
+   the pointer as above. */
+.markdown-viewer > [data-arto-change-marks] > .change-mark-removed {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: linear-gradient(
+    to bottom,
+    transparent 4px,
+    var(--error-color) 4px 6px,
+    transparent 6px
+  );
+  opacity: var(--opacity-hover);
+  pointer-events: auto;
+  cursor: help;
+}
+
+/* What a mark means, beside the pointer while it is on the mark. */
+body > .change-tip {
+  position: fixed;
+  z-index: var(--z-dropdown);
+  max-width: 360px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  white-space: pre-line;
+  pointer-events: none;
+}
+
+/* Arrived at by the keyboard: the block glows for a moment, so the eye
+   finds it in the middle of the screen. */
+.markdown-body .change-flash {
+  animation: change-flash 1.2s ease-out;
+}
+
+@keyframes change-flash {
+  0% {
+    background-color: color-mix(in srgb, var(--accent-color) 18%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}

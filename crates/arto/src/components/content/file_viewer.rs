@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use super::context_menu::ContextMenuData;
 use super::context_menu_state::{open_context_menu, ContentContextMenuState};
+use crate::baselines::Change;
 use crate::config::CONFIG;
 use crate::document_link::{open_document_link, scroll_to_heading_js, LinkOpen};
 use crate::lenses::RenderedSource;
@@ -54,14 +55,18 @@ pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
     // Setup component hooks
     use_file_loader(file, html, state);
     use_file_watcher(file, state);
+    use_changes_on_config(state);
     use_link_click_handler(file, state);
     use_mermaid_window_handler();
     use_math_window_handler();
     use_image_window_handler();
     use_clipboard_handlers();
     use_context_menu_handler(file);
-    // A page that is gone has no source; the lens following it closes.
+    // A page that is gone has no source; the lens following it closes. It
+    // has also been read: the window closed on it, or the welcome page took
+    // its place.
     use_drop(move || {
+        state.keep_read_version(crate::baselines::Moment::Left);
         let mut source = state.rendered_source;
         if let Ok(mut rendered) = source.try_write() {
             *rendered = None;
@@ -99,6 +104,12 @@ pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
                 "data-render-generation": generation,
                 dangerous_inner_html: "{html}"
             }
+            // Where the marks of what changed since last read are drawn,
+            // beside the page rather than in it: a table or a code block
+            // clips anything drawn outside it. Rendered here, not by the page,
+            // so it is not a stranger among the elements this component owns;
+            // `frontend/src/changes.ts` fills it.
+            div { "data-arto-change-marks": "true", "aria-hidden": "true" }
             // Context menu is rendered at App level to avoid re-rendering content
         }
     }
@@ -132,10 +143,12 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                                 html.set(rendered.html);
                                 state.headings.set(rendered.headings);
                                 state.reading_profile.set(Some(Arc::new(rendered.reading)));
-                                state
-                                    .rendered_source
-                                    .set(Some(RenderedSource::new(file.clone(), content)));
+                                let source = RenderedSource::new(file.clone(), content);
+                                let generation = source.generation;
+                                let text = source.source.clone();
+                                state.rendered_source.set(Some(source));
                                 tracing::trace!("Rendered as Markdown: {:?}", &file);
+                                show_changes(state, file.clone(), text, generation).await;
                             }
                             Err(e) => {
                                 // Markdown parsing failed, render as plain text
@@ -153,6 +166,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                                 state.headings.set(Vec::new());
                                 state.rendered_source.set(None);
                                 state.reading_profile.set(None);
+                                forget_changes(state);
                             }
                         }
                     } else {
@@ -167,6 +181,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                         state.headings.set(Vec::new());
                         state.rendered_source.set(None);
                         state.reading_profile.set(None);
+                        forget_changes(state);
                     }
 
                     // Re-apply search highlighting after content changes
@@ -185,11 +200,92 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                     });
                     state.rendered_source.set(None);
                     state.reading_profile.set(None);
+                    forget_changes(state);
                     html.set(String::new());
                 }
             }
         });
     });
+}
+
+/// Mark the changes again when the configuration changes, so that turning
+/// them off or on, or ignoring spacing, answers on the page already open
+/// rather than on the next document.
+fn use_changes_on_config(state: AppState) {
+    use_effect(move || {
+        let _ = state.config_revision.read();
+        let Some(rendered) = state.rendered_source.peek().clone() else {
+            return;
+        };
+        spawn(async move {
+            show_changes(state, rendered.path, rendered.source, rendered.generation).await;
+        });
+    });
+}
+
+/// Mark on the page what changed in `file` since it was last read, for the
+/// render `generation` drawn from `source`.
+///
+/// Reading the version last read and comparing it is file work and a diff,
+/// so it runs off the UI thread; by the time it is done the reader may have
+/// moved on, and a result for a render no longer on screen is dropped.
+async fn show_changes(mut state: AppState, file: PathBuf, source: Arc<str>, generation: u64) {
+    let reading = CONFIG.read().reading.clone();
+    let comparison = if reading.show_changes {
+        tokio::task::spawn_blocking(move || {
+            // Turned off while this waited for a thread: keep nothing.
+            if !CONFIG.read().reading.show_changes {
+                return crate::baselines::Comparison::default();
+            }
+            crate::baselines::compare(&file, &source, reading.ignore_whitespace_changes)
+        })
+        .await
+        .unwrap_or_default()
+    } else {
+        crate::baselines::Comparison::default()
+    };
+    let current = state
+        .rendered_source
+        .peek()
+        .as_ref()
+        .map(|rendered| rendered.generation);
+    // Another document, or the configuration changed again: a later call
+    // answers for what is on screen now.
+    if current != Some(generation) || CONFIG.read().reading != reading {
+        return;
+    }
+    let read_at = comparison.read_at.map(|read_at| read_at.timestamp_millis());
+    let js = set_changes_js(&comparison.changes, generation, read_at);
+    state.changes.set(comparison.changes);
+    let _ = document::eval(&js);
+}
+
+/// Take the marks of what changed off the page, now showing something that is
+/// not a Markdown render: the layer they are drawn in outlives the page's own
+/// elements, and nothing else would clear it.
+fn forget_changes(mut state: AppState) {
+    state.changes.set(Vec::new());
+    let _ = document::eval("window.Arto?.changes?.clear?.()");
+}
+
+/// Hand `changes` to the page for the render `generation`, with when the
+/// version they are measured from was read (ms since the epoch) for the page
+/// to say since when.
+///
+/// The renderer module is imported asynchronously, and the first document a
+/// window opens can arrive before it has installed `window.Arto`; the call
+/// waits for it rather than being lost.
+fn set_changes_js(changes: &[Change], generation: u64, read_at: Option<i64>) -> String {
+    let changes = serde_json::to_string(changes).unwrap_or_else(|_| "[]".to_string());
+    let read_at = read_at.map_or_else(|| "null".to_string(), |ms| ms.to_string());
+    format!(
+        r#"(async () => {{
+            for (let i = 0; i < 500 && !window.Arto?.changes; i++) {{
+                await new Promise((resolve) => setTimeout(resolve, 10));
+            }}
+            window.Arto?.changes?.set({changes}, {generation}, {read_at});
+        }})();"#
+    )
 }
 
 /// Handle scroll position when navigating to a file.
