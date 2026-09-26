@@ -38,6 +38,17 @@ pub fn split_link_fragment(link: &str) -> (&str, Option<String>) {
     }
 }
 
+/// The file a link's `path` (its fragment already split off) names, read
+/// relative to the directory of `current_file`, canonicalized; `None` when
+/// there is no such file.
+pub fn resolve_document_link(current_file: &Path, path: &str) -> Option<PathBuf> {
+    let base_dir = current_file
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
+    base_dir.join(path).canonicalize().ok()
+}
+
 /// Open `link`, relative to `current_file`, and scroll to its fragment once
 /// the target has rendered. Returns `false` when the target cannot be
 /// resolved, in which case nothing changes.
@@ -49,13 +60,8 @@ pub fn open_document_link(
 ) -> bool {
     let (path, fragment) = split_link_fragment(link);
 
-    let base_dir = current_file
-        .parent()
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| PathBuf::from("."));
-    let target_path = base_dir.join(path);
-    let Ok(canonical_path) = target_path.canonicalize() else {
-        tracing::error!("Failed to resolve path: {:?}", target_path);
+    let Some(canonical_path) = resolve_document_link(current_file, path) else {
+        tracing::error!(?current_file, path, "Failed to resolve document link");
         return false;
     };
 
@@ -100,6 +106,34 @@ pub fn scroll_to_heading_js(id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_link_resolves_against_the_directory_of_the_document_it_is_in() {
+        let dir = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+        std::fs::write(dir.path().join("other.md"), "").unwrap();
+        let current = dir.path().join("sub").join("doc.md");
+
+        let resolved = resolve_document_link(&current, "../other.md");
+
+        assert_eq!(
+            resolved,
+            Some(dir.path().join("other.md").canonicalize().unwrap())
+        );
+        assert_eq!(resolve_document_link(&current, "missing.md"), None);
+    }
+
+    #[test]
+    fn an_absolute_link_resolves_to_itself() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let target = dir.path().join("other.md");
+        std::fs::write(&target, "").unwrap();
+
+        let resolved =
+            resolve_document_link(Path::new("/elsewhere/doc.md"), target.to_str().unwrap());
+
+        assert_eq!(resolved, Some(target.canonicalize().unwrap()));
+    }
 
     #[test]
     fn fragments_are_split_off_and_decoded() {

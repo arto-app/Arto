@@ -15,6 +15,7 @@
  */
 
 import { getCurrentElement } from "./content-cursor";
+import { contentZoom, placePopover } from "./popover";
 import { readSourceRange } from "./source-range";
 
 export type Scope = "cursor" | "document";
@@ -713,31 +714,7 @@ function showPopover({ block, sections }: HoverContent): void {
     }),
   );
   popover.classList.add("is-visible");
-  // Drawn at the document's zoom, so a note reads at the size of the text
-  // it is about. The popover hangs from the body, outside the zoomed page,
-  // so it takes the zoom itself — and its own offsets are zoomed with it.
-  const zoom = contentZoom(block);
-  popover.style.zoom = String(zoom);
-  const rect = block.getBoundingClientRect();
-  const size = popover.getBoundingClientRect();
-  const margin = 8;
-  const width = Math.min(size.width || 480, window.innerWidth - margin * 2);
-  const left = Math.min(Math.max(rect.left, margin), window.innerWidth - width - margin);
-  const below = rect.bottom + margin;
-  const fitsBelow = below + size.height <= window.innerHeight - margin;
-  const top = fitsBelow ? below : Math.max(margin, rect.top - size.height - margin);
-  popover.style.left = `${left / zoom}px`;
-  popover.style.top = `${top / zoom}px`;
-}
-
-/** The zoom the page `el` is on is drawn at: 1 when it is not zoomed. */
-function contentZoom(el: Element): number {
-  let zoom = 1;
-  for (let node = el.parentElement; node; node = node.parentElement) {
-    const own = Number.parseFloat(node.style.zoom);
-    if (Number.isFinite(own) && own > 0) zoom *= own;
-  }
-  return zoom;
+  placePopover(popover, block);
 }
 
 let hoverInitialized = false;
@@ -786,7 +763,7 @@ function placeHandle(block: HTMLElement | null): void {
     document.body.appendChild(handle);
   }
   handleBlock = block;
-  // At the document's zoom, like the marks beside it (see `showPopover`).
+  // At the document's zoom, like the marks beside it (see `placePopover`).
   const zoom = contentZoom(block);
   handle.style.zoom = String(zoom);
   const rect = block.getBoundingClientRect();

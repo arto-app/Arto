@@ -188,6 +188,10 @@
       "action": "file.open_link_in_new_window"
     },
     {
+      "key": "Shift+k",
+      "action": "file.preview_link"
+    },
+    {
       "key": "y y",
       "action": "clipboard.copy_file_path_with_line"
     },

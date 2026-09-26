@@ -16,6 +16,7 @@ mod hooks;
 pub mod ipc;
 mod keybindings;
 mod lenses;
+mod link_preview;
 mod markdown;
 #[cfg(target_os = "macos")]
 mod menu;

@@ -222,6 +222,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::FileToggleBookmark => toggle_bookmark_on_cursor_or_current(&mut state),
         Action::FileOpenLink => open_link_from_cursor(&mut state, false),
         Action::FileOpenLinkInNewWindow => open_link_from_cursor(&mut state, true),
+        Action::FilePreviewLink => preview_link_at_cursor(),
         Action::FileSaveImageAs => save_image_from_cursor(),
         Action::FilePreferences => {
             state.open_preferences();
@@ -413,6 +414,12 @@ fn open_content_viewer_from_cursor(state: &AppState) {
             ViewerTarget::None => {}
         }
     });
+}
+
+/// Preview the link under the keyboard cursor the way a rest of the pointer
+/// on it would; the page decides what the link shows.
+fn preview_link_at_cursor() {
+    let _ = document::eval("window.Arto?.linkPreview?.showAtCursor?.();");
 }
 
 fn open_link_from_cursor(state: &mut AppState, open_in_new_window: bool) {
