@@ -25,6 +25,15 @@ struct LinkClickData {
     scroll_anchor: ScrollAnchor,
 }
 
+/// A request from the page for the document a link points at, to preview it.
+#[derive(Deserialize)]
+struct LinkPreviewRequest {
+    /// Which request this is; the page drops answers to any but its latest.
+    seq: u64,
+    /// The link as written in the document on screen.
+    link: String,
+}
+
 /// Mouse button constants
 const LEFT_CLICK: u32 = 0;
 const MIDDLE_CLICK: u32 = 1;
@@ -58,6 +67,7 @@ pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
     use_file_watcher(file, state);
     use_changes_on_config(state);
     use_link_click_handler(file, state);
+    use_link_preview_handler(file);
     use_mermaid_window_handler();
     use_math_window_handler();
     use_image_window_handler();
@@ -131,6 +141,11 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
         // Reading reload_trigger subscribes this effect to it, so a manual
         // reload or a file-watcher event re-runs the load as well.
         let _ = state.reload_trigger.read();
+
+        // A preview belongs to the document it was shown over; the page
+        // puts it away itself once the next render settles, but that can
+        // be a while after the document has gone.
+        let _ = document::eval("window.Arto?.linkPreview?.hide?.();");
 
         // Handle scroll position SYNCHRONOUSLY before spawning async task.
         // This ensures the onRenderComplete callback is registered before
@@ -549,6 +564,51 @@ fn use_link_click_handler(file: ReadSignal<PathBuf>, state: AppState) {
         spawn(async move {
             while let Ok(click_data) = eval_provider.recv::<LinkClickData>().await {
                 handle_link_click(click_data, &file, &mut state_clone);
+            }
+        });
+    });
+}
+
+/// Hook to answer the page's requests for a linked document's preview.
+///
+/// The page registers the request callback once `window.Arto` exists, which
+/// may be after this effect runs, hence the wait. Each answer goes back as
+/// `resolve(seq, html | null)`.
+fn use_link_preview_handler(file: ReadSignal<PathBuf>) {
+    use_effect(move || {
+        let file = file();
+        let mut eval_provider = document::eval(indoc::indoc! {r#"
+            (async () => {
+                while (!window.Arto?.linkPreview?.onRequest) {
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                }
+                window.Arto.linkPreview.onRequest((request) => {
+                    dioxus.send(request);
+                });
+            })();
+        "#});
+
+        spawn(async move {
+            while let Ok(LinkPreviewRequest { seq, link }) =
+                eval_provider.recv::<LinkPreviewRequest>().await
+            {
+                // Each on its own, so a large document being rendered does
+                // not hold up the answer for the link the pointer moved to.
+                let file = file.clone();
+                spawn(async move {
+                    let html = match crate::link_preview::preview(file, link.clone()).await {
+                        Ok(html) => Some(html),
+                        Err(reason) => {
+                            tracing::debug!(%link, %reason, "No preview for link");
+                            None
+                        }
+                    };
+                    let html_json = serde_json::to_string(&html.as_deref())
+                        .unwrap_or_else(|_| "null".to_string());
+                    let _ = document::eval(&format!(
+                        "window.Arto?.linkPreview?.resolve?.({seq}, {html_json});"
+                    ));
+                });
             }
         });
     });

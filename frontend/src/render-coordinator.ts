@@ -8,6 +8,14 @@ import * as scrollAnchor from "./scroll-anchor";
 import * as focusMode from "./focus-mode";
 
 /**
+ * The rendered documents this coordinator draws. A body marked
+ * `data-arto-apart` — a link's preview — is set like a page but drawn by
+ * whoever put it there: redrawing it here would clear what it drew, and
+ * draw it by the page's rules rather than its own.
+ */
+const PAGE_BODIES = ".markdown-body:not([data-arto-apart])";
+
+/**
  * Setup single-click listeners for Image blocks.
  * - Math blocks: Click handled by math-renderer during rendering
  * - Mermaid blocks: Click handled by mermaid-renderer during rendering
@@ -265,7 +273,7 @@ class RenderCoordinator {
    * as nothing at all.
    */
   forceRenderMermaid(): Promise<void> {
-    const markdownBodies = document.querySelectorAll(".markdown-body");
+    const markdownBodies = document.querySelectorAll(PAGE_BODIES);
     if (markdownBodies.length === 0) {
       return Promise.resolve();
     }
@@ -276,7 +284,7 @@ class RenderCoordinator {
 
   /** Throw away every drawn diagram, so the next pass draws them again. */
   #clearDrawnDiagrams(): void {
-    const markdownBodies = document.querySelectorAll(".markdown-body");
+    const markdownBodies = document.querySelectorAll(PAGE_BODIES);
 
     markdownBodies.forEach((markdownBody) => {
       markdownBody.querySelectorAll("pre.preprocessed-mermaid[data-rendered]").forEach((el) => {
@@ -316,7 +324,7 @@ class RenderCoordinator {
   }
 
   async #runMermaidPass(): Promise<void> {
-    const markdownBodies = document.querySelectorAll(".markdown-body");
+    const markdownBodies = document.querySelectorAll(PAGE_BODIES);
     if (markdownBodies.length === 0) {
       return;
     }
@@ -379,7 +387,7 @@ class RenderCoordinator {
     scrollAnchor.invalidateBlocks();
     focusMode.invalidateUnits();
 
-    const markdownBodies = document.querySelectorAll(".markdown-body");
+    const markdownBodies = document.querySelectorAll(PAGE_BODIES);
     if (markdownBodies.length === 0) {
       this.#fireRenderCompleteCallbacks();
       this.#processPendingMutations();

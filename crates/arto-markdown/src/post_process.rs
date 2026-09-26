@@ -382,6 +382,74 @@ fn inline_srcset(
     changed.then(|| candidates.join(", "))
 }
 
+/// Turn `el` into the `span.md-link` the app follows (see the HTML contract
+/// in the crate docs).
+fn make_document_link(
+    el: &mut lol_html::html_content::Element,
+    link: &str,
+    class: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    el.set_tag_name("span")?;
+    el.remove_attribute("href");
+    el.set_attribute("data-md-link", link)?;
+    el.set_attribute("class", class)?;
+    el.set_attribute(
+        "onmousedown",
+        "if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}",
+    )?;
+    Ok(())
+}
+
+/// `html`, rendered from the document at `document_path`, with its links
+/// made to name their targets the same wherever it is shown.
+///
+/// A document link keeps the path as written, which the app resolves
+/// against the document on screen; shown on another document's page it
+/// would resolve against that one instead. A relative path is therefore
+/// joined onto the directory `document_path` is in, and a link that is only
+/// a fragment becomes a document link to `document_path` itself.
+pub(super) fn rebase_document_links(html: &str, document_path: &Path) -> String {
+    let base_dir = document_path.parent().unwrap_or(Path::new(""));
+    let settings = Settings::new()
+        .append_element_content_handler(element!("span.md-link[data-md-link]", |el| {
+            let Some(link) = el.get_attribute("data-md-link") else {
+                return Ok(());
+            };
+            let (path, fragment) = link
+                .split_once('#')
+                .map_or((link.as_str(), None), |(path, fragment)| {
+                    (path, Some(fragment))
+                });
+            if Path::new(path).is_absolute() {
+                return Ok(());
+            }
+            let rebased = base_dir.join(path).display().to_string();
+            let rebased = match fragment {
+                Some(fragment) => format!("{rebased}#{fragment}"),
+                None => rebased,
+            };
+            el.set_attribute("data-md-link", &rebased)?;
+            Ok(())
+        }))
+        .append_element_content_handler(element!(r##"a[href^="#"]"##, |el| {
+            let Some(href) = el.get_attribute("href") else {
+                return Ok(());
+            };
+            let link = format!("{}{href}", document_path.display());
+            make_document_link(el, &link, "md-link")?;
+            Ok(())
+        }));
+    let mut output = Vec::new();
+    let mut rewriter = HtmlRewriter::new(settings, |chunk: &[u8]| {
+        output.extend_from_slice(chunk);
+    });
+    let rewritten = rewriter.write(html.as_bytes()).and(rewriter.end());
+    match rewritten.map(|_| String::from_utf8(output)) {
+        Ok(Ok(html)) => html,
+        _ => html.to_string(),
+    }
+}
+
 /// Post-process HTML with lol_html.
 ///
 /// Handles:
@@ -452,25 +520,22 @@ pub(super) fn post_process_html_tags(
             // A `<source>` inside a `<picture>` is what the browser picks in
             // the theme it matches, so it needs the same inlining as `<img>`
             // or that theme shows nothing.
-            .append_element_content_handler(element!(
-                "img[srcset], source[srcset]",
-                |el| {
-                    if let Some(srcset) = el.get_attribute("srcset") {
-                        match inline_srcset(&srcset, &canonical_base, resolution, &collected) {
-                            // Nothing is left to pick from, so the attribute
-                            // has to go rather than stay empty: an `<img>`
-                            // then falls back to its `src` and a `<source>`
-                            // is ignored in favor of the `<picture>`'s `<img>`.
-                            Some(inlined) if inlined.is_empty() => {
-                                el.remove_attribute("srcset");
-                            }
-                            Some(inlined) => el.set_attribute("srcset", &inlined)?,
-                            None => {}
+            .append_element_content_handler(element!("img[srcset], source[srcset]", |el| {
+                if let Some(srcset) = el.get_attribute("srcset") {
+                    match inline_srcset(&srcset, &canonical_base, resolution, &collected) {
+                        // Nothing is left to pick from, so the attribute
+                        // has to go rather than stay empty: an `<img>`
+                        // then falls back to its `src` and a `<source>`
+                        // is ignored in favor of the `<picture>`'s `<img>`.
+                        Some(inlined) if inlined.is_empty() => {
+                            el.remove_attribute("srcset");
                         }
+                        Some(inlined) => el.set_attribute("srcset", &inlined)?,
+                        None => {}
                     }
-                    Ok(())
                 }
-            ))
+                Ok(())
+            }))
             // Process anchor tags: convert markdown links to spans
             .append_element_content_handler(element!("a[href]", move |el| {
                 let Some(href) = el.get_attribute("href") else {
@@ -507,12 +572,7 @@ pub(super) fn post_process_html_tags(
                     Some(fragment) => format!("{path}#{fragment}"),
                     None => path,
                 };
-                el.set_tag_name("span")?;
-                el.remove_attribute("href");
-                el.set_attribute("data-md-link", &link)?;
-                el.set_attribute("class", class)?;
-                el.set_attribute("onmousedown",
-                    "if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}")?;
+                make_document_link(el, &link, class)?;
                 Ok(())
             })),
         |chunk: &[u8]| {

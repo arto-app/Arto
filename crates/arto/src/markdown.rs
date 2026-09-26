@@ -107,6 +107,28 @@ fn detached_options(options: RenderOptions) -> RenderOptions {
     }
 }
 
+/// The preferences a preview of another document is rendered with: the
+/// reader's, so that its heading ids are the ones opening it would give.
+/// What a preview may not do whatever they are — fetch, run raw HTML — is
+/// `arto_markdown::render_preview`'s to hold back.
+pub fn preview_options() -> RenderOptions {
+    render_options()
+}
+
+/// Render the document at `path` to be shown on another document's page,
+/// with `options` from [`preview_options`]: heading ids kept, local images
+/// served like the document's own and nothing fetched from elsewhere, and
+/// links rebased so that they name what they named in their own document.
+pub fn render_preview(
+    markdown: impl AsRef<str>,
+    path: impl AsRef<Path>,
+    options: &RenderOptions,
+) -> Result<String> {
+    let rendered = arto_markdown::render_preview(markdown, path, options)?;
+    crate::assets::images::register(rendered.images);
+    Ok(rendered.html)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

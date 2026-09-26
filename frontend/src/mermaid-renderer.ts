@@ -1,7 +1,8 @@
 import { currentTheme, type Theme } from "./theme";
 import { buildMermaidThemeConfig } from "./mermaid-theme";
 import { fixTextContrast } from "./mermaid-contrast";
-import { mermaidLibrary } from "./libraries";
+import { type MermaidLibrary, mermaidLibrary } from "./libraries";
+import { inertSvg } from "./preview-diagram";
 import { whenNearViewport } from "./viewport-queue";
 import { restoreCopyButton } from "./code-copy";
 
@@ -149,4 +150,90 @@ function collectMermaidBlocks(container: Element): HTMLElement[] {
   });
 
   return Array.from(blocks.keys());
+}
+
+/**
+ * How many diagrams one preview draws. Each takes tens of milliseconds and is
+ * drawn at once, not as the reader nears it, and a preview comes up when the
+ * pointer merely rests on a link; the rest are shown as their source.
+ */
+export const MAX_PREVIEW_DIAGRAMS = 3;
+
+/**
+ * Draw the diagrams in `container`, which is not the page, with nothing in
+ * them left to run (see `preview-diagram.ts`); returns whether any was drawn.
+ *
+ * All at once, since the viewport queue watches the page's scroller and
+ * would never see them come near, and without the click that opens the
+ * Mermaid window, which is the page's. A diagram that fails to draw is shown
+ * as its source. `isCurrent` is asked before each
+ * write: drawing takes a while, and a container no longer shown by then is
+ * left as it is.
+ */
+export async function renderDiagramsElsewhere(
+  container: Element,
+  isCurrent: () => boolean,
+): Promise<boolean> {
+  const mermaid = mermaidLibrary();
+  let drawn = false;
+  let tried = 0;
+  for (const block of collectMermaidBlocks(container)) {
+    if (!isCurrent()) {
+      return drawn;
+    }
+    const source = block.dataset.originalContent || block.textContent || "";
+    if (!mermaid || !source || tried >= MAX_PREVIEW_DIAGRAMS) {
+      showAsSource(block, source);
+      continue;
+    }
+    tried += 1;
+    const svg = await drawApart(mermaid, block, source);
+    if (!isCurrent()) {
+      return drawn;
+    }
+    if (!svg) {
+      showAsSource(block, source);
+      continue;
+    }
+    block.replaceChildren(svg);
+    block.dataset.rendered = "true";
+    fixTextContrast(svg);
+    drawn = true;
+  }
+  return drawn;
+}
+
+/** `block` as the plain code block its source is. */
+function showAsSource(block: HTMLElement, source: string): void {
+  block.classList.remove("preprocessed-mermaid");
+  delete block.dataset.originalContent;
+  block.textContent = source;
+}
+
+/**
+ * `source` drawn beside `block`, with nothing in it left to run, or
+ * `null` when it could not be drawn.
+ *
+ * Mermaid measures text in the element it is handed, so that element sits
+ * where `block` is and is set in its size, but hidden and apart from it:
+ * `block` keeps its source until the drawing is known to be wanted.
+ */
+async function drawApart(
+  mermaid: MermaidLibrary,
+  block: HTMLElement,
+  source: string,
+): Promise<SVGSVGElement | null> {
+  const scratch = document.createElement("div");
+  scratch.style.cssText = "position: absolute; left: 0; top: 0; width: 100%; visibility: hidden;";
+  scratch.style.fontSize = getComputedStyle(block).fontSize;
+  block.after(scratch);
+  try {
+    const { svg } = await mermaid.render(`mermaid-${nextDiagramNumber++}`, source, scratch);
+    return inertSvg(svg);
+  } catch (error) {
+    console.warn("Failed to draw a mermaid diagram outside the page:", error);
+    return null;
+  } finally {
+    scratch.remove();
+  }
 }

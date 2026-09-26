@@ -128,8 +128,14 @@
 //! a local file which cannot be read is dropped rather than left in place,
 //! because the page has no base URL to resolve it against and the browser
 //! would otherwise pick it over a candidate that did inline. Readers of
-//! `data-md-link` and `.md-link` are the app and
+//! `data-md-link` and `.md-link` are the app,
+//! `frontend/src/link-preview.ts` (which previews the target on hover and
+//! leaves `md-link-missing` and `md-link-invalid` alone) and
 //! `frontend/style/components/content/markdown-viewer.css`.
+//!
+//! HTML shown on a page other than its own document's goes through
+//! [`rebase_document_links`] first, so its links keep naming what they named
+//! there.
 //!
 //! ## Headings
 //!
@@ -311,6 +317,57 @@ pub fn render_detached(
     };
     rendered.html = detach(&rendered.html, local);
     Ok(rendered)
+}
+
+/// Render the document at `base_path` to be previewed on another
+/// document's page, beside a link to it.
+///
+/// Heading ids are kept, so the part a link's fragment names can be found
+/// in it, and its links are rebased (see [`rebase_document_links`]) so that
+/// they go on naming what they named in their own document. The result
+/// carries no source ranges, which would point into the wrong file.
+///
+/// Nothing in it is fetched from elsewhere, whatever `options` allow: a
+/// preview appears when the pointer passes over a link, which is not the
+/// reader opening the document, so nothing the document names is sent a
+/// request for having been passed over. As in [`render_detached`], raw HTML
+/// is escaped — the filter a reader trusts their own documents to lets
+/// through a stylesheet or a style's `url()` — and media from another host
+/// is dropped. A Mermaid diagram is the exception: it is handed to the page,
+/// which draws it as it would its own — images it names included — and
+/// takes out of the drawing only what would run in the app
+/// (`frontend/src/preview-diagram.ts`).
+pub fn render_preview(
+    markdown: impl AsRef<str>,
+    base_path: impl AsRef<Path>,
+    options: &RenderOptions,
+) -> Result<RenderResult> {
+    let base_path = base_path.as_ref();
+    let options = RenderOptions {
+        raw_html: RawHtml::Escape,
+        ..options.clone()
+    };
+    let mut rendered = render(markdown.as_ref(), base_path, &options, true)?;
+    let local = match &options.images {
+        ImageResolution::Deferred { base_url } => Some(base_url.as_str()),
+        _ => None,
+    };
+    let html = detach(&rendered.html, local);
+    rendered.html = rebase_document_links(&html, base_path);
+    Ok(rendered)
+}
+
+/// `html`, rendered from the document at `document_path`, made to be shown
+/// on another document's page: every document link names its target the
+/// way it did in its own document.
+///
+/// `data-md-link` holds a path as written, which the app resolves against
+/// the document on screen, so a relative one is joined onto the directory
+/// of `document_path`; a fragment-only link, which would otherwise scroll
+/// the page it is shown on, becomes a document link to `document_path`
+/// itself. Links with a scheme of their own are left alone.
+pub fn rebase_document_links(html: &str, document_path: impl AsRef<Path>) -> String {
+    post_process::rebase_document_links(html, document_path.as_ref())
 }
 
 /// Whether `url` makes the page fetch something from another host: an
