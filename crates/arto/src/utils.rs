@@ -1,4 +1,5 @@
 pub mod clipboard;
+pub(crate) mod data_store;
 pub mod file;
 pub mod file_operations;
 pub mod image;

@@ -17,9 +17,9 @@
 //! Beside them is the list of lenses each document had open, which is what
 //! opens them again with the document.
 
+use crate::utils::data_store::{evict, record_file_name, touch, write_atomically};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io;
@@ -168,7 +168,7 @@ impl Store {
         };
         let path = self.record_path(document, lens_id);
         write_atomically(&path, &serde_json::to_vec(&record)?)?;
-        self.evict(&path);
+        evict(&self.root, self.max_bytes, &path, &[OPEN_FILE]);
         Ok(())
     }
 
@@ -248,38 +248,10 @@ impl Store {
     }
 
     fn record_path(&self, document: &Path, lens_id: &str) -> PathBuf {
-        let mut hash = Sha256::new();
-        hash.update(document_name(document).as_bytes());
-        hash.update([0]);
-        hash.update(lens_id.as_bytes());
-        self.root
-            .join(format!("{}.json", hex(&hash.finalize().into())))
-    }
-
-    /// Remove the records used longest ago until the rest fit, never the
-    /// one just written.
-    fn evict(&self, keep: &Path) {
-        let Ok(entries) = fs::read_dir(&self.root) else {
-            return;
-        };
-        let mut records: Vec<(PathBuf, u64, std::time::SystemTime)> = entries
-            .filter_map(Result::ok)
-            .filter(|entry| entry.file_name() != OPEN_FILE)
-            .filter_map(|entry| {
-                let metadata = entry.metadata().ok()?;
-                Some((entry.path(), metadata.len(), metadata.modified().ok()?))
-            })
-            .collect();
-        let mut total: u64 = records.iter().map(|(_, size, _)| size).sum();
-        records.sort_by_key(|(_, _, modified)| *modified);
-        for (path, size, _) in records {
-            if total <= self.max_bytes {
-                break;
-            }
-            if path != keep && fs::remove_file(&path).is_ok() {
-                total -= size;
-            }
-        }
+        self.root.join(record_file_name(
+            &[&document_name(document), lens_id],
+            "json",
+        ))
     }
 }
 
@@ -290,23 +262,6 @@ fn document_name(document: &Path) -> String {
 
 fn hex(bytes: &Key) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-/// Write `bytes` to `path` whole or not at all: a reader never sees half a
-/// record, even when the app stops half-way through writing one.
-fn write_atomically(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    let dir = path.parent().unwrap_or(Path::new("."));
-    fs::create_dir_all(dir)?;
-    let partial = path.with_extension("partial");
-    fs::write(&partial, bytes)?;
-    fs::rename(&partial, path)
-}
-
-/// Mark `path` as just used.
-fn touch(path: &Path) {
-    if let Ok(file) = fs::File::options().append(true).open(path) {
-        let _ = file.set_modified(std::time::SystemTime::now());
-    }
 }
 
 #[cfg(test)]
