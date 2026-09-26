@@ -68,8 +68,8 @@ arto page --theme dark notes.md
 ```
 
 The page follows your `config.json`, so it looks the way the app shows the
-file — the same theme, and the same choices about what the renderer reads out
-of the Markdown. `--theme` and `--no-auto-link-urls` override a setting for one
+file — the same theme, the same typography, and the same choices about what
+the renderer reads out of the Markdown. `--theme` and `--no-auto-link-urls` override a setting for one
 run, `--config FILE` reads another file, and `--no-config` starts from the
 built-in defaults. The macOS Quick Look preview reads the same configuration
 when its sandbox allows.
