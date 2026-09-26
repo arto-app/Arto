@@ -1,0 +1,111 @@
+/* What a link points at, laid over the page beside it. The same card as a
+   lens's note (`lenses.css`), so the two read as one kind of thing; placed
+   by `frontend/src/popover.ts`. */
+.link-preview {
+  position: fixed;
+  z-index: var(--z-context-menu);
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(520px, calc(100vw - 16px));
+  max-height: 50vh;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-color);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-color);
+  font-size: var(--font-size-md);
+  line-height: 1.55;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition:
+    opacity var(--transition-fast) ease,
+    transform var(--transition-fast) ease,
+    visibility var(--transition-fast);
+}
+
+.link-preview.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link-preview {
+    transform: none;
+  }
+}
+
+/* Where the preview comes from, quiet, and the way to open it. It stays
+   put while the excerpt under it scrolls. */
+.link-preview-head {
+  position: sticky;
+  top: 0;
+  padding: 8px 14px 6px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-color);
+}
+
+.link-preview-title {
+  display: block;
+  overflow: hidden;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.link-preview-title {
+  cursor: pointer;
+}
+
+button.link-preview-title:hover {
+  color: var(--accent-color);
+}
+
+/* The excerpt keeps its Markdown styling, and the page's text size, but not
+   the page's ground. */
+.link-preview-body.markdown-body {
+  padding: 10px 14px 12px;
+  background: transparent;
+}
+
+.link-preview-body > :first-child {
+  margin-top: 0;
+}
+
+.link-preview-body > :last-child {
+  margin-bottom: 0;
+}
+
+.link-preview-unavailable {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.link-preview-more {
+  display: block;
+  width: 100%;
+  padding: 6px 14px 8px;
+  border: 0;
+  border-top: 1px solid var(--border-color);
+  background: none;
+  color: var(--accent-color);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-preview-more:hover {
+  text-decoration: underline;
+}

@@ -26,6 +26,7 @@ import * as actionFeedback from "./action-feedback";
 import * as lenses from "./lenses";
 import * as changes from "./changes";
 import * as userHighlights from "./user-highlights";
+import * as linkPreview from "./link-preview";
 import * as viewportQueue from "./viewport-queue";
 import * as scrollAnchor from "./scroll-anchor";
 import * as stickyTableHead from "./sticky-table-head";
@@ -195,6 +196,15 @@ declare global {
         showBlock: typeof lenses.showBlock;
         showAnswers: typeof lenses.showAnswers;
       };
+      linkPreview: {
+        /** Register how another document is asked of the app. */
+        onRequest: typeof linkPreview.onRequest;
+        /** The app's answer to a request: the document rendered, or null. */
+        resolve: typeof linkPreview.resolve;
+        /** Preview the link under the keyboard cursor. */
+        showAtCursor: typeof linkPreview.showAtCursor;
+        hide: typeof linkPreview.hide;
+      };
       print: {
         /** Switch to the light theme for printing; resolves after Mermaid re-renders. */
         prepare: () => Promise<void>;
@@ -216,6 +226,8 @@ declare global {
     handleMermaidWindowOpen?: (source: string) => void;
     /** Called from JavaScript when Image block click is detected */
     handleImageWindowOpen?: (src: string, alt: string | null) => void;
+    /** Follow a document link as written; installed by the app's file viewer. */
+    handleMarkdownLinkClick?: (path: string, button: number) => void;
   }
 }
 
@@ -299,6 +311,9 @@ export function init(): void {
   setupRowHover();
   // The answer a lens keeps beside a block, on hover over its mark.
   lenses.setup();
+  // What a footnote, a heading link or a document link points at, on a
+  // rest over the link.
+  linkPreview.setup();
   // The scrollbar, brought up to a native width by the pointer arriving at
   // the edge it is on.
   setupScrollbarReach();
@@ -316,6 +331,8 @@ export function init(): void {
   scrollController.setLineStep(stepFocus, forgetStep);
   const trackAfterRender = (): void => {
     refreshReadingPosition();
+    // A document replaced under a preview takes the preview's link with it.
+    linkPreview.hideIfDetached();
     renderCoordinator.onRenderComplete(trackAfterRender);
   };
   renderCoordinator.onRenderComplete(trackAfterRender);
@@ -523,6 +540,12 @@ export function init(): void {
       showPage: lenses.showPage,
       showBlock: lenses.showBlock,
       showAnswers: lenses.showAnswers,
+    },
+    linkPreview: {
+      onRequest: linkPreview.onRequest,
+      resolve: linkPreview.resolve,
+      showAtCursor: linkPreview.showAtCursor,
+      hide: linkPreview.hide,
     },
     print: {
       prepare: preparePrint,
