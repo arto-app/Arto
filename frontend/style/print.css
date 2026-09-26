@@ -151,6 +151,12 @@
     page-break-inside: avoid;
   }
 
+  /* Paper has no view for a header to stay at the top of. */
+  .markdown-body table[data-sticky-head] > thead th {
+    position: static !important;
+    box-shadow: none !important;
+  }
+
   /* Avoid a heading stranded at the bottom of a page */
   .markdown-body h1,
   .markdown-body h2,

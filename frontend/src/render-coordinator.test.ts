@@ -197,6 +197,29 @@ describe("RenderCoordinator", () => {
         expect(rafCallbacks.length).toBe(1);
       });
     });
+
+    test("a change to an attribute declared inert is not new content", async () => {
+      document.body.innerHTML = '<div class="markdown-body"><table></table></div>';
+      const coordinator = new RenderCoordinator();
+      coordinator.ignoreAttribute("data-inert");
+      coordinator.init();
+      await flushRaf();
+      await vi.waitFor(() => {
+        expect(codeCopy.addCopyButtons).toHaveBeenCalledOnce();
+      });
+      await new Promise((r) => setTimeout(r, 0));
+
+      const table = document.body.querySelector("table")!;
+      table.setAttribute("data-inert", "");
+      await new Promise((r) => setTimeout(r, 0));
+      expect(rafCallbacks.length).toBe(0);
+
+      // Any other attribute still is.
+      table.setAttribute("data-other", "");
+      await vi.waitFor(() => {
+        expect(rafCallbacks.length).toBe(1);
+      });
+    });
   });
 
   describe("onRenderComplete", () => {

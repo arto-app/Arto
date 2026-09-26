@@ -132,10 +132,16 @@ pub fn Content() -> Element {
 /// announces it — the window has not been resized, and the page's layout size
 /// is unchanged, only the scale it is drawn at — so the measurement is asked
 /// for from here, where the zoom is known. See `frontend/src/reading-position.ts`.
+///
+/// Whether a table is taller than the view is decided on how tall it is drawn,
+/// so zoom changes that answer too; see `frontend/src/sticky-table-head.ts`.
 fn use_measure_on_zoom(zoom_level: Signal<f64>) {
     use_effect(move || {
         let _ = zoom_level();
-        document::eval("window.Arto?.readingPosition?.refresh?.();");
+        document::eval(
+            "window.Arto?.readingPosition?.refresh?.();\
+             window.Arto?.stickyTableHead?.refresh?.();",
+        );
     });
 }
 

@@ -25,6 +25,7 @@ import * as actionFeedback from "./action-feedback";
 import * as lenses from "./lenses";
 import * as viewportQueue from "./viewport-queue";
 import * as scrollAnchor from "./scroll-anchor";
+import * as stickyTableHead from "./sticky-table-head";
 import type { ScrollAnchor } from "./scroll-anchor";
 
 // Declare global Arto namespace
@@ -134,6 +135,13 @@ declare global {
          * the margin trace is placed against a margin that has just moved.
          */
         refresh: typeof refreshReadingPosition;
+      };
+      stickyTableHead: {
+        /**
+         * Decide again which tables keep their header in view. Zoom changes
+         * how tall a table is drawn without anything observing it.
+         */
+        refresh: typeof stickyTableHead.refresh;
       };
       feedback: {
         show: typeof actionFeedback.show;
@@ -259,6 +267,8 @@ export function init(): void {
   // The scrollbar, brought up to a native width by the pointer arriving at
   // the edge it is on.
   setupScrollbarReach();
+  // A long table's header row, held at the top of the view while it is read.
+  stickyTableHead.setup();
   const trackAfterRender = (): void => {
     refreshReadingPosition();
     renderCoordinator.onRenderComplete(trackAfterRender);
@@ -431,6 +441,9 @@ export function init(): void {
     },
     readingPosition: {
       refresh: refreshReadingPosition,
+    },
+    stickyTableHead: {
+      refresh: stickyTableHead.refresh,
     },
     feedback: {
       show: actionFeedback.show,
