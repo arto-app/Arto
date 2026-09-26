@@ -62,6 +62,9 @@ pub enum Action {
     WindowCloseAllChildWindows,
     WindowCloseAllWindows,
     WindowToggleSidebar,
+    /// Keep the page and put the rest of the window away, dimming every
+    /// block but the one being read.
+    WindowToggleFocusMode,
 
     // Reload (1)
     WindowReload,
@@ -209,6 +212,7 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::WindowCloseAllChildWindows,
             Action::WindowCloseAllWindows,
             Action::WindowToggleSidebar,
+            Action::WindowToggleFocusMode,
             Action::WindowReload,
         ],
     ),
@@ -347,6 +351,7 @@ impl Action {
             Self::WindowCloseAllChildWindows => "Close All Child Windows",
             Self::WindowCloseAllWindows => "Close All Windows",
             Self::WindowToggleSidebar => "Toggle Sidebar",
+            Self::WindowToggleFocusMode => "Focus Mode",
             Self::WindowReload => "Reload Document",
 
             // File
@@ -411,6 +416,7 @@ pub const COMMAND_ACTIONS: &[Action] = &[
     Action::WindowCloseAllChildWindows,
     Action::WindowCloseAllWindows,
     Action::WindowToggleSidebar,
+    Action::WindowToggleFocusMode,
     Action::WindowReload,
     Action::FileOpen,
     Action::FileOpenDirectory,
@@ -458,6 +464,7 @@ pub const MENU_ACTIONS: &[Action] = &[
     Action::SearchNext,
     Action::SearchPrev,
     Action::WindowToggleSidebar,
+    Action::WindowToggleFocusMode,
     Action::ZoomReset,
     Action::ZoomIn,
     Action::ZoomOut,
@@ -565,6 +572,7 @@ action_strings! {
     WindowCloseAllChildWindows => "window.close_all_child_windows",
     WindowCloseAllWindows => "window.close_all_windows",
     WindowToggleSidebar => "window.toggle_sidebar",
+    WindowToggleFocusMode => "window.toggle_focus_mode",
     WindowReload => "window.reload",
     FocusPlaces => "focus.places",
     FocusStarred => "focus.starred",
@@ -633,7 +641,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 91);
+        assert_eq!(all_actions().len(), 92);
     }
 
     #[test]
@@ -671,6 +679,10 @@ mod tests {
         assert_eq!(
             "content.open_viewer".parse::<Action>().unwrap(),
             Action::ContentOpenViewer
+        );
+        assert_eq!(
+            "window.toggle_focus_mode".parse::<Action>().unwrap(),
+            Action::WindowToggleFocusMode
         );
     }
 

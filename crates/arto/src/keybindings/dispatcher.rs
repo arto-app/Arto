@@ -100,6 +100,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         // Closing the panel hands the keyboard back to the document; that
         // belongs to `hide_panel`, so both the rail and this go through it.
         Action::WindowToggleSidebar => state.toggle_sidebar(),
+        Action::WindowToggleFocusMode => state.toggle_focus_mode(),
         Action::WindowReload => {
             let current = *state.reload_trigger.read();
             state.reload_trigger.set(current + 1);

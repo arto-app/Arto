@@ -54,6 +54,10 @@
       "action": "window.toggle_sidebar"
     },
     {
+      "key": "Cmd+Shift+f",
+      "action": "window.toggle_focus_mode"
+    },
+    {
       "key": "Cmd+0",
       "action": "zoom.reset"
     },

@@ -240,6 +240,10 @@
       "action": "zoom.reset"
     },
     {
+      "key": "z f",
+      "action": "window.toggle_focus_mode"
+    },
+    {
       "key": "Escape",
       "action": "cancel"
     },

@@ -21,6 +21,22 @@ pub(super) struct KeyEventData {
     pub(super) field: Option<String>,
 }
 
+/// Clear the content cursor, and leave focus mode if there was none to clear.
+///
+/// The cursor lives in the page, so only the page can say whether Escape had
+/// something to put away there.
+fn clear_cursor_or_leave_focus(mut state: AppState) {
+    crate::utils::task::spawn_detached(async move {
+        let mut eval =
+            document::eval("dioxus.send(window.Arto?.contentCursor?.clearCursor?.() ?? false);");
+        // Unanswered, the key is taken to have cleared something: staying in
+        // focus mode is the smaller surprise.
+        if !eval.recv::<bool>().await.unwrap_or(true) {
+            state.exit_focus_mode();
+        }
+    });
+}
+
 /// Maximum readiness-poll attempts for the JS keyboard API before giving up.
 ///
 /// The interceptor ships inside the multi-megabyte renderer bundle; on Windows
@@ -191,10 +207,16 @@ pub(super) fn setup_keybinding_engine(
                         if action == Action::Cancel {
                             // Half-typed chord, everything over the document,
                             // and the cursor in the page itself: Escape drops
-                            // all three.
+                            // all three. With none of them there, it leaves
+                            // focus mode instead.
                             engine.read().borrow_mut().reset();
+                            let had_overlays = state.has_overlays();
                             state.dismiss_overlays();
-                            crate::keybindings::dispatcher::content_cursor_eval("clearCursor");
+                            if !had_overlays && *state.focus_mode.peek() {
+                                clear_cursor_or_leave_focus(state);
+                            } else {
+                                crate::keybindings::dispatcher::content_cursor_eval("clearCursor");
+                            }
                             close_shortcut_overlay(shortcut_overlay_visibility);
                         } else if action == Action::HelpShowKeyboardShortcuts {
                             engine.read().borrow_mut().reset();

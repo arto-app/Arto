@@ -189,7 +189,7 @@ describe("setup", () => {
       ...window.Arto,
       contentCursor: {
         ...window.Arto?.contentCursor,
-        clearCursor: () => {},
+        clearCursor: () => false,
         setFromContextTarget: () => {},
       },
     };

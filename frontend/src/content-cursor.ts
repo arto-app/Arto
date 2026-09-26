@@ -192,13 +192,24 @@ export function show(): void {
   }
 }
 
-export function clearCursor(): void {
+/**
+ * Put the cursor away.
+ *
+ * Answers whether there was one on the page, which is how Escape knows it
+ * had something to do here before it moves on to leaving focus mode.
+ */
+export function clearCursor(): boolean {
+  const had =
+    currentIndex >= 0 &&
+    currentIndex < elements.length &&
+    document.contains(elements[currentIndex]);
   removeHighlight();
   currentIndex = -1;
   if (scrollHoldTimer !== null) {
     clearTimeout(scrollHoldTimer);
     scrollHoldTimer = null;
   }
+  return had;
 }
 
 export function clearCursorDeferred(): void {
