@@ -1,5 +1,5 @@
 use super::super::form_controls::{
-    ChoiceItem, ChoiceRow, OptionCardItem, OptionCards, SliderInput,
+    ChoiceItem, ChoiceRow, OptionCardItem, OptionCards, SliderInput, ToggleRow,
 };
 use crate::config::{
     normalize_content_zoom, normalize_font_size, normalize_line_height, normalize_measure,
@@ -60,6 +60,7 @@ pub fn ReadingTab(
     let zoom_cfg = config.read().zoom.clone();
     let sidebar_cfg = config.read().sidebar.clone();
     let typography_cfg = config.read().typography.clone();
+    let reading_cfg = config.read().reading.clone();
     let defaults = Config::default();
 
     rsx! {
@@ -375,6 +376,77 @@ pub fn ReadingTab(
                     shipped: Some(defaults.sidebar.recent_trace_count as f64),
                 }
             }
+
+            h3 { class: "preference-section-title", "Reading Time" }
+
+            ToggleRow {
+                label: "Show reading time".to_string(),
+                description: Some("How long the document takes to read, and how long is left once you have started, beside the controls in the header. It counts the text, not the height of the page, so long code and tall diagrams do not run it ahead.".to_string()),
+                checked: reading_cfg.show_time,
+                on_change: move |on| config.write().reading.show_time = on,
+                shipped: Some(defaults.reading.show_time),
+            }
+
+            div {
+                class: "preference-item",
+                div {
+                    class: "preference-item-header",
+                    label { "Words per Minute" }
+                    p { class: "preference-description", "How fast you read scripts written in words, such as English." }
+                }
+                SliderInput {
+                    value: reading_cfg.words_per_minute as f64,
+                    min: 100.0,
+                    max: 600.0,
+                    step: 10.0,
+                    unit: String::new(),
+                    on_change: move |speed: f64| {
+                        config.write().reading.words_per_minute = speed.max(1.0) as u32;
+                    },
+                    shipped: Some(defaults.reading.words_per_minute as f64),
+                }
+            }
+
+            div {
+                class: "preference-item",
+                div {
+                    class: "preference-item-header",
+                    label { "Characters per Minute" }
+                    p { class: "preference-description", "How fast you read Chinese, Japanese and Korean, which are read a character at a time." }
+                }
+                SliderInput {
+                    value: reading_cfg.characters_per_minute as f64,
+                    min: 200.0,
+                    max: 1200.0,
+                    step: 10.0,
+                    unit: String::new(),
+                    on_change: move |speed: f64| {
+                        config.write().reading.characters_per_minute = speed.max(1.0) as u32;
+                    },
+                    shipped: Some(defaults.reading.characters_per_minute as f64),
+                }
+            }
+
+            div {
+                class: "preference-item",
+                div {
+                    class: "preference-item-header",
+                    label { "Shortest Document Timed" }
+                    p { class: "preference-description", "A document that takes less than this to read shows no reading time." }
+                }
+                SliderInput {
+                    value: reading_cfg.min_minutes as f64,
+                    min: 0.0,
+                    max: 30.0,
+                    step: 1.0,
+                    unit: " min".to_string(),
+                    on_change: move |minutes: f64| {
+                        config.write().reading.min_minutes = minutes.max(0.0) as u32;
+                    },
+                    shipped: Some(defaults.reading.min_minutes as f64),
+                }
+            }
+
         }
     }
 }
