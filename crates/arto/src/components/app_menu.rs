@@ -14,6 +14,9 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
     // Get information on the currently open file (for invalidation determination)
     let current_file = state.current_file();
     let has_file = current_file.is_some();
+    // A path is not a document: one that failed to load has the first and not
+    // the second, and focus mode needs something to read.
+    let reading = !state.document().is_empty();
 
     let history = state.document().history;
     let can_go_back = history.can_go_back();
@@ -115,6 +118,10 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
             ContextMenuSubmenu { label: "View", icon: Some(IconName::Eye),
                 ContextMenuItem { label: "Toggle Left Sidebar", shortcut: shortcut("window.toggle_sidebar"), icon: Some(IconName::Sidebar), on_click: move |_| {
                     state.toggle_sidebar();
+                    close();
+                } }
+                ContextMenuItem { label: "Focus Mode", shortcut: shortcut("window.toggle_focus_mode"), icon: Some(IconName::Focus2), disabled: !reading, on_click: move |_| {
+                    state.toggle_focus_mode();
                     close();
                 } }
                 ContextMenuSeparator {}

@@ -11,6 +11,7 @@ import {
   withinSmoothDistance,
   withinSmoothReach,
 } from "./scroll-destination";
+import type { FocusStep } from "./focus-mode";
 
 const SCROLL_LINE_HEIGHT = 60;
 const SCROLL_HALF_PAGE_RATIO = 0.5;
@@ -21,11 +22,13 @@ function getContentElement(): HTMLElement | null {
 
 function scrollBy(el: HTMLElement, delta: number): void {
   releaseDestination();
+  forgetLineStep?.();
   el.scrollBy({ top: delta, behavior: "smooth" });
 }
 
 function scrollTo(el: HTMLElement, top: number): void {
   releaseDestination();
+  forgetLineStep?.();
   el.scrollTo({ top, behavior: "smooth" });
 }
 
@@ -40,17 +43,52 @@ function scrollTo(el: HTMLElement, top: number): void {
  */
 export function reset(): void {
   releaseDestination();
+  forgetLineStep?.();
   getContentElement()?.scrollTo(0, 0);
 }
 
-export function down(): void {
+let lineStep: ((scroller: HTMLElement, direction: 1 | -1) => FocusStep) | null = null;
+let forgetLineStep: (() => void) | null = null;
+
+/**
+ * Let focus mode decide what a line-scroll key does; see `stepFocus`. `forget`
+ * is told whenever the page is scrolled some other way, so a step still under
+ * way is not taken up again from where it was going.
+ *
+ * Handed in by the runtime rather than imported, so this low layer does not
+ * depend on a feature built on top of it.
+ */
+export function setLineStep(
+  step: (scroller: HTMLElement, direction: 1 | -1) => FocusStep,
+  forget: () => void,
+): void {
+  lineStep = step;
+  forgetLineStep = forget;
+}
+
+/**
+ * Scroll a line, or in focus mode step to the next block, the unit the page is
+ * read in there.
+ */
+function line(direction: 1 | -1): void {
   const el = getContentElement();
-  if (el) scrollBy(el, SCROLL_LINE_HEIGHT);
+  if (!el) {
+    return;
+  }
+  const step = lineStep?.(el, direction) ?? { kind: "scroll" };
+  if (step.kind === "scroll") {
+    scrollBy(el, direction * SCROLL_LINE_HEIGHT);
+  } else if (step.kind === "bring") {
+    arriveAt(step.block, step.place);
+  }
+}
+
+export function down(): void {
+  line(1);
 }
 
 export function up(): void {
-  const el = getContentElement();
-  if (el) scrollBy(el, -SCROLL_LINE_HEIGHT);
+  line(-1);
 }
 
 export function pageDown(): void {
@@ -108,6 +146,15 @@ export function toTop(): void {
  * on a place the next drawn diagram then carries away.
  */
 export function toElement(target: Element, block: ScrollLogicalPosition = "start"): void {
+  forgetLineStep?.();
+  arriveAt(target, block);
+}
+
+/**
+ * [`toElement`] without forgetting a focus-mode step under way: this is how
+ * the step itself travels.
+ */
+function arriveAt(target: Element, block: ScrollLogicalPosition): void {
   const el = getContentElement();
   if (!el) {
     return;

@@ -159,6 +159,17 @@ pub fn Header() -> Element {
                         name: if *state.content_full_width.read() { IconName::ViewportNarrow } else { IconName::ViewportWide },
                     }
                 }
+
+                // Focus mode. The header folds away while focusing, so this
+                // is the way in; the way out is the key, Escape, or a click
+                // on the page.
+                button {
+                    class: "nav-button focus-mode-button",
+                    class: if *state.focus_mode.read() { "active" },
+                    title: "Focus mode",
+                    onclick: move |_| state.toggle_focus_mode(),
+                    Icon { name: IconName::Focus2 }
+                }
                 }
 
                 // Theme selector

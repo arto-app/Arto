@@ -34,6 +34,7 @@ enum MenuId {
     FindNext,
     FindPrevious,
     ToggleLeftSidebar,
+    ToggleFocusMode,
     ActualSize,
     ZoomIn,
     ZoomOut,
@@ -63,6 +64,7 @@ impl MenuId {
             "edit.find_next" => Some(Self::FindNext),
             "edit.find_previous" => Some(Self::FindPrevious),
             "view.toggle_left_sidebar" => Some(Self::ToggleLeftSidebar),
+            "view.toggle_focus_mode" => Some(Self::ToggleFocusMode),
             "view.actual_size" => Some(Self::ActualSize),
             "view.zoom_in" => Some(Self::ZoomIn),
             "view.zoom_out" => Some(Self::ZoomOut),
@@ -93,6 +95,7 @@ impl MenuId {
             Self::FindNext => "edit.find_next",
             Self::FindPrevious => "edit.find_previous",
             Self::ToggleLeftSidebar => "view.toggle_left_sidebar",
+            Self::ToggleFocusMode => "view.toggle_focus_mode",
             Self::ActualSize => "view.actual_size",
             Self::ZoomIn => "view.zoom_in",
             Self::ZoomOut => "view.zoom_out",
@@ -199,6 +202,7 @@ fn menu_action_for_id(id: MenuId) -> Option<&'static str> {
         MenuId::FindNext => "search.next",
         MenuId::FindPrevious => "search.prev",
         MenuId::ToggleLeftSidebar => "window.toggle_sidebar",
+        MenuId::ToggleFocusMode => "window.toggle_focus_mode",
         MenuId::ActualSize => "zoom.reset",
         MenuId::ZoomIn => "zoom.in",
         MenuId::ZoomOut => "zoom.out",
@@ -295,6 +299,7 @@ fn add_view_menu(menu: &Menu) {
     view_menu
         .append_items(&[
             &create_menu_item(MenuId::ToggleLeftSidebar, "Toggle Left Sidebar"),
+            &create_menu_item(MenuId::ToggleFocusMode, "Focus Mode"),
             &PredefinedMenuItem::separator(),
             &create_menu_item(MenuId::ActualSize, "Actual Size"),
             &create_menu_item(MenuId::ZoomIn, "Zoom In"),
@@ -419,6 +424,7 @@ pub fn handle_menu_event_global(event: &MenuEvent) -> bool {
 /// - `OpenDirectory`: Opens directory picker
 /// - `CloseWindow`: Window management
 /// - `ToggleLeftSidebar`: Toggles left sidebar pin state
+/// - `ToggleFocusMode`: Enters or leaves focus mode
 /// - `ActualSize` / `ZoomIn` / `ZoomOut`: Zoom controls
 /// - `GoBack` / `GoForward`: Navigation history
 /// - `RevealInFinder` / `CopyFilePath`: File operations
@@ -454,6 +460,7 @@ pub fn handle_menu_event_with_state(event: &MenuEvent, state: &mut AppState) -> 
         MenuId::OpenDirectory => Action::FileOpenDirectory,
         MenuId::CloseWindow => Action::WindowClose,
         MenuId::ToggleLeftSidebar => Action::WindowToggleSidebar,
+        MenuId::ToggleFocusMode => Action::WindowToggleFocusMode,
         MenuId::ActualSize => Action::ZoomReset,
         MenuId::ZoomIn => Action::ZoomIn,
         MenuId::ZoomOut => Action::ZoomOut,
@@ -484,6 +491,34 @@ fn disable_automatic_window_tabbing() {
 mod tests {
     use super::*;
 
+    /// Every item the menu bar has.
+    const ALL_MENU_IDS: &[MenuId] = &[
+        MenuId::About,
+        MenuId::NewWindow,
+        MenuId::DuplicateWindow,
+        MenuId::NewDocument,
+        MenuId::Open,
+        MenuId::OpenDirectory,
+        MenuId::RevealInFinder,
+        MenuId::CopyFilePath,
+        MenuId::CloseWindow,
+        MenuId::CloseAllChildWindows,
+        MenuId::CloseAllWindows,
+        MenuId::Print,
+        MenuId::Preferences,
+        MenuId::Find,
+        MenuId::FindNext,
+        MenuId::FindPrevious,
+        MenuId::ToggleLeftSidebar,
+        MenuId::ToggleFocusMode,
+        MenuId::ActualSize,
+        MenuId::ZoomIn,
+        MenuId::ZoomOut,
+        MenuId::GoBack,
+        MenuId::GoForward,
+        MenuId::GoToHomepage,
+    ];
+
     /// All MenuId variants must roundtrip through as_str/from_str.
     /// This guarantees safety for Phase 3-5 handler refactoring.
     #[test]
@@ -506,6 +541,7 @@ mod tests {
             "edit.find_next",
             "edit.find_previous",
             "view.toggle_left_sidebar",
+            "view.toggle_focus_mode",
             "view.actual_size",
             "view.zoom_in",
             "view.zoom_out",
@@ -531,36 +567,27 @@ mod tests {
     /// Preferences UI and the interceptor skip-list stay in sync with the menu.
     #[test]
     fn menu_actions_cover_all_menu_items() {
-        let all_ids = [
-            MenuId::About,
-            MenuId::NewWindow,
-            MenuId::DuplicateWindow,
-            MenuId::NewDocument,
-            MenuId::Open,
-            MenuId::OpenDirectory,
-            MenuId::RevealInFinder,
-            MenuId::CopyFilePath,
-            MenuId::CloseWindow,
-            MenuId::CloseAllChildWindows,
-            MenuId::CloseAllWindows,
-            MenuId::Print,
-            MenuId::Preferences,
-            MenuId::Find,
-            MenuId::FindNext,
-            MenuId::FindPrevious,
-            MenuId::ToggleLeftSidebar,
-            MenuId::ActualSize,
-            MenuId::ZoomIn,
-            MenuId::ZoomOut,
-            MenuId::GoBack,
-            MenuId::GoForward,
-            MenuId::GoToHomepage,
-        ];
-        for id in all_ids {
+        for &id in ALL_MENU_IDS {
             let action = menu_action_for_id(id).expect("menu item has an action");
             assert!(
                 crate::keybindings::is_menu_action(action),
                 "MENU_ACTIONS is missing {action:?} for {id:?}"
+            );
+        }
+    }
+
+    /// The other direction: an action offered as a menu shortcut has an item
+    /// to carry it. On macOS a menu shortcut is left to the menu bar, so one
+    /// with no item behind it does nothing at all.
+    #[test]
+    fn every_menu_action_has_a_menu_item() {
+        for action in crate::keybindings::MENU_ACTIONS {
+            let name = action.to_string();
+            assert!(
+                ALL_MENU_IDS
+                    .iter()
+                    .any(|&id| menu_action_for_id(id) == Some(name.as_str())),
+                "no menu item carries {name:?}"
             );
         }
     }

@@ -14,7 +14,9 @@ use dioxus::desktop::{use_wry_event_handler, window};
 use dioxus::document;
 use dioxus::prelude::*;
 use dioxus_core::use_drop;
+use std::cell::Cell;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use super::content::{
     close_context_menu, use_search_handler, Content, ContentContextMenu, CONTENT_CONTEXT_MENU,
@@ -189,6 +191,10 @@ pub fn App(
 
     setup_window_listeners(state);
 
+    use_focus_mode_layout(state);
+    let focusing = use_memo(move || state.focusing());
+    let focus_dims = use_memo(move || state.focus_dims());
+
     // Answer any launch that is holding its socket open for this window.
     setup_ready_reporter();
 
@@ -361,8 +367,32 @@ pub fn App(
 
             div {
                 class: "main-area",
+                // Focus mode spaces the page out around a middle line for the
+                // whole of it, a search included: taking the room away would
+                // move the page under the matches being stepped through.
+                class: if focusing() { "focus-layout" },
+                // It folds the header and dims the page around the block
+                // being read while no search pauses it; see
+                // `frontend/src/focus-mode.ts`.
+                class: if focus_dims() { "focus-mode" },
                 Header {},
-                Content {},
+                // A click on the page is the way out for a pointer, as the
+                // key and Escape are for the keyboard. On the page only: the
+                // header's focus button and menu are clicked to come in, and
+                // the click would carry on to leave again.
+                div {
+                    class: "focus-leave",
+                    onclick: move |_| {
+                        if focus_dims() {
+                            spawn(async move {
+                                if !selecting_text().await {
+                                    state.exit_focus_mode();
+                                }
+                            });
+                        }
+                    },
+                    Content {},
+                }
             }
 
             // Overlay wrappers (rendered when unpinned, animated via .visible class)
@@ -465,6 +495,48 @@ pub fn App(
             }
         }
     }
+}
+
+/// Keep the reader's place while focus mode changes the layout around the
+/// page, and have the page mark the block being read again.
+///
+/// Putting a pinned panel away widens the page, which reflows every block
+/// under the reader; the anchor taken before the change is where they were.
+/// A search pausing focus mode only moves the header, which the scroll offset
+/// already survives, so that asks for the mark alone.
+/// Whether the page has text selected.
+///
+/// A drag that selects text ends in a click like any other; that reader is
+/// copying, not leaving.
+async fn selecting_text() -> bool {
+    document::eval("return !(window.getSelection()?.isCollapsed ?? true);")
+        .join::<bool>()
+        .await
+        .unwrap_or(false)
+}
+
+fn use_focus_mode_layout(mut state: AppState) {
+    use_effect(move || state.settle_focus_mode());
+
+    let focusing = use_memo(move || state.focusing());
+    let dims = use_memo(move || state.focus_dims());
+    let was_focusing = use_hook(|| Rc::new(Cell::new(None::<bool>)));
+    use_effect(move || {
+        let now = focusing();
+        let _ = dims();
+        let before = was_focusing.replace(Some(now));
+        let changed = before.is_some_and(|before| before != now);
+        let restore = if changed && state.focus_mode_document_is_current() {
+            let anchor = *state.current_scroll_anchor.peek();
+            let anchor = serde_json::to_string(&anchor).unwrap_or_else(|_| "null".to_string());
+            format!("window.Arto?.scroll?.toAnchor?.({anchor});")
+        } else {
+            String::new()
+        };
+        document::eval(&format!(
+            "{restore}window.Arto?.readingPosition?.refresh?.();"
+        ));
+    });
 }
 
 fn sync_window_metrics(

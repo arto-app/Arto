@@ -37,6 +37,24 @@ const HEADING_TAGS = new Set(["H1", "H2", "H3", "H4", "H5", "H6"]);
 let elements: Element[] = [];
 let currentIndex = -1;
 
+/**
+ * Who wants to know when the cursor moves or goes.
+ *
+ * A key can move the cursor without scrolling the page, and focus mode marks
+ * the block the cursor is on; nothing else would tell it to look again.
+ */
+const changeListeners: Array<() => void> = [];
+
+export function onCursorChange(listener: () => void): void {
+  changeListeners.push(listener);
+}
+
+function notifyChange(): void {
+  for (const listener of changeListeners) {
+    listener();
+  }
+}
+
 function getMarkdownBody(): Element | null {
   return document.querySelector(".markdown-body");
 }
@@ -109,6 +127,7 @@ function moveTo(newIndex: number, scroll = true): void {
   removeHighlight();
   currentIndex = newIndex;
   applyHighlight(scroll);
+  notifyChange();
 }
 
 function isVisibleInContentViewport(el: Element): boolean {
@@ -192,13 +211,27 @@ export function show(): void {
   }
 }
 
-export function clearCursor(): void {
+/**
+ * Put the cursor away.
+ *
+ * Answers whether there was one on the page, which is how Escape knows it
+ * had something to do here before it moves on to leaving focus mode.
+ */
+export function clearCursor(): boolean {
+  const had =
+    currentIndex >= 0 &&
+    currentIndex < elements.length &&
+    document.contains(elements[currentIndex]);
   removeHighlight();
   currentIndex = -1;
   if (scrollHoldTimer !== null) {
     clearTimeout(scrollHoldTimer);
     scrollHoldTimer = null;
   }
+  if (had) {
+    notifyChange();
+  }
+  return had;
 }
 
 export function clearCursorDeferred(): void {
@@ -394,6 +427,18 @@ export function getSourceLineRange(): [number, number] | null {
   const range = readSourceRange(el);
   if (!range) return null;
   return [range.start.line, range.end.line];
+}
+
+/**
+ * The element the cursor is on, without looking for the blocks again.
+ *
+ * [`getCurrentElement`] rescans the document whenever there is no cursor,
+ * which is fine for a key press and too much for every frame of a scroll.
+ */
+export function peekCurrentElement(): Element | null {
+  if (currentIndex < 0 || currentIndex >= elements.length) return null;
+  const el = elements[currentIndex];
+  return el.isConnected ? el : null;
 }
 
 export function getCurrentElement(): Element | null {

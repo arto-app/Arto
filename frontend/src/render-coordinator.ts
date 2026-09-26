@@ -5,6 +5,7 @@ import * as syntaxHighlighter from "./syntax-highlighter";
 import * as codeCopy from "./code-copy";
 import * as viewportQueue from "./viewport-queue";
 import * as scrollAnchor from "./scroll-anchor";
+import * as focusMode from "./focus-mode";
 
 /**
  * Setup single-click listeners for Image blocks.
@@ -74,8 +75,15 @@ class RenderCoordinator {
   #pendingMutationRetries = 0;
   #renderCompleteCallbacks: Array<() => void> = [];
   #observer: MutationObserver | null = null;
-  /** Attributes whose changes alone are not new content. */
-  #inertAttributes = new Set<string>();
+  /**
+   * Attributes whose changes alone are not new content.
+   *
+   * Focus mode's marks are among them from the start: they move as the reader
+   * scrolls, a picture of where they are rather than a change
+   * to the document, and rendering the whole document again for each would be
+   * a pass per block scrolled past.
+   */
+  #inertAttributes = new Set<string>([focusMode.CURRENT, focusMode.DRAWN]);
   #beforePrint: (() => void) | null = null;
 
   // Safety limit to prevent infinite render loops caused by
@@ -330,12 +338,13 @@ class RenderCoordinator {
   async #executeBatchRender(): Promise<void> {
     // A batch render is the one moment the document is known to have changed,
     // so it is where the queue sheds the blocks of the document it replaced
-    // and the anchor's block list is declared stale. Neither writes to the
-    // DOM, so both stay outside the guard: raising `#batchDepth` before
+    // and the anchor's and focus mode's block lists are declared stale. None of
+    // them writes to the DOM, so all stay outside the guard: raising `#batchDepth` before
     // anything that can throw without a `finally` under it would leave the
     // guard raised for good, and every later mutation deferred for ever.
     viewportQueue.prune();
     scrollAnchor.invalidateBlocks();
+    focusMode.invalidateUnits();
 
     const markdownBodies = document.querySelectorAll(".markdown-body");
     if (markdownBodies.length === 0) {

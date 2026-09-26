@@ -6,9 +6,11 @@
  * All of it is the same question asked in different words — where in this
  * document are we, and what is around us — so it shares one passive scroll
  * listener and one frame's worth of work. The scrollbar the reader sees is
- * the same question again, so it is drawn from here too.
+ * the same question again, so it is drawn from here too. So is the block
+ * focus mode leaves undimmed.
  */
 
+import { drawFocus } from "./focus-mode";
 import { drawScrollIndicator } from "./scroll-indicator";
 
 /**
@@ -246,6 +248,9 @@ function update(): void {
   if (indicator) {
     drawScrollIndicator(indicator, content);
   }
+  // Before anything that can return early: a document without headings is
+  // read in focus mode as much as one with them.
+  drawFocus(content);
 
   const area = content.closest<HTMLElement>(".content-area");
   const body = content.querySelector<HTMLElement>(".markdown-body");

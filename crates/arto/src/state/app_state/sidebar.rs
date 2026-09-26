@@ -210,7 +210,11 @@ impl AppState {
     /// shows it over the document instead, so Cmd+B still opens something
     /// when the layout has folded the panel away. The pinned choice is left
     /// alone in that case, so widening the window restores it as configured.
+    ///
+    /// Asking for the panel is asking to leave focus mode, which is what put
+    /// it away.
     pub fn show_panel(&mut self) {
+        self.exit_focus_mode();
         if self.visible_chrome().panel {
             self.sidebar.write().pinned = true;
             self.left_hover_active.set(false);

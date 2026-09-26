@@ -21,7 +21,18 @@ impl AppState {
     ///
     /// The width is measured after zoom, because magnifying the page is the
     /// same as narrowing the window.
+    ///
+    /// Focus mode folds all of it, the way a window too narrow for any of it
+    /// would, so leaving brings back exactly what the width allows.
     pub fn visible_chrome(&self) -> Visible {
+        if self.focusing() {
+            return Visible {
+                trace: false,
+                panel: false,
+                gutter: false,
+                rail: false,
+            };
+        }
         // Subscribes whoever is reading to configuration changes; the value
         // itself says nothing.
         let _ = self.config_revision.read();
