@@ -169,6 +169,7 @@ mod engine;
 mod frontmatter;
 mod headings;
 mod line_endings;
+mod links;
 mod options;
 mod post_process;
 mod sanitize;
@@ -176,6 +177,7 @@ mod sanitize;
 pub use block::*;
 pub use engine::*;
 pub use headings::*;
+pub use links::*;
 pub use options::*;
 
 use anyhow::Result;
