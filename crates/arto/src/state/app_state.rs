@@ -180,6 +180,8 @@ pub struct AppState {
     /// What the document on screen asks a reader to read, block by block.
     /// Set and cleared with `rendered_source`.
     pub reading_profile: Signal<Option<Arc<ReadingProfile>>>,
+    /// What changed in the document on screen since it was last read.
+    pub changes: Signal<Vec<crate::baselines::Change>>,
     /// The page lenses open in this window: the one applied takes the
     /// document's places, the others wait to be switched to.
     pub page_lenses: Signal<Vec<crate::lenses::LensRun>>,
@@ -232,6 +234,7 @@ impl AppState {
             visits_revision: Signal::new(0),
             rendered_source: Signal::new(None),
             reading_profile: Signal::new(None),
+            changes: Signal::new(Vec::new()),
             page_lenses: Signal::new(Vec::new()),
             overlay_lenses: Signal::new(Vec::new()),
         }

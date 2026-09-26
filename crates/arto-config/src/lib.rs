@@ -74,7 +74,8 @@ pub struct Config {
     pub zoom: ZoomConfig,
     /// How the text of a document is set.
     pub typography: TypographyConfig,
-    /// How the reading of a document is measured and shown.
+    /// How the reading of a document is measured and shown, and what is
+    /// marked on it.
     pub reading: ReadingConfig,
     /// Commands the reader can look at a document through.
     pub lenses: Vec<Lens>,
@@ -167,6 +168,8 @@ mod tests {
         assert_eq!(config.reading.words_per_minute, 230);
         assert_eq!(config.reading.characters_per_minute, 500);
         assert_eq!(config.reading.min_minutes, 3);
+        assert!(config.reading.show_changes);
+        assert!(config.reading.ignore_whitespace_changes);
 
         // Keybindings defaults
         assert_keybindings_empty(&config.keybindings);
@@ -272,6 +275,7 @@ mod tests {
             },
             reading: ReadingConfig {
                 show_time: false,
+                show_changes: false,
                 ..Default::default()
             },
             lenses: vec![Lens {
@@ -344,6 +348,7 @@ mod tests {
         assert_eq!(parsed.typography.font_family, FontFamilyChoice::Serif);
         assert!(!parsed.reading.show_time);
         assert_eq!(parsed.zoom.on_new_window, NewWindowBehavior::LastFocused);
+        assert!(!parsed.reading.show_changes);
         assert_keybindings_empty(&parsed.keybindings);
     }
 

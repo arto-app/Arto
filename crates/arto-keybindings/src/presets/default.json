@@ -178,6 +178,14 @@
       "action": "content.prev_heading"
     },
     {
+      "key": "Ctrl+BracketRight",
+      "action": "changes.next"
+    },
+    {
+      "key": "Ctrl+BracketLeft",
+      "action": "changes.prev"
+    },
+    {
       "key": "Ctrl+ArrowLeft",
       "action": "focus.places"
     }

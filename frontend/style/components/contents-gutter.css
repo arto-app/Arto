@@ -536,3 +536,82 @@
   color: var(--text-secondary);
   opacity: var(--opacity-rest);
 }
+
+/* =================================
+   What changed since last read
+   =================================
+
+   A dot before each heading something changed under — on the tick and on
+   its name — in the accent the margin lines beside the changed blocks are
+   drawn in. Beside the tick rather than on it: its colour is a search's and
+   its weight is where the reader is, and a change is neither. */
+.contents-gutter-tick {
+  position: relative;
+}
+
+.contents-gutter-tick[data-changed]::after {
+  content: "";
+  position: absolute;
+  left: -7px;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--accent-color);
+  opacity: var(--opacity-muted);
+}
+
+.contents-gutter:hover .contents-gutter-tick[data-changed]::after {
+  opacity: 1;
+}
+
+.contents-toc-row {
+  position: relative;
+}
+
+.contents-toc-row[data-changed]::before,
+.contents-toc-changes-dot {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: var(--radius-full);
+  background: var(--accent-color);
+}
+
+.contents-toc-row[data-changed]::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+}
+
+/* The count and the way to clear it, above everything else in the list. */
+.contents-toc-changes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.contents-toc-changes .contents-toc-row {
+  flex: 1;
+  color: var(--text-color);
+}
+
+.contents-toc-changes-read {
+  flex: none;
+  padding: 3px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-quiet) ease,
+    color var(--transition-quiet) ease;
+}
+
+.contents-toc-changes-read:hover {
+  background: var(--bg-row-hover);
+  color: var(--text-color);
+}

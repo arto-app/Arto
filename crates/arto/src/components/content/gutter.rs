@@ -60,11 +60,12 @@ pub fn ContentsGutter(
     });
 
     let marks = pinned.read().clone();
+    let changes = state.changes.read().len();
     let open = *state.contents_open.read();
-    // Nothing to rest on, and nothing to open: with neither a heading nor a
-    // mark there is no map to draw. Asked for by name it still answers, so
-    // that the key does something rather than nothing.
-    if headings.is_empty() && marks.is_empty() && !open {
+    // Nothing to rest on, and nothing to open: with neither a heading, a
+    // mark nor a change there is no map to draw. Asked for by name it still
+    // answers, so that the key does something rather than nothing.
+    if headings.is_empty() && marks.is_empty() && changes == 0 && !open {
         return rsx! {};
     }
 
@@ -76,7 +77,7 @@ pub fn ContentsGutter(
         // A sibling of the ruler, and after it: resting in the column is what
         // brings this out, and that is said in CSS as
         // `.contents-gutter:hover ~ .contents-toc-stand .contents-toc`.
-        Names { headings, marks, open }
+        Names { headings, marks, changes, open }
     }
 }
 
@@ -134,9 +135,16 @@ fn Ruler(headings: Vec<HeadingInfo>) -> Element {
     }
 }
 
-/// What the ticks stand for: the marks a search pinned, then the headings.
+/// What the ticks stand for: what changed since the document was last read,
+/// the marks a search pinned, then the headings.
 #[component]
-fn Names(headings: Vec<HeadingInfo>, marks: Vec<PinnedSearch>, open: bool) -> Element {
+fn Names(
+    headings: Vec<HeadingInfo>,
+    marks: Vec<PinnedSearch>,
+    /// How many runs of the document changed since it was last read.
+    changes: usize,
+    open: bool,
+) -> Element {
     let mut state = use_context::<AppState>();
     let cursor = *state.contents_cursor.read();
     let nothing_pinned = marks.is_empty();
@@ -171,6 +179,34 @@ fn Names(headings: Vec<HeadingInfo>, marks: Vec<PinnedSearch>, open: bool) -> El
                 class: "contents-toc",
                 class: if open { "open" },
                 "aria-label": "Contents",
+
+                // First, because it is the question a document opened again
+                // asks before any other: what is new since I last read it.
+                // The dots it stands for are on the headings below.
+                if changes > 0 {
+                    div {
+                        class: "contents-toc-changes",
+                        button {
+                            class: "contents-toc-row",
+                            onclick: move |_| {
+                                if open {
+                                    state.close_contents();
+                                }
+                                spawn(async move {
+                                    let _ = document::eval("window.Arto?.changes?.first?.()").await;
+                                });
+                            },
+                            span { class: "contents-toc-changes-dot" }
+                            span { class: "contents-toc-name", "Changes \u{b7} {changes}" }
+                        }
+                        button {
+                            class: "contents-toc-changes-read",
+                            title: "Take what is on screen as read, and clear the marks",
+                            onclick: move |_| state.mark_changes_read(),
+                            "Mark as read"
+                        }
+                    }
+                }
 
                 PinnedMarks { pinned_searches: marks }
 

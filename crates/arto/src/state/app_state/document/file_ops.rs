@@ -57,6 +57,8 @@ impl AppState {
     /// is put on the row it belongs to before the row stops being the current
     /// one. The write to disk comes with the visit that follows.
     pub fn keep_reading_position(&mut self) {
+        // Leaving is also what makes the version on screen the one read.
+        self.keep_read_version(crate::baselines::Moment::Left);
         let Some(file) = self.current_file() else {
             return;
         };
@@ -71,6 +73,7 @@ impl AppState {
     /// the history rather than here.
     pub fn navigate_to_file(&mut self, file: impl Into<PathBuf>) {
         let file = file.into();
+        self.keep_read_version(crate::baselines::Moment::Left);
         self.reveal_in_roots(&file);
         self.update_document(|document| document.navigate_to(file.clone()));
         self.record_visit(&file);

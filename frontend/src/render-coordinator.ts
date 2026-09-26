@@ -84,6 +84,8 @@ class RenderCoordinator {
    * a pass per block scrolled past.
    */
   #inertAttributes = new Set<string>([focusMode.CURRENT, focusMode.DRAWN]);
+  /** Selectors of subtrees whose changes are not new content. */
+  #inertSubtrees: string[] = [];
   #beforePrint: (() => void) | null = null;
 
   // Safety limit to prevent infinite render loops caused by
@@ -169,11 +171,42 @@ class RenderCoordinator {
     this.#inertAttributes.add(name);
   }
 
+  /**
+   * Say that nothing inside elements matching `selector` is content.
+   *
+   * For a layer drawn over the page by something reacting to it — the marks
+   * of what changed since last read — which rendering again would only have
+   * to draw again.
+   */
+  ignoreWithin(selector: string): void {
+    this.#inertSubtrees.push(selector);
+  }
+
   #isContent(mutation: MutationRecord): boolean {
+    const target = mutation.target;
+    const element = target instanceof Element ? target : target.parentElement;
+    if (this.#inertSubtrees.some((selector) => element?.closest(selector))) {
+      return false;
+    }
+    if (mutation.type === "childList" && this.#onlyInertNodes(mutation)) {
+      return false;
+    }
     return !(
       mutation.type === "attributes" &&
       mutation.attributeName !== null &&
       this.#inertAttributes.has(mutation.attributeName)
+    );
+  }
+
+  /** A subtree put in or taken out whole: its parent is outside it. */
+  #onlyInertNodes(mutation: MutationRecord): boolean {
+    const nodes = [...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+    return (
+      nodes.length > 0 &&
+      nodes.every(
+        (node) =>
+          node instanceof Element && this.#inertSubtrees.some((selector) => node.matches(selector)),
+      )
     );
   }
 

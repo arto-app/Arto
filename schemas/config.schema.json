@@ -46,11 +46,13 @@
       }
     },
     "reading": {
-      "description": "How the reading of a document is measured and shown.",
+      "description": "How the reading of a document is measured and shown, and what is\nmarked on it.",
       "$ref": "#/$defs/ReadingConfig",
       "default": {
         "charactersPerMinute": 500,
+        "ignoreWhitespaceChanges": true,
         "minMinutes": 3,
+        "showChanges": true,
         "showTime": true,
         "wordsPerMinute": 230
       }
@@ -540,7 +542,7 @@
       ]
     },
     "ReadingConfig": {
-      "description": "How the reading of a document is measured and shown.",
+      "description": "How the reading of a document is measured and shown, and what Arto marks\non it beyond what it says.",
       "type": "object",
       "properties": {
         "charactersPerMinute": {
@@ -550,12 +552,22 @@
           "default": 500,
           "minimum": 1
         },
+        "ignoreWhitespaceChanges": {
+          "description": "Take a line whose words are only spaced differently to be unchanged.",
+          "type": "boolean",
+          "default": true
+        },
         "minMinutes": {
           "description": "Documents shorter than this many minutes show no reading time.",
           "type": "integer",
           "format": "uint32",
           "default": 3,
           "minimum": 0
+        },
+        "showChanges": {
+          "description": "Mark what changed in a document since it was last read: a line in the\nmargin beside each block added or rewritten, a hairline where text\nwas taken out, and a dot on the headings they fall under. Turned off,\nArto stops keeping a copy of each document read.",
+          "type": "boolean",
+          "default": true
         },
         "showTime": {
           "description": "Show how long a document takes to read, and how long is left, in the header.",

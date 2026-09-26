@@ -39,6 +39,7 @@
 @import url("./components/contents-gutter.css");
 @import url("./components/content/code-copy.css");
 @import url("./components/content/content-cursor.css");
+@import url("./components/content/changes.css");
 
 /* Special windows */
 @import url("./components/preferences.css");

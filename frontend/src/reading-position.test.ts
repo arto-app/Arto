@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 
-import { MARGIN_GAP, marginColumn } from "./reading-position";
+import { MARGIN_GAP, changedHeadings, marginColumn } from "./reading-position";
 
 describe("marginColumn", () => {
   test("moves the column up against the page, a gap short of the text", () => {
@@ -25,5 +25,22 @@ describe("marginColumn", () => {
 
   test("gives way rather than being written over the text", () => {
     expect(marginColumn(-118)).toEqual({ offset: 0, crowded: true });
+  });
+});
+
+describe("changedHeadings", () => {
+  test("names the headings a change falls under, and a heading changed itself", () => {
+    document.body.innerHTML = `<article class="markdown-body">
+      <p data-change="added">Before any heading</p>
+      <h1 id="a">A</h1>
+      <p>Unchanged</p>
+      <h2 id="b">B</h2>
+      <ul><li><p data-change-removed="after">Nested</p></li></ul>
+      <h2 id="c" data-change="modified">C</h2>
+      <h2 id="d">D</h2>
+    </article>`;
+    const body = document.querySelector<HTMLElement>(".markdown-body")!;
+
+    expect([...changedHeadings(body)].sort()).toEqual(["b", "c"]);
   });
 });

@@ -447,6 +447,23 @@ pub fn ReadingTab(
                 }
             }
 
+            h3 { class: "preference-section-title", "Changes Since Last Read" }
+
+            ToggleRow {
+                label: "Mark what changed".to_string(),
+                description: Some("A line beside each block added or rewritten since the document was last read, a hairline where text was taken out, and a dot on the headings they fall under. A document counts as read when you leave it. Turned off, Arto stops keeping a copy of each document you read.".to_string()),
+                checked: reading_cfg.show_changes,
+                on_change: move |on| config.write().reading.show_changes = on,
+                shipped: Some(defaults.reading.show_changes),
+            }
+
+            ToggleRow {
+                label: "Ignore spacing".to_string(),
+                description: Some("A line whose words are only spaced differently is not marked as changed.".to_string()),
+                checked: reading_cfg.ignore_whitespace_changes,
+                on_change: move |on| config.write().reading.ignore_whitespace_changes = on,
+                shipped: Some(defaults.reading.ignore_whitespace_changes),
+            }
         }
     }
 }

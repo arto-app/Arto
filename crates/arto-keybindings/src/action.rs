@@ -108,6 +108,11 @@ pub enum Action {
     ContentsConfirm,
     ContentsClose,
 
+    // Changes — what changed since the document was last read
+    ChangesNext,
+    ChangesPrev,
+    ChangesMarkRead,
+
     // Lenses — stopping one, and back to the document as written
     LensStop,
     LensHide,
@@ -269,6 +274,14 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::ContentsClose,
         ],
     ),
+    (
+        "Changes",
+        &[
+            Action::ChangesNext,
+            Action::ChangesPrev,
+            Action::ChangesMarkRead,
+        ],
+    ),
     ("Lenses", &[Action::LensStop, Action::LensHide]),
     (
         "Sidebar",
@@ -371,6 +384,9 @@ impl Action {
             // Contents
             Self::ContentsToggle => "Contents",
 
+            // Changes
+            Self::ChangesMarkRead => "Mark as Read",
+
             // Lenses
             Self::LensStop => "Stop Lens",
             Self::LensHide => "Hide Lens",
@@ -429,6 +445,7 @@ pub const COMMAND_ACTIONS: &[Action] = &[
     Action::AppQuit,
     Action::AppGoToHomepage,
     Action::ContentsToggle,
+    Action::ChangesMarkRead,
     Action::LensStop,
     Action::LensHide,
     Action::SidebarToggleShowAllFiles,
@@ -602,6 +619,9 @@ action_strings! {
     ContentsPrev => "contents.prev",
     ContentsConfirm => "contents.confirm",
     ContentsClose => "contents.close",
+    ChangesNext => "changes.next",
+    ChangesPrev => "changes.prev",
+    ChangesMarkRead => "changes.mark_read",
     LensStop => "lens.stop",
     LensHide => "lens.hide",
     SidebarToggleShowAllFiles => "sidebar.toggle_show_all_files",
@@ -641,7 +661,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 92);
+        assert_eq!(all_actions().len(), 95);
     }
 
     #[test]

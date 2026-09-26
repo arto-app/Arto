@@ -20,6 +20,8 @@
   .main-area > :not(.content),
   /* Floating helpers rendered outside the app container */
   .action-feedback,
+  .markdown-viewer > [data-arto-change-marks],
+  .change-tip,
   /* Hover-activated copy buttons on code blocks */
   .copy-button {
     display: none !important;

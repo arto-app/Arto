@@ -12,10 +12,12 @@
 //! | Module | Responsibility |
 //! |--------|---------------|
 //! | `access` | Reading and updating the document on screen |
+//! | `changes` | What changed since the document was last read |
 //! | `file_ops` | Opening a file, and the preferences window |
 //! | `history` | Back, forward, and where the reader was on the page |
 
 mod access;
+mod changes;
 mod file_ops;
 mod history;
 

@@ -221,6 +221,72 @@ describe("RenderCoordinator", () => {
       });
     });
 
+    test("a change inside a subtree declared its own is not new content", async () => {
+      document.body.innerHTML =
+        '<div class="markdown-viewer"><div class="markdown-body"><p>x</p></div><div class="layer"></div></div>';
+      const coordinator = new RenderCoordinator();
+      coordinator.ignoreWithin(".layer");
+      coordinator.init();
+      await flushRaf();
+      await vi.waitFor(() => {
+        expect(codeCopy.addCopyButtons).toHaveBeenCalledOnce();
+      });
+      await new Promise((r) => setTimeout(r, 0));
+
+      const layer = document.body.querySelector(".layer")!;
+      layer.append(document.createElement("div"));
+      layer.firstElementChild!.setAttribute("style", "top: 1px");
+      await new Promise((r) => setTimeout(r, 0));
+      expect(rafCallbacks.length).toBe(0);
+
+      // The page itself still is.
+      document.body.querySelector("p")!.append("y");
+      await vi.waitFor(() => {
+        expect(rafCallbacks.length).toBe(1);
+      });
+    });
+
+    test("an element of a subtree declared its own coming and going is not new content", async () => {
+      document.body.innerHTML = '<div class="markdown-body"><p>x</p></div>';
+      const coordinator = new RenderCoordinator();
+      coordinator.ignoreWithin("[data-tip]");
+      coordinator.init();
+      await flushRaf();
+      await vi.waitFor(() => {
+        expect(codeCopy.addCopyButtons).toHaveBeenCalledOnce();
+      });
+      await new Promise((r) => setTimeout(r, 0));
+
+      const tip = document.createElement("div");
+      tip.dataset.tip = "";
+      document.body.append(tip);
+      tip.textContent = "said";
+      tip.hidden = true;
+      tip.remove();
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(rafCallbacks.length).toBe(0);
+    });
+
+    test("an element outside the place a subtree was declared for is still content", async () => {
+      document.body.innerHTML = '<div class="markdown-body"><p>x</p></div>';
+      const coordinator = new RenderCoordinator();
+      coordinator.ignoreWithin("body > [data-tip]");
+      coordinator.init();
+      await flushRaf();
+      await vi.waitFor(() => {
+        expect(codeCopy.addCopyButtons).toHaveBeenCalledOnce();
+      });
+      await new Promise((r) => setTimeout(r, 0));
+
+      const inDocument = document.createElement("div");
+      inDocument.dataset.tip = "";
+      document.querySelector(".markdown-body")!.append(inDocument);
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(rafCallbacks.length).toBe(1);
+    });
+
     test("leaves focus mode's marks alone, which are not content", async () => {
       document.body.innerHTML = '<div class="markdown-body"><p>one</p></div>';
       const coordinator = new RenderCoordinator();
