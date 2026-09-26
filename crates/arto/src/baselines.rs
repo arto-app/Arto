@@ -24,6 +24,10 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
+mod changes;
+
+pub use changes::*;
+
 /// How much the versions may take on disk, together.
 const MAX_BYTES: u64 = 64 * 1024 * 1024;
 
