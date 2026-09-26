@@ -10,7 +10,8 @@
 //! as one more argument, and a glob would import those only to shadow them.
 
 pub use arto_markdown::{
-    BlockKind, HeadingInfo, ImageResolution, RawHtml, RenderOptions, SourcePosition, SourceRange,
+    BlockKind, HeadingInfo, ImageResolution, RawHtml, ReadingBlock, ReadingProfile, RenderOptions,
+    SourcePosition, SourceRange,
 };
 
 use crate::config::CONFIG;
