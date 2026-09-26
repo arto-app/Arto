@@ -98,6 +98,7 @@ impl AppState {
             || *self.contents_open.read()
             || *self.search_open.read()
             || *self.left_hover_active.read()
+            || self.highlight_card.read().is_some()
             || *self.focused_panel.read() != FocusedPanel::Content
     }
 }
@@ -339,6 +340,32 @@ mod tests {
 
             state.focused_panel.set(FocusedPanel::Panel);
             assert!(state.has_overlays());
+            state.focused_panel.set(FocusedPanel::Content);
+
+            state.highlight_card.set(Some(card()));
+            assert!(state.has_overlays());
         });
+    }
+
+    #[test]
+    fn escape_puts_a_highlight_card_away() {
+        with_state(|mut state| {
+            state.highlight_card.set(Some(card()));
+            state.dismiss_overlays();
+            assert_eq!(*state.highlight_card.peek(), None);
+        });
+    }
+
+    fn card() -> crate::highlights::card::OpenCard {
+        crate::highlights::card::OpenCard {
+            document: "/doc.md".into(),
+            id: crate::highlights::HighlightId::from("h".to_string()),
+            rect: crate::highlights::card::Rect {
+                left: 0.0,
+                top: 0.0,
+                right: 10.0,
+                bottom: 10.0,
+            },
+        }
     }
 }

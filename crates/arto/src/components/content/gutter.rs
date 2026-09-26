@@ -3,6 +3,7 @@ use dioxus::prelude::*;
 
 use crate::components::icon::{Icon, IconName};
 use crate::components::pinned_marks::PinnedMarks;
+use crate::components::user_highlights::UserHighlights;
 use crate::document_link::scroll_to_heading_js;
 use crate::markdown::HeadingInfo;
 use crate::pinned_search::{PinnedSearch, PINNED_SEARCHES, PINNED_SEARCHES_CHANGED};
@@ -36,6 +37,9 @@ use crate::state::AppState;
 /// mark and the way to change it in two places, and the way to change it in a
 /// bar that closes.
 ///
+/// The reader's highlights follow them for the same reason: their colour is on
+/// the ticks too.
+///
 /// Asked for by name (`contents.toggle`), the same list is held open instead
 /// of following the pointer, and the keyboard walks it. It is one list either
 /// way: a second panel drawn somewhere else would be a second thing to learn
@@ -62,10 +66,12 @@ pub fn ContentsGutter(
     let marks = pinned.read().clone();
     let changes = state.changes.read().len();
     let open = *state.contents_open.read();
+    let highlighted = !state.highlights.read().is_empty();
     // Nothing to rest on, and nothing to open: with neither a heading, a
-    // mark nor a change there is no map to draw. Asked for by name it still
-    // answers, so that the key does something rather than nothing.
-    if headings.is_empty() && marks.is_empty() && changes == 0 && !open {
+    // mark — pinned or highlighted — nor a change there is no map to draw.
+    // Asked for by name it still answers, so that the key does something
+    // rather than nothing.
+    if headings.is_empty() && marks.is_empty() && !highlighted && changes == 0 && !open {
         return rsx! {};
     }
 
@@ -136,7 +142,7 @@ fn Ruler(headings: Vec<HeadingInfo>) -> Element {
 }
 
 /// What the ticks stand for: what changed since the document was last read,
-/// the marks a search pinned, then the headings.
+/// the marks a search pinned, the reader's highlights, then the headings.
 #[component]
 fn Names(
     headings: Vec<HeadingInfo>,
@@ -147,7 +153,7 @@ fn Names(
 ) -> Element {
     let mut state = use_context::<AppState>();
     let cursor = *state.contents_cursor.read();
-    let nothing_pinned = marks.is_empty();
+    let nothing_marked = marks.is_empty() && state.highlights.read().is_empty();
 
     // Picking a place is the end of a list held open. One that came out under
     // the pointer goes when the pointer does, so it has nothing to close.
@@ -210,11 +216,13 @@ fn Names(
 
                 PinnedMarks { pinned_searches: marks }
 
+                UserHighlights {}
+
                 if !headings.is_empty() {
                     div { class: "contents-toc-label", "Contents" }
                 }
 
-                if headings.is_empty() && nothing_pinned {
+                if headings.is_empty() && nothing_marked {
                     div { class: "contents-toc-empty", "No headings" }
                 }
 

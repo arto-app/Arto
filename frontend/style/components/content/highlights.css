@@ -80,3 +80,76 @@
     outline-offset: 2px;
   }
 }
+
+/* The reader's own highlights. A pinned search fills the whole line box; a
+   highlight is a marker drawn across the lower half, so a word both pinned
+   and highlighted still reads as both. They sit inside the other marks
+   (see `user-highlights.ts`), which is what draws them on top. */
+.markdown-body .user-highlight {
+  background-color: transparent;
+  background-image: linear-gradient(
+    to bottom,
+    transparent 55%,
+    var(--user-highlight-ink, var(--pinned-green)) 55%
+  );
+  border-radius: 0;
+  padding: 0;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.user-highlight[data-color="green"] {
+  --user-highlight-ink: var(--pinned-green);
+  --user-highlight-mark: var(--mark-green);
+}
+.user-highlight[data-color="blue"] {
+  --user-highlight-ink: var(--pinned-blue);
+  --user-highlight-mark: var(--mark-blue);
+}
+.user-highlight[data-color="pink"] {
+  --user-highlight-ink: var(--pinned-pink);
+  --user-highlight-mark: var(--mark-pink);
+}
+.user-highlight[data-color="orange"] {
+  --user-highlight-ink: var(--pinned-orange);
+  --user-highlight-mark: var(--mark-orange);
+}
+.user-highlight[data-color="purple"] {
+  --user-highlight-ink: var(--pinned-purple);
+  --user-highlight-mark: var(--mark-purple);
+}
+
+/* Picked from the contents: the same flash a pinned match gets. */
+.user-highlight-flash {
+  animation: pinned-flash 0.5s ease-out;
+}
+
+/* A highlight with a note ends in a small dot in its own colour, drawn
+   rather than written so the words the highlight is found by stay as they
+   are (see `user-highlights.ts`). */
+.markdown-body .user-highlight[data-note]::after {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 2px;
+  border-radius: var(--radius-full);
+  background-color: var(--user-highlight-mark, var(--mark-green));
+  vertical-align: super;
+}
+
+/* A highlight's note, while the pointer is on the highlight. */
+body > .user-highlight-tip {
+  position: fixed;
+  z-index: var(--z-dropdown);
+  max-width: 320px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}

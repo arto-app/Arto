@@ -22,6 +22,7 @@
   .action-feedback,
   .markdown-viewer > [data-arto-change-marks],
   .change-tip,
+  .user-highlight-tip,
   /* Hover-activated copy buttons on code blocks */
   .copy-button {
     display: none !important;

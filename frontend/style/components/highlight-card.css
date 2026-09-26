@@ -1,0 +1,65 @@
+/* =================================
+   A highlight's card
+   =================================
+
+   Opened beside a highlight on the page (`components/highlight_card.rs`):
+   its colours and a way to take it away along the top, the reader's note
+   under them. Placed by the app, in the window's coordinates. The swatches
+   and the remove button are the colour palette's own. */
+
+.highlight-card-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-context-menu-backdrop);
+}
+
+.highlight-card {
+  position: fixed;
+  z-index: var(--z-context-menu);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 280px;
+  max-width: calc(100vw - 16px);
+  box-sizing: border-box;
+  padding: 8px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.highlight-card-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.highlight-card-spacer {
+  flex: 1;
+}
+
+.highlight-card-note {
+  width: 100%;
+  min-height: 72px;
+  max-height: 40vh;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  resize: vertical;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font: inherit;
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+}
+
+.highlight-card-note::placeholder {
+  color: var(--text-secondary);
+}
+
+.highlight-card-note:focus {
+  outline: none;
+  border-color: var(--accent-bg);
+}

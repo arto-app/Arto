@@ -3,6 +3,7 @@ mod copy_code_as;
 mod copy_path_as;
 mod copy_table_as;
 mod data;
+mod highlight_ops;
 mod image_ops;
 mod lens_ops;
 mod source_ops;
@@ -22,6 +23,7 @@ use copy_as::CopyAsSubmenu;
 use copy_code_as::CopyCodeAsSubmenu;
 use copy_path_as::CopyPathAsSubmenu;
 use copy_table_as::CopyTableAsSubmenu;
+use highlight_ops::HighlightItems;
 use image_ops::{CopyImageAsSubmenu, CopySpecialBlockAsSubmenu};
 use lens_ops::LensItems;
 use source_ops::LinkContextItems;
@@ -41,6 +43,8 @@ pub fn ContentContextMenu(
     table_markdown: Option<String>,
     table_source_line: Option<u32>,
     table_source_line_end: Option<u32>,
+    highlight_ids: Vec<String>,
+    highlight_under_pointer: Option<String>,
     on_close: EventHandler<()>,
 ) -> Element {
     let shortcut = |action| shortcut_hint_for_context_action(KeyContext::Content, action);
@@ -268,6 +272,17 @@ pub fn ContentContextMenu(
                         on_close.call(());
                     }
                 },
+            }
+
+            // === The reader's highlights ===
+            if has_selection || !highlight_ids.is_empty() || highlight_under_pointer.is_some() {
+                ContextMenuSeparator {}
+                HighlightItems {
+                    has_selection: has_selection && state.rendered_source.read().is_some(),
+                    highlight_ids: highlight_ids.clone(),
+                    highlight_under_pointer: highlight_under_pointer.clone(),
+                    on_close: on_close,
+                }
             }
 
             // === The document itself ===

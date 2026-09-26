@@ -89,7 +89,7 @@ const CURRENT = "data-current";
 /** The attribute that marks a heading a search has hits under. */
 const HIT = "data-hit";
 
-/** The ink a hit is drawn in, by the name the pinned search carries. */
+/** The ink a hit is drawn in, by the colour name the mark carries. */
 const HIT_COLOURS: Record<string, string> = {
   green: "var(--mark-green)",
   blue: "var(--mark-blue)",
@@ -106,11 +106,13 @@ const HIT_COLOURS: Record<string, string> = {
  * hits are marked on them. Walking the body once in document order is what
  * attributes a hit to a heading: the last heading passed is the one it is in.
  *
+ * A highlight the reader made is a mark like a pinned one, in its own colour.
+ *
  * Every colour under a heading, not the first: a section that holds two marks
  * is a different answer from one that holds either of them, and the reader
  * asked the question by keeping both.
  */
-function hitsByHeading(body: HTMLElement): Map<string, string[]> {
+export function hitsByHeading(body: HTMLElement): Map<string, string[]> {
   const hits = new Map<string, string[]>();
   let heading: string | null = null;
 
@@ -123,14 +125,15 @@ function hitsByHeading(body: HTMLElement): Map<string, string[]> {
       heading = node.id;
       continue;
     }
-    const pinned = node.classList.contains("pinned-highlight");
-    if (!pinned && !node.classList.contains("search-highlight")) {
+    const coloured =
+      node.classList.contains("pinned-highlight") || node.classList.contains("user-highlight");
+    if (!coloured && !node.classList.contains("search-highlight")) {
       continue;
     }
     if (heading === null) {
       continue;
     }
-    const name = pinned ? node.dataset.color : undefined;
+    const name = coloured ? node.dataset.color : undefined;
     const colour = (name && HIT_COLOURS[name]) || "var(--data-lemon-color-emphasis)";
     const found = hits.get(heading);
     if (!found) {

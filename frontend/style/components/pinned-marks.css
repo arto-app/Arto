@@ -103,3 +103,11 @@
   background: rgba(220, 53, 69, 0.15);
   color: var(--error-color);
 }
+
+/* What a highlight lost from the page says in place of its colours. */
+.color-palette-note {
+  padding: 0 6px;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}

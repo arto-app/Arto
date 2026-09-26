@@ -59,4 +59,35 @@ pub struct ContextMenuData {
     /// Table source line end (1-based)
     #[serde(default)]
     pub table_source_line_end: Option<u32>,
+    /// The reader's highlights the selection touches, or the one clicked on
+    #[serde(default)]
+    pub highlight_ids: Vec<String>,
+    /// The innermost highlight under the pointer, which a note is written on
+    #[serde(default)]
+    pub highlight_under_pointer: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_highlights_under_a_click_are_read_and_default_to_none() {
+        let base = serde_json::json!({
+            "context": { "type": "general" },
+            "x": 1,
+            "y": 2,
+            "has_selection": false,
+        });
+        let data: ContextMenuData = serde_json::from_value(base.clone()).unwrap();
+        assert!(data.highlight_ids.is_empty());
+        assert_eq!(data.highlight_under_pointer, None);
+
+        let mut with = base;
+        with["highlight_ids"] = serde_json::json!(["hl_1", "hl_2"]);
+        with["highlight_under_pointer"] = serde_json::json!("hl_2");
+        let data: ContextMenuData = serde_json::from_value(with).unwrap();
+        assert_eq!(data.highlight_ids, ["hl_1", "hl_2"]);
+        assert_eq!(data.highlight_under_pointer.as_deref(), Some("hl_2"));
+    }
 }

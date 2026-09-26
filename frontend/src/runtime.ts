@@ -13,6 +13,7 @@ import {
   cleanupElementReferences,
   getSavedMermaidElement,
   getSavedMathElement,
+  getSavedRange,
 } from "./context-menu-handler";
 import { fitSubmenu } from "./submenu-fit";
 import { rasterizeMathBlock, rasterizeMermaidBlock } from "./special-block-rasterizer";
@@ -24,6 +25,7 @@ import * as contentCursor from "./content-cursor";
 import * as actionFeedback from "./action-feedback";
 import * as lenses from "./lenses";
 import * as changes from "./changes";
+import * as userHighlights from "./user-highlights";
 import * as viewportQueue from "./viewport-queue";
 import * as scrollAnchor from "./scroll-anchor";
 import * as stickyTableHead from "./sticky-table-head";
@@ -71,6 +73,29 @@ declare global {
         reapply: typeof findInPage.reapply;
         setPinned: typeof findInPage.setPinned;
         scrollToPinnedMatch: typeof findInPage.scrollToPinnedMatch;
+      };
+      highlights: {
+        /**
+         * Hear what the page found each time highlights are drawn, and which
+         * one the reader clicked to open.
+         */
+        setup: typeof userHighlights.setup;
+        /** Draw a document's highlights on the page that now holds it. */
+        show: typeof userHighlights.show;
+        /** Name the selected place, for a highlight to be made of it. */
+        describeSelection: () => ReturnType<typeof userHighlights.describeSelection>;
+        /**
+         * The same, for an item of the context menu: the selection the menu
+         * opened on stands in when picking the item took the selection away.
+         */
+        describeMenuSelection: () => ReturnType<typeof userHighlights.describeSelection>;
+        /** The highlights the selection touches. */
+        idsAtSelection: () => string[];
+        scrollTo: typeof userHighlights.scrollTo;
+        /** Where a highlight is drawn, for something placed beside it. */
+        rectOf: typeof userHighlights.rectOf;
+        /** Scroll to a highlight and say where it is once it has landed. */
+        reveal: typeof userHighlights.reveal;
       };
       keyboard: {
         onKeydown: typeof keyboardInterceptor.onKeydown;
@@ -413,6 +438,16 @@ export function init(): void {
       reapply: findInPage.reapply,
       setPinned: findInPage.setPinned,
       scrollToPinnedMatch: findInPage.scrollToPinnedMatch,
+    },
+    highlights: {
+      setup: userHighlights.setup,
+      show: userHighlights.show,
+      describeSelection: () => userHighlights.describeSelection(),
+      describeMenuSelection: () => userHighlights.describeSelection(getSavedRange()),
+      idsAtSelection: () => userHighlights.idsAtSelection(),
+      scrollTo: userHighlights.scrollTo,
+      rectOf: userHighlights.rectOf,
+      reveal: userHighlights.reveal,
     },
     keyboard: {
       onKeydown: keyboardInterceptor.onKeydown,

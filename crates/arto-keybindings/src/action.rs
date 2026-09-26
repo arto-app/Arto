@@ -28,6 +28,12 @@ pub enum Action {
     SearchClear,
     SearchPinCurrent,
 
+    // Highlights — the reader's own marks on the selection
+    HighlightAdd,
+    HighlightRemove,
+    /// Highlight the selection and open its card, to write a note on it.
+    HighlightNote,
+
     // Zoom (3) — MenuId: ZoomIn, ZoomOut, ActualSize
     ZoomIn,
     ZoomOut,
@@ -182,6 +188,14 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::SearchPrev,
             Action::SearchClear,
             Action::SearchPinCurrent,
+        ],
+    ),
+    (
+        "Highlights",
+        &[
+            Action::HighlightAdd,
+            Action::HighlightRemove,
+            Action::HighlightNote,
         ],
     ),
     (
@@ -346,6 +360,9 @@ impl Action {
             // Search
             Self::SearchOpen => "Find in Page",
 
+            // Highlights
+            Self::HighlightNote => "Highlight with Note",
+
             // Zoom
             Self::ZoomIn => "Zoom In",
             Self::ZoomOut => "Zoom Out",
@@ -420,6 +437,7 @@ pub const COMMAND_ACTIONS: &[Action] = &[
     Action::HistoryBack,
     Action::HistoryForward,
     Action::SearchOpen,
+    Action::HighlightNote,
     Action::ZoomIn,
     Action::ZoomOut,
     Action::ZoomReset,
@@ -565,6 +583,9 @@ action_strings! {
     SearchPrev => "search.prev",
     SearchClear => "search.clear",
     SearchPinCurrent => "search.pin_current",
+    HighlightAdd => "highlight.add",
+    HighlightRemove => "highlight.remove",
+    HighlightNote => "highlight.note",
     ZoomIn => "zoom.in",
     ZoomOut => "zoom.out",
     ZoomReset => "zoom.reset",
@@ -661,7 +682,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 95);
+        assert_eq!(all_actions().len(), 98);
     }
 
     #[test]

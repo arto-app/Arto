@@ -475,12 +475,19 @@ pub fn App(
                     table_markdown: menu_state.data.table_markdown.clone(),
                     table_source_line: menu_state.data.table_source_line,
                     table_source_line_end: menu_state.data.table_source_line_end,
+                    highlight_ids: menu_state.data.highlight_ids.clone(),
+                    highlight_under_pointer: menu_state.data.highlight_under_pointer.clone(),
                     on_close: move |_| {
                         close_context_menu();
                         crate::keybindings::dispatcher::content_cursor_eval("clearCursorDeferred");
                     },
                 }
             }
+
+            // A highlight's card, at the root like the menus: it stands over
+            // the page beside the highlight, and a redraw of the page must
+            // not take it (and the note being written) away.
+            crate::components::highlight_card::HighlightCardHost {}
 
             // Left-sidebar file-tree context menu (rendered at the app-container
             // root, outside the watcher-keyed file tree, so refresh-driven
