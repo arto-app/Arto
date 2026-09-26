@@ -1,4 +1,5 @@
 mod assets;
+mod baselines;
 mod bookmarks;
 mod cache;
 pub mod cli;
