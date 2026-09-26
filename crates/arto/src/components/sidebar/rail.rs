@@ -72,6 +72,14 @@ pub fn Rail(on_peek: EventHandler<Face>) -> Element {
                 on_click: move |_| press(state, Face::Recent),
                 on_dwell: move |_| peek(dwell, on_peek, Face::Recent),
             }
+            RailButton {
+                icon: IconName::Link,
+                label: "Links",
+                active: showing && face == Face::Links,
+                held: held && face == Face::Links,
+                on_click: move |_| press(state, Face::Links),
+                on_dwell: move |_| peek(dwell, on_peek, Face::Links),
+            }
 
             div { class: "left-rail-spacer" }
 

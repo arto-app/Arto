@@ -45,7 +45,43 @@ pub(super) fn panel_items(state: &AppState) -> Vec<crate::state::PanelRow> {
             .filter(|bookmark| !bookmark.is_dir())
             .map(|bookmark| (crate::state::Group::Flat, bookmark.path.clone()))
             .collect(),
+        // One row per document, however many of its lines link here: the
+        // lines are drawn under it, and the row opens at the first of them.
+        crate::state::Face::Links => backlinks(state)
+            .map(|found| {
+                found
+                    .sources
+                    .iter()
+                    .map(|source| (crate::state::Group::Flat, source.path.clone()))
+                    .collect()
+            })
+            .unwrap_or_default(),
     }
+}
+
+/// What the Links face is showing, if it has anything to show.
+fn backlinks(state: &AppState) -> Option<std::sync::Arc<crate::backlinks::Backlinks>> {
+    let (root, target) = state.backlinks_scope()?;
+    crate::backlinks::lookup(&root, &target)
+}
+
+/// Open a document picked out of the panel — at the first line that links
+/// here, when the row is one of the Links face's.
+fn open_row_document(state: &mut AppState, path: &std::path::Path) {
+    if state.sidebar.peek().face == crate::state::Face::Links {
+        let line = backlinks(state).and_then(|found| {
+            found
+                .sources
+                .iter()
+                .find(|source| source.path == path)
+                .and_then(crate::backlinks::Source::first_line)
+        });
+        if let Some(line) = line {
+            state.open_from_panel_at(path, line);
+            return;
+        }
+    }
+    state.open_from_panel(path);
 }
 
 /// Put the cursor on the first row, if it is not on one already.
@@ -168,7 +204,7 @@ pub(super) fn dispatch_cursor_enter(state: &mut AppState) {
             if path.is_dir() {
                 state.add_root(&path);
             } else if path.exists() {
-                state.open_from_panel(&path);
+                open_row_document(state, &path);
             }
         }
         FocusedPanel::Content => {}
@@ -194,7 +230,7 @@ pub(super) fn open_panel_row(state: &mut AppState) {
 
     if !path.is_dir() {
         if path.exists() {
-            state.open_from_panel(&path);
+            open_row_document(state, &path);
         }
         return;
     }

@@ -29,6 +29,19 @@ pub(super) fn href(target: &str) -> String {
     href
 }
 
+/// Whether the link at `start..end` of `source` was written as `[[target]]`.
+///
+/// The parser turns wiki links into ordinary link nodes, so the delimiters in
+/// the source are what is left to tell them apart. Both ends are checked: a
+/// link text that opens with a bracket starts with `[[` too, and it does not
+/// close with `]]`.
+pub(super) fn is_wiki_link(source: &str, start: usize, end: usize) -> bool {
+    let Some(source) = source.get(start..end) else {
+        return false;
+    };
+    source.starts_with("[[") && source.ends_with("]]")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

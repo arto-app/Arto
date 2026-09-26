@@ -3,16 +3,18 @@
 //! Everything that knows the parser, and the HTML the renderer writes, lives
 //! below this module: the parser and renderer options, the hooks that swap
 //! Mermaid and math for the containers the frontend renders client-side, the
-//! heading outline, the pass that turns the rendered markup into the crate's
-//! HTML contract, and the selection source map. The rest of the crate sees
-//! [`render`] with its [`Rendered`] output and [`extract_source_selection`],
-//! neither of which mentions an ox-content type, so replacing the engine is
-//! a change inside this directory.
+//! heading outline, the links a document makes, the pass that turns the
+//! rendered markup into the crate's HTML contract, and the selection source
+//! map. The rest of the crate sees [`render`] with its [`Rendered`] output,
+//! [`links`] and [`extract_source_selection`], none of which mentions an
+//! ox-content type, so replacing the engine is a change inside this
+//! directory.
 
 mod annotate;
 mod code;
 mod hooks;
 mod lines;
+pub(crate) mod links;
 mod outline;
 mod source_map;
 mod wiki;
@@ -129,4 +131,23 @@ pub(crate) fn render(
         html: annotated.html,
         headings,
     })
+}
+
+/// The links of a document body, each with the href its anchor would carry.
+///
+/// Parsed with the same options as [`render`], so a construct that does not
+/// render as a link — a wiki link with wiki links off — is not listed as one.
+pub(crate) fn links(
+    body: &str,
+    frontmatter_lines: usize,
+    options: &RenderOptions,
+) -> Result<Vec<links::Link>> {
+    let allocator = Allocator::new();
+    let document = Parser::with_options(&allocator, body, parser_options(options))
+        .parse()
+        .map_err(|error| anyhow!("failed to parse Markdown: {error}"))?;
+    Ok(links::collect(
+        &document,
+        &LineTable::new(body, frontmatter_lines),
+    ))
 }

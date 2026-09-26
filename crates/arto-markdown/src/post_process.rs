@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use crate::links::{has_foreign_scheme, local_link};
 use crate::sanitize::is_unsafe_attribute;
 use crate::{DeferredImage, ImageResolution, RawHtml};
 
@@ -57,42 +58,6 @@ fn link_target_exists(base_dir: &Path, path: &str) -> bool {
     } else {
         base_dir.join(target).is_file()
     }
-}
-
-/// Whether `href` names a URL scheme that is not `file:`.
-///
-/// `http:`, `mailto:`, `tel:` and the like address something outside the
-/// file system, so they stay anchors instead of being resolved as document
-/// paths. A one-letter prefix is not read as a scheme, which keeps a Windows
-/// path such as `C:\notes\a.md` a path.
-fn has_foreign_scheme(href: &str) -> bool {
-    let Some(colon) = href.find(':') else {
-        return false;
-    };
-    let scheme = &href[..colon];
-    scheme.len() > 1
-        && scheme.starts_with(|c: char| c.is_ascii_alphabetic())
-        && scheme
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.'))
-        && !scheme.eq_ignore_ascii_case("file")
-}
-
-/// A `file:` URL as a filesystem path, or `None` when `href` is not one.
-///
-/// `file://`, `file://localhost/…` and `file:/…` all parse; percent-encoding
-/// and the platform's path shape are handled by `url`.
-fn file_url_to_path(href: &str) -> Option<String> {
-    if !href.starts_with("file:") {
-        return None;
-    }
-    let path = url::Url::parse(href)
-        .ok()
-        .and_then(|url| url.to_file_path().ok());
-    if path.is_none() {
-        tracing::debug!(?href, "file: URL could not be parsed; left as written");
-    }
-    Some(path?.to_string_lossy().into_owned())
 }
 
 /// Infer MIME type from file extension
@@ -476,36 +441,21 @@ pub(super) fn post_process_html_tags(
                 let Some(href) = el.get_attribute("href") else {
                     return Ok(());
                 };
-                if has_foreign_scheme(&href) {
-                    return Ok(());
-                }
-                // A fragment belongs to the target document, not to its file
-                // name; a link that is only a fragment stays an in-page anchor.
-                let (path, fragment) = href
-                    .split_once('#')
-                    .map_or((href.as_str(), None), |(path, fragment)| {
-                        (path, Some(fragment))
-                    });
-                // The app resolves the link as a filesystem path, so a
-                // `file:` URL is turned into one here rather than being
-                // joined onto the base directory as a literal string.
-                let path = match file_url_to_path(path) {
-                    Some(path) => path,
-                    None => path.to_string(),
-                };
-                let Some(ext) = Path::new(&path).extension().and_then(|e| e.to_str()) else {
+                // A link that is only a fragment, or that addresses something
+                // other than a file, stays an anchor.
+                let Some(local) = local_link(&href) else {
                     return Ok(());
                 };
-                let class = if ext != "md" && ext != "markdown" {
+                let class = if !local.is_markdown() {
                     "md-link md-link-invalid"
-                } else if !link_target_exists(&link_base, &path) {
+                } else if !link_target_exists(&link_base, &local.path) {
                     "md-link md-link-missing"
                 } else {
                     "md-link"
                 };
-                let link = match fragment {
-                    Some(fragment) => format!("{path}#{fragment}"),
-                    None => path,
+                let link = match local.fragment {
+                    Some(fragment) => format!("{}#{fragment}", local.path),
+                    None => local.path,
                 };
                 el.set_tag_name("span")?;
                 el.remove_attribute("href");

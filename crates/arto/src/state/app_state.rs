@@ -136,8 +136,8 @@ pub struct AppState {
     /// Where the keyboard is in the panel: the row it is on, in whichever
     /// face is showing.
     ///
-    /// A row rather than a position, because the three faces are three lists
-    /// of the same thing — a document, or a folder — and a row survives the
+    /// A row rather than a position, because the faces are all lists of the
+    /// same thing — a document, or a folder — and a row survives the
     /// list being rebuilt under it, which a position does not. See
     /// [`PanelRow`] for why it is not simply a path.
     pub panel_cursor: Signal<Option<PanelRow>>,
@@ -384,11 +384,13 @@ impl AppState {
     /// Force the file tree to remount and re-read the filesystem (manual reload
     /// or file-watcher change).
     ///
-    /// The palette's file listings go with it: they are a picture of the same
-    /// folders taken earlier, and a reader who has just asked for the tree to
-    /// be re-read has asked about those too.
+    /// The palette's file listings go with it, and so does what the Links
+    /// face read out of those files: they are a picture of the same folders
+    /// taken earlier, and a reader who has just asked for the tree to be
+    /// re-read has asked about those too.
     pub fn bump_sidebar_refresh(&mut self) {
         crate::files::forget();
+        crate::backlinks::forget();
         let next = self.sidebar_refresh_counter.read().wrapping_add(1);
         self.sidebar_refresh_counter.set(next);
     }

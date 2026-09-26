@@ -17,12 +17,14 @@ pub enum Face {
     Places,
     Recent,
     Starred,
+    /// The documents that link to the one on screen.
+    Links,
 }
 
 impl Face {
     /// The faces in the order the rail draws them, which is the order the
     /// keyboard steps through them.
-    pub const ORDER: [Face; 3] = [Face::Places, Face::Starred, Face::Recent];
+    pub const ORDER: [Face; 4] = [Face::Places, Face::Starred, Face::Recent, Face::Links];
 
     /// The next face along, wrapping. `forward` is down the rail.
     pub fn step(self, forward: bool) -> Face {
@@ -52,7 +54,8 @@ pub enum Group {
     Current,
     /// One of the folders kept, which every window has.
     Bookmark,
-    /// A face whose rows are one list with no groups in it: Starred.
+    /// A face whose rows are one list with no groups in it: Starred, and the
+    /// documents that link here.
     Flat,
     /// One day of the history. The same document is a row under every day it
     /// was read on — which is what the history is for — so, as with a folder
@@ -81,7 +84,7 @@ pub struct Sidebar {
     /// The directories the tree is rooted at: the bookmarked places, shared by
     /// every window, and this window's own temporaries.
     pub roots: Roots,
-    /// Which of the three faces the panel is showing.
+    /// Which face the panel is showing.
     pub face: Face,
     /// The directories opened, by the row that opened them — see [`TreeRow`].
     pub expanded_dirs: HashSet<TreeRow>,
@@ -228,8 +231,7 @@ impl AppState {
         }
     }
 
-    /// Show one of the panel's three faces, bringing the panel out if it is
-    /// away.
+    /// Show one of the panel's faces, bringing the panel out if it is away.
     ///
     /// Asking for a face is asking to look at it, so it does not also require
     /// opening the panel first.
@@ -241,6 +243,41 @@ impl AppState {
         }
         self.sidebar.write().face = face;
         self.show_panel();
+    }
+
+    /// Open a document picked out of the panel at one of its lines.
+    ///
+    /// For a row that stands for a place in the document rather than for the
+    /// whole of it — a link written on that line — so the document opens
+    /// there rather than where the reader last left it.
+    pub fn open_from_panel_at(&mut self, path: impl AsRef<Path>, line: u32) {
+        let path = path.as_ref();
+        let already_open = self.current_file().as_deref() == Some(path);
+        self.open_from_panel(path);
+        if !already_open {
+            self.pending_scroll_anchor
+                .set(Some(crate::scroll_anchor::ScrollAnchor {
+                    line,
+                    fraction: 0.0,
+                }));
+        }
+    }
+
+    /// The folder to look for links to the document on screen in, and that
+    /// document: the deepest root holding it, or failing that the window's
+    /// own folder.
+    ///
+    /// `None` while no document is open, or when there is no folder to look
+    /// in at all.
+    pub fn backlinks_scope(&self) -> Option<(PathBuf, PathBuf)> {
+        let target = self.current_file()?;
+        let sidebar = self.sidebar.read();
+        let root = sidebar
+            .roots
+            .covering(&target)
+            .or_else(|| sidebar.primary_root())?
+            .clone();
+        Some((root, target))
     }
 
     /// Show a face and put the keyboard in it.
@@ -341,7 +378,8 @@ mod tests {
     fn the_faces_step_in_the_order_the_rail_draws_them() {
         assert_eq!(Face::Places.step(true), Face::Starred);
         assert_eq!(Face::Starred.step(true), Face::Recent);
-        assert_eq!(Face::Recent.step(true), Face::Places);
+        assert_eq!(Face::Recent.step(true), Face::Links);
+        assert_eq!(Face::Links.step(true), Face::Places);
     }
 
     #[test]

@@ -90,12 +90,8 @@ impl HtmlRenderHooks for ArtoHooks<'_> {
 }
 
 impl ArtoHooks<'_> {
-    /// Whether the link at `span` was written as `[[target]]`.
-    ///
-    /// The parser turns wiki links into ordinary link nodes, so the
-    /// delimiters in the source are what is left to tell them apart. Both
-    /// ends are checked: a link text that opens with a bracket starts with
-    /// `[[` too, and it does not close with `]]`.
+    /// Whether the link at `span` was written as `[[target]]` — see
+    /// [`super::wiki::is_wiki_link`].
     ///
     /// One construct escapes this: a table cell holding an escaped `\|`
     /// reports the spans inside it one byte early per escape
@@ -106,11 +102,7 @@ impl ArtoHooks<'_> {
     /// (ubugeeei-prod/ox-content#1362), which costs the math and Mermaid
     /// containers there as well.
     fn is_wiki_link(&self, span: Span) -> bool {
-        let (start, end) = (span.start as usize, span.end as usize);
-        let Some(source) = self.source.get(start..end) else {
-            return false;
-        };
-        source.starts_with("[[") && source.ends_with("]]")
+        super::wiki::is_wiki_link(self.source, span.start as usize, span.end as usize)
     }
 
     /// Render `[[target]]` as an anchor on the document the target names.
