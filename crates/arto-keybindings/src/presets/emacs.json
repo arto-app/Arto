@@ -164,6 +164,10 @@
       "action": "sidebar.face_starred"
     },
     {
+      "key": "Cmd+4",
+      "action": "sidebar.face_links"
+    },
+    {
       "key": "Cmd+k",
       "action": "palette.open"
     },
@@ -182,6 +186,10 @@
     {
       "key": "Ctrl+x r",
       "action": "focus.recent"
+    },
+    {
+      "key": "Ctrl+x l",
+      "action": "focus.links"
     }
   ],
   "content": [
