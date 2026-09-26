@@ -312,6 +312,14 @@
     {
       "key": "[ [",
       "action": "content.prev_heading"
+    },
+    {
+      "key": "] c",
+      "action": "changes.next"
+    },
+    {
+      "key": "[ c",
+      "action": "changes.prev"
     }
   ],
   "sidebar": [

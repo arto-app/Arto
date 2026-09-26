@@ -194,6 +194,11 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::ContentsConfirm => confirm_contents(&mut state),
         Action::ContentsClose => state.close_contents(),
 
+        // --- Changes since last read ---
+        Action::ChangesNext => changes_eval("next"),
+        Action::ChangesPrev => changes_eval("prev"),
+        Action::ChangesMarkRead => state.mark_changes_read(),
+
         // --- File ---
         Action::FileOpen => {
             if let Some(file) = pick_markdown_file() {
@@ -256,6 +261,14 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
 
         Action::Cancel => {}
     }
+}
+
+/// Walk the marks of what changed since the document was last read.
+fn changes_eval(method: &str) {
+    let js = format!("window.Arto?.changes?.{method}?.()");
+    spawn_detached(async move {
+        let _ = document::eval(&js).await;
+    });
 }
 
 pub(crate) fn show_action_feedback(message: &str) {
