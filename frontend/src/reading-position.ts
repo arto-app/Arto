@@ -143,6 +143,33 @@ function hitsByHeading(body: HTMLElement): Map<string, string[]> {
   return hits;
 }
 
+/** The attribute that marks a heading something changed under. */
+const CHANGED = "data-changed";
+
+/**
+ * The headings something changed under since the document was last read,
+ * as `src/changes.ts` marked it: a heading rewritten itself, or one a
+ * changed block falls under.
+ */
+export function changedHeadings(body: HTMLElement): Set<string> {
+  const changed = new Set<string>();
+  let heading: string | null = null;
+  const walker = document.createTreeWalker(body, NodeFilter.SHOW_ELEMENT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!(node instanceof HTMLElement)) {
+      continue;
+    }
+    if (/^H[1-6]$/.test(node.tagName) && node.id) {
+      heading = node.id;
+    }
+    const marked = node.hasAttribute("data-change") || node.hasAttribute("data-change-removed");
+    if (marked && heading !== null) {
+      changed.add(heading);
+    }
+  }
+  return changed;
+}
+
 /**
  * The dots on a contents row: one per mark found under that heading.
  *
@@ -334,6 +361,7 @@ function update(): void {
   }
 
   const hits = body ? hitsByHeading(body) : new Map<string, string[]>();
+  const changed = body ? changedHeadings(body) : new Set<string>();
 
   for (const mark of marks) {
     if (mark.dataset.heading === currentId) {
@@ -341,6 +369,8 @@ function update(): void {
     } else {
       mark.removeAttribute(CURRENT);
     }
+
+    mark.toggleAttribute(CHANGED, mark.dataset.heading ? changed.has(mark.dataset.heading) : false);
 
     const hit = (mark.dataset.heading ? hits.get(mark.dataset.heading) : undefined) ?? [];
     const row = mark.classList.contains("contents-toc-row");
