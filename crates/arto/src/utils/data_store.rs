@@ -8,18 +8,66 @@
 
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
 /// Write `bytes` to `path` whole or not at all: a reader never sees half a
 /// record, even when the app stops half-way through writing one.
+///
+/// What is kept here is the reader's own — copies of what they read, what
+/// was said about it — so a directory or a record this creates is readable
+/// by its owner alone, whatever the documents themselves allow.
+///
+/// Each write goes through a file of its own, so two windows saving the
+/// same record at once each put down a whole one rather than one of them
+/// renaming the other's half-written file into place.
 pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
     let dir = path.parent().unwrap_or(Path::new("."));
-    fs::create_dir_all(dir)?;
-    let partial = path.with_extension("partial");
-    fs::write(&partial, bytes)?;
-    fs::rename(&partial, path)
+    create_private_dir(dir)?;
+    let partial = path.with_extension(format!(
+        "partial-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    let written = create_private_file(&partial)
+        .and_then(|mut file| file.write_all(bytes))
+        .and_then(|()| fs::rename(&partial, path));
+    if written.is_err() {
+        let _ = fs::remove_file(&partial);
+    }
+    written
+}
+
+#[cfg(unix)]
+fn create_private_dir(dir: &Path) -> io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(dir)
+}
+
+#[cfg(not(unix))]
+fn create_private_dir(dir: &Path) -> io::Result<()> {
+    fs::create_dir_all(dir)
+}
+
+#[cfg(unix)]
+fn create_private_file(path: &Path) -> io::Result<fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+    fs::File::options()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(path)
+}
+
+#[cfg(not(unix))]
+fn create_private_file(path: &Path) -> io::Result<fs::File> {
+    fs::File::options().write(true).create_new(true).open(path)
 }
 
 /// Remove the records in `root` used longest ago until the rest fit in
@@ -85,7 +133,21 @@ mod tests {
         write_atomically(&path, b"{}").unwrap();
 
         assert_eq!(fs::read(&path).unwrap(), b"{}");
-        assert!(!path.with_extension("partial").exists());
+        assert_eq!(fs::read_dir(path.parent().unwrap()).unwrap().count(), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_record_is_readable_by_its_owner_alone() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("nested").join("record.json");
+
+        write_atomically(&path, b"{}").unwrap();
+
+        let mode = |path: &Path| fs::metadata(path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(&path), 0o600);
+        assert_eq!(mode(path.parent().unwrap()), 0o700);
     }
 
     #[test]
