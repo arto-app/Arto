@@ -319,6 +319,76 @@ without splitting the cell; the empty cell keeps its column.
 
 **Expected:** the table scrolls horizontally on its own.
 
+Taller than the window:
+
+| #   | Label   | Parity    |
+| --- | ------- | --------- |
+| 1   | Row 1   | odd       |
+| 2   | Row 2   | even      |
+| 3   | Row 3   | odd       |
+| 4   | Row 4   | even      |
+| 5   | Row 5   | odd       |
+| 6   | Row 6   | even      |
+| 7   | Row 7   | odd       |
+| 8   | Row 8   | even      |
+| 9   | Row 9   | odd       |
+| 10  | Row 10  | even      |
+| 11  | Row 11  | odd       |
+| 12  | Row 12  | even      |
+| 13  | Row 13  | odd       |
+| 14  | Row 14  | even      |
+| 15  | Row 15  | odd       |
+| 16  | Row 16  | even      |
+| 17  | Row 17  | odd       |
+| 18  | Row 18  | even      |
+| 19  | Row 19  | odd       |
+| 20  | Row 20  | even      |
+| 21  | Row 21  | odd       |
+| 22  | Row 22  | even      |
+| 23  | Row 23  | odd       |
+| 24  | Row 24  | even      |
+| 25  | Row 25  | odd       |
+| 26  | Row 26  | even      |
+| 27  | Row 27  | odd       |
+| 28  | Row 28  | even      |
+| 29  | Row 29  | odd       |
+| 30  | Row 30  | even      |
+| 31  | Row 31  | odd       |
+| 32  | Row 32  | even      |
+| 33  | Row 33  | odd       |
+| 34  | Row 34  | even      |
+| 35  | Row 35  | odd       |
+| 36  | Row 36  | even      |
+| 37  | Row 37  | odd       |
+| 38  | Row 38  | even      |
+| 39  | Row 39  | odd       |
+| 40  | Row 40  | even      |
+| 41  | Row 41  | odd       |
+| 42  | Row 42  | even      |
+| 43  | Row 43  | odd       |
+| 44  | Row 44  | even      |
+| 45  | Row 45  | odd       |
+| 46  | Row 46  | even      |
+| 47  | Row 47  | odd       |
+| 48  | Row 48  | even      |
+| 49  | Row 49  | odd       |
+| 50  | Row 50  | even      |
+| 51  | Row 51  | odd       |
+| 52  | Row 52  | even      |
+| 53  | Row 53  | odd       |
+| 54  | Row 54  | even      |
+| 55  | Row 55  | odd       |
+| 56  | Row 56  | even      |
+| 57  | Row 57  | odd       |
+| 58  | Row 58  | even      |
+| 59  | Row 59  | odd       |
+| 60  | Row 60  | even      |
+
+**Expected:** while the table is read, its header row stays at the top of the
+view, over the rows scrolling beneath it, and leaves with the table's last
+rows. A table wider than the page, like the one above, never pins its
+header, because it has to scroll sideways. Printed, nothing is pinned.
+
 Header only:
 
 | Just | a header |
