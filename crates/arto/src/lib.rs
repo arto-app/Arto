@@ -1,4 +1,5 @@
 mod assets;
+mod backlinks;
 mod baselines;
 mod bookmarks;
 mod cache;
