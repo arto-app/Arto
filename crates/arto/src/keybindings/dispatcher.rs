@@ -142,6 +142,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::FocusPlaces => face_to(&mut state, crate::state::Face::Places),
         Action::FocusRecent => face_to(&mut state, crate::state::Face::Recent),
         Action::FocusStarred => face_to(&mut state, crate::state::Face::Starred),
+        Action::FocusLinks => face_to(&mut state, crate::state::Face::Links),
         Action::FocusContent => state.focus_content(),
 
         // --- Cursor ---
@@ -241,6 +242,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::SidebarFacePlaces => face_to(&mut state, crate::state::Face::Places),
         Action::SidebarFaceRecent => face_to(&mut state, crate::state::Face::Recent),
         Action::SidebarFaceStarred => face_to(&mut state, crate::state::Face::Starred),
+        Action::SidebarFaceLinks => face_to(&mut state, crate::state::Face::Links),
         Action::SidebarFaceNext => step_face(&mut state, true),
         Action::SidebarFacePrev => step_face(&mut state, false),
         Action::SidebarToggleShowAllFiles => {

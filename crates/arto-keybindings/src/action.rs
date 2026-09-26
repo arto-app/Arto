@@ -71,6 +71,7 @@ pub enum Action {
     FocusPlaces,
     FocusStarred,
     FocusRecent,
+    FocusLinks,
     FocusContent,
 
     // File (4) — MenuId: Open, OpenDirectory, Preferences, RevealInFinder
@@ -119,6 +120,7 @@ pub enum Action {
     SidebarFacePlaces,
     SidebarFaceRecent,
     SidebarFaceStarred,
+    SidebarFaceLinks,
     SidebarFaceNext,
     SidebarFacePrev,
 
@@ -218,6 +220,7 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::FocusPlaces,
             Action::FocusStarred,
             Action::FocusRecent,
+            Action::FocusLinks,
             Action::FocusContent,
         ],
     ),
@@ -273,6 +276,7 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::SidebarFacePlaces,
             Action::SidebarFaceRecent,
             Action::SidebarFaceStarred,
+            Action::SidebarFaceLinks,
             Action::SidebarFaceNext,
             Action::SidebarFacePrev,
         ],
@@ -375,6 +379,7 @@ impl Action {
             Self::SidebarFacePlaces => "Show Places",
             Self::SidebarFaceRecent => "Show Recent",
             Self::SidebarFaceStarred => "Show Starred",
+            Self::SidebarFaceLinks => "Show Links",
             Self::SidebarFaceNext => "Next Face",
             Self::SidebarFacePrev => "Previous Face",
 
@@ -429,6 +434,7 @@ pub const COMMAND_ACTIONS: &[Action] = &[
     Action::SidebarFacePlaces,
     Action::SidebarFaceRecent,
     Action::SidebarFaceStarred,
+    Action::SidebarFaceLinks,
     Action::SidebarFaceNext,
     Action::SidebarFacePrev,
     Action::ThemeSetLight,
@@ -569,6 +575,7 @@ action_strings! {
     FocusPlaces => "focus.places",
     FocusStarred => "focus.starred",
     FocusRecent => "focus.recent",
+    FocusLinks => "focus.links",
     FocusContent => "focus.content",
     FileOpen => "file.open",
     FileOpenDirectory => "file.open_directory",
@@ -600,6 +607,7 @@ action_strings! {
     SidebarFacePlaces => "sidebar.face_places",
     SidebarFaceRecent => "sidebar.face_recent",
     SidebarFaceStarred => "sidebar.face_starred",
+    SidebarFaceLinks => "sidebar.face_links",
     SidebarFaceNext => "sidebar.face_next",
     SidebarFacePrev => "sidebar.face_prev",
     ThemeSetLight => "theme.set_light",
@@ -633,7 +641,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 91);
+        assert_eq!(all_actions().len(), 93);
     }
 
     #[test]
