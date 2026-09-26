@@ -12,9 +12,25 @@ import {
   setup,
   showAtCursor,
 } from "./link-preview";
+import { MAX_PREVIEW_DIAGRAMS } from "./mermaid-renderer";
 
 const cursor = vi.hoisted(() => ({ element: null as Element | null }));
 vi.mock("./content-cursor", () => ({ getCurrentElement: () => cursor.element }));
+
+const libraries = vi.hoisted(() => ({
+  katex: { renderToString: (tex: string) => `<span class="katex">${tex}</span>` },
+  mermaid: {
+    initialize: () => {},
+    render: vi.fn<(id: string, source: string, container: Element) => Promise<{ svg: string }>>(),
+  },
+}));
+vi.mock("./libraries", () => ({
+  katexLibrary: () => libraries.katex,
+  mermaidLibrary: () => libraries.mermaid,
+}));
+
+const placement = vi.hoisted(() => ({ placePopover: vi.fn() }));
+vi.mock("./popover", () => placement);
 
 function page(html: string): HTMLElement {
   document.body.innerHTML = `<div class="content"><article class="markdown-body">${html}</article></div>`;
@@ -381,6 +397,122 @@ describe("hover", () => {
       expect(showAtCursor()).toBe(false);
       cursor.element = null;
       expect(showAtCursor()).toBe(false);
+    });
+  });
+
+  describe("formulas and diagrams", () => {
+    const DIAGRAM = `<pre class="preprocessed-mermaid" data-original-content="flowchart LR">flowchart LR</pre>`;
+    const DRAWN = `<svg xmlns="http://www.w3.org/2000/svg" id="mermaid-1"><g class="node"><text>A</text></g></svg>`;
+
+    /** Show another document's preview with `html` as the app's answer. */
+    function previewDocument(html: string): void {
+      page(`<p><span class="md-link" data-md-link="./other.md">other</span></p>`);
+      let seq = -1;
+      onRequest((request) => (seq = request.seq));
+      hover(document.querySelector(".md-link") as Element);
+      vi.advanceTimersByTime(HOVER_DELAY_MS);
+      resolve(seq, html);
+    }
+
+    function previewBody(): HTMLElement {
+      return shown()?.querySelector(".link-preview-body") as HTMLElement;
+    }
+
+    beforeEach(() => {
+      libraries.mermaid.render.mockReset();
+      placement.placePopover.mockClear();
+    });
+
+    test("the preview is drawn apart from the page, which leaves it to the preview", () => {
+      previewDocument("<p>text</p>");
+      expect(previewBody().hasAttribute("data-arto-apart")).toBe(true);
+    });
+
+    test("a formula is typeset in the preview at once", () => {
+      previewDocument(
+        `<p><span class="preprocessed-math-inline" data-original-content="x^2">x^2</span></p>` +
+          `<pre class="preprocessed-math" data-original-content="\\sum">\\sum</pre>`,
+      );
+
+      const body = previewBody();
+      expect(body.querySelector("span.preprocessed-math-inline .katex")?.textContent).toBe("x^2");
+      expect(body.querySelector("pre.preprocessed-math .katex")?.textContent).toBe("\\sum");
+    });
+
+    test("a diagram is drawn in the preview, which is placed again for its new size", async () => {
+      libraries.mermaid.render.mockResolvedValue({ svg: DRAWN });
+      previewDocument(DIAGRAM);
+      const placedBefore = placement.placePopover.mock.calls.length;
+
+      await vi.runAllTimersAsync();
+
+      const block = previewBody().querySelector("pre.preprocessed-mermaid");
+      expect(libraries.mermaid.render).toHaveBeenCalledWith(
+        expect.any(String),
+        "flowchart LR",
+        expect.any(Element),
+      );
+      expect(block?.querySelector("svg")).not.toBeNull();
+      expect(placement.placePopover.mock.calls.length).toBeGreaterThan(placedBefore);
+    });
+
+    test("a diagram drawn after its preview was put away is not put anywhere", async () => {
+      let finish: (value: { svg: string }) => void = () => {};
+      libraries.mermaid.render.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+      previewDocument(DIAGRAM);
+      const block = previewBody().querySelector("pre.preprocessed-mermaid") as HTMLElement;
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+      const placedBefore = placement.placePopover.mock.calls.length;
+
+      finish({ svg: DRAWN });
+      await vi.runAllTimersAsync();
+
+      expect(block.querySelector("svg")).toBeNull();
+      expect(block.textContent).toBe("flowchart LR");
+      expect(placement.placePopover.mock.calls.length).toBe(placedBefore);
+    });
+
+    test("a preview draws a few diagrams and shows the rest as their source", async () => {
+      libraries.mermaid.render.mockResolvedValue({ svg: DRAWN });
+      previewDocument(`<blockquote>${DIAGRAM.repeat(MAX_PREVIEW_DIAGRAMS + 2)}</blockquote>`);
+
+      await vi.runAllTimersAsync();
+
+      expect(libraries.mermaid.render).toHaveBeenCalledTimes(MAX_PREVIEW_DIAGRAMS);
+      const undrawn = previewBody().querySelectorAll("pre:not(.preprocessed-mermaid)");
+      expect(undrawn).toHaveLength(2);
+      expect(undrawn[0].textContent).toBe("flowchart LR");
+    });
+
+    test("a diagram's script link is taken out before it is shown", async () => {
+      libraries.mermaid.render.mockResolvedValue({
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" id="mermaid-1"><a href="javascript:alert(1)"><text>A</text></a></svg>`,
+      });
+      previewDocument(DIAGRAM);
+
+      await vi.runAllTimersAsync();
+
+      const link = previewBody().querySelector("pre.preprocessed-mermaid svg a");
+      expect(link).not.toBeNull();
+      expect(link?.hasAttribute("href")).toBe(false);
+    });
+
+    test("a diagram the page has drawn is drawn afresh from its source", async () => {
+      libraries.mermaid.render.mockResolvedValue({ svg: DRAWN });
+      page(`<p><a href="#later">later</a></p><h2 id="later">Later</h2>
+        <pre class="preprocessed-mermaid" data-original-content="flowchart LR" data-rendered="true"><svg id="mermaid-9"></svg></pre>`);
+      hover(document.querySelector('a[href="#later"]') as Element);
+      vi.advanceTimersByTime(HOVER_DELAY_MS);
+
+      await vi.runAllTimersAsync();
+
+      expect(libraries.mermaid.render).toHaveBeenCalledWith(
+        expect.any(String),
+        "flowchart LR",
+        expect.any(Element),
+      );
+      expect(previewBody().querySelector('svg[id="mermaid-1"]')).not.toBeNull();
+      expect(document.querySelectorAll("svg")).toHaveLength(2);
     });
   });
 });

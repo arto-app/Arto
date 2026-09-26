@@ -89,6 +89,19 @@ button.link-preview-title:hover {
   margin-bottom: 0;
 }
 
+/* A diagram or a formula block on the page opens its own window; one in
+   the preview does not, so it does not look as though it would. */
+.link-preview .link-preview-body pre.preprocessed-mermaid svg,
+.link-preview .link-preview-body pre.preprocessed-math {
+  cursor: auto;
+}
+
+.link-preview .link-preview-body pre.preprocessed-mermaid:hover,
+.link-preview .link-preview-body pre.preprocessed-math:hover {
+  outline: none;
+  opacity: 1;
+}
+
 .link-preview-unavailable {
   color: var(--text-secondary);
   font-style: italic;

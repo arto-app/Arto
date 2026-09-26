@@ -337,9 +337,9 @@ fn a_preview_escapes_raw_html_whatever_the_options_allow() {
 }
 
 #[test]
-fn a_preview_shows_a_diagram_as_its_source() {
-    // A diagram is drawn by the page, and what it draws can fetch: a node
-    // may name an image by address. Left as source, nothing draws it.
+fn a_preview_hands_a_diagram_to_the_page_to_draw() {
+    // The page draws a preview's diagram as it would its own, so the
+    // container reaches it as on any other page.
     let html = render_preview(
         indoc! {r#"
             ```mermaid
@@ -353,9 +353,14 @@ fn a_preview_shows_a_diagram_as_its_source() {
     .unwrap()
     .html;
 
-    assert!(!html.contains("preprocessed-mermaid"), "{html}");
-    assert!(!html.contains("data-original-content"), "{html}");
-    assert!(html.contains("flowchart LR"), "{html}");
+    assert!(
+        has_element(&html, "pre", &[("class", "preprocessed-mermaid")]),
+        "{html}"
+    );
+    assert!(
+        html.contains(r#"data-original-content="flowchart LR"#),
+        "{html}"
+    );
 }
 
 // ----------------------------------------------------------------------

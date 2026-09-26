@@ -430,6 +430,30 @@ describe("RenderCoordinator", () => {
       expect(el.innerHTML).toBe("");
     });
 
+    test("leaves alone a body drawn apart from the page, and draws only the page", async () => {
+      document.body.innerHTML = `
+        <div class="markdown-body">
+          <pre class="preprocessed-mermaid" data-rendered>page</pre>
+        </div>
+        <div class="markdown-body" data-arto-apart>
+          <pre class="preprocessed-mermaid" data-rendered><svg>preview</svg></pre>
+        </div>
+      `;
+      const coordinator = new RenderCoordinator();
+      coordinator.forceRenderMermaid();
+
+      const apart = document.querySelector("[data-arto-apart] .preprocessed-mermaid")!;
+      expect(apart.hasAttribute("data-rendered")).toBe(true);
+      expect(apart.innerHTML).toContain("preview");
+      await flushRaf();
+      await vi.waitFor(() => {
+        expect(mermaidRenderer.renderDiagrams).toHaveBeenCalledOnce();
+      });
+      expect(
+        vi.mocked(mermaidRenderer.renderDiagrams).mock.calls[0][0].hasAttribute("data-arto-apart"),
+      ).toBe(false);
+    });
+
     test("does nothing when no .markdown-body exists", () => {
       document.body.innerHTML = "<div>no markdown</div>";
       const coordinator = new RenderCoordinator();

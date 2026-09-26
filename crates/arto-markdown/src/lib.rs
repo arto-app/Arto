@@ -333,8 +333,10 @@ pub fn render_detached(
 /// request for having been passed over. As in [`render_detached`], raw HTML
 /// is escaped — the filter a reader trusts their own documents to lets
 /// through a stylesheet or a style's `url()` — and media from another host
-/// is dropped. A Mermaid diagram is left as its source rather than handed to
-/// the page to draw, because a diagram can name an image by address too.
+/// is dropped. A Mermaid diagram is the exception: it is handed to the page,
+/// which draws it as it would its own — images it names included — and
+/// takes out of the drawing only what would run in the app
+/// (`frontend/src/preview-diagram.ts`).
 pub fn render_preview(
     markdown: impl AsRef<str>,
     base_path: impl AsRef<Path>,
@@ -350,31 +352,9 @@ pub fn render_preview(
         ImageResolution::Deferred { base_url } => Some(base_url.as_str()),
         _ => None,
     };
-    let html = undrawn_diagrams(&detach(&rendered.html, local));
+    let html = detach(&rendered.html, local);
     rendered.html = rebase_document_links(&html, base_path);
     Ok(rendered)
-}
-
-/// `html` with every Mermaid container turned back into the plain `<pre>`
-/// its escaped source already is, so the page does not draw it.
-fn undrawn_diagrams(html: &str) -> String {
-    let settings = lol_html::Settings::new().append_element_content_handler(lol_html::element!(
-        "pre.preprocessed-mermaid",
-        |el| {
-            el.remove_attribute("class");
-            el.remove_attribute("data-original-content");
-            Ok(())
-        }
-    ));
-    let mut output = Vec::new();
-    let mut rewriter = lol_html::HtmlRewriter::new(settings, |chunk: &[u8]| {
-        output.extend_from_slice(chunk);
-    });
-    let rewritten = rewriter.write(html.as_bytes()).and(rewriter.end());
-    match rewritten.map(|_| String::from_utf8(output)) {
-        Ok(Ok(html)) => html,
-        _ => html.to_string(),
-    }
 }
 
 /// `html`, rendered from the document at `document_path`, made to be shown

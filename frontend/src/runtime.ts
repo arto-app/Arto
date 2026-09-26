@@ -246,6 +246,9 @@ export function setCurrentTheme(theme: Theme): Promise<void> {
   // than for the theme the reader chose here.
   mermaidRenderer.setTheme(theme);
   applyPictureTheme();
+  // A preview's diagrams were drawn in the old colours too, and are its own
+  // to draw; it goes, and comes back in the new theme on the next rest.
+  linkPreview.hide();
   return renderCoordinator.forceRenderMermaid();
 }
 

@@ -15,6 +15,9 @@
  */
 
 import { getCurrentElement } from "./content-cursor";
+import { renderMathElsewhere } from "./math-renderer";
+import { renderDiagramsElsewhere } from "./mermaid-renderer";
+import { renderCoordinator } from "./render-coordinator";
 import { placePopover } from "./popover";
 
 /** A little quicker than a lens's note: links are pointed at all the time. */
@@ -33,6 +36,7 @@ const MORE = "link-preview-more";
 const UNAVAILABLE = "link-preview-unavailable";
 const LINK_SELECTOR = "a[href], span.md-link[data-md-link]";
 const HEADING = /^H[1-6]$/;
+const DIAGRAM = "pre.preprocessed-mermaid[data-original-content]";
 
 /** Part of a document, copied, and whether there was more of it. */
 export interface Excerpt {
@@ -51,13 +55,25 @@ type Preview =
   | { anchor: HTMLElement; kind: "heading"; target: Element }
   | { anchor: HTMLElement; kind: "document"; link: string };
 
-/** A copy of `node` that carries no id and no source range. */
+/**
+ * A copy of `node` that carries no id and no source range, with every
+ * diagram in it back to its source.
+ *
+ * A diagram the page has drawn cannot be copied as it is: its stylesheet and
+ * markers are addressed by the ids taken out here. The preview draws it again.
+ */
 function detached(node: Node): Node {
   const copy = node.cloneNode(true);
   if (copy instanceof Element) {
     for (const el of [copy, ...Array.from(copy.querySelectorAll("[id], [data-source-range]"))]) {
       el.removeAttribute("id");
       el.removeAttribute("data-source-range");
+    }
+    const own = copy.matches(DIAGRAM) ? [copy] : [];
+    for (const diagram of [...own, ...Array.from(copy.querySelectorAll(DIAGRAM))]) {
+      if (!(diagram instanceof HTMLElement)) continue;
+      diagram.textContent = diagram.dataset.originalContent ?? "";
+      delete diagram.dataset.rendered;
     }
   }
   return copy;
@@ -152,6 +168,8 @@ function headingById(root: ParentNode, id: string): Element | null {
 // ----------------------------------------------------------------------
 
 let popover: HTMLElement | null = null;
+/** The excerpt on show; a drawing finished after it was put away is dropped. */
+let shownBody: HTMLElement | null = null;
 /** The preview being waited for or shown. */
 let current: Preview | null = null;
 let showTimer: ReturnType<typeof setTimeout> | null = null;
@@ -198,6 +216,7 @@ export function hide(): void {
   current = null;
   due = false;
   answer = undefined;
+  shownBody = null;
   popover?.classList.remove("is-visible");
 }
 
@@ -341,6 +360,8 @@ function show(anchor: HTMLElement, { title, excerpt, open }: Shown): void {
 
   const body = document.createElement("div");
   body.className = `markdown-body ${BODY}`;
+  // Drawn here, by the rules of a preview, not by the page's renderers.
+  body.dataset.artoApart = "";
   if (excerpt) {
     body.append(...excerpt.nodes);
   } else {
@@ -358,9 +379,26 @@ function show(anchor: HTMLElement, { title, excerpt, open }: Shown): void {
     parts.push(more);
   }
   popover.replaceChildren(...parts);
+  shownBody = body;
+  if (excerpt) draw(body, popover, anchor);
   anchor.setAttribute("aria-describedby", POPOVER_ID);
   popover.classList.add("is-visible");
   placePopover(popover, anchor);
+}
+
+/**
+ * Set the formulas and draw the diagrams of the excerpt in `body`, which
+ * the page's renderers never look at.
+ *
+ * Formulas are set before the card is placed. A diagram is drawn later, and
+ * the card is placed again for the size it has then.
+ */
+function draw(body: HTMLElement, card: HTMLElement, anchor: HTMLElement): void {
+  renderMathElsewhere(body);
+  const isCurrent = (): boolean => shownBody === body;
+  void renderDiagramsElsewhere(body, isCurrent).then((drawn) => {
+    if (drawn && isCurrent()) placePopover(card, anchor);
+  });
 }
 
 /**
@@ -400,6 +438,8 @@ function onMouseOver(event: MouseEvent): void {
 export function setup(): void {
   if (initialized) return;
   initialized = true;
+  // What the card shows is not the page: putting it up is no new content.
+  renderCoordinator.ignoreWithin(`body > .${POPOVER}`);
   document.addEventListener("mouseover", onMouseOver);
   // Leaving the window raises no `mouseover` to say the link was left.
   // WebViews differ in which of these they send for it, as
