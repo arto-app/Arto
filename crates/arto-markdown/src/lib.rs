@@ -171,12 +171,14 @@ mod headings;
 mod line_endings;
 mod options;
 mod post_process;
+mod reading;
 mod sanitize;
 
 pub use block::*;
 pub use engine::*;
 pub use headings::*;
 pub use options::*;
+pub use reading::*;
 
 use anyhow::Result;
 use frontmatter::extract_and_render_frontmatter;
