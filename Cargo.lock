@@ -233,6 +233,7 @@ dependencies = [
  "arto-keybindings",
  "arto-markdown",
  "dirs 7.0.0",
+ "indoc",
  "schemars",
  "serde",
  "serde_json",
