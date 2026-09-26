@@ -13,7 +13,9 @@
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
-  --radius-full: 50%;
+  /* A pill on a wide box, a circle on a square one; 50% would make an
+     ellipse of anything that is not square. */
+  --radius-full: 9999px;
 
   /* Font Sizes */
   /* Below the smallest reading size: for the labels that name a group of

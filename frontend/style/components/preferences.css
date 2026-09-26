@@ -265,6 +265,7 @@
   appearance: none;
   -webkit-appearance: none;
   position: relative;
+  box-sizing: border-box;
   width: 40px;
   height: 24px;
   margin: 0;
