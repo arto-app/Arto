@@ -14,12 +14,13 @@ mod code;
 mod hooks;
 mod lines;
 mod outline;
+mod reading;
 mod source_map;
 mod wiki;
 
 pub use source_map::*;
 
-use crate::{HeadingInfo, RawHtml, RenderOptions};
+use crate::{HeadingInfo, RawHtml, ReadingProfile, RenderOptions};
 use anyhow::{anyhow, Result};
 use lines::LineTable;
 use ox_content_allocator::Allocator;
@@ -84,6 +85,8 @@ pub(crate) struct Rendered {
     /// Headings in document order, with the ids the rendered headings
     /// carry; empty unless a table of contents was requested.
     pub headings: Vec<HeadingInfo>,
+    /// What the body asks a reader to read, block by block.
+    pub reading: ReadingProfile,
 }
 
 /// Render a document body (the Markdown after the frontmatter was cut off).
@@ -108,6 +111,7 @@ pub(crate) fn render(
     let lines = LineTable::new(body, frontmatter_lines);
     let code_contents = code::collect(&document, body);
     let annotated = annotate::annotate(&html, &lines, &code_contents, with_toc);
+    let reading = reading::collect(&document, &lines, options.raw_html == RawHtml::Escape);
 
     let headings = if with_toc {
         // The ids come back from the rendered headings, so the outline and
@@ -128,5 +132,6 @@ pub(crate) fn render(
     Ok(Rendered {
         html: annotated.html,
         headings,
+        reading,
     })
 }

@@ -191,6 +191,7 @@ struct PipelineResult {
     frontmatter_html: String,
     base_dir: PathBuf,
     headings: Vec<HeadingInfo>,
+    reading: ReadingProfile,
 }
 
 /// Run the pipeline up to the raw HTML: frontmatter extraction and the
@@ -219,6 +220,7 @@ fn run_pipeline(
         frontmatter_html,
         base_dir,
         headings: rendered.headings,
+        reading: rendered.reading,
     })
 }
 
@@ -256,6 +258,9 @@ pub struct RenderResult {
     /// referenced. Always empty under [`ImageResolution::DataUrl`], where the
     /// bytes are in the document already.
     pub images: Vec<DeferredImage>,
+    /// What the document asks a reader to read, one entry per top-level
+    /// block (see [`ReadingProfile`]). The frontmatter is not read.
+    pub reading: ReadingProfile,
 }
 
 /// Render Markdown to HTML.
@@ -401,6 +406,7 @@ fn render(
         html: prepend_frontmatter(&pipeline.frontmatter_html, html_output),
         headings: pipeline.headings,
         images,
+        reading: pipeline.reading,
     })
 }
 

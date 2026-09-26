@@ -61,6 +61,18 @@ impl<'a> LineTable<'a> {
         self.range_from(self.boundary(start) + leading, end)
     }
 
+    /// The line of the whole file `start..end` starts on once the whitespace
+    /// before it is left out — the start line of its range — or `None` when
+    /// there is nothing else.
+    pub(super) fn start_line(&self, start: usize, end: usize) -> Option<usize> {
+        self.range(start, end).map(|range| range.start.0)
+    }
+
+    /// The last line of the whole file.
+    pub(super) fn last_line(&self) -> usize {
+        self.frontmatter_lines + self.line_starts.len()
+    }
+
     /// The range of `start..end` without the whitespace at its end, or
     /// `None` when there is nothing else. The start stays where it is, even
     /// on whitespace.
