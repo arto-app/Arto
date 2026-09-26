@@ -45,6 +45,16 @@
         "wikiLinks": true
       }
     },
+    "reading": {
+      "description": "How the reading of a document is measured and shown.",
+      "$ref": "#/$defs/ReadingConfig",
+      "default": {
+        "charactersPerMinute": 500,
+        "minMinutes": 3,
+        "showTime": true,
+        "wordsPerMinute": 230
+      }
+    },
     "sidebar": {
       "$ref": "#/$defs/SidebarConfig",
       "default": {
@@ -528,6 +538,39 @@
           "const": "escape"
         }
       ]
+    },
+    "ReadingConfig": {
+      "description": "How the reading of a document is measured and shown.",
+      "type": "object",
+      "properties": {
+        "charactersPerMinute": {
+          "description": "Characters read per minute, for Chinese, Japanese and Korean.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 500,
+          "minimum": 1
+        },
+        "minMinutes": {
+          "description": "Documents shorter than this many minutes show no reading time.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 3,
+          "minimum": 0
+        },
+        "showTime": {
+          "description": "Show how long a document takes to read, and how long is left, in the header.",
+          "type": "boolean",
+          "default": true
+        },
+        "wordsPerMinute": {
+          "description": "Words read per minute, for scripts written in words.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 230,
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
     },
     "RecentTrace": {
       "description": "When the margin trace — the documents read before this one, left at the\nedge of the page — is drawn.\n\nIt is the one window on the history nobody asks for, which is why it is\nthe one that can be turned off. Whatever is chosen here, the trace is\ndrawn only where there is a margin to draw it in: a window too narrow to\nkeep the document readable hides it, and so does a document set to the\nfull width, which leaves no margin at all. That is state, not a change to\nthis setting.",
