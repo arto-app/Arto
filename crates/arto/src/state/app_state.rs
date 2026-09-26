@@ -11,6 +11,7 @@ use crate::scroll_anchor::ScrollAnchor;
 use crate::theme::Theme;
 
 mod document;
+mod focus_mode;
 mod focused_panel;
 mod layout;
 mod sidebar;
@@ -64,6 +65,11 @@ pub struct AppState {
     pub zoom_level: Signal<f64>,
     /// Whether the content area ignores the markdown body's max-width and fills the pane.
     pub content_full_width: Signal<bool>,
+    /// Whether the window keeps the document and puts the rest away. See
+    /// `focus_mode.rs`. Per window and never persisted, like the palette.
+    pub focus_mode: Signal<bool>,
+    /// The document focus mode was entered on; going to another ends it.
+    pub focus_document: Signal<Option<std::path::PathBuf>>,
     pub sidebar: Signal<Sidebar>,
     /// Headings of the document being read, drawn as the contents gutter
     /// beside it.
@@ -191,6 +197,8 @@ impl AppState {
             current_theme: Signal::new(theme),
             zoom_level: Signal::new(DEFAULT_ZOOM_LEVEL),
             content_full_width: Signal::new(false),
+            focus_mode: Signal::new(false),
+            focus_document: Signal::new(None),
             sidebar: Signal::new(Sidebar::default()),
             headings: Signal::new(Vec::new()),
             position: Signal::new(Default::default()),
