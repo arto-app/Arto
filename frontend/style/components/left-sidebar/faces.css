@@ -238,3 +238,39 @@
 .left-sidebar-row-actions .bookmark-button.bookmarked {
   opacity: var(--opacity-hover);
 }
+
+/* --- Links ------------------------------------------------------------ */
+
+.left-sidebar-links-row {
+  position: relative;
+}
+
+/* Where the document links here: the line it is written on, a step quieter
+   than the name it belongs to and indented under it, with the link itself
+   picked out by weight rather than by colour. */
+.left-sidebar-links-excerpt {
+  padding: 2px 12px 2px 32px;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  color: var(--text-secondary);
+  opacity: var(--opacity-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast) ease,
+    opacity var(--transition-normal) ease;
+}
+
+.left-sidebar-links-excerpt:hover {
+  background-color: var(--bg-row-hover);
+  opacity: 1;
+}
+
+.left-sidebar-links-excerpt mark {
+  background: none;
+  color: var(--text-color);
+  font-weight: 500;
+}

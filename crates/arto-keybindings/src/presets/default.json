@@ -148,6 +148,10 @@
       "action": "sidebar.face_starred"
     },
     {
+      "key": "Cmd+4",
+      "action": "sidebar.face_links"
+    },
+    {
       "key": "Cmd+k",
       "action": "palette.open"
     },

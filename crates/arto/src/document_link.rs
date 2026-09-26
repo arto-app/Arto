@@ -46,7 +46,26 @@ pub fn resolve_document_link(current_file: &Path, path: &str) -> Option<PathBuf>
         .parent()
         .map(Path::to_path_buf)
         .unwrap_or_else(|| PathBuf::from("."));
-    base_dir.join(path).canonicalize().ok()
+    resolve_link_path(&base_dir, path)
+}
+
+/// The file a link's path opens from `base_dir`, canonicalized, or `None`
+/// when nothing is there.
+///
+/// The path is tried as it was written, then percent-decoded: the renderer
+/// writes a space in a link target as `%20`, and Markdown asks for one to be
+/// written that way, so `my%20notes.md` names `my notes.md`. A file whose
+/// name really holds `%20` is still found by the first try.
+pub fn resolve_link_path(base_dir: &Path, path: &str) -> Option<PathBuf> {
+    base_dir.join(path).canonicalize().ok().or_else(|| {
+        let decoded = percent_encoding::percent_decode_str(path)
+            .decode_utf8()
+            .ok()?;
+        if decoded == path {
+            return None;
+        }
+        base_dir.join(decoded.as_ref()).canonicalize().ok()
+    })
 }
 
 /// Open `link`, relative to `current_file`, and scroll to its fragment once
@@ -106,6 +125,27 @@ pub fn scroll_to_heading_js(id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn a_link_path_is_found_as_written_or_percent_decoded() {
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join("my notes.md"), "").unwrap();
+        fs::write(dir.path().join("100%20.md"), "").unwrap();
+        let notes = dir.path().join("my notes.md").canonicalize().unwrap();
+
+        assert_eq!(
+            resolve_link_path(dir.path(), "my%20notes.md"),
+            Some(notes.clone())
+        );
+        assert_eq!(resolve_link_path(dir.path(), "my notes.md"), Some(notes));
+        assert_eq!(
+            resolve_link_path(dir.path(), "100%20.md"),
+            Some(dir.path().join("100%20.md").canonicalize().unwrap())
+        );
+        assert_eq!(resolve_link_path(dir.path(), "missing.md"), None);
+    }
 
     #[test]
     fn a_link_resolves_against_the_directory_of_the_document_it_is_in() {

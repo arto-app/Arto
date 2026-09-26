@@ -362,7 +362,7 @@ fn walk(root: &Path, all_files: bool, budget: Budget) -> Listing {
 ///
 /// Enough to keep the filesystem busy, capped so that a machine with many
 /// cores does not answer a palette keystroke by starting a small storm.
-fn threads() -> usize {
+pub(crate) fn threads() -> usize {
     std::thread::available_parallelism()
         .map(|count| count.get().min(8))
         .unwrap_or(1)

@@ -23,6 +23,23 @@ impl fmt::Display for SourceRange {
     }
 }
 
+impl SourceRange {
+    /// The same range as the crate's public type spells it.
+    pub(super) fn to_public(self) -> crate::SourceRange {
+        let ((start_line, start_column), (end_line, end_column)) = (self.start, self.end);
+        crate::SourceRange {
+            start: crate::SourcePosition {
+                line: start_line,
+                column: start_column,
+            },
+            end: crate::SourcePosition {
+                line: end_line,
+                column: end_column,
+            },
+        }
+    }
+}
+
 /// Position lookup over the document body.
 pub(super) struct LineTable<'a> {
     body: &'a str,
