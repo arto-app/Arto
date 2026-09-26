@@ -10,6 +10,7 @@ mod events;
 mod files;
 mod fuzzy;
 mod highlight_color;
+mod highlights;
 mod history;
 mod hooks;
 pub mod ipc;
