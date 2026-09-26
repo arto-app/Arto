@@ -12,6 +12,7 @@ use super::Action;
 
 mod clipboard;
 mod contents;
+mod highlight;
 mod palette;
 mod panel;
 mod reveal;
@@ -19,6 +20,7 @@ mod search;
 
 use clipboard::*;
 use contents::*;
+use highlight::*;
 use palette::*;
 use panel::*;
 use reveal::*;
@@ -27,6 +29,7 @@ use search::*;
 // What the rest of the app reaches for by name, which is what the menus and
 // the content's own context menu need.
 pub(crate) use clipboard::{copy_image_from_src, copy_rasterized_image};
+pub(crate) use highlight::highlight_selection;
 pub(crate) use palette::activate_palette_row;
 pub(crate) use reveal::content_cursor_eval;
 
@@ -66,6 +69,10 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::SearchPrev => search_navigate_eval("prev"),
         Action::SearchClear => state.close_search(),
         Action::SearchPinCurrent => search_pin_current(&mut state),
+
+        // --- Highlights ---
+        Action::HighlightAdd => highlight_selection(&state, crate::highlights::last_color(), false),
+        Action::HighlightRemove => remove_highlights_at_selection(&state),
 
         // --- Zoom ---
         Action::ZoomIn => state.zoom_in(),

@@ -294,6 +294,10 @@
   ],
   "content": [
     {
+      "key": "m h",
+      "action": "highlight.add"
+    },
+    {
       "key": "Enter",
       "action": "content.open_viewer"
     },

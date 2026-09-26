@@ -475,6 +475,7 @@ pub fn App(
                     table_markdown: menu_state.data.table_markdown.clone(),
                     table_source_line: menu_state.data.table_source_line,
                     table_source_line_end: menu_state.data.table_source_line_end,
+                    highlight_ids: menu_state.data.highlight_ids.clone(),
                     on_close: move |_| {
                         close_context_menu();
                         crate::keybindings::dispatcher::content_cursor_eval("clearCursorDeferred");

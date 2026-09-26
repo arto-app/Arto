@@ -158,6 +158,10 @@
   ],
   "content": [
     {
+      "key": "Cmd+Shift+h",
+      "action": "highlight.add"
+    },
+    {
       "key": "Enter",
       "action": "content.open_viewer"
     },

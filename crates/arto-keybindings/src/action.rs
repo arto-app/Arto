@@ -28,6 +28,10 @@ pub enum Action {
     SearchClear,
     SearchPinCurrent,
 
+    // Highlights — the reader's own marks on the selection
+    HighlightAdd,
+    HighlightRemove,
+
     // Zoom (3) — MenuId: ZoomIn, ZoomOut, ActualSize
     ZoomIn,
     ZoomOut,
@@ -183,6 +187,10 @@ pub const ACTION_GROUPS: &[(&str, &[Action])] = &[
             Action::SearchClear,
             Action::SearchPinCurrent,
         ],
+    ),
+    (
+        "Highlights",
+        &[Action::HighlightAdd, Action::HighlightRemove],
     ),
     (
         "Zoom",
@@ -565,6 +573,8 @@ action_strings! {
     SearchPrev => "search.prev",
     SearchClear => "search.clear",
     SearchPinCurrent => "search.pin_current",
+    HighlightAdd => "highlight.add",
+    HighlightRemove => "highlight.remove",
     ZoomIn => "zoom.in",
     ZoomOut => "zoom.out",
     ZoomReset => "zoom.reset",
@@ -661,7 +671,7 @@ mod tests {
 
     #[test]
     fn all_actions_count() {
-        assert_eq!(all_actions().len(), 95);
+        assert_eq!(all_actions().len(), 97);
     }
 
     #[test]

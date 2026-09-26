@@ -113,6 +113,7 @@ fn validate_menu_shortcuts(name: &str, actions: &[KeyAction]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::context::KeyContext;
 
     #[test]
     fn default_preset_resolves() {
@@ -130,6 +131,22 @@ mod tests {
     fn emacs_preset_resolves() {
         let resolved = emacs::bindings().into_resolved_bindings();
         assert!(!resolved.is_empty());
+    }
+
+    #[test]
+    fn every_preset_highlights_the_selection_from_the_document() {
+        for (name, bindings, key) in [
+            ("default", default::bindings(), "Cmd+Shift+h"),
+            ("vim", vim::bindings(), "m h"),
+            ("emacs", emacs::bindings(), "Cmd+Shift+h"),
+        ] {
+            let bound = bindings
+                .of(KeyContext::Content)
+                .iter()
+                .find(|binding| binding.action == "highlight.add")
+                .unwrap_or_else(|| panic!("{name} preset does not bind highlight.add"));
+            assert_eq!(bound.key, key, "{name} preset");
+        }
     }
 
     #[test]
