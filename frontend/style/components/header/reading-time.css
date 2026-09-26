@@ -1,0 +1,18 @@
+/* How long the document takes to read, or how long is left. Text, not a
+   control: it rests as quiet as the controls beside it and wakes with the
+   band, but nothing about it invites a click. */
+.reading-time {
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+  padding: 0 4px;
+  opacity: var(--opacity-rest);
+  transition: opacity var(--transition-quiet) ease;
+}
+
+.header:hover .reading-time {
+  opacity: var(--opacity-woken);
+}

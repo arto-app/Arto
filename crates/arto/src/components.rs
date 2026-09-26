@@ -16,6 +16,7 @@ pub mod mermaid_window;
 pub mod palette;
 pub mod pinned_marks;
 pub mod preferences_window;
+pub mod reading_time;
 pub mod reorder;
 pub mod sidebar;
 pub mod theme_selector;
