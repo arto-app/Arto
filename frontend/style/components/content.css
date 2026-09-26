@@ -5,6 +5,7 @@
 @import url("./content/welcome.css");
 @import url("./content/margin-trace.css");
 @import url("./content/sticky-table-head.css");
+@import url("./content/focus-mode.css");
 
 .content {
   flex: 1;

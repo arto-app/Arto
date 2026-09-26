@@ -26,6 +26,7 @@ import * as lenses from "./lenses";
 import * as viewportQueue from "./viewport-queue";
 import * as scrollAnchor from "./scroll-anchor";
 import * as stickyTableHead from "./sticky-table-head";
+import { forgetStep, setupFocusScrolling, stepFocus } from "./focus-mode";
 import type { ScrollAnchor } from "./scroll-anchor";
 
 // Declare global Arto namespace
@@ -269,6 +270,14 @@ export function init(): void {
   setupScrollbarReach();
   // A long table's header row, held at the top of the view while it is read.
   stickyTableHead.setup();
+  // A key can move the content cursor without scrolling, and focus mode marks
+  // the block the cursor is on.
+  contentCursor.onCursorChange(refreshReadingPosition);
+  // Focus mode brings the block being read to the middle on the way in, the
+  // same way a jump to a heading is, so neither undoes the other.
+  setupFocusScrolling((block) => scrollController.toElement(block, "center"));
+  // And a line-scroll key steps from block to block.
+  scrollController.setLineStep(stepFocus, forgetStep);
   const trackAfterRender = (): void => {
     refreshReadingPosition();
     renderCoordinator.onRenderComplete(trackAfterRender);

@@ -25,6 +25,18 @@
     display: none !important;
   }
 
+  /* Focus mode dims the page around the block being read, which is a way of
+     reading it on screen and says nothing about the document on paper. */
+  .markdown-body[data-focus-drawn] > * {
+    opacity: 1 !important;
+  }
+
+  /* Nor does the room it makes to hold a block in the middle. */
+  .main-area.focus-layout .content::before,
+  .main-area.focus-layout .content::after {
+    display: none !important;
+  }
+
   /* Keyboard cursor highlight is a screen-only affordance */
   .content-cursor-active,
   .content-cursor-active.content-cursor-hold {

@@ -31,6 +31,13 @@
   --opacity-secondary: 0.6;
   --opacity-hover: 0.8;
 
+  /* What the rest of the page fades to around the block being read in focus
+     mode. */
+  --focus-dim: 0.3;
+  /* The room between blocks in focus mode, in lines of the document's text
+     size. */
+  --focus-gap: 3;
+
   /* Quiet controls: ink and hit area are separate, and state is a step
      along this same scale rather than a colour. A control rests at
      --opacity-rest, wakes to --opacity-woken when the pointer enters the

@@ -220,6 +220,31 @@ describe("RenderCoordinator", () => {
         expect(rafCallbacks.length).toBe(1);
       });
     });
+
+    test("leaves focus mode's marks alone, which are not content", async () => {
+      document.body.innerHTML = '<div class="markdown-body"><p>one</p></div>';
+      const coordinator = new RenderCoordinator();
+      coordinator.init();
+      await flushRaf();
+      await vi.waitFor(() => {
+        expect(codeCopy.addCopyButtons).toHaveBeenCalledOnce();
+      });
+      await new Promise((r) => setTimeout(r, 0));
+      vi.clearAllMocks();
+
+      const schedule = vi.spyOn(coordinator, "scheduleRender");
+      const body = document.body.querySelector(".markdown-body")!;
+      body.setAttribute("data-focus-drawn", "");
+      body.querySelector("p")!.setAttribute("data-focus-current", "");
+      // The observer's callback is a microtask; a macrotask is past it.
+      await new Promise((r) => setTimeout(r, 0));
+      expect(schedule).not.toHaveBeenCalled();
+
+      body.setAttribute("data-other", "");
+      await vi.waitFor(() => {
+        expect(schedule).toHaveBeenCalled();
+      });
+    });
   });
 
   describe("onRenderComplete", () => {

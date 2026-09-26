@@ -1,0 +1,58 @@
+/* Focus mode: every block but the one being read gives way.
+
+   The window says it is focusing with `.focus-layout` on the main area, which
+   spaces the page out, and with `.focus-mode` while no search pauses it,
+   which dims it; `src/focus-mode.ts` marks the block being read and then the
+   page as drawn.
+   Nothing dims before that, so the block being read never fades out and back
+   on the way in.
+
+   A block is a child of the page, a list included: see `collectUnits`. */
+
+.main-area.focus-mode .markdown-body[data-focus-drawn] > :not([data-focus-current]) {
+  opacity: var(--focus-dim);
+}
+
+/* The fade both ways. Weightless, so that anything with a transition of its
+   own keeps it. */
+:where(.content .markdown-body) > :where(*) {
+  transition: opacity var(--transition-quiet) ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.content .markdown-body) > :where(*) {
+    transition: none;
+  }
+}
+
+/* Room between every block, so the one being read stands apart from the dimmed
+   ones around it. It is the same between every pair and set once, on the way
+   into focus mode: room that followed the block being read would move the
+   page under the reader each time the mark moved. Screen only; on paper the
+   document keeps its own spacing. The adjacent margins collapse, so the room
+   is the larger of this and the block's own. */
+@media screen {
+  .main-area.focus-layout .markdown-body > * {
+    /* Counted in the document's own text size rather than in em, which each
+       block would resolve against its own: a heading would get twice the
+       room a paragraph does. */
+    margin-block-end: calc(var(--focus-gap) * var(--reading-font-size, 16px));
+  }
+}
+
+/* The block being read is the one in the middle of the window, where a key
+   or the way in brings it (`src/focus-mode.ts`). Half the scroller above
+   and below the page lets the first and last blocks reach the middle too. The
+   room is made outside the page, which zoom magnifies: made inside, it would
+   be half a window only at 100%. */
+.main-area.focus-layout .content::before,
+.main-area.focus-layout .content::after {
+  content: "";
+  flex: 0 0 50%;
+}
+
+/* What carries the click that leaves focus mode, around the page. It takes no
+   box of its own, so the page lays out in the main area as it always has. */
+.focus-leave {
+  display: contents;
+}
