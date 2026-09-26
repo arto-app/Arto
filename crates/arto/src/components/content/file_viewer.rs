@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use super::context_menu::ContextMenuData;
 use super::context_menu_state::{open_context_menu, ContentContextMenuState};
@@ -65,6 +66,10 @@ pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
         if let Ok(mut rendered) = source.try_write() {
             *rendered = None;
         };
+        let mut profile = state.reading_profile;
+        if let Ok(mut profile) = profile.try_write() {
+            *profile = None;
+        };
     });
 
     // The render the page shows, which lenses check the blocks they are
@@ -123,9 +128,10 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                     if is_markdown_file(&file) {
                         // Render as markdown with TOC heading extraction
                         match render_to_html_with_toc(&content, &file) {
-                            Ok((rendered, headings)) => {
-                                html.set(rendered);
-                                state.headings.set(headings);
+                            Ok(rendered) => {
+                                html.set(rendered.html);
+                                state.headings.set(rendered.headings);
+                                state.reading_profile.set(Some(Arc::new(rendered.reading)));
                                 state
                                     .rendered_source
                                     .set(Some(RenderedSource::new(file.clone(), content)));
@@ -146,6 +152,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                                 html.set(plain_html);
                                 state.headings.set(Vec::new());
                                 state.rendered_source.set(None);
+                                state.reading_profile.set(None);
                             }
                         }
                     } else {
@@ -159,6 +166,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                         html.set(plain_html);
                         state.headings.set(Vec::new());
                         state.rendered_source.set(None);
+                        state.reading_profile.set(None);
                     }
 
                     // Re-apply search highlighting after content changes
@@ -176,6 +184,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                         document.content = DocumentContent::FileError(file_clone, error_msg);
                     });
                     state.rendered_source.set(None);
+                    state.reading_profile.set(None);
                     html.set(String::new());
                 }
             }

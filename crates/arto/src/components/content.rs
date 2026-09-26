@@ -135,12 +135,16 @@ pub fn Content() -> Element {
 ///
 /// Whether a table is taller than the view is decided on how tall it is drawn,
 /// so zoom changes that answer too; see `frontend/src/sticky-table-head.ts`.
+///
+/// So does whether the end of the page is in view, which the scroll listener
+/// reports: a magnified page is taller without anything having resized.
 fn use_measure_on_zoom(zoom_level: Signal<f64>) {
     use_effect(move || {
         let _ = zoom_level();
         document::eval(
             "window.Arto?.readingPosition?.refresh?.();\
-             window.Arto?.stickyTableHead?.refresh?.();",
+             window.Arto?.stickyTableHead?.refresh?.();\
+             window.__artoScrollHandler?.();",
         );
     });
 }
@@ -176,10 +180,17 @@ fn use_scroll_anchor_tracker(mut state: AppState) {
                 // name, and asking for one unguarded would throw on every
                 // frame the reader scrolls before the app has finished
                 // starting.
+                //
+                // The anchor stops advancing once the last screen is
+                // reached, so whether the bottom is in view travels beside
+                // it. A document that has not been scrolled is at its top
+                // even when it fits on one screen.
                 const sendAnchor = () => {
                     const anchor = window.Arto?.scroll?.anchor?.();
                     if (anchor) {
-                        dioxus.send(anchor);
+                        const atEnd = content.scrollTop > 0
+                            && content.scrollTop + content.clientHeight >= content.scrollHeight - 2;
+                        dioxus.send({ ...anchor, atEnd });
                     }
                 };
 
@@ -197,15 +208,72 @@ fn use_scroll_anchor_tracker(mut state: AppState) {
 
                 content.addEventListener('scroll', window.__artoScrollHandler, { passive: true });
 
+                // The end can come into view or leave it without a scroll:
+                // a diagram drawn late makes the page taller, and a wider
+                // window makes it shorter. Report again when either size
+                // changes.
+                window.__artoScrollResize?.disconnect();
+                window.__artoScrollResize = new ResizeObserver(window.__artoScrollHandler);
+                window.__artoScrollResize.observe(content);
+                if (content.firstElementChild) {
+                    window.__artoScrollResize.observe(content.firstElementChild);
+                }
+
                 // Send initial position
                 sendAnchor();
             }
         "#});
 
         spawn(async move {
-            while let Ok(scroll) = eval.recv::<ScrollAnchor>().await {
-                state.current_scroll_anchor.set(scroll);
+            while let Ok(report) = eval.recv::<ScrollReport>().await {
+                state.current_scroll_anchor.set(report.anchor);
+                if *state.scrolled_to_end.peek() != report.at_end {
+                    state.scrolled_to_end.set(report.at_end);
+                }
             }
         });
     });
+}
+
+/// What the scroll listener reports: where the reader is, and whether the
+/// bottom of the document is in view.
+///
+/// Kept apart from [`ScrollAnchor`], which is stored in the history and
+/// restored from it; being at the end is a fact about this moment, not a
+/// place to return to.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ScrollReport {
+    #[serde(flatten)]
+    anchor: ScrollAnchor,
+    #[serde(default)]
+    at_end: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_report_carries_the_anchor_and_the_end() {
+        let report: ScrollReport =
+            serde_json::from_str(r#"{"line":42,"fraction":0.5,"atEnd":true}"#).unwrap();
+        assert_eq!(
+            report,
+            ScrollReport {
+                anchor: ScrollAnchor {
+                    line: 42,
+                    fraction: 0.5
+                },
+                at_end: true,
+            }
+        );
+    }
+
+    #[test]
+    fn a_report_without_the_end_is_not_at_the_end() {
+        let report: ScrollReport = serde_json::from_str(r#"{"line":0,"fraction":0}"#).unwrap();
+        assert_eq!(report.anchor, ScrollAnchor::TOP);
+        assert!(!report.at_end);
+    }
 }

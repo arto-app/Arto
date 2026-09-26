@@ -21,6 +21,7 @@ mod lens_agents;
 mod lens_recipes;
 mod lenses;
 mod persistence;
+mod reading_config;
 mod schema;
 mod sidebar_config;
 mod theme;
@@ -41,6 +42,7 @@ pub use lens_agents::*;
 pub use lens_recipes::*;
 pub use lenses::*;
 pub use persistence::*;
+pub use reading_config::*;
 pub use schema::*;
 pub use sidebar_config::*;
 pub use theme::*;
@@ -72,6 +74,8 @@ pub struct Config {
     pub zoom: ZoomConfig,
     /// How the text of a document is set.
     pub typography: TypographyConfig,
+    /// How the reading of a document is measured and shown.
+    pub reading: ReadingConfig,
     /// Commands the reader can look at a document through.
     pub lenses: Vec<Lens>,
     /// Keybindings live in their own file (`mappings.json`), so they are
@@ -158,6 +162,11 @@ mod tests {
         assert_eq!(config.typography, TypographyConfig::default());
         assert_eq!(config.typography.measure, 60.0);
         assert_eq!(config.typography.font_family, FontFamilyChoice::Sans);
+        // Reading defaults
+        assert!(config.reading.show_time);
+        assert_eq!(config.reading.words_per_minute, 230);
+        assert_eq!(config.reading.characters_per_minute, 500);
+        assert_eq!(config.reading.min_minutes, 3);
 
         // Keybindings defaults
         assert_keybindings_empty(&config.keybindings);
@@ -261,6 +270,10 @@ mod tests {
                 font_size: 18.0,
                 cjk_font_language: CjkFontLanguage::Ja,
             },
+            reading: ReadingConfig {
+                show_time: false,
+                ..Default::default()
+            },
             lenses: vec![Lens {
                 id: "summarize".to_string(),
                 label: "Summarize".to_string(),
@@ -329,6 +342,7 @@ mod tests {
         assert_eq!(parsed.zoom.on_startup, StartupBehavior::LastClosed);
         assert_eq!(parsed.typography.measure, 45.0);
         assert_eq!(parsed.typography.font_family, FontFamilyChoice::Serif);
+        assert!(!parsed.reading.show_time);
         assert_eq!(parsed.zoom.on_new_window, NewWindowBehavior::LastFocused);
         assert_keybindings_empty(&parsed.keybindings);
     }
@@ -354,6 +368,7 @@ mod tests {
         assert_eq!(parsed.sidebar.recent_trace_count, 6);
         assert_eq!(parsed.file_open, FileOpenBehavior::LastFocused);
         assert_eq!(parsed.typography, TypographyConfig::default());
+        assert_eq!(parsed.reading, ReadingConfig::default());
     }
 
     #[test]

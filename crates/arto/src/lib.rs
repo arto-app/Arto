@@ -17,6 +17,7 @@ mod markdown;
 #[cfg(target_os = "macos")]
 mod menu;
 mod pinned_search;
+mod reading_time;
 mod roots;
 mod scroll_anchor;
 mod state;
