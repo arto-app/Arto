@@ -7,17 +7,26 @@ use crate::keybindings::dispatcher::highlight_selection;
 use crate::keybindings::{shortcut_hint_for_context_action, KeyContext};
 use crate::state::AppState;
 
-/// "Highlight" (a colour for the selection) and "Remove Highlight" (the
-/// highlights the selection, or the click, touches).
+/// "Highlight" (a colour for the selection), a note on the highlight under
+/// the pointer, and "Remove Highlight" (the highlights the selection, or the
+/// click, touches).
 #[component]
 pub(super) fn HighlightItems(
     has_selection: bool,
     highlight_ids: Vec<String>,
+    highlight_under_pointer: Option<String>,
     on_close: EventHandler<()>,
 ) -> Element {
     let state = use_context::<AppState>();
     let shortcut = shortcut_hint_for_context_action(KeyContext::Content, "highlight.add");
     let remove = shortcut_hint_for_context_action(KeyContext::Content, "highlight.remove");
+    let noted = highlight_under_pointer
+        .map(HighlightId::from)
+        .and_then(|id| {
+            let highlights = state.highlights.read();
+            let highlight = highlights.iter().find(|highlight| highlight.id == id)?;
+            Some((id, note_label(highlight.note.as_deref())))
+        });
 
     rsx! {
         if has_selection {
@@ -40,6 +49,17 @@ pub(super) fn HighlightItems(
             }
         }
 
+        if let Some((id, label)) = noted {
+            ContextMenuItem {
+                label,
+                icon: Some(IconName::Edit),
+                on_click: move |_| {
+                    on_close.call(());
+                    crate::highlights::card::open_at(state, id.clone());
+                },
+            }
+        }
+
         if !highlight_ids.is_empty() {
             ContextMenuItem {
                 label: "Remove Highlight",
@@ -58,6 +78,16 @@ pub(super) fn HighlightItems(
     }
 }
 
+/// The item that opens a highlight's card, named for what the reader will
+/// do there.
+fn note_label(note: Option<&str>) -> &'static str {
+    if note.is_some() {
+        "Edit Note\u{2026}"
+    } else {
+        "Add Note\u{2026}"
+    }
+}
+
 fn color_label(color: HighlightColor) -> &'static str {
     match color {
         HighlightColor::Green => "Green",
@@ -65,5 +95,16 @@ fn color_label(color: HighlightColor) -> &'static str {
         HighlightColor::Pink => "Pink",
         HighlightColor::Orange => "Orange",
         HighlightColor::Purple => "Purple",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_note_item_offers_to_add_a_note_or_to_edit_the_one_there() {
+        assert_eq!(note_label(None), "Add Note\u{2026}");
+        assert_eq!(note_label(Some("remember")), "Edit Note\u{2026}");
     }
 }

@@ -75,7 +75,10 @@ declare global {
         scrollToPinnedMatch: typeof findInPage.scrollToPinnedMatch;
       };
       highlights: {
-        /** Hear what the page found each time highlights are drawn. */
+        /**
+         * Hear what the page found each time highlights are drawn, and which
+         * one the reader clicked to open.
+         */
         setup: typeof userHighlights.setup;
         /** Draw a document's highlights on the page that now holds it. */
         show: typeof userHighlights.show;
@@ -89,6 +92,10 @@ declare global {
         /** The highlights the selection touches. */
         idsAtSelection: () => string[];
         scrollTo: typeof userHighlights.scrollTo;
+        /** Where a highlight is drawn, for something placed beside it. */
+        rectOf: typeof userHighlights.rectOf;
+        /** Scroll to a highlight and say where it is once it has landed. */
+        reveal: typeof userHighlights.reveal;
       };
       keyboard: {
         onKeydown: typeof keyboardInterceptor.onKeydown;
@@ -439,6 +446,8 @@ export function init(): void {
       describeMenuSelection: () => userHighlights.describeSelection(getSavedRange()),
       idsAtSelection: () => userHighlights.idsAtSelection(),
       scrollTo: userHighlights.scrollTo,
+      rectOf: userHighlights.rectOf,
+      reveal: userHighlights.reveal,
     },
     keyboard: {
       onKeydown: keyboardInterceptor.onKeydown,

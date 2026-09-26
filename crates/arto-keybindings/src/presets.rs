@@ -135,17 +135,25 @@ mod tests {
 
     #[test]
     fn every_preset_highlights_the_selection_from_the_document() {
-        for (name, bindings, key) in [
-            ("default", default::bindings(), "Cmd+Shift+h"),
-            ("vim", vim::bindings(), "m h"),
-            ("emacs", emacs::bindings(), "Cmd+Shift+h"),
+        for (action, keys) in [
+            ("highlight.add", ["Cmd+Shift+h", "m h", "Cmd+Shift+h"]),
+            ("highlight.note", ["Cmd+Shift+m", "m n", "Cmd+Shift+m"]),
         ] {
-            let bound = bindings
-                .of(KeyContext::Content)
-                .iter()
-                .find(|binding| binding.action == "highlight.add")
-                .unwrap_or_else(|| panic!("{name} preset does not bind highlight.add"));
-            assert_eq!(bound.key, key, "{name} preset");
+            for ((name, bindings), key) in [
+                ("default", default::bindings()),
+                ("vim", vim::bindings()),
+                ("emacs", emacs::bindings()),
+            ]
+            .into_iter()
+            .zip(keys)
+            {
+                let bound = bindings
+                    .of(KeyContext::Content)
+                    .iter()
+                    .find(|binding| binding.action == action)
+                    .unwrap_or_else(|| panic!("{name} preset does not bind {action}"));
+                assert_eq!(bound.key, key, "{name} preset, {action}");
+            }
         }
     }
 

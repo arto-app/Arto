@@ -190,6 +190,10 @@
       "action": "highlight.add"
     },
     {
+      "key": "Cmd+Shift+m",
+      "action": "highlight.note"
+    },
+    {
       "key": "Enter",
       "action": "content.open_viewer"
     },

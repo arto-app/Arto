@@ -73,6 +73,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         // --- Highlights ---
         Action::HighlightAdd => highlight_selection(&state, crate::highlights::last_color(), false),
         Action::HighlightRemove => remove_highlights_at_selection(&state),
+        Action::HighlightNote => highlight_with_note(&state),
 
         // --- Zoom ---
         Action::ZoomIn => state.zoom_in(),

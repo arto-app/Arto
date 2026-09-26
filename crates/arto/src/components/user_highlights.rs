@@ -3,10 +3,10 @@
 //! A highlight's colour is already on the tick of the heading it is under,
 //! so the list of them heads the contents like the pinned marks do, and
 //! everything done to one — going to it, its colour, taking it away — is
-//! done there. A highlight whose words the page cannot find any more stays
+//! done there. A row shows the start of the highlight's note under its words,
+//! and going to a highlight opens its card, where the note is written. A highlight whose words the page cannot find any more stays
 //! listed at the end, faint, so the reader can see it was lost and let it go.
 
-use dioxus::document;
 use dioxus::prelude::*;
 use std::collections::HashMap;
 
@@ -62,6 +62,16 @@ fn heading_of(
     }
 }
 
+/// What a row says of itself under the pointer: the whole note when there
+/// is one, since the row shows only its start.
+fn row_title(lost: bool, note: Option<&str>) -> String {
+    match (lost, note) {
+        (true, _) => "Not found in the document".to_string(),
+        (false, Some(note)) => note.to_string(),
+        (false, None) => "Go to the highlight".to_string(),
+    }
+}
+
 /// The highlights, above the headings.
 #[component]
 pub fn UserHighlights() -> Element {
@@ -82,6 +92,7 @@ pub fn UserHighlights() -> Element {
                 id: highlight.id.clone(),
                 color: highlight.color,
                 quote: quote(&highlight.anchor.exact),
+                note: highlight.note.clone(),
                 heading: heading_of(highlight, &places, &headings),
                 lost,
             }
@@ -95,10 +106,11 @@ fn UserHighlightRow(
     id: HighlightId,
     color: HighlightColor,
     quote: String,
+    note: Option<String>,
     heading: Option<String>,
     lost: bool,
 ) -> Element {
-    let state = use_context::<AppState>();
+    let mut state = use_context::<AppState>();
     let mut show_popover = use_signal(|| false);
 
     let go = {
@@ -108,11 +120,12 @@ fn UserHighlightRow(
                 show_popover.toggle();
                 return;
             }
-            let id = serde_json::to_string(id.as_ref()).unwrap_or_default();
-            spawn(async move {
-                let _ =
-                    document::eval(&format!("window.Arto?.highlights?.scrollTo?.({id});")).await;
-            });
+            // Picking a place is the end of a list held open, as for a
+            // heading: the card is what the reader went there for.
+            if *state.contents_open.peek() {
+                state.close_contents();
+            }
+            crate::highlights::card::reveal(state, id.clone());
         }
     };
 
@@ -133,7 +146,7 @@ fn UserHighlightRow(
             div {
                 class: "contents-toc-row contents-toc-pin contents-toc-highlight",
                 class: if lost { "lost" },
-                title: if lost { "Not found in the document" } else { "Go to the highlight" },
+                title: row_title(lost, note.as_deref()),
                 onclick: go,
 
                 button {
@@ -149,6 +162,10 @@ fn UserHighlightRow(
 
                 if let Some(heading) = heading {
                     span { class: "contents-toc-highlight-heading", "{heading}" }
+                }
+
+                if let Some(note) = note.as_deref() {
+                    span { class: "contents-toc-highlight-note", "{note}" }
                 }
             }
 
@@ -229,6 +246,13 @@ mod tests {
             format!("{}\u{2026}", "あ".repeat(QUOTE_CHARS))
         );
         assert_eq!(quote(&"x".repeat(QUOTE_CHARS)), "x".repeat(QUOTE_CHARS));
+    }
+
+    #[test]
+    fn a_row_with_a_note_holds_all_of_it_under_the_pointer() {
+        assert_eq!(row_title(false, Some("first\nsecond")), "first\nsecond");
+        assert_eq!(row_title(false, None), "Go to the highlight");
+        assert_eq!(row_title(true, Some("note")), "Not found in the document");
     }
 
     #[test]

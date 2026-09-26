@@ -28,6 +28,7 @@ use crate::utils::data_store::{record_file_name, write_atomically};
 
 pub use crate::highlight_color::HighlightColor;
 
+pub mod card;
 pub mod page;
 
 /// The version of the record format, so an older one is read as empty
@@ -101,8 +102,8 @@ pub struct Highlight {
     pub color: HighlightColor,
     pub created_at: DateTime<Utc>,
     pub anchor: TextAnchor,
-    /// A note on the highlight. Kept when a record has one, but nothing
-    /// writes one yet.
+    /// What the reader wrote about the words, if anything. Never empty: a
+    /// note cleared is no note (see [`set_note`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
 }
@@ -231,6 +232,20 @@ pub fn set_color(highlights: &mut [Highlight], id: &HighlightId, color: Highligh
     }
 }
 
+/// Write `note` on the highlight `id`, without the blank lines and spaces
+/// around it; nothing but white space takes the note away. Returns whether
+/// that changed it.
+pub fn set_note(highlights: &mut [Highlight], id: &HighlightId, note: &str) -> bool {
+    let note = Some(note.trim()).filter(|note| !note.is_empty());
+    match highlights.iter_mut().find(|highlight| &highlight.id == id) {
+        Some(highlight) if highlight.note.as_deref() != note => {
+            highlight.note = note.map(str::to_string);
+            true
+        }
+        _ => false,
+    }
+}
+
 /// Note that the page found the highlight `id` at `start`, in the block on
 /// `line`. Returns whether that is somewhere else than it was.
 pub fn rebase(highlights: &mut [Highlight], id: &HighlightId, start: u32, line: u32) -> bool {
@@ -273,30 +288,40 @@ pub fn load(document: &Path) -> Vec<Highlight> {
 }
 
 /// Change the highlights on `document`, and tell the windows showing it
-/// when `announce` is set and something changed.
-fn change(document: &Path, announce: bool, f: impl FnOnce(&mut Vec<Highlight>) -> bool) {
-    let Some(store) = STORE.as_ref() else {
-        return;
-    };
+/// when `announce` is set and something changed. Returns whether `f`
+/// changed anything, or nothing when the highlights could not be kept.
+fn change(
+    document: &Path,
+    announce: bool,
+    f: impl FnOnce(&mut Vec<Highlight>) -> bool,
+) -> Option<bool> {
+    let store = STORE.as_ref()?;
     match store.change(document, f) {
-        Ok(true) if announce => {
-            HIGHLIGHTS_CHANGED.send(document.to_path_buf()).ok();
+        Ok(changed) => {
+            if changed && announce {
+                HIGHLIGHTS_CHANGED.send(document.to_path_buf()).ok();
+            }
+            Some(changed)
         }
-        Ok(_) => {}
         Err(error) => {
             tracing::warn!(%error, document = %document.display(), "highlights were not kept");
+            None
         }
     }
 }
 
 /// Highlight what `anchor` names in `color`, which becomes the colour a
-/// highlight is drawn in from now on.
-pub fn add(document: &Path, anchor: TextAnchor, color: HighlightColor) {
+/// highlight is drawn in from now on. Returns the new highlight's id, or
+/// nothing when it could not be kept.
+pub fn add(document: &Path, anchor: TextAnchor, color: HighlightColor) -> Option<HighlightId> {
     *LAST_COLOR.write() = color;
+    let highlight = Highlight::new(anchor, color);
+    let id = highlight.id.clone();
     change(document, true, |highlights| {
-        highlights.push(Highlight::new(anchor, color));
+        highlights.push(highlight);
         true
-    });
+    })?;
+    Some(id)
 }
 
 /// Take away the highlights `ids` names.
@@ -310,6 +335,18 @@ pub fn recolor(document: &Path, id: &HighlightId, color: HighlightColor) {
     change(document, true, |highlights| {
         set_color(highlights, id, color)
     });
+}
+
+/// Write `note` on the highlight `id` (see [`set_note`]). Returns whether the
+/// highlight is there to carry it: one taken away meanwhile, in another
+/// window, leaves the note with nowhere to go.
+pub fn annotate(document: &Path, id: &HighlightId, note: &str) -> bool {
+    let mut present = false;
+    let kept = change(document, true, |highlights| {
+        present = highlights.iter().any(|highlight| highlight.id == *id);
+        set_note(highlights, id, note)
+    });
+    kept.is_some() && present
 }
 
 /// Keep where the page found each highlight in `moves`, as `(id, start,
@@ -612,6 +649,25 @@ mod tests {
         assert!(!remove(&mut highlights, &[first.id]));
         assert_eq!(highlights.len(), 1);
         assert_eq!(highlights[0].id, second.id);
+    }
+
+    #[test]
+    fn a_note_is_kept_trimmed_and_an_empty_one_takes_the_note_away() {
+        let highlight = Highlight::new(anchor("a", 0, 1), HighlightColor::Green);
+        let id = highlight.id.clone();
+        let mut highlights = vec![highlight];
+
+        assert!(set_note(&mut highlights, &id, "  remember this \n"));
+        assert_eq!(highlights[0].note.as_deref(), Some("remember this"));
+
+        // The same words again, spaced differently, change nothing.
+        assert!(!set_note(&mut highlights, &id, "remember this"));
+
+        assert!(set_note(&mut highlights, &id, " \n\t"));
+        assert_eq!(highlights[0].note, None);
+        assert!(!set_note(&mut highlights, &id, ""));
+
+        assert!(!set_note(&mut highlights, &HighlightId::new(), "elsewhere"));
     }
 
     #[test]

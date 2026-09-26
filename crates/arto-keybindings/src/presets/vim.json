@@ -298,6 +298,10 @@
       "action": "highlight.add"
     },
     {
+      "key": "m n",
+      "action": "highlight.note"
+    },
+    {
       "key": "Enter",
       "action": "content.open_viewer"
     },

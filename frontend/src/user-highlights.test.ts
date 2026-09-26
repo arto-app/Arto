@@ -1,16 +1,19 @@
-import { describe, test, expect, beforeEach } from "vitest";
+import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 
 import * as findInPage from "./find-in-page";
 import { hitsByHeading } from "./reading-position";
 import type { TextAnchor } from "./text-anchor";
 import {
   type HighlightDef,
+  type Opened,
   type Report,
   _reset,
   describeSelection,
   idsAtSelection,
   idsIn,
   lift,
+  rectOf,
+  reveal,
   setup,
   show,
 } from "./user-highlights";
@@ -260,5 +263,208 @@ describe("contents", () => {
     show("/doc.md", [highlight("hl_1", anchor("dogs", "Lazy ", " sleep."), "orange")]);
 
     expect(hitsByHeading(root)).toEqual(new Map([["more", ["var(--mark-orange)"]]]));
+  });
+});
+
+describe("notes", () => {
+  test("only the last piece of a highlight with a note carries the note's glyph", () => {
+    const root = page(DOC);
+
+    show("/doc.md", [
+      { ...highlight("hl_1", anchor("quick brown fox", "The ", " jumps.")), note: "why" },
+      highlight("hl_2", anchor("dogs", "Lazy ", " sleep.")),
+    ]);
+
+    const noted = Array.from(root.querySelectorAll<HTMLElement>("mark[data-note]"));
+    expect(noted.map((mark) => [mark.dataset.highlightId, mark.textContent])).toEqual([
+      ["hl_1", " fox"],
+    ]);
+    // The glyph is drawn, not written: the words are what they were.
+    expect(root.querySelector("p")?.textContent).toBe("The quick brown fox jumps.");
+  });
+
+  test("hovering a highlight with a note shows the note until the pointer leaves", () => {
+    const root = page(DOC);
+    show("/doc.md", [
+      { ...highlight("hl_1", anchor("dogs", "Lazy ", " sleep.")), note: "first\nsecond" },
+    ]);
+    const mark = root.querySelector('[data-highlight-id="hl_1"]') as HTMLElement;
+
+    mark.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: 5, clientY: 5 }));
+    const tip = document.querySelector<HTMLElement>("body > .user-highlight-tip");
+    expect(tip?.hidden).toBe(false);
+    expect(tip?.textContent).toBe("first\nsecond");
+
+    root.querySelector("h1")?.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    expect(tip?.hidden).toBe(true);
+  });
+
+  test("scrolling hides the note", () => {
+    const root = page(DOC);
+    show("/doc.md", [{ ...highlight("hl_1", anchor("dogs", "Lazy ", " sleep.")), note: "n" }]);
+    const mark = root.querySelector('[data-highlight-id="hl_1"]') as HTMLElement;
+
+    mark.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    document.dispatchEvent(new Event("scroll"));
+
+    expect(document.querySelector<HTMLElement>("body > .user-highlight-tip")?.hidden).toBe(true);
+  });
+
+  test("a highlight without a note says nothing on hover", () => {
+    const root = page(DOC);
+    show("/doc.md", [highlight("hl_1", anchor("dogs", "Lazy ", " sleep."))]);
+    const mark = root.querySelector('[data-highlight-id="hl_1"]') as HTMLElement;
+
+    mark.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+
+    const tip = document.querySelector<HTMLElement>("body > .user-highlight-tip");
+    expect(tip === null || tip.hidden).toBe(true);
+  });
+});
+
+describe("opening a highlight", () => {
+  let opened: Opened[] = [];
+
+  beforeEach(() => {
+    opened = [];
+    setup(
+      (report) => reports.push(report),
+      (open) => opened.push(open),
+    );
+    window.getSelection()?.removeAllRanges();
+  });
+
+  function click(el: Element | null): void {
+    el?.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
+  }
+
+  test("a click on a highlight with nothing selected asks for it, and says where it is and on which document", () => {
+    const root = page(DOC);
+    show("/doc.md", [highlight("hl_1", anchor("quick brown fox", "The ", " jumps."))]);
+    const pieces = root.querySelectorAll<HTMLElement>('[data-highlight-id="hl_1"]');
+    const at = (left: number, top: number, right: number, bottom: number): DOMRect =>
+      ({
+        left,
+        top,
+        right,
+        bottom,
+        x: left,
+        y: top,
+        width: right - left,
+        height: bottom - top,
+      }) as DOMRect;
+    pieces[0].getBoundingClientRect = () => at(40, 20, 90, 36);
+    pieces[1].getBoundingClientRect = () => at(90, 20, 130, 36);
+    pieces[2].getBoundingClientRect = () => at(10, 40, 30, 56);
+
+    click(pieces[1]);
+
+    expect(opened).toEqual([
+      { doc: "/doc.md", id: "hl_1", rect: { left: 10, top: 20, right: 130, bottom: 56 } },
+    ]);
+  });
+
+  test("a click that ends a selection leaves the selection alone", () => {
+    const root = page(DOC);
+    show("/doc.md", [highlight("hl_1", anchor("dogs", "Lazy ", " sleep."))]);
+    const range = document.createRange();
+    range.selectNodeContents(root.querySelectorAll("p")[1]);
+    window.getSelection()?.addRange(range);
+
+    click(root.querySelector('[data-highlight-id="hl_1"]'));
+
+    expect(opened).toEqual([]);
+  });
+
+  test("of nested highlights, the innermost clicked is the one opened", () => {
+    const root = page(DOC);
+    show("/doc.md", [
+      highlight("hl_1", anchor("Lazy dogs", "", " sleep.")),
+      highlight("hl_2", anchor("dogs", "Lazy ", " sleep.")),
+    ]);
+
+    click(root.querySelector('[data-highlight-id="hl_2"]'));
+
+    expect(opened.map(({ id }) => id)).toEqual(["hl_2"]);
+  });
+
+  test("a click on a link in a highlight follows the link", () => {
+    const root = page(`<p data-source-range="1:1-1:20">See <a href="#x">the docs</a> now.</p>`);
+    show("/doc.md", [highlight("hl_1", anchor("the docs", "See ", " now."))]);
+
+    click(root.querySelector('[data-highlight-id="hl_1"]'));
+
+    expect(opened).toEqual([]);
+  });
+
+  test("a selection inside one highlight names that highlight", () => {
+    const root = page(DOC);
+    show("/doc.md", [highlight("hl_1", anchor("Lazy dogs sleep", "", "."))]);
+    const range = document.createRange();
+    const inner = root.querySelector('[data-highlight-id="hl_1"]')?.firstChild as Text;
+    range.setStart(inner, 5);
+    range.setEnd(inner, 9);
+    window.getSelection()?.addRange(range);
+
+    expect(describeSelection()).toMatchObject({ anchor: { exact: "dogs" }, within: "hl_1" });
+
+    const outside = document.createRange();
+    outside.selectNodeContents(root.querySelector("h1") as Element);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(outside);
+    expect(describeSelection()).toMatchObject({ anchor: { exact: "Intro" }, within: null });
+  });
+
+  test("a highlight is found where it is, or not at all", () => {
+    page(DOC);
+    show("/doc.md", [highlight("hl_1", anchor("dogs", "Lazy ", " sleep."))]);
+
+    expect(rectOf("hl_1")).toEqual({ left: 0, top: 0, right: 0, bottom: 0 });
+    expect(rectOf("hl_404")).toBeNull();
+  });
+
+  test("a highlight running past the window is measured by the part in it", () => {
+    const root = page(DOC);
+    show("/doc.md", [highlight("hl_1", anchor("quick brown fox", "The ", " jumps."))]);
+    const pieces = root.querySelectorAll<HTMLElement>('[data-highlight-id="hl_1"]');
+    const at =
+      (top: number): (() => DOMRect) =>
+      () =>
+        ({ left: 10, top, right: 200, bottom: top + 16 }) as DOMRect;
+    pieces[0].getBoundingClientRect = at(-400);
+    pieces[1].getBoundingClientRect = at(100);
+    pieces[2].getBoundingClientRect = at(window.innerHeight + 300);
+
+    expect(rectOf("hl_1")).toEqual({ left: 10, top: 100, right: 200, bottom: 116 });
+  });
+});
+
+describe("reveal", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test("says where a highlight is once it has stopped moving", async () => {
+    vi.useFakeTimers();
+    const root = page(DOC);
+    show("/doc.md", [highlight("hl_1", anchor("dogs", "Lazy ", " sleep."))]);
+    const mark = root.querySelector('[data-highlight-id="hl_1"]') as HTMLElement;
+    const tops = [400, 250, 120, 100, 100, 100, 100];
+    mark.getBoundingClientRect = () => {
+      const top = tops.length > 1 ? (tops.shift() ?? 0) : tops[0];
+      return { left: 5, top, right: 45, bottom: top + 16 } as DOMRect;
+    };
+
+    const revealed = reveal("hl_1");
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(await revealed).toEqual({ left: 5, top: 100, right: 45, bottom: 116 });
+  });
+
+  test("says nothing of a highlight not on the page", async () => {
+    page(DOC);
+    show("/doc.md", []);
+
+    expect(await reveal("hl_1")).toBeNull();
   });
 });

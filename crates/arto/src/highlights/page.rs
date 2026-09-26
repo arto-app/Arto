@@ -4,14 +4,18 @@
 //! thing that can find their words again, so the two talk both ways: the
 //! app hands it the document's highlights whenever the document is drawn or
 //! they change, and the page answers with where it found each one, which is
-//! kept so that a highlight follows its words through an edit.
+//! kept so that a highlight follows its words through an edit. It also says
+//! which highlight the reader clicked, for its card to open (see [`super::card`]).
 
 use dioxus::document;
 use dioxus::prelude::*;
 use std::path::{Path, PathBuf};
 use tokio::sync::broadcast::error::RecvError;
 
-use super::{load, rebase, rebase_all, same_document, Highlight, PageReport, HIGHLIGHTS_CHANGED};
+use super::card::Rect;
+use super::{
+    load, rebase, rebase_all, same_document, Highlight, HighlightId, PageReport, HIGHLIGHTS_CHANGED,
+};
 use crate::state::AppState;
 
 /// How the page names the document it is asked to draw highlights on, and
@@ -20,13 +24,18 @@ pub(crate) fn doc_name(document: &Path) -> String {
     document.to_string_lossy().into_owned()
 }
 
-/// What the page says: that it is ready to draw highlights, or what it
-/// found when it drew them.
+/// What the page says: that it is ready to draw highlights, what it found
+/// when it drew them, or that the reader clicked one to open it.
 #[derive(serde::Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum FromPage {
     Ready,
     Report(PageReport),
+    Open {
+        doc: String,
+        id: HighlightId,
+        rect: Rect,
+    },
 }
 
 /// The script that draws `highlights` on the page holding `document`, the
@@ -74,7 +83,10 @@ pub fn use_page_highlights(file: ReadSignal<PathBuf>, mut state: AppState) {
                 while (!window.Arto?.highlights?.setup) {
                     await new Promise(resolve => setTimeout(resolve, 10));
                 }
-                window.Arto.highlights.setup((report) => dioxus.send({ type: "report", ...report }));
+                window.Arto.highlights.setup(
+                    (report) => dioxus.send({ type: "report", ...report }),
+                    (opened) => dioxus.send({ type: "open", ...opened }),
+                );
                 dioxus.send({ type: "ready" });
             })();
         "#});
@@ -89,6 +101,13 @@ pub fn use_page_highlights(file: ReadSignal<PathBuf>, mut state: AppState) {
                     let js = shown_js(state, &current, &state.highlights.peek());
                     if let Some(js) = js {
                         let _ = document::eval(&js).await;
+                    }
+                    continue;
+                }
+                FromPage::Open { doc, id, rect } => {
+                    let current = file.peek().clone();
+                    if doc == doc_name(&current) {
+                        super::card::open(state, current, id, rect);
                     }
                     continue;
                 }
@@ -112,7 +131,7 @@ pub fn use_page_highlights(file: ReadSignal<PathBuf>, mut state: AppState) {
         }
     });
 
-    // A highlight added, removed or recoloured, here or in another window
+    // A highlight added, removed, recoloured or noted, here or in another window
     // showing the same document.
     use_future(move || async move {
         let mut rx = HIGHLIGHTS_CHANGED.subscribe();
@@ -151,6 +170,12 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(report, FromPage::Report(report) if report.doc == "/a.md"));
+
+        let open: FromPage = serde_json::from_str(
+            r#"{"type":"open","doc":"/doc.md","id":"hl_1","rect":{"left":1,"top":2,"right":3,"bottom":4}}"#,
+        )
+        .unwrap();
+        assert!(matches!(open, FromPage::Open { id, .. } if id.as_ref() == "hl_1"));
 
         // A report the page got wrong is not taken for the page being ready.
         assert!(serde_json::from_str::<FromPage>(r#"{"type":"report","doc":1}"#).is_err());

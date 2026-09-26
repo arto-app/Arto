@@ -5,7 +5,7 @@
 
 import { readSourceRange } from "./source-range";
 import { extractTableDelimited, formatTableAsMarkdown } from "./table-utils";
-import { idsIn as highlightIdsIn } from "./user-highlights";
+import { idAt as highlightIdAt, idsIn as highlightIdsIn } from "./user-highlights";
 
 export type ContentContextType =
   | { type: "general" }
@@ -36,6 +36,8 @@ export interface ContextMenuData {
   table_source_line_end: number | null;
   /** The reader's highlights the selection touches, or the one clicked on. */
   highlight_ids: string[];
+  /** The innermost highlight under the pointer, which a note is written on. */
+  highlight_under_pointer: string | null;
 }
 
 interface TableData {
@@ -590,6 +592,7 @@ export function setup(sendToRust: (data: ContextMenuData) => void): void {
       table_source_line: tableData?.sourceLine ?? null,
       table_source_line_end: tableData?.sourceLineEnd ?? null,
       highlight_ids: highlightIdsIn(hasSelection ? getSavedRange() : null, target),
+      highlight_under_pointer: highlightIdAt(target),
     };
 
     sendToRust(data);

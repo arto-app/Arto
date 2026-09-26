@@ -6,6 +6,7 @@ pub mod context_menu;
 pub mod document_name;
 pub mod find;
 pub mod header;
+pub mod highlight_card;
 pub mod icon;
 pub mod image_window;
 pub mod lens_controls;

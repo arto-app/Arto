@@ -44,6 +44,7 @@ pub fn ContentContextMenu(
     table_source_line: Option<u32>,
     table_source_line_end: Option<u32>,
     highlight_ids: Vec<String>,
+    highlight_under_pointer: Option<String>,
     on_close: EventHandler<()>,
 ) -> Element {
     let shortcut = |action| shortcut_hint_for_context_action(KeyContext::Content, action);
@@ -274,11 +275,12 @@ pub fn ContentContextMenu(
             }
 
             // === The reader's highlights ===
-            if has_selection || !highlight_ids.is_empty() {
+            if has_selection || !highlight_ids.is_empty() || highlight_under_pointer.is_some() {
                 ContextMenuSeparator {}
                 HighlightItems {
                     has_selection: has_selection && state.rendered_source.read().is_some(),
                     highlight_ids: highlight_ids.clone(),
+                    highlight_under_pointer: highlight_under_pointer.clone(),
                     on_close: on_close,
                 }
             }
