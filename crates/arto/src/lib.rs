@@ -1,4 +1,5 @@
 mod assets;
+mod backlinks;
 mod bookmarks;
 mod cache;
 pub mod cli;
