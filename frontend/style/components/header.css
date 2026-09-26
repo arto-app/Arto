@@ -17,6 +17,22 @@
   box-sizing: border-box;
   padding: 0 20px;
   background: var(--bg-color);
+  transition:
+    height var(--transition-quiet) ease,
+    opacity var(--transition-quiet) ease,
+    visibility var(--transition-quiet);
+}
+
+/* Focus mode folds the band away rather than unmounting it: the find field
+   lives here, and a search has to be able to bring it straight back. Hidden
+   as well as transparent, so the keyboard cannot tab into controls no one
+   can see. */
+.main-area.focus-mode > .header {
+  height: 0;
+  opacity: 0;
+  visibility: hidden;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 /* No `overflow: hidden` here. The breadcrumb's menu hangs below this row,
