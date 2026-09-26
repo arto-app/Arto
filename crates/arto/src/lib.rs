@@ -9,6 +9,7 @@ mod document_link;
 mod events;
 mod files;
 mod fuzzy;
+mod highlight_color;
 mod history;
 mod hooks;
 pub mod ipc;
