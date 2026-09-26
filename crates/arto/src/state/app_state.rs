@@ -1,10 +1,11 @@
 use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
 use dioxus::prelude::*;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::components::sidebar::context_menu::SidebarContextMenuData;
 use crate::config::{normalize_content_zoom, DEFAULT_ZOOM_LEVEL, ZOOM_STEP};
-use crate::markdown::HeadingInfo;
+use crate::markdown::{HeadingInfo, ReadingProfile};
 use crate::pinned_search::PinnedSearchId;
 use crate::scroll_anchor::ScrollAnchor;
 use crate::theme::Theme;
@@ -127,6 +128,10 @@ pub struct AppState {
     /// Current scroll position of the content area.
     /// Updated by scroll events, used to save position before back/forward navigation.
     pub current_scroll_anchor: Signal<ScrollAnchor>,
+    /// Whether the bottom of the document is in view, which the anchor
+    /// cannot say: the block at the top of the view stops advancing once the
+    /// last screen is reached.
+    pub scrolled_to_end: Signal<bool>,
     /// Reload trigger counter. Incrementing this forces FileViewer to re-read the file
     /// from disk without going through the use_memo PartialEq gate in content.rs.
     /// Used by manual reload (header button, context menu) and file watcher.
@@ -166,6 +171,9 @@ pub struct AppState {
     /// The source the document on screen was rendered from, which lenses
     /// read out of. `None` while nothing Markdown is shown.
     pub rendered_source: Signal<Option<crate::lenses::RenderedSource>>,
+    /// What the document on screen asks a reader to read, block by block.
+    /// Set and cleared with `rendered_source`.
+    pub reading_profile: Signal<Option<Arc<ReadingProfile>>>,
     /// The page lenses open in this window: the one applied takes the
     /// document's places, the others wait to be switched to.
     pub page_lenses: Signal<Vec<crate::lenses::LensRun>>,
@@ -206,6 +214,7 @@ impl AppState {
             pending_scroll_anchor: Signal::new(None),
             pending_scroll_fragment: Signal::new(None),
             current_scroll_anchor: Signal::new(ScrollAnchor::TOP),
+            scrolled_to_end: Signal::new(false),
             reload_trigger: Signal::new(0),
             focused_panel: Signal::new(FocusedPanel::Content),
             panel_cursor: Signal::new(None),
@@ -214,6 +223,7 @@ impl AppState {
             sidebar_refresh_counter: Signal::new(0),
             visits_revision: Signal::new(0),
             rendered_source: Signal::new(None),
+            reading_profile: Signal::new(None),
             page_lenses: Signal::new(Vec::new()),
             overlay_lenses: Signal::new(Vec::new()),
         }

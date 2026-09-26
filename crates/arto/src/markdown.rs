@@ -35,15 +35,27 @@ fn render_options() -> RenderOptions {
     }
 }
 
+/// A document rendered for the app: the page, its outline and what it asks
+/// a reader to read.
+pub struct Rendered {
+    pub html: String,
+    pub headings: Vec<HeadingInfo>,
+    pub reading: ReadingProfile,
+}
+
 /// Render Markdown to HTML with TOC information, honoring the user's
 /// rendering preferences.
 pub fn render_to_html_with_toc(
     markdown: impl AsRef<str>,
     base_path: impl AsRef<Path>,
-) -> Result<(String, Vec<HeadingInfo>)> {
+) -> Result<Rendered> {
     let rendered = arto_markdown::render_to_html_with_toc(markdown, base_path, &render_options())?;
     crate::assets::images::register(rendered.images);
-    Ok((rendered.html, rendered.headings))
+    Ok(Rendered {
+        html: rendered.html,
+        headings: rendered.headings,
+        reading: rendered.reading,
+    })
 }
 
 /// Extract the Markdown source behind a selection of the rendered text.
