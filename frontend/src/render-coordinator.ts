@@ -74,6 +74,8 @@ class RenderCoordinator {
   #pendingMutationRetries = 0;
   #renderCompleteCallbacks: Array<() => void> = [];
   #observer: MutationObserver | null = null;
+  /** Attributes whose changes alone are not new content. */
+  #inertAttributes = new Set<string>();
   #beforePrint: (() => void) | null = null;
 
   // Safety limit to prevent infinite render loops caused by
@@ -90,6 +92,11 @@ class RenderCoordinator {
 
   init(): void {
     this.#observer = new MutationObserver((mutations) => {
+      mutations = mutations.filter((m) => this.#isContent(m));
+      if (mutations.length === 0) {
+        return;
+      }
+
       // Defer mutations that arrive while rendering to avoid cascade.
       // They will be re-scheduled after the current render completes.
       if (this.#isRendering) {
@@ -105,15 +112,8 @@ class RenderCoordinator {
         return;
       }
 
-      // Check if there's an actual content change
-      const hasContentChange = mutations.some(
-        (m) => m.type === "childList" || m.type === "attributes",
-      );
-
-      if (hasContentChange) {
-        console.debug("RenderCoordinator: Content change detected, scheduling render");
-        this.scheduleRender();
-      }
+      console.debug("RenderCoordinator: Content change detected, scheduling render");
+      this.scheduleRender();
     });
 
     this.#observer.observe(document.body, {
@@ -147,6 +147,26 @@ class RenderCoordinator {
 
     // Schedule an initial render
     this.scheduleRender();
+  }
+
+  /**
+   * Say that a change to attribute `name` alone is not new content.
+   *
+   * For an attribute that only changes how a block is drawn, set by
+   * something reacting to layout: rendering again would find nothing to do,
+   * yet pay for a pass over the whole document and fire the render-complete
+   * callbacks — which is what set the attribute in the first place.
+   */
+  ignoreAttribute(name: string): void {
+    this.#inertAttributes.add(name);
+  }
+
+  #isContent(mutation: MutationRecord): boolean {
+    return !(
+      mutation.type === "attributes" &&
+      mutation.attributeName !== null &&
+      this.#inertAttributes.has(mutation.attributeName)
+    );
   }
 
   destroy(): void {

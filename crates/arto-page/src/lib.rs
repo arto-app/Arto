@@ -92,7 +92,14 @@ static HLJS_ALL: LazyLock<HashSet<&str>> = LazyLock::new(|| HLJS_ALL_MANIFEST.li
 /// scrolls inside an inner `.content` container. A standalone document has no
 /// such container, so inheriting that rule clips long documents and leaves the
 /// page unscrollable. Restore natural document scrolling.
-const STANDALONE_OVERRIDE_CSS: &str = "html,body{overflow:auto!important;height:auto!important;}";
+///
+/// Only the root may name the viewport's overflow. The body's own value
+/// reaches the viewport only while the root's is `visible`, so a body left at
+/// `auto` next to an `auto` root becomes a scroll container of its own — one
+/// that never scrolls, since it is as tall as the document. Anything sticky
+/// holds against the nearest scroll container, and would hold against that.
+const STANDALONE_OVERRIDE_CSS: &str = "html{overflow:auto!important;height:auto!important;}\
+     body{overflow:visible!important;height:auto!important;}";
 
 /// [`FRONTEND_CSS`] without the KaTeX font faces.
 ///
@@ -597,7 +604,11 @@ mod tests {
         // the shared `body { overflow: hidden }` must be overridden or the
         // page cannot scroll long documents.
         assert!(html.contains(STANDALONE_OVERRIDE_CSS));
-        assert!(html.contains("overflow:auto"));
+        assert!(html.contains("html{overflow:auto"));
+        // The body gives its scrolling to the viewport rather than becoming a
+        // scroll container of its own that never scrolls: a sticky table
+        // header holds against the nearest one, and would never move.
+        assert!(html.contains("body{overflow:visible"));
         assert!(html.contains("<script>"));
         assert!(html.contains("</script>"));
         // Theme defaults are present: start light, let the bootstrap follow

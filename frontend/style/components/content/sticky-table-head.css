@@ -1,0 +1,22 @@
+/* A long table's header row, kept at the top of the view while the table is
+   read. `frontend/src/sticky-table-head.ts` marks the tables it applies to.
+
+   Primer makes every table a block that scrolls on both axes, so a sticky
+   header would hold against the table itself, which never scrolls
+   vertically. A marked table fits across the page and gives that box up;
+   the header then holds against the document's scroller and leaves with the
+   table's bottom edge. */
+.markdown-body table[data-sticky-head] {
+  overflow: visible;
+}
+
+.markdown-body table[data-sticky-head] > thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  /* The rows beneath show through a header with no background of its own. */
+  background-color: var(--bgColor-default);
+  /* Collapsed borders belong to the table, not the cell, and stay behind
+     when the cell moves; a shadow is the cell's own and moves with it. */
+  box-shadow: inset 0 -1px var(--borderColor-default);
+}

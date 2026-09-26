@@ -4,6 +4,7 @@
 @import url("./content/highlights.css");
 @import url("./content/welcome.css");
 @import url("./content/margin-trace.css");
+@import url("./content/sticky-table-head.css");
 
 .content {
   flex: 1;

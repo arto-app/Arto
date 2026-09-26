@@ -374,102 +374,418 @@ without splitting the cell; the empty cell keeps its column.</p>
 </tbody>
 </table>
 <p data-source-range="320:1-320:56"><strong>Expected:</strong> the table scrolls horizontally on its own.</p>
-<p data-source-range="322:1-322:12">Header only:</p>
-<table data-source-range="324:1-325:19">
+<p data-source-range="322:1-322:23">Taller than the window:</p>
+<table data-source-range="324:1-385:29">
 <thead>
-<tr data-source-range="324:1-324:19">
-<th data-source-range="324:3-324:6">Just</th>
-<th data-source-range="324:10-324:17">a header</th>
+<tr data-source-range="324:1-324:29">
+<th data-source-range="324:3-324:3">#</th>
+<th data-source-range="324:9-324:13">Label</th>
+<th data-source-range="324:19-324:24">Parity</th>
+</tr>
+</thead>
+<tbody>
+<tr data-source-range="326:1-326:29">
+<td data-source-range="326:3-326:3">1</td>
+<td data-source-range="326:9-326:13">Row 1</td>
+<td data-source-range="326:19-326:21">odd</td>
+</tr>
+<tr data-source-range="327:1-327:29">
+<td data-source-range="327:3-327:3">2</td>
+<td data-source-range="327:9-327:13">Row 2</td>
+<td data-source-range="327:19-327:22">even</td>
+</tr>
+<tr data-source-range="328:1-328:29">
+<td data-source-range="328:3-328:3">3</td>
+<td data-source-range="328:9-328:13">Row 3</td>
+<td data-source-range="328:19-328:21">odd</td>
+</tr>
+<tr data-source-range="329:1-329:29">
+<td data-source-range="329:3-329:3">4</td>
+<td data-source-range="329:9-329:13">Row 4</td>
+<td data-source-range="329:19-329:22">even</td>
+</tr>
+<tr data-source-range="330:1-330:29">
+<td data-source-range="330:3-330:3">5</td>
+<td data-source-range="330:9-330:13">Row 5</td>
+<td data-source-range="330:19-330:21">odd</td>
+</tr>
+<tr data-source-range="331:1-331:29">
+<td data-source-range="331:3-331:3">6</td>
+<td data-source-range="331:9-331:13">Row 6</td>
+<td data-source-range="331:19-331:22">even</td>
+</tr>
+<tr data-source-range="332:1-332:29">
+<td data-source-range="332:3-332:3">7</td>
+<td data-source-range="332:9-332:13">Row 7</td>
+<td data-source-range="332:19-332:21">odd</td>
+</tr>
+<tr data-source-range="333:1-333:29">
+<td data-source-range="333:3-333:3">8</td>
+<td data-source-range="333:9-333:13">Row 8</td>
+<td data-source-range="333:19-333:22">even</td>
+</tr>
+<tr data-source-range="334:1-334:29">
+<td data-source-range="334:3-334:3">9</td>
+<td data-source-range="334:9-334:13">Row 9</td>
+<td data-source-range="334:19-334:21">odd</td>
+</tr>
+<tr data-source-range="335:1-335:29">
+<td data-source-range="335:3-335:4">10</td>
+<td data-source-range="335:9-335:14">Row 10</td>
+<td data-source-range="335:19-335:22">even</td>
+</tr>
+<tr data-source-range="336:1-336:29">
+<td data-source-range="336:3-336:4">11</td>
+<td data-source-range="336:9-336:14">Row 11</td>
+<td data-source-range="336:19-336:21">odd</td>
+</tr>
+<tr data-source-range="337:1-337:29">
+<td data-source-range="337:3-337:4">12</td>
+<td data-source-range="337:9-337:14">Row 12</td>
+<td data-source-range="337:19-337:22">even</td>
+</tr>
+<tr data-source-range="338:1-338:29">
+<td data-source-range="338:3-338:4">13</td>
+<td data-source-range="338:9-338:14">Row 13</td>
+<td data-source-range="338:19-338:21">odd</td>
+</tr>
+<tr data-source-range="339:1-339:29">
+<td data-source-range="339:3-339:4">14</td>
+<td data-source-range="339:9-339:14">Row 14</td>
+<td data-source-range="339:19-339:22">even</td>
+</tr>
+<tr data-source-range="340:1-340:29">
+<td data-source-range="340:3-340:4">15</td>
+<td data-source-range="340:9-340:14">Row 15</td>
+<td data-source-range="340:19-340:21">odd</td>
+</tr>
+<tr data-source-range="341:1-341:29">
+<td data-source-range="341:3-341:4">16</td>
+<td data-source-range="341:9-341:14">Row 16</td>
+<td data-source-range="341:19-341:22">even</td>
+</tr>
+<tr data-source-range="342:1-342:29">
+<td data-source-range="342:3-342:4">17</td>
+<td data-source-range="342:9-342:14">Row 17</td>
+<td data-source-range="342:19-342:21">odd</td>
+</tr>
+<tr data-source-range="343:1-343:29">
+<td data-source-range="343:3-343:4">18</td>
+<td data-source-range="343:9-343:14">Row 18</td>
+<td data-source-range="343:19-343:22">even</td>
+</tr>
+<tr data-source-range="344:1-344:29">
+<td data-source-range="344:3-344:4">19</td>
+<td data-source-range="344:9-344:14">Row 19</td>
+<td data-source-range="344:19-344:21">odd</td>
+</tr>
+<tr data-source-range="345:1-345:29">
+<td data-source-range="345:3-345:4">20</td>
+<td data-source-range="345:9-345:14">Row 20</td>
+<td data-source-range="345:19-345:22">even</td>
+</tr>
+<tr data-source-range="346:1-346:29">
+<td data-source-range="346:3-346:4">21</td>
+<td data-source-range="346:9-346:14">Row 21</td>
+<td data-source-range="346:19-346:21">odd</td>
+</tr>
+<tr data-source-range="347:1-347:29">
+<td data-source-range="347:3-347:4">22</td>
+<td data-source-range="347:9-347:14">Row 22</td>
+<td data-source-range="347:19-347:22">even</td>
+</tr>
+<tr data-source-range="348:1-348:29">
+<td data-source-range="348:3-348:4">23</td>
+<td data-source-range="348:9-348:14">Row 23</td>
+<td data-source-range="348:19-348:21">odd</td>
+</tr>
+<tr data-source-range="349:1-349:29">
+<td data-source-range="349:3-349:4">24</td>
+<td data-source-range="349:9-349:14">Row 24</td>
+<td data-source-range="349:19-349:22">even</td>
+</tr>
+<tr data-source-range="350:1-350:29">
+<td data-source-range="350:3-350:4">25</td>
+<td data-source-range="350:9-350:14">Row 25</td>
+<td data-source-range="350:19-350:21">odd</td>
+</tr>
+<tr data-source-range="351:1-351:29">
+<td data-source-range="351:3-351:4">26</td>
+<td data-source-range="351:9-351:14">Row 26</td>
+<td data-source-range="351:19-351:22">even</td>
+</tr>
+<tr data-source-range="352:1-352:29">
+<td data-source-range="352:3-352:4">27</td>
+<td data-source-range="352:9-352:14">Row 27</td>
+<td data-source-range="352:19-352:21">odd</td>
+</tr>
+<tr data-source-range="353:1-353:29">
+<td data-source-range="353:3-353:4">28</td>
+<td data-source-range="353:9-353:14">Row 28</td>
+<td data-source-range="353:19-353:22">even</td>
+</tr>
+<tr data-source-range="354:1-354:29">
+<td data-source-range="354:3-354:4">29</td>
+<td data-source-range="354:9-354:14">Row 29</td>
+<td data-source-range="354:19-354:21">odd</td>
+</tr>
+<tr data-source-range="355:1-355:29">
+<td data-source-range="355:3-355:4">30</td>
+<td data-source-range="355:9-355:14">Row 30</td>
+<td data-source-range="355:19-355:22">even</td>
+</tr>
+<tr data-source-range="356:1-356:29">
+<td data-source-range="356:3-356:4">31</td>
+<td data-source-range="356:9-356:14">Row 31</td>
+<td data-source-range="356:19-356:21">odd</td>
+</tr>
+<tr data-source-range="357:1-357:29">
+<td data-source-range="357:3-357:4">32</td>
+<td data-source-range="357:9-357:14">Row 32</td>
+<td data-source-range="357:19-357:22">even</td>
+</tr>
+<tr data-source-range="358:1-358:29">
+<td data-source-range="358:3-358:4">33</td>
+<td data-source-range="358:9-358:14">Row 33</td>
+<td data-source-range="358:19-358:21">odd</td>
+</tr>
+<tr data-source-range="359:1-359:29">
+<td data-source-range="359:3-359:4">34</td>
+<td data-source-range="359:9-359:14">Row 34</td>
+<td data-source-range="359:19-359:22">even</td>
+</tr>
+<tr data-source-range="360:1-360:29">
+<td data-source-range="360:3-360:4">35</td>
+<td data-source-range="360:9-360:14">Row 35</td>
+<td data-source-range="360:19-360:21">odd</td>
+</tr>
+<tr data-source-range="361:1-361:29">
+<td data-source-range="361:3-361:4">36</td>
+<td data-source-range="361:9-361:14">Row 36</td>
+<td data-source-range="361:19-361:22">even</td>
+</tr>
+<tr data-source-range="362:1-362:29">
+<td data-source-range="362:3-362:4">37</td>
+<td data-source-range="362:9-362:14">Row 37</td>
+<td data-source-range="362:19-362:21">odd</td>
+</tr>
+<tr data-source-range="363:1-363:29">
+<td data-source-range="363:3-363:4">38</td>
+<td data-source-range="363:9-363:14">Row 38</td>
+<td data-source-range="363:19-363:22">even</td>
+</tr>
+<tr data-source-range="364:1-364:29">
+<td data-source-range="364:3-364:4">39</td>
+<td data-source-range="364:9-364:14">Row 39</td>
+<td data-source-range="364:19-364:21">odd</td>
+</tr>
+<tr data-source-range="365:1-365:29">
+<td data-source-range="365:3-365:4">40</td>
+<td data-source-range="365:9-365:14">Row 40</td>
+<td data-source-range="365:19-365:22">even</td>
+</tr>
+<tr data-source-range="366:1-366:29">
+<td data-source-range="366:3-366:4">41</td>
+<td data-source-range="366:9-366:14">Row 41</td>
+<td data-source-range="366:19-366:21">odd</td>
+</tr>
+<tr data-source-range="367:1-367:29">
+<td data-source-range="367:3-367:4">42</td>
+<td data-source-range="367:9-367:14">Row 42</td>
+<td data-source-range="367:19-367:22">even</td>
+</tr>
+<tr data-source-range="368:1-368:29">
+<td data-source-range="368:3-368:4">43</td>
+<td data-source-range="368:9-368:14">Row 43</td>
+<td data-source-range="368:19-368:21">odd</td>
+</tr>
+<tr data-source-range="369:1-369:29">
+<td data-source-range="369:3-369:4">44</td>
+<td data-source-range="369:9-369:14">Row 44</td>
+<td data-source-range="369:19-369:22">even</td>
+</tr>
+<tr data-source-range="370:1-370:29">
+<td data-source-range="370:3-370:4">45</td>
+<td data-source-range="370:9-370:14">Row 45</td>
+<td data-source-range="370:19-370:21">odd</td>
+</tr>
+<tr data-source-range="371:1-371:29">
+<td data-source-range="371:3-371:4">46</td>
+<td data-source-range="371:9-371:14">Row 46</td>
+<td data-source-range="371:19-371:22">even</td>
+</tr>
+<tr data-source-range="372:1-372:29">
+<td data-source-range="372:3-372:4">47</td>
+<td data-source-range="372:9-372:14">Row 47</td>
+<td data-source-range="372:19-372:21">odd</td>
+</tr>
+<tr data-source-range="373:1-373:29">
+<td data-source-range="373:3-373:4">48</td>
+<td data-source-range="373:9-373:14">Row 48</td>
+<td data-source-range="373:19-373:22">even</td>
+</tr>
+<tr data-source-range="374:1-374:29">
+<td data-source-range="374:3-374:4">49</td>
+<td data-source-range="374:9-374:14">Row 49</td>
+<td data-source-range="374:19-374:21">odd</td>
+</tr>
+<tr data-source-range="375:1-375:29">
+<td data-source-range="375:3-375:4">50</td>
+<td data-source-range="375:9-375:14">Row 50</td>
+<td data-source-range="375:19-375:22">even</td>
+</tr>
+<tr data-source-range="376:1-376:29">
+<td data-source-range="376:3-376:4">51</td>
+<td data-source-range="376:9-376:14">Row 51</td>
+<td data-source-range="376:19-376:21">odd</td>
+</tr>
+<tr data-source-range="377:1-377:29">
+<td data-source-range="377:3-377:4">52</td>
+<td data-source-range="377:9-377:14">Row 52</td>
+<td data-source-range="377:19-377:22">even</td>
+</tr>
+<tr data-source-range="378:1-378:29">
+<td data-source-range="378:3-378:4">53</td>
+<td data-source-range="378:9-378:14">Row 53</td>
+<td data-source-range="378:19-378:21">odd</td>
+</tr>
+<tr data-source-range="379:1-379:29">
+<td data-source-range="379:3-379:4">54</td>
+<td data-source-range="379:9-379:14">Row 54</td>
+<td data-source-range="379:19-379:22">even</td>
+</tr>
+<tr data-source-range="380:1-380:29">
+<td data-source-range="380:3-380:4">55</td>
+<td data-source-range="380:9-380:14">Row 55</td>
+<td data-source-range="380:19-380:21">odd</td>
+</tr>
+<tr data-source-range="381:1-381:29">
+<td data-source-range="381:3-381:4">56</td>
+<td data-source-range="381:9-381:14">Row 56</td>
+<td data-source-range="381:19-381:22">even</td>
+</tr>
+<tr data-source-range="382:1-382:29">
+<td data-source-range="382:3-382:4">57</td>
+<td data-source-range="382:9-382:14">Row 57</td>
+<td data-source-range="382:19-382:21">odd</td>
+</tr>
+<tr data-source-range="383:1-383:29">
+<td data-source-range="383:3-383:4">58</td>
+<td data-source-range="383:9-383:14">Row 58</td>
+<td data-source-range="383:19-383:22">even</td>
+</tr>
+<tr data-source-range="384:1-384:29">
+<td data-source-range="384:3-384:4">59</td>
+<td data-source-range="384:9-384:14">Row 59</td>
+<td data-source-range="384:19-384:21">odd</td>
+</tr>
+<tr data-source-range="385:1-385:29">
+<td data-source-range="385:3-385:4">60</td>
+<td data-source-range="385:9-385:14">Row 60</td>
+<td data-source-range="385:19-385:22">even</td>
+</tr>
+</tbody>
+</table>
+<p data-source-range="387:1-390:70"><strong>Expected:</strong> while the table is read, its header row stays at the top of the
+view, over the rows scrolling beneath it, and leaves with the table’s last
+rows. A table wider than the page, like the one above, never pins its
+header, because it has to scroll sideways. Printed, nothing is pinned.</p>
+<p data-source-range="392:1-392:12">Header only:</p>
+<table data-source-range="394:1-395:19">
+<thead>
+<tr data-source-range="394:1-394:19">
+<th data-source-range="394:3-394:6">Just</th>
+<th data-source-range="394:10-394:17">a header</th>
 </tr>
 </thead>
 </table>
-<p data-source-range="327:1-327:52"><strong>Expected:</strong> a table with a header row and no body.</p>
-<h2 data-source-range="329:1-329:12">Footnotes</h2>
-<p data-source-range="331:1-332:31">A sentence with a footnote<sup><a href="#fn-1" id="fnref-1">1</a></sup>, another with a named one<sup><a href="#fn-named" id="fnref-named">2</a></sup>, and the
+<p data-source-range="397:1-397:52"><strong>Expected:</strong> a table with a header row and no body.</p>
+<h2 data-source-range="399:1-399:12">Footnotes</h2>
+<p data-source-range="401:1-402:31">A sentence with a footnote<sup><a href="#fn-1" id="fnref-1">1</a></sup>, another with a named one<sup><a href="#fn-named" id="fnref-named">2</a></sup>, and the
 first one referenced again<sup><a href="#fn-1" id="fnref-1-2">1</a></sup>.</p>
-<p data-source-range="343:1-345:49"><strong>Expected:</strong> superscript markers in the text, the definitions collected at
+<p data-source-range="413:1-415:49"><strong>Expected:</strong> superscript markers in the text, the definitions collected at
 the bottom of the document, each with a back-reference arrow, and the named
 footnote showing two paragraphs and a code block.</p>
-<h2 data-source-range="347:1-347:16">GitHub alerts</h2>
-<div class="markdown-alert markdown-alert-note" data-source-range="349:1-350:72" dir="auto">
+<h2 data-source-range="417:1-417:16">GitHub alerts</h2>
+<div class="markdown-alert markdown-alert-note" data-source-range="419:1-420:72" dir="auto">
 <p class="markdown-alert-title" dir="auto"><span class="alert-icon" data-alert-type="note"></span>NOTE</p>
-<p data-source-range="350:3-350:72">Useful information that users should know, even when skimming content.</p>
+<p data-source-range="420:3-420:72">Useful information that users should know, even when skimming content.</p>
 </div>
-<div class="markdown-alert markdown-alert-tip" data-source-range="352:1-353:56" dir="auto">
+<div class="markdown-alert markdown-alert-tip" data-source-range="422:1-423:56" dir="auto">
 <p class="markdown-alert-title" dir="auto"><span class="alert-icon" data-alert-type="tip"></span>TIP</p>
-<p data-source-range="353:3-353:56">Helpful advice for doing things better or more easily.</p>
+<p data-source-range="423:3-423:56">Helpful advice for doing things better or more easily.</p>
 </div>
-<div class="markdown-alert markdown-alert-important" data-source-range="355:1-356:59" dir="auto">
+<div class="markdown-alert markdown-alert-important" data-source-range="425:1-426:59" dir="auto">
 <p class="markdown-alert-title" dir="auto"><span class="alert-icon" data-alert-type="important"></span>IMPORTANT</p>
-<p data-source-range="356:3-356:59">Key information users need to know to achieve their goal.</p>
+<p data-source-range="426:3-426:59">Key information users need to know to achieve their goal.</p>
 </div>
-<div class="markdown-alert markdown-alert-warning" data-source-range="358:1-359:68" dir="auto">
+<div class="markdown-alert markdown-alert-warning" data-source-range="428:1-429:68" dir="auto">
 <p class="markdown-alert-title" dir="auto"><span class="alert-icon" data-alert-type="warning"></span>WARNING</p>
-<p data-source-range="359:3-359:68">Urgent info that needs immediate user attention to avoid problems.</p>
+<p data-source-range="429:3-429:68">Urgent info that needs immediate user attention to avoid problems.</p>
 </div>
-<div class="markdown-alert markdown-alert-caution" data-source-range="361:1-362:62" dir="auto">
+<div class="markdown-alert markdown-alert-caution" data-source-range="431:1-432:62" dir="auto">
 <p class="markdown-alert-title" dir="auto"><span class="alert-icon" data-alert-type="caution"></span>CAUTION</p>
-<p data-source-range="362:3-362:62">Advises about risks or negative outcomes of certain actions.</p>
+<p data-source-range="432:3-432:62">Advises about risks or negative outcomes of certain actions.</p>
 </div>
-<div class="markdown-alert markdown-alert-note" data-source-range="364:1-374:26" dir="auto">
+<div class="markdown-alert markdown-alert-note" data-source-range="434:1-444:26" dir="auto">
 <p class="markdown-alert-title" dir="auto"><span class="alert-icon" data-alert-type="note"></span>NOTE</p>
-<p data-source-range="365:3-365:31">An alert with several blocks:</p>
-<ul data-source-range="367:3-368:15">
-<li data-source-range="367:3-367:15">a list item</li>
-<li data-source-range="368:3-368:15">another one</li>
+<p data-source-range="435:3-435:31">An alert with several blocks:</p>
+<ul data-source-range="437:3-438:15">
+<li data-source-range="437:3-437:15">a list item</li>
+<li data-source-range="438:3-438:15">another one</li>
 </ul>
-<pre data-source-range="370:3-372:5"><code data-source-range="371:1-371:22" class="language-rust">fn inside_alert() {}
+<pre data-source-range="440:3-442:5"><code data-source-range="441:1-441:22" class="language-rust">fn inside_alert() {}
 </code></pre>
-<p data-source-range="374:3-374:26">And a closing paragraph.</p>
+<p data-source-range="444:3-444:26">And a closing paragraph.</p>
 </div>
-<div class="markdown-alert markdown-alert-note" data-source-range="376:1-377:21" dir="auto">
+<div class="markdown-alert markdown-alert-note" data-source-range="446:1-447:21" dir="auto">
 <p class="markdown-alert-title" dir="auto"><span class="alert-icon" data-alert-type="note"></span>NOTE</p>
-<p data-source-range="377:3-377:21">A lowercase marker.</p>
+<p data-source-range="447:3-447:21">A lowercase marker.</p>
 </div>
-<blockquote data-source-range="379:1-379:68">
-<p data-source-range="379:3-379:68">Not an alert: the marker [!NOTE] is not at the start of the quote.</p>
+<blockquote data-source-range="449:1-449:68">
+<p data-source-range="449:3-449:68">Not an alert: the marker [!NOTE] is not at the start of the quote.</p>
 </blockquote>
-<p data-source-range="381:1-386:60"><strong>Expected:</strong> five alerts with a colored bar and a title matching the kind, the
+<p data-source-range="451:1-456:60"><strong>Expected:</strong> five alerts with a colored bar and a title matching the kind, the
 multi-block alert keeps its list, code, and paragraph inside the bar, and the
 last quote is an ordinary quote with the bracketed text visible. The lowercase
 marker currently renders as an ordinary quote with <code>[!note]</code> visible, because
 only uppercase markers are recognized (tracked in #222); an engine that
 compares the marker case-insensitively shows a Note instead.</p>
-<h2 data-source-range="388:1-388:14">HTML blocks</h2>
+<h2 data-source-range="458:1-458:14">HTML blocks</h2>
 <details>
 <summary>Click to expand</summary>
-<p data-source-range="393:1-393:50">Markdown <strong>inside</strong> a details block still renders.</p>
-<ul data-source-range="395:1-396:9">
-<li data-source-range="395:1-395:11">list item</li>
-<li data-source-range="396:1-396:9">another</li>
+<p data-source-range="463:1-463:50">Markdown <strong>inside</strong> a details block still renders.</p>
+<ul data-source-range="465:1-466:9">
+<li data-source-range="465:1-465:11">list item</li>
+<li data-source-range="466:1-466:9">another</li>
 </ul>
 </details>
 <details open>
 <summary>Expanded by default</summary>
-<p data-source-range="403:1-403:44">The <code>open</code> attribute keeps this one visible.</p>
+<p data-source-range="473:1-473:44">The <code>open</code> attribute keeps this one visible.</p>
 </details>
 <div align="center">
-<p data-source-range="409:1-409:27">Centered block via a <code>div</code>.</p>
+<p data-source-range="479:1-479:27">Centered block via a <code>div</code>.</p>
 </div>
 <table>
   <tr><th>Raw</th><th>HTML table</th></tr>
   <tr><td>a</td><td>b</td></tr>
 </table>
 <!-- An HTML comment block: nothing from it may appear in the output. -->
-<p data-source-range="420:1-421:35"><strong>Expected:</strong> a collapsed and an expanded disclosure, a centered paragraph, a
+<p data-source-range="490:1-491:35"><strong>Expected:</strong> a collapsed and an expanded disclosure, a centered paragraph, a
 table, and no trace of the comment.</p>
-<hr data-source-range="423:1-423:3">
-<p data-source-range="425:1-425:96">Previous: <span data-md-link="./01-inline.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Inline syntax</span> · Next: <span data-md-link="./03-math-and-diagrams.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Math and diagrams</span></p>
+<hr data-source-range="493:1-493:3">
+<p data-source-range="495:1-495:96">Previous: <span data-md-link="./01-inline.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Inline syntax</span> · Next: <span data-md-link="./03-math-and-diagrams.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Math and diagrams</span></p>
 <section class="footnotes" aria-label="Footnotes">
 <ol>
-<li id="fn-1" data-source-range="334:1-334:25">
-<p data-source-range="334:7-334:25">The first footnote.</p>
+<li id="fn-1" data-source-range="404:1-404:25">
+<p data-source-range="404:7-404:25">The first footnote.</p>
 <a href="#fnref-1" aria-label="Back to reference 1">↩</a> <a href="#fnref-1-2" aria-label="Back to reference 1, occurrence 2">↩</a>
 </li>
-<li id="fn-named" data-source-range="335:1-341:7">
-<p data-source-range="335:11-335:45">A footnote with several paragraphs.</p>
-<p data-source-range="337:5-337:52">The second paragraph is indented by four spaces.</p>
-<pre data-source-range="339:5-341:7"><code data-source-range="340:1-340:35" class="language-rust">fn footnotes_can_hold_code() {}
+<li id="fn-named" data-source-range="405:1-411:7">
+<p data-source-range="405:11-405:45">A footnote with several paragraphs.</p>
+<p data-source-range="407:5-407:52">The second paragraph is indented by four spaces.</p>
+<pre data-source-range="409:5-411:7"><code data-source-range="410:1-410:35" class="language-rust">fn footnotes_can_hold_code() {}
 </code></pre>
 <a href="#fnref-named" aria-label="Back to reference 2">↩</a>
 </li>
