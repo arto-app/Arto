@@ -25,6 +25,7 @@ mod schema;
 mod sidebar_config;
 mod theme;
 mod theme_config;
+mod typography_config;
 mod window_dimension;
 mod window_position_config;
 mod window_size_config;
@@ -44,6 +45,7 @@ pub use schema::*;
 pub use sidebar_config::*;
 pub use theme::*;
 pub use theme_config::*;
+pub use typography_config::*;
 pub use window_dimension::*;
 pub use window_position_config::*;
 pub use window_size_config::*;
@@ -68,6 +70,8 @@ pub struct Config {
     pub window_position: WindowPositionConfig,
     pub window_size: WindowSizeConfig,
     pub zoom: ZoomConfig,
+    /// How the text of a document is set.
+    pub typography: TypographyConfig,
     /// Commands the reader can look at a document through.
     pub lenses: Vec<Lens>,
     /// Keybindings live in their own file (`mappings.json`), so they are
@@ -149,6 +153,11 @@ mod tests {
         assert_eq!(config.zoom.default_zoom_level, 1.0);
         assert_eq!(config.zoom.on_startup, StartupBehavior::Default);
         assert_eq!(config.zoom.on_new_window, NewWindowBehavior::Default);
+
+        // Typography defaults: the page as it was before it could be set
+        assert_eq!(config.typography, TypographyConfig::default());
+        assert_eq!(config.typography.measure, 60.0);
+        assert_eq!(config.typography.font_family, FontFamilyChoice::Sans);
 
         // Keybindings defaults
         assert_keybindings_empty(&config.keybindings);
@@ -244,6 +253,14 @@ mod tests {
                 on_startup: StartupBehavior::LastClosed,
                 on_new_window: NewWindowBehavior::LastFocused,
             },
+            typography: TypographyConfig {
+                measure: 45.0,
+                line_height: 1.8,
+                font_family: FontFamilyChoice::Serif,
+                custom_font_family: String::new(),
+                font_size: 18.0,
+                cjk_font_language: CjkFontLanguage::Ja,
+            },
             lenses: vec![Lens {
                 id: "summarize".to_string(),
                 label: "Summarize".to_string(),
@@ -310,6 +327,8 @@ mod tests {
         );
         assert_eq!(parsed.zoom.default_zoom_level, 1.5);
         assert_eq!(parsed.zoom.on_startup, StartupBehavior::LastClosed);
+        assert_eq!(parsed.typography.measure, 45.0);
+        assert_eq!(parsed.typography.font_family, FontFamilyChoice::Serif);
         assert_eq!(parsed.zoom.on_new_window, NewWindowBehavior::LastFocused);
         assert_keybindings_empty(&parsed.keybindings);
     }
@@ -334,6 +353,7 @@ mod tests {
         assert_eq!(parsed.sidebar.recent_trace, RecentTrace::HiddenWhenSidebar);
         assert_eq!(parsed.sidebar.recent_trace_count, 6);
         assert_eq!(parsed.file_open, FileOpenBehavior::LastFocused);
+        assert_eq!(parsed.typography, TypographyConfig::default());
     }
 
     #[test]

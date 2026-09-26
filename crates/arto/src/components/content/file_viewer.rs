@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use super::context_menu::ContextMenuData;
 use super::context_menu_state::{open_context_menu, ContentContextMenuState};
+use crate::config::CONFIG;
 use crate::document_link::{open_document_link, scroll_to_heading_js, LinkOpen};
 use crate::lenses::RenderedSource;
 use crate::markdown::render_to_html_with_toc;
@@ -75,10 +76,19 @@ pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
         .as_ref()
         .map(|rendered| rendered.generation.to_string());
 
+    // A saved preference changes only this attribute: the article's inner
+    // HTML is not rendered again, so the text is reset in place and the
+    // reader stays where they were.
+    let typography = use_memo(move || {
+        let _ = state.config_revision.read();
+        CONFIG.read().typography.css_declarations()
+    });
+
     rsx! {
         div {
             class: "markdown-viewer",
             class: if *state.content_full_width.read() { "full-width" },
+            style: "{typography}",
             article {
                 class: "markdown-body",
                 "data-render-generation": generation,

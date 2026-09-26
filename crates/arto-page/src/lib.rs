@@ -29,7 +29,10 @@
 //! inline scripts embedded here. [`PageOptions`] can switch the policy off
 //! for callers that render trusted input.
 
-pub use arto_config::{ColorTheme, Config, ConfigError, Theme, ThemeConfig};
+pub use arto_config::{
+    CjkFontLanguage, ColorTheme, Config, ConfigError, FontFamilyChoice, Theme, ThemeConfig,
+    TypographyConfig,
+};
 pub use arto_markdown::RenderOptions;
 
 use base64::Engine;
@@ -197,7 +200,7 @@ fn sets_math(body_html: &str) -> bool {
 /// body, because a document that merely quotes `language-mermaid` in a code
 /// sample would otherwise carry the largest bundle of them all for nothing.
 /// The name is matched as written: the renderer selects it with
-/// `code.language-mermaid`, and a class selector is case-sensitive.
+/// `code.cjk_font_language-mermaid`, and a class selector is case-sensitive.
 fn draws_diagram(body_html: &str) -> bool {
     body_html.contains("preprocessed-mermaid")
         || code_block_languages(body_html).any(|language| language == Some("mermaid"))
@@ -339,6 +342,8 @@ pub struct PageOptions {
     pub light_theme: ColorTheme,
     /// Which of GitHub's themes dark mode paints.
     pub dark_theme: ColorTheme,
+    /// How the text is set: line length, line height, face and size.
+    pub typography: TypographyConfig,
     /// Emit the `Content-Security-Policy` that restricts script execution to
     /// the embedded frontend. Leave it on for untrusted input.
     pub content_security_policy: bool,
@@ -351,6 +356,7 @@ impl Default for PageOptions {
             theme: Theme::default(),
             light_theme: ThemeConfig::default().light_theme,
             dark_theme: ThemeConfig::default().dark_theme,
+            typography: TypographyConfig::default(),
             content_security_policy: true,
         }
     }
@@ -358,14 +364,16 @@ impl Default for PageOptions {
 
 impl PageOptions {
     /// The options the user's configuration asks for: the app's rendering
-    /// options and its default theme. The policy stays on; a configuration
-    /// file must not be able to switch off the protection for untrusted input.
+    /// options, its default theme and its typography. The policy stays on; a
+    /// configuration file must not be able to switch off the protection for
+    /// untrusted input.
     pub fn from_config(config: &Config) -> Self {
         Self {
             render: config.markdown.clone(),
             theme: config.theme.default_theme,
             light_theme: config.theme.light_theme,
             dark_theme: config.theme.dark_theme,
+            typography: config.typography.clone(),
             content_security_policy: true,
         }
     }
@@ -555,7 +563,8 @@ fn build_document(body_html: &str, options: &PageOptions) -> String {
         r#"<!DOCTYPE html><html data-theme="{initial_theme}" data-theme-preference="{theme_preference}" data-light-theme="{light_theme}" data-dark-theme="{dark_theme}"><head><meta charset="utf-8">
 {csp_meta}<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>{css}</style>
-<style>{standalone_override}</style></head>
+<style>{standalone_override}</style>
+<style>.markdown-viewer{{{typography}}}</style></head>
 <body>
 <div class="markdown-viewer"><article class="markdown-body">{body}</article></div>
 {scripts}
@@ -563,6 +572,7 @@ fn build_document(body_html: &str, options: &PageOptions) -> String {
         csp_meta = csp_meta,
         css = css,
         standalone_override = STANDALONE_OVERRIDE_CSS,
+        typography = options.typography.css_declarations(),
         initial_theme = initial_theme,
         theme_preference = theme_preference,
         light_theme = light_theme,
@@ -930,6 +940,72 @@ mod tests {
         assert!(html.contains(r#"<meta name="viewport""#));
     }
 
+    /// The rule that declares the typography, apart from the stylesheet,
+    /// which names the same properties to read them.
+    fn typography_rule(html: &str) -> &str {
+        let start = html
+            .find("<style>.markdown-viewer{")
+            .expect("the typography rule");
+        let end = start + html[start..].find("</style>").unwrap();
+        &html[start..end]
+    }
+
+    #[test]
+    fn test_build_document_sets_the_text_as_configured() {
+        let html = build_document("<p>hi</p>", &PageOptions::default());
+        assert!(html.contains(
+            "<style>.markdown-viewer{--reading-measure: 60em; --reading-line-height: 1.5; --reading-font-size: 16px; --reading-font-family: initial;}</style>"
+        ));
+
+        let serif = build_document(
+            "<p>hi</p>",
+            &PageOptions {
+                typography: TypographyConfig {
+                    measure: 40.0,
+                    font_family: FontFamilyChoice::Serif,
+                    ..TypographyConfig::default()
+                },
+                ..PageOptions::default()
+            },
+        );
+        assert!(typography_rule(&serif).contains("--reading-measure: 40em;"));
+        assert!(typography_rule(&serif).contains("--reading-font-family: \"Iowan Old Style\""));
+    }
+
+    #[test]
+    fn test_build_document_draws_cjk_text_in_the_chosen_language_faces_only() {
+        let chinese = build_document(
+            "<p>hi</p>",
+            &PageOptions {
+                typography: TypographyConfig {
+                    cjk_font_language: CjkFontLanguage::ZhHans,
+                    ..TypographyConfig::default()
+                },
+                ..PageOptions::default()
+            },
+        );
+        assert!(typography_rule(&chinese).contains(r#""PingFang SC""#));
+        // It picks faces only: the page does not claim a language.
+        assert!(chinese.starts_with("<!DOCTYPE html><html data-theme="));
+    }
+
+    #[test]
+    fn test_build_document_does_not_embed_a_custom_face_that_leaves_its_rule() {
+        let html = build_document(
+            "<p>hi</p>",
+            &PageOptions {
+                typography: TypographyConfig {
+                    font_family: FontFamilyChoice::Custom,
+                    custom_font_family: "serif}</style><script>alert(1)</script>".to_string(),
+                    ..TypographyConfig::default()
+                },
+                ..PageOptions::default()
+            },
+        );
+        assert!(!html.contains("alert(1)"));
+        assert!(typography_rule(&html).contains("--reading-font-family: initial;"));
+    }
+
     #[test]
     fn test_build_document_applies_a_fixed_theme_before_scripts_run() {
         let dark = build_document(
@@ -958,7 +1034,7 @@ mod tests {
     }
 
     #[test]
-    fn test_options_from_config_take_render_options_and_theme_but_keep_csp() {
+    fn test_options_from_config_take_render_options_theme_and_typography_but_keep_csp() {
         let config = Config {
             markdown: RenderOptions {
                 auto_link_urls: false,
@@ -968,6 +1044,10 @@ mod tests {
                 default_theme: Theme::Dark,
                 ..Default::default()
             },
+            typography: TypographyConfig {
+                measure: 45.0,
+                ..Default::default()
+            },
             ..Default::default()
         };
 
@@ -975,6 +1055,7 @@ mod tests {
         assert!(!options.render.auto_link_urls);
         assert_eq!(options.theme, Theme::Dark);
         assert!(options.content_security_policy);
+        assert_eq!(options.typography.measure, 45.0);
     }
 
     #[test]

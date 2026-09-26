@@ -70,6 +70,18 @@
         "onStartup": "default"
       }
     },
+    "typography": {
+      "description": "How the text of a document is set.",
+      "$ref": "#/$defs/TypographyConfig",
+      "default": {
+        "cjkFontLanguage": "auto",
+        "customFontFamily": "",
+        "fontFamily": "sans",
+        "fontSize": 16.0,
+        "lineHeight": 1.5,
+        "measure": 60.0
+      }
+    },
     "windowPosition": {
       "$ref": "#/$defs/WindowPositionConfig",
       "default": {
@@ -120,6 +132,36 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "CjkFontLanguage": {
+      "description": "The language whose faces Chinese, Japanese and Korean characters are drawn\nin. One Han character takes different glyphs in Japanese, Chinese and\nKorean faces.",
+      "oneOf": [
+        {
+          "description": "Leave the face to the system.",
+          "type": "string",
+          "const": "auto"
+        },
+        {
+          "description": "Japanese.",
+          "type": "string",
+          "const": "ja"
+        },
+        {
+          "description": "Simplified Chinese.",
+          "type": "string",
+          "const": "zh-Hans"
+        },
+        {
+          "description": "Traditional Chinese.",
+          "type": "string",
+          "const": "zh-Hant"
+        },
+        {
+          "description": "Korean.",
+          "type": "string",
+          "const": "ko"
+        }
+      ]
+    },
     "ColorTheme": {
       "description": "One of GitHub's colour themes.\n\nThe names are GitHub's own, and each has a matching block of Primer design\ntokens in the frontend stylesheet keyed by exactly this string, so a\nvariant renamed here renders as no theme at all.\n\nGitHub also ships a high-contrast pairing for the dimmed and colour-vision\nthemes, applied when the operating system asks for increased contrast.\nThose are not offered as choices, here or on GitHub.",
       "type": "string",
@@ -173,6 +215,31 @@
           "description": "Open in a visible window on the cursor's current screen when possible.",
           "type": "string",
           "const": "current_screen"
+        }
+      ]
+    },
+    "FontFamilyChoice": {
+      "description": "The face the document text is set in.",
+      "oneOf": [
+        {
+          "description": "The sans-serif stack GitHub renders Markdown in.",
+          "type": "string",
+          "const": "sans"
+        },
+        {
+          "description": "A serif stack.",
+          "type": "string",
+          "const": "serif"
+        },
+        {
+          "description": "A monospace stack.",
+          "type": "string",
+          "const": "mono"
+        },
+        {
+          "description": "The CSS `font-family` given in `customFontFamily`.",
+          "type": "string",
+          "const": "custom"
         }
       ]
     },
@@ -669,6 +736,52 @@
         "onStartup",
         "onNewWindow"
       ]
+    },
+    "TypographyConfig": {
+      "description": "How the text of a document is set: how long its lines run, how far\napart they are, and in what face and size.",
+      "type": "object",
+      "properties": {
+        "cjkFontLanguage": {
+          "description": "The language whose faces CJK characters are drawn in (\"auto\", \"ja\",\n\"zh-Hans\", \"zh-Hant\" or \"ko\"): one Han character takes different\nglyphs in each. \"auto\" leaves the face to the system. It picks faces\nonly; the language documents are read as is left alone. A \"custom\"\nface is used as written.",
+          "$ref": "#/$defs/CjkFontLanguage",
+          "default": "auto"
+        },
+        "customFontFamily": {
+          "description": "A CSS `font-family` list used when `fontFamily` is \"custom\", such as\n`\"Source Han Serif\", serif`. Only letters, digits, spaces and\n`_ , \" ' - . +` may appear, and a name holding anything but letters,\ndigits, `_` and `-` has to be quoted; anything else falls back to\n\"sans\".",
+          "type": "string",
+          "default": ""
+        },
+        "fontFamily": {
+          "description": "The face the text is set in. Code keeps its monospace face.",
+          "$ref": "#/$defs/FontFamilyChoice",
+          "default": "sans"
+        },
+        "fontSize": {
+          "description": "The size of the text in px (12–24). Headings and code scale with it.\nUnlike zoom, it leaves images and diagrams as they are.",
+          "type": "number",
+          "format": "double",
+          "default": 16.0,
+          "maximum": 24.0,
+          "minimum": 12.0
+        },
+        "lineHeight": {
+          "description": "The height of a line as a multiple of the text size (1.2–2.2).",
+          "type": "number",
+          "format": "double",
+          "default": 1.5,
+          "maximum": 2.2,
+          "minimum": 1.2
+        },
+        "measure": {
+          "description": "The longest a line of text runs, in em (30–100). One em is about one\nfull-width character or two half-width ones. A window narrower than\nthis sets the text at its own width; full-width content ignores it.",
+          "type": "number",
+          "format": "double",
+          "default": 60.0,
+          "maximum": 100.0,
+          "minimum": 30.0
+        }
+      },
+      "additionalProperties": false
     },
     "WindowDimension": {
       "type": "object",
