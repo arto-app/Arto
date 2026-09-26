@@ -20,3 +20,4 @@ pub mod reading_time;
 pub mod reorder;
 pub mod sidebar;
 pub mod theme_selector;
+pub mod user_highlights;

@@ -615,3 +615,31 @@
   background: var(--bg-row-hover);
   color: var(--text-color);
 }
+
+/* =================================
+   The reader's highlights
+   =================================
+
+   Rows like the pinned marks': the colour, then the words. Where the words
+   are follows them, quieter, since the tick already says as much. */
+.contents-toc-highlight-heading {
+  flex: 0 10 auto;
+  min-width: 0;
+  margin-left: auto;
+  padding-left: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* A highlight whose words are gone: still listed, so it can be let go of. */
+.contents-toc-highlight.lost .contents-toc-name {
+  opacity: var(--opacity-subtle);
+}
+
+.contents-toc-highlight.lost .contents-toc-pin-dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--pin-colour, var(--border-color));
+}
