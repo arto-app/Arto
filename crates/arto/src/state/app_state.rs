@@ -136,8 +136,8 @@ pub struct AppState {
     /// Where the keyboard is in the panel: the row it is on, in whichever
     /// face is showing.
     ///
-    /// A row rather than a position, because the three faces are three lists
-    /// of the same thing — a document, or a folder — and a row survives the
+    /// A row rather than a position, because the faces are all lists of the
+    /// same thing — a document, or a folder — and a row survives the
     /// list being rebuilt under it, which a position does not. See
     /// [`PanelRow`] for why it is not simply a path.
     pub panel_cursor: Signal<Option<PanelRow>>,

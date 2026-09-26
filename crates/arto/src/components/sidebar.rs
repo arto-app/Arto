@@ -1,5 +1,6 @@
 pub mod context_menu;
 pub mod file_explorer;
+pub mod links;
 pub mod quick_access;
 pub mod rail;
 pub mod recent;
@@ -42,6 +43,7 @@ pub fn Sidebar(on_resize_change: Option<EventHandler<bool>>) -> Element {
                     Face::Places => rsx! { file_explorer::FileExplorer {} },
                     Face::Recent => rsx! { recent::RecentFace {} },
                     Face::Starred => rsx! { quick_access::StarredFace {} },
+                    Face::Links => rsx! { links::LinksFace {} },
                 }
             }
 
