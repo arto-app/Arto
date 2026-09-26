@@ -6,8 +6,10 @@
   z-index: var(--z-context-menu);
   box-sizing: border-box;
   width: max-content;
-  max-width: min(520px, calc(100vw - 16px));
-  max-height: 50vh;
+  /* The room is set by `frontend/src/popover.ts`, measured at the popover's
+     zoom; the viewport units are the fallback before it is placed. */
+  max-width: min(520px, var(--popover-room-x, calc(100vw - 16px)));
+  max-height: var(--popover-room-y, 50vh);
   overflow: auto;
   border: 1px solid var(--border-color);
   border-radius: 10px;

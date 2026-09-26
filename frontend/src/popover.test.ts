@@ -67,4 +67,17 @@ describe("placePopover", () => {
     expect(popover.style.left).toBe("50px");
     expect(popover.style.top).toBe("64px");
   });
+
+  test("is given the room the window has, in the popover's own zoomed pixels", () => {
+    document.body.innerHTML = `<div style="zoom: 2"><span id="anchor">link</span></div><div id="popover"></div>`;
+    const anchor = document.getElementById("anchor") as Element;
+    const popover = document.getElementById("popover") as HTMLElement;
+    placePopover(popover, anchor);
+    expect(popover.style.getPropertyValue("--popover-room-x")).toBe(
+      `${(window.innerWidth - 16) / 2}px`,
+    );
+    expect(popover.style.getPropertyValue("--popover-room-y")).toBe(
+      `${window.innerHeight / 2 / 2}px`,
+    );
+  });
 });

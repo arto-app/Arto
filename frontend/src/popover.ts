@@ -31,6 +31,11 @@ export function contentZoom(el: Element): number {
 export function placePopover(popover: HTMLElement, anchor: Element): void {
   const zoom = contentZoom(anchor);
   popover.style.zoom = String(zoom);
+  // The stylesheet caps a popover's size, and those caps are zoomed along
+  // with it: at twice the size, a card half the window wide would not fit.
+  // The room the window has is handed over in the popover's own pixels.
+  popover.style.setProperty("--popover-room-x", `${(window.innerWidth - MARGIN * 2) / zoom}px`);
+  popover.style.setProperty("--popover-room-y", `${window.innerHeight / 2 / zoom}px`);
   const rect = anchor.getBoundingClientRect();
   const size = popover.getBoundingClientRect();
   const width = Math.min(size.width || FALLBACK_WIDTH, window.innerWidth - MARGIN * 2);
