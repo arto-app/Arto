@@ -27,6 +27,7 @@ import * as lenses from "./lenses";
 import * as changes from "./changes";
 import * as userHighlights from "./user-highlights";
 import * as linkPreview from "./link-preview";
+import * as fragmentLink from "./fragment-link";
 import * as viewportQueue from "./viewport-queue";
 import * as scrollAnchor from "./scroll-anchor";
 import * as stickyTableHead from "./sticky-table-head";
@@ -317,6 +318,8 @@ export function init(): void {
   // What a footnote, a heading link or a document link points at, on a
   // rest over the link.
   linkPreview.setup();
+  // A link to elsewhere on the page — a footnote and the way back from it.
+  fragmentLink.setup();
   // The scrollbar, brought up to a native width by the pointer arriving at
   // the edge it is on.
   setupScrollbarReach();
