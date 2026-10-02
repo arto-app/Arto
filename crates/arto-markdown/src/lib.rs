@@ -101,7 +101,11 @@
 //! and the definitions are collected into one
 //! `<section class="footnotes"><ol>` at the end of the document, numbered in
 //! the order they are first referenced. That is GitHub's shape, so
-//! the frontend styles it.
+//! the frontend styles it. The links back to a note's references,
+//! `<a href="#fnref-<id>">`, follow its last block inside one
+//! `<span class="footnote-backrefs">`, which the stylesheet places beside
+//! the note's number; the note's `<li>` carries how many there are as
+//! `style="--footnote-backrefs: N"`.
 //!
 //! ## Frontmatter
 //!

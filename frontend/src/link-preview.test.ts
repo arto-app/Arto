@@ -119,9 +119,11 @@ describe("footnoteOf", () => {
   test("is the definition without the links back to its references", () => {
     const root = fragment(`
       <li id="fn-1" data-source-range="3:1-3:9"><p data-source-range="3:7-3:9">Note</p>
-      <a href="#fnref-1" aria-label="Back to reference 1">↩</a></li>`);
+      <span class="footnote-backrefs"><a href="#fnref-1" aria-label="Back to reference 1">↩</a>
+      </span></li>`);
     const excerpt = footnoteOf(root.querySelector("li") as Element);
     expect(texts(excerpt.nodes)).toEqual(["Note"]);
+    expect(excerpt.nodes).toHaveLength(1);
     const [paragraph] = excerpt.nodes as Element[];
     expect(paragraph.hasAttribute("data-source-range")).toBe(false);
   });
@@ -143,7 +145,7 @@ describe("hover", () => {
     <p>Text<sup><a href="#fn-1" id="fnref-1">1</a></sup> and <a href="#later">later</a>.</p>
     <h2 id="later">Later</h2><p>what later says</p>
     <section class="footnotes"><ol><li id="fn-1"><p>The note.</p>
-    <a href="#fnref-1" aria-label="Back to reference 1">↩</a></li></ol></section>`;
+    <span class="footnote-backrefs"><a href="#fnref-1" aria-label="Back to reference 1">↩</a></span></li></ol></section>`;
 
   test("a footnote reference shows the note after a rest", () => {
     page(withFootnote);

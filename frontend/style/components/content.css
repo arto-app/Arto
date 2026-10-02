@@ -7,6 +7,7 @@
 @import url("./content/sticky-table-head.css");
 @import url("./content/focus-mode.css");
 @import url("./content/link-preview.css");
+@import url("./content/footnotes.css");
 
 .content {
   flex: 1;

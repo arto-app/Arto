@@ -778,16 +778,16 @@ table, and no trace of the comment.</p>
 <p data-source-range="495:1-495:96">Previous: <span data-md-link="./01-inline.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Inline syntax</span> · Next: <span data-md-link="./03-math-and-diagrams.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Math and diagrams</span></p>
 <section class="footnotes" aria-label="Footnotes">
 <ol>
-<li id="fn-1" data-source-range="404:1-404:25">
+<li id="fn-1" data-source-range="404:1-404:25" style="--footnote-backrefs: 2">
 <p data-source-range="404:7-404:25">The first footnote.</p>
-<a href="#fnref-1" aria-label="Back to reference 1">↩</a> <a href="#fnref-1-2" aria-label="Back to reference 1, occurrence 2">↩</a>
-</li>
-<li id="fn-named" data-source-range="405:1-411:7">
+<span class="footnote-backrefs"><a href="#fnref-1" aria-label="Back to reference 1">↩</a> <a href="#fnref-1-2" aria-label="Back to reference 1, occurrence 2">↩</a>
+</span></li>
+<li id="fn-named" data-source-range="405:1-411:7" style="--footnote-backrefs: 1">
 <p data-source-range="405:11-405:45">A footnote with several paragraphs.</p>
 <p data-source-range="407:5-407:52">The second paragraph is indented by four spaces.</p>
 <pre data-source-range="409:5-411:7"><code data-source-range="410:1-410:35" class="language-rust">fn footnotes_can_hold_code() {}
 </code></pre>
-<a href="#fnref-named" aria-label="Back to reference 2">↩</a>
-</li>
+<span class="footnote-backrefs"><a href="#fnref-named" aria-label="Back to reference 2">↩</a>
+</span></li>
 </ol>
 </section>

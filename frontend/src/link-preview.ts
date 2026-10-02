@@ -125,7 +125,8 @@ export function leadOf(root: ParentNode, maxBlocks: number): Excerpt {
 /** A footnote's definition, without the links back to where it is referenced. */
 export function footnoteOf(item: Element): Excerpt {
   const copy = detached(item) as Element;
-  for (const back of Array.from(copy.querySelectorAll('a[href^="#fnref"]'))) back.remove();
+  const backs = copy.querySelectorAll('.footnote-backrefs, a[href^="#fnref"]');
+  for (const back of Array.from(backs)) back.remove();
   const nodes = Array.from(copy.childNodes).filter(
     (node) => node instanceof Element || (node.textContent ?? "").trim() !== "",
   );

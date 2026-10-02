@@ -53,6 +53,12 @@ struct State {
     /// Set inside the trailing footnotes section, whose headings are not
     /// part of the outline.
     in_footnotes: bool,
+    /// Set from a footnote's first link back to the end of its item, while
+    /// the wrapper that gathers those links is open.
+    in_backrefs: bool,
+    /// How many times each note is referenced, keyed by its id (see
+    /// [`reference_counts`]).
+    references: HashMap<String, usize>,
     heading_ids: Vec<String>,
 }
 
@@ -103,6 +109,32 @@ fn alert_name(kind: &str) -> String {
 /// Marker [`super::hooks`] puts on a heading whose id the document wrote.
 const AUTHORED_ID: &str = "data-arto-authored-id";
 
+/// How many times each footnote is referenced, keyed by the note's id.
+///
+/// Counted in a pass of its own, because a note can be referenced from
+/// inside a later note's definition: in the rewriting pass that reference
+/// arrives after the note it counts towards has already been written.
+fn reference_counts(html: &str) -> HashMap<String, usize> {
+    let mut counts = HashMap::new();
+    if !html.contains(r#"<section class="footnotes""#) {
+        return counts;
+    }
+    let settings = Settings::new().append_element_content_handler(element!(
+        r##"a[href^="#fn-"][id^="fnref-"]"##,
+        |el| {
+            if let Some(href) = el.get_attribute("href") {
+                *counts.entry(href[1..].to_string()).or_default() += 1;
+            }
+            Ok(())
+        }
+    ));
+    let mut rewriter = HtmlRewriter::new(settings, |_: &[u8]| {});
+    // A pass that fails part way leaves the counts short, which only costs
+    // a short note the height its links back would have taken.
+    let _ = rewriter.write(html.as_bytes()).and(rewriter.end());
+    counts
+}
+
 /// Rewrite the engine's HTML into the crate's contract.
 ///
 /// Heading ids are dropped unless `keep_heading_ids` is set; either way they
@@ -118,7 +150,10 @@ pub(super) fn annotate(
 ) -> Annotated {
     // `Rc` because the end-tag handlers that close a scope have to own their
     // share of the state: lol_html requires them to be `'static`.
-    let state = Rc::new(RefCell::new(State::default()));
+    let state = Rc::new(RefCell::new(State {
+        references: reference_counts(html),
+        ..State::default()
+    }));
     let mut output = Vec::new();
 
     // The span handler is registered first so that the class and `dir` the
@@ -243,6 +278,40 @@ pub(super) fn annotate(
             let _ = el.on_end_tag(close);
             Ok(())
         }))
+        // The links back to a footnote's references follow its last block
+        // and run to the end of the item, so one wrapper opened at the first
+        // and closed with the item holds them all, for the stylesheet to
+        // place as a unit. The stylesheet stacks them beside the note, which
+        // has to be as tall as they are: that is why the note carries their
+        // number.
+        .append_element_content_handler(element!("section.footnotes > ol > li", |el| {
+            let count = el
+                .get_attribute("id")
+                .and_then(|id| state.borrow().references.get(&id).copied());
+            if let Some(count) = count {
+                el.set_attribute("style", &format!("--footnote-backrefs: {count}"))?;
+            }
+            let closing = Rc::clone(&state);
+            let close: EndTagHandler<'static> = Box::new(move |end| {
+                if std::mem::take(&mut closing.borrow_mut().in_backrefs) {
+                    end.before("</span>", ContentType::Html);
+                }
+                Ok(())
+            });
+            let _ = el.on_end_tag(close);
+            Ok(())
+        }))
+        .append_element_content_handler(element!(
+            r##"section.footnotes > ol > li > a[href^="#fnref"]"##,
+            |el| {
+                let mut state = state.borrow_mut();
+                if !state.in_backrefs {
+                    el.before(r#"<span class="footnote-backrefs">"#, ContentType::Html);
+                    state.in_backrefs = true;
+                }
+                Ok(())
+            }
+        ))
         .append_element_content_handler(element!("blockquote.ox-callout", |el| {
             let Some(kind) = el.get_attribute("class").and_then(|class| {
                 class
@@ -498,6 +567,81 @@ second ] line</p></blockquote>"#,
             "{}",
             annotated.html
         );
+    }
+
+    #[test]
+    fn a_footnotes_links_back_are_gathered_into_one_element() {
+        let html = concat!(
+            r#"<section class="footnotes"><ol><li id="fn-1">"#,
+            r#"<p>Note</p><ul><li>item</li></ul>"#,
+            "\n",
+            r##"<a href="#fnref-1">↩</a> <a href="#fnref-1-2">↩</a>"##,
+            "\n</li>",
+            r#"<li id="fn-2"><p>Other</p>"#,
+            r##"<a href="#fnref-2">↩</a>"##,
+            "</li></ol></section>",
+        );
+        assert_eq!(
+            run(html, "", &[]).html,
+            concat!(
+                r#"<section class="footnotes"><ol><li id="fn-1">"#,
+                r#"<p>Note</p><ul><li>item</li></ul>"#,
+                "\n",
+                r#"<span class="footnote-backrefs">"#,
+                r##"<a href="#fnref-1">↩</a> <a href="#fnref-1-2">↩</a>"##,
+                "\n</span></li>",
+                r#"<li id="fn-2"><p>Other</p>"#,
+                r#"<span class="footnote-backrefs">"#,
+                r##"<a href="#fnref-2">↩</a>"##,
+                "</span></li></ol></section>",
+            )
+        );
+    }
+
+    #[test]
+    fn a_note_carries_how_many_times_it_is_referenced() {
+        let html = concat!(
+            r##"<p><sup><a href="#fn-1" id="fnref-1">1</a></sup>"##,
+            r##"<sup><a href="#fn-1" id="fnref-1-2">1</a></sup>"##,
+            r##"<sup><a href="#fn-2" id="fnref-2">2</a></sup></p>"##,
+            r#"<section class="footnotes"><ol>"#,
+            r#"<li id="fn-1"><p>One</p><ul><li>item</li></ul></li>"#,
+            r#"<li id="fn-2"><p>Two</p></li>"#,
+            "</ol></section>",
+        );
+        let annotated = run(html, "", &[]).html;
+        assert!(
+            annotated.contains(r#"<li id="fn-1" style="--footnote-backrefs: 2">"#),
+            "{annotated}"
+        );
+        assert!(
+            annotated.contains(r#"<li id="fn-2" style="--footnote-backrefs: 1">"#),
+            "{annotated}"
+        );
+        assert!(annotated.contains("<li>item</li>"), "{annotated}");
+    }
+
+    #[test]
+    fn a_reference_from_a_later_note_counts_towards_an_earlier_one() {
+        let html = concat!(
+            r##"<p><sup><a href="#fn-b" id="fnref-b">1</a></sup>"##,
+            r##"<sup><a href="#fn-a" id="fnref-a">2</a></sup></p>"##,
+            r#"<section class="footnotes"><ol>"#,
+            r#"<li id="fn-b"><p>B</p></li>"#,
+            r##"<li id="fn-a"><p>A, see<sup><a href="#fn-b" id="fnref-b-2">1</a></sup></p></li>"##,
+            "</ol></section>",
+        );
+        let annotated = run(html, "", &[]).html;
+        assert!(
+            annotated.contains(r#"<li id="fn-b" style="--footnote-backrefs: 2">"#),
+            "{annotated}"
+        );
+    }
+
+    #[test]
+    fn a_link_to_a_reference_outside_the_footnotes_is_left_alone() {
+        let html = r##"<ol><li><a href="#fnref-1">back</a></li></ol>"##;
+        assert_eq!(run(html, "", &[]).html, html);
     }
 
     #[test]

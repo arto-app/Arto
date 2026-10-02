@@ -1,0 +1,62 @@
+/* The links back to a note's references sit right after its number, in a
+   column of their own, wherever the note ends: after a wrapped paragraph, a
+   code block or a list alike. The renderer gathers them into
+   `.footnote-backrefs` after the note's last block (see the crate docs of
+   `arto-markdown`). */
+/* Only the notes themselves: a list inside a note keeps Primer's spacing. */
+.markdown-body section.footnotes > ol > li {
+  & + li {
+    margin-top: var(--base-size-16);
+  }
+
+  /* Primer's `li > p` margin would push the first line below the links. */
+  & > :first-child {
+    margin-top: 0;
+  }
+
+  & > :has(+ .footnote-backrefs) {
+    margin-bottom: 0;
+  }
+
+  /* The same column for every note, so that their text starts in one place
+     however many references a note has; a second link goes under the first,
+     and the note is kept tall enough to hold them all, by the count the
+     renderer writes on it. */
+  &:has(> .footnote-backrefs) {
+    min-height: calc(var(--footnote-backrefs, 1) * 1lh);
+    padding-left: 1.75em;
+  }
+}
+
+.markdown-body section.footnotes {
+  .footnote-backrefs {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+
+  /* The `↩` the renderer writes is drawn from the colour emoji font by
+     WebKit on macOS, so it is pushed out of the box and clipped, and the box
+     is painted through an icon mask in the link colour instead. Each link is
+     one line tall, so the icon sits on the line it belongs to. */
+  .footnote-backrefs a {
+    display: block;
+    width: 1.1em;
+    height: 1lh;
+    overflow: hidden;
+    text-indent: 100%;
+    white-space: nowrap;
+    background-color: currentColor;
+    -webkit-mask: var(--footnote-backref-icon) center / 1.1em no-repeat;
+    mask: var(--footnote-backref-icon) center / 1.1em no-repeat;
+    /* Taken from the Tabler package rather than the icon sprite: the sprite
+       lives in the app's windows only, a pasted `arto page` or a Quick Look
+       preview has none, and a mask cannot draw a sprite's `<symbol>`. The
+       build inlines the file as a data URL, so every page carries it. */
+    --footnote-backref-icon: url("../../../node_modules/@tabler/icons/icons/outline/corner-left-up.svg");
+
+    &:hover {
+      text-decoration: none;
+    }
+  }
+}
