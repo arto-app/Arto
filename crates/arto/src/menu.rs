@@ -3,6 +3,8 @@
 //! Windows and Linux draw the same items in the header instead
 //! (`components::app_menu`), so nothing here is compiled for them.
 
+pub mod dock;
+
 use dioxus_desktop::muda::accelerator::Accelerator;
 use dioxus_desktop::muda::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use dioxus_desktop::window;
@@ -357,6 +359,7 @@ pub fn is_close_action(event: &MenuEvent) -> bool {
 /// Handle menu events that do NOT require per-window AppState.
 ///
 /// # Handled events
+/// - Every Dock menu item (see [`dock::handle_menu_event`])
 /// - `NewWindow`: Creates a new window (no state needed)
 /// - `NewDocument` (no windows exist): Creates a window as fallback
 /// - `Preferences`: Declined here (requires per-window state), returns `false`
@@ -367,6 +370,10 @@ pub fn is_close_action(event: &MenuEvent) -> bool {
 /// # Returns
 /// `true` if the event was fully handled, `false` if it needs state-dependent handling.
 pub fn handle_menu_event_global(event: &MenuEvent) -> bool {
+    if dock::handle_menu_event(event) {
+        return true;
+    }
+
     let menu_id = event.id().0.as_ref();
 
     let id = match MenuId::from_str(menu_id) {
