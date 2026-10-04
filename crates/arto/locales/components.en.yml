@@ -1,0 +1,152 @@
+app_menu:
+  about: "About Arto"
+  preferences: "Preferences..."
+  file:
+    title: "File"
+    new_window: "New Window"
+    duplicate_window: "Duplicate Window"
+    new_document: "New Document"
+    open_file: "Open File..."
+    open_directory: "Open Directory..."
+    copy_file_path: "Copy File Path"
+    reveal_in_finder: "Reveal in Finder"
+    close_window: "Close Window"
+    print: "Print..."
+  edit:
+    title: "Edit"
+    find: "Find..."
+    find_next: "Find Next"
+    find_previous: "Find Previous"
+  view:
+    title: "View"
+    toggle_left_sidebar: "Toggle Left Sidebar"
+    focus_mode: "Focus Mode"
+    actual_size: "Actual Size"
+    zoom_in: "Zoom In"
+    zoom_out: "Zoom Out"
+  history:
+    title: "History"
+    go_back: "Go Back"
+    go_forward: "Go Forward"
+  window:
+    title: "Window"
+    close_all_child_windows: "Close All Child Windows"
+    close_all_windows: "Close All Windows"
+  help:
+    title: "Help"
+    go_to_homepage: "Go to Homepage"
+  quit: "Quit"
+
+header:
+  menu: "Menu"
+  copy_full_path: "Copy full path"
+  reload_file: "Reload file"
+  search_in_page: "Search in page"
+  full_width:
+    enable: "Full-width content"
+    disable: "Disable full-width content"
+  focus_mode: "Focus mode"
+
+breadcrumb:
+  label: "Recently read"
+  empty: "Nothing else read yet"
+  all_history: "All history…"
+
+bookmark_button:
+  add: "Add to Starred"
+  remove: "Remove from Starred"
+
+find:
+  placeholder: "Find in page"
+  close: "Close"
+
+theme_selector:
+  light: "Light theme"
+  dark: "Dark theme"
+  auto: "Auto theme (follows system)"
+
+drop_overlay:
+  message: "Drop Markdown file or directory to open"
+
+highlight_card:
+  remove: "Remove Highlight"
+  note_placeholder: "Add a note…"
+  note_label: "Note"
+  note_not_kept: "The note could not be kept"
+
+viewer_window:
+  zoom_status:
+    pan: "Zoom: %{zoom}% | Scroll to zoom, drag to pan"
+    pan_fit: "Zoom: %{zoom}% | Scroll to zoom, drag to pan, double-click to fit"
+  image:
+    untitled: "Image"
+    copy: "Copy image to clipboard"
+  math:
+    copy: "Copy Math as image"
+  mermaid:
+    copy: "Copy diagram as image"
+
+palette:
+  placeholder: "Find a file, go back to one you have read, or name a command"
+  empty:
+    nothing_read: "Nothing read yet"
+    no_match: "Nothing by that name"
+  partial: "This folder was too large to list whole — some files are not offered."
+  all_history: "All history…"
+  group:
+    commands: "Commands"
+    recent: "Recent"
+    starred: "Starred"
+    places: "Places"
+    files: "Files"
+
+content:
+  unknown_file: "Unknown file"
+
+file_error:
+  title: "Cannot Open File"
+  hint: "This file cannot be opened. It may be a binary file or an unsupported format."
+  message: "Error: %{error}"
+
+contents:
+  label: "Contents"
+  heading: "Contents"
+  no_headings: "No headings"
+  changes:
+    count: "Changes · %{count}"
+    mark_read: "Mark as read"
+    mark_read_hint: "Take what is on screen as read, and clear the marks"
+  pinned:
+    heading: "Pinned"
+    row: "Colour, visibility, remove"
+    show: "Show"
+    hide: "Hide"
+    enable: "Enable"
+    disable: "Disable"
+    remove: "Remove"
+  highlights:
+    heading: "Highlights"
+    row: "Colour, remove"
+    go_to: "Go to the highlight"
+    not_found: "Not found in the document"
+    remove: "Remove"
+
+trace:
+  label: "Recently read"
+  heading: "Recent"
+
+welcome:
+  hint:
+    with_key: "Press %{key} to find something you have read, or to name a command."
+    without_key: "Open the command palette to find something you have read, or to name a command."
+  places:
+    heading: "Places"
+    empty: "Star a folder and it will be here, in every window."
+    all: "All places…"
+  starred:
+    heading: "Starred"
+    all: "All stars…"
+  recent:
+    heading: "Recent"
+    empty: "Open a Markdown file, or drop one here, and it will be waiting next time."
+    all: "All history…"

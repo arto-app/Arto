@@ -12,6 +12,7 @@
  * layer beside the page (see [`draw`]).
  */
 
+import { locale, t } from "./i18n";
 import { refreshReadingPosition } from "./reading-position";
 import { renderCoordinator } from "./render-coordinator";
 import { toElement } from "./scroll-controller";
@@ -402,8 +403,8 @@ const DAY = 24 * HOUR;
 /** How long ago `readAt` was, as a reader would say it: "2 hours ago". */
 export function since(readAt: number, now: number): string {
   const elapsed = Math.max(0, now - readAt);
-  if (elapsed < MINUTE) return "just now";
-  const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  if (elapsed < MINUTE) return t("frontend.changes.just_now");
+  const relative = new Intl.RelativeTimeFormat(locale(), { numeric: "auto" });
   if (elapsed < HOUR) return relative.format(-Math.floor(elapsed / MINUTE), "minute");
   if (elapsed < DAY) return relative.format(-Math.floor(elapsed / HOUR), "hour");
   const days = Math.floor(elapsed / DAY);
@@ -420,14 +421,14 @@ export function since(readAt: number, now: number): string {
  * margin from decoration; this is what the mark is for, in words.
  */
 export function tipFor(el: HTMLElement, readAt: number | null, now: number): string {
-  const when = readAt === null ? "" : `, ${since(readAt, now)}`;
+  const when = readAt === null ? "" : t("frontend.changes.when", { since: since(readAt, now) });
   const lines: string[] = [];
   const change = el.getAttribute(CHANGE);
-  if (change === "added") lines.push(`Added since you last read this${when}`);
-  if (change === "modified") lines.push(`Changed since you last read this${when}`);
+  if (change === "added") lines.push(t("frontend.changes.added", { when }));
+  if (change === "modified") lines.push(t("frontend.changes.modified", { when }));
   const removed = el.getAttribute(REMOVED);
-  if (removed === "after") lines.push(`Text was taken out below since you last read this${when}`);
-  if (removed === "before") lines.push(`Text was taken out above since you last read this${when}`);
+  if (removed === "after") lines.push(t("frontend.changes.removed_below", { when }));
+  if (removed === "before") lines.push(t("frontend.changes.removed_above", { when }));
   return lines.join("\n");
 }
 

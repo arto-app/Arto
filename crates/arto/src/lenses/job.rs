@@ -4,6 +4,7 @@
 
 use arto_config::{Lens, LensDisplay};
 use arto_markdown::{BlockKind, SourcePosition, SourceRange};
+use rust_i18n::t;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fmt::Write;
@@ -145,10 +146,10 @@ pub(crate) fn message_shape(display: LensDisplay, prompt: Option<&str>) -> Strin
             version: INPUT_VERSION,
             lens: String::new(),
             kind: BlockKind::Paragraph,
-            markdown: placeholder("the block"),
+            markdown: placeholder(&t!("lenses.message_shape.block")),
             range,
-            before: vec![placeholder("the blocks before it")],
-            after: vec![placeholder("the blocks after it")],
+            before: vec![placeholder(&t!("lenses.message_shape.before"))],
+            after: vec![placeholder(&t!("lenses.message_shape.after"))],
             document,
         })
     } else {
@@ -156,7 +157,7 @@ pub(crate) fn message_shape(display: LensDisplay, prompt: Option<&str>) -> Strin
             version: INPUT_VERSION,
             lens: String::new(),
             range: None,
-            markdown: placeholder("the document, or the block asked about"),
+            markdown: placeholder(&t!("lenses.message_shape.whole")),
             document,
         })
     };

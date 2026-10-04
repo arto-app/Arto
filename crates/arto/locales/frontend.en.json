@@ -1,0 +1,26 @@
+{
+  "frontend": {
+    "changes": {
+      "added": "Added since you last read this%{when}",
+      "modified": "Changed since you last read this%{when}",
+      "removed_below": "Text was taken out below since you last read this%{when}",
+      "removed_above": "Text was taken out above since you last read this%{when}",
+      "when": ", %{since}",
+      "just_now": "just now"
+    },
+    "code_copy": {
+      "copy_code": "Copy code to clipboard",
+      "copy_image": "Copy as image"
+    },
+    "lenses": {
+      "original_handle": "Original — or hold Option (⌥) over the block"
+    },
+    "link_preview": {
+      "unavailable": "No preview available",
+      "read_more": "Open to read more…"
+    },
+    "viewer": {
+      "rendering_error": "Rendering Error:"
+    }
+  }
+}

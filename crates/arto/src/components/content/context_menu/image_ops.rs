@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
 use crate::components::icon::IconName;
@@ -16,11 +17,11 @@ pub(super) fn CopyImageAsSubmenu(
 
     rsx! {
         ContextMenuSubmenu {
-            label: "Copy Image As...",
+            label: t!("context_menu.copy_image_as").to_string(),
             icon: Some(IconName::Photo),
 
             ContextMenuItem {
-                label: "Image",
+                label: t!("context_menu.image").to_string(),
                 icon: Some(IconName::Photo),
                 on_click: {
                     let src = src.clone();
@@ -35,7 +36,7 @@ pub(super) fn CopyImageAsSubmenu(
             }
 
             ContextMenuItem {
-                label: "Image with Background",
+                label: t!("context_menu.image_with_background").to_string(),
                 icon: Some(IconName::Photo),
                 shortcut: shortcut("clipboard.copy_image_with_background"),
                 on_click: {
@@ -60,14 +61,14 @@ pub(super) fn CopyImageAsSubmenu(
                         let src = crate::assets::images::with_paths_for_urls(&src);
                         let md = format!("![{}]({})", alt_text, src);
                         crate::utils::clipboard::copy_text(&md);
-                        crate::keybindings::dispatcher::show_action_feedback("Copied");
+                        crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
                         on_close.call(());
                     }
                 },
             }
 
             ContextMenuItem {
-                label: "Path",
+                label: t!("context_menu.path").to_string(),
                 icon: Some(IconName::File),
                 shortcut: shortcut("clipboard.copy_image_path"),
                 on_click: {
@@ -75,7 +76,7 @@ pub(super) fn CopyImageAsSubmenu(
                     move |_| {
                         let src = crate::assets::images::with_paths_for_urls(&src);
                         crate::utils::clipboard::copy_text(&src);
-                        crate::keybindings::dispatcher::show_action_feedback("Copied");
+                        crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
                         on_close.call(());
                     }
                 },
@@ -91,11 +92,11 @@ pub(super) fn CopySpecialBlockAsSubmenu(is_mermaid: bool, on_close: EventHandler
 
     rsx! {
         ContextMenuSubmenu {
-            label: "Copy Image As...",
+            label: t!("context_menu.copy_image_as").to_string(),
             icon: Some(IconName::Photo),
 
             ContextMenuItem {
-                label: "Image",
+                label: t!("context_menu.image").to_string(),
                 icon: Some(IconName::Photo),
                 on_click: {
                     move |_| {
@@ -106,7 +107,7 @@ pub(super) fn CopySpecialBlockAsSubmenu(is_mermaid: bool, on_close: EventHandler
             }
 
             ContextMenuItem {
-                label: "Image with Background",
+                label: t!("context_menu.image_with_background").to_string(),
                 icon: Some(IconName::Photo),
                 shortcut: shortcut("clipboard.copy_image_with_background"),
                 on_click: {

@@ -1,0 +1,35 @@
+app:
+  document:
+    unnamed: "名称未設定"
+    welcome: "ようこそ"
+  window_title:
+    unknown_file: "不明"
+    error: "Arto - %{name}（エラー）"
+  viewer_window:
+    mermaid: "Mermaid ビューア"
+    math: "数式ビューア"
+    image: "画像ビューア"
+    preferences: "設定"
+  reading_time:
+    read: "%{minutes} 分で読了"
+    left: "残り %{minutes} 分"
+    under_a_minute_left: "残り 1 分未満"
+    total: "合計 %{minutes} 分"
+    words: "%{count} 語"
+    characters: "%{count} 文字"
+  history:
+    today: "今日"
+    yesterday: "昨日"
+    this_week: "今週"
+    last_week: "先週"
+    weekday:
+      mon: "月"
+      tue: "火"
+      wed: "水"
+      thu: "木"
+      fri: "金"
+      sat: "土"
+      sun: "日"
+  save_image:
+    filter: "%{format} 画像"
+    filter_any: "画像"

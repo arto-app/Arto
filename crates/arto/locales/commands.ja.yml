@@ -1,0 +1,56 @@
+commands:
+  history:
+    back: "戻る"
+    forward: "進む"
+  search:
+    open: "ページ内を検索"
+  highlight:
+    note: "メモ付きでハイライト"
+  zoom:
+    in: "拡大"
+    out: "縮小"
+    reset: "実際のサイズ"
+  clipboard:
+    copy_file_path: "ファイルのパスをコピー"
+    copy_as_markdown: "ドキュメントを Markdown としてコピー"
+  window:
+    new: "新規ウインドウ"
+    duplicate: "ウインドウを複製"
+    new_document: "新規書類"
+    close: "ウインドウを閉じる"
+    close_all_child_windows: "すべての子ウインドウを閉じる"
+    close_all_windows: "すべてのウインドウを閉じる"
+    toggle_sidebar: "サイドバーの表示を切り替える"
+    toggle_focus_mode: "集中モード"
+    reload: "ドキュメントを再読み込み"
+  file:
+    open: "ファイルを開く…"
+    open_directory: "フォルダを開く…"
+    set_parent_as_root: "これをウインドウのフォルダにする"
+    toggle_bookmark: "スターを切り替える"
+    preferences: "設定…"
+    reveal_in_finder: "Finder に表示"
+    print: "プリント…"
+  app:
+    about: "Arto について"
+    quit: "Arto を終了"
+    go_to_homepage: "ホームページへ移動"
+  contents:
+    toggle: "目次"
+  changes:
+    mark_read: "既読にする"
+  lens:
+    stop: "レンズを停止"
+    hide: "レンズを隠す"
+  sidebar:
+    toggle_show_all_files: "すべてのファイルを表示"
+    face_places: "場所を表示"
+    face_recent: "最近を表示"
+    face_starred: "スター付きを表示"
+    face_links: "リンクを表示"
+    face_next: "パネルの次の面"
+    face_prev: "パネルの前の面"
+  theme:
+    set_light: "ライトテーマ"
+    set_dark: "ダークテーマ"
+    set_auto: "システムのテーマに合わせる"

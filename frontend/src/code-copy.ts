@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { html2canvasLibrary } from "./libraries";
 import iconCopy from "@tabler/icons/outline/copy.svg?raw";
 import iconCheck from "@tabler/icons/outline/check.svg?raw";
@@ -77,7 +78,7 @@ function addCopyButton(pre: HTMLPreElement): void {
   // Create text copy button
   const textButton = document.createElement("button");
   textButton.className = hasImageCopy ? "copy-button copy-button-text" : "copy-button";
-  textButton.setAttribute("aria-label", "Copy code to clipboard");
+  textButton.setAttribute("aria-label", t("frontend.code_copy.copy_code"));
   textButton.innerHTML = getCopyIcon();
 
   // Handle click event
@@ -101,7 +102,7 @@ function addCopyButton(pre: HTMLPreElement): void {
 function addImageCopyButton(pre: HTMLPreElement, type: "mermaid" | "math"): void {
   const button = document.createElement("button");
   button.className = "copy-button copy-button-image";
-  button.setAttribute("aria-label", "Copy as image");
+  button.setAttribute("aria-label", t("frontend.code_copy.copy_image"));
   button.innerHTML = getPhotoIcon();
 
   button.addEventListener("click", async (e) => {

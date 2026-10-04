@@ -1,6 +1,7 @@
 mod breadcrumb_menu;
 
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::app_menu::AppMenu;
 use crate::components::bookmark_button::BookmarkButton;
@@ -73,7 +74,7 @@ pub fn Header() -> Element {
                     // the text it already read is what appears. A control that
                     // opens a panel under itself gets no tooltip at all; the
                     // panel says what the tooltip would.
-                    "aria-label": "Menu",
+                    "aria-label": t!("header.menu").to_string(),
                     onclick: move |_| is_menu_open.toggle(),
                     Icon { name: IconName::Menu2 }
                 }
@@ -100,7 +101,7 @@ pub fn Header() -> Element {
                         button {
                             class: "nav-button copy-button",
                             class: if *is_copied.read() { "copied" },
-                            title: "Copy full path",
+                            title: t!("header.copy_full_path").to_string(),
                             onclick: {
                                 let path_str = path.to_string_lossy().to_string();
                                 move |_| {
@@ -123,7 +124,7 @@ pub fn Header() -> Element {
                             class: "nav-button reload-button",
                             class: if *is_reloading.read() { "reloading" },
                             onclick: on_reload,
-                            title: "Reload file",
+                            title: t!("header.reload_file").to_string(),
                             Icon { name: IconName::Refresh }
                         }
                     }
@@ -143,7 +144,7 @@ pub fn Header() -> Element {
                 button {
                     class: "nav-button search-button",
                     class: if *state.search_open.read() { "active" },
-                    title: "Search in page",
+                    title: t!("header.search_in_page").to_string(),
                     // The field focuses itself as it mounts.
                     onclick: move |_| state.toggle_search(),
                     Icon { name: IconName::Search }
@@ -153,7 +154,7 @@ pub fn Header() -> Element {
                 button {
                     class: "nav-button full-width-button",
                     class: if *state.content_full_width.read() { "active" },
-                    title: if *state.content_full_width.read() { "Disable full-width content" } else { "Full-width content" },
+                    title: if *state.content_full_width.read() { t!("header.full_width.disable").to_string() } else { t!("header.full_width.enable").to_string() },
                     onclick: move |_| state.toggle_content_full_width(),
                     Icon {
                         name: if *state.content_full_width.read() { IconName::ViewportNarrow } else { IconName::ViewportWide },
@@ -166,7 +167,7 @@ pub fn Header() -> Element {
                 button {
                     class: "nav-button focus-mode-button",
                     class: if *state.focus_mode.read() { "active" },
-                    title: "Focus mode",
+                    title: t!("header.focus_mode").to_string(),
                     onclick: move |_| state.toggle_focus_mode(),
                     Icon { name: IconName::Focus2 }
                 }

@@ -9,6 +9,7 @@ mod trace;
 mod welcome_view;
 
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::scroll_anchor::ScrollAnchor;
 use crate::state::{AppState, DocumentContent};
@@ -92,8 +93,8 @@ pub fn Content() -> Element {
                         let filename = file
                             .file_name()
                             .and_then(|n| n.to_str())
-                            .unwrap_or("Unknown file")
-                            .to_string();
+                            .map(str::to_string)
+                            .unwrap_or_else(|| t!("content.unknown_file").to_string());
                         rsx! { FileErrorView { filename, error_message: error } }
                     },
                     // A window with nothing open shows what there is to

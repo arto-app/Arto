@@ -37,7 +37,7 @@ crate. Do NOT report completion while any of these fail.
 Architecture notes load on demand from `.claude/rules/` when a matching
 file is read or edited (see each rule's `paths` frontmatter): windows and
 state, configuration, IPC, menus, the Markdown pipeline, Dioxus async
-patterns, testing, UI design. `.claude/TIPS.md` collects longer-form
+patterns, testing, UI design, interface translation. `.claude/TIPS.md` collects longer-form
 lessons; read it when a rule points there.
 
 The project description lives in `README.md`; quote it instead of inventing

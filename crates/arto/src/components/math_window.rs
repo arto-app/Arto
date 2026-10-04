@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 use sha2::{Digest, Sha256};
 
 use crate::assets::main_script_url;
@@ -90,7 +91,7 @@ pub fn MathWindow(props: MathWindowProps) -> Element {
                     class: "math-window-controls",
                     CopyImageButton {
                         js_function: "copyMathAsImage",
-                        label: "Copy Math as image",
+                        label: t!("viewer_window.math.copy").to_string(),
                     }
                     ThemeSelector { current_theme }
                 }
@@ -118,7 +119,7 @@ pub fn MathWindow(props: MathWindowProps) -> Element {
             // Status bar
             div {
                 class: "math-window-status",
-                "Zoom: {zoom_level}% | Scroll to zoom, drag to pan, double-click to fit"
+                {t!("viewer_window.zoom_status.pan_fit", zoom = zoom_level()).to_string()}
             }
         }
     }

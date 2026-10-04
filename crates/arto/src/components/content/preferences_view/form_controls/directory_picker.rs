@@ -1,6 +1,7 @@
 use super::ResetLine;
 use crate::components::icon::{Icon, IconName};
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::path::PathBuf;
 
 /// Directory picker component with browse button and "Use Current" option
@@ -22,7 +23,7 @@ pub fn DirectoryPicker(
             .filter(|shipped| shipped != &value)
             .map(|shipped| match shipped {
                 Some(path) => path.display().to_string(),
-                None => "no folder".to_string(),
+                None => t!("preferences.controls.no_folder").to_string(),
             });
 
     let handle_browse = move |_| {
@@ -61,7 +62,7 @@ pub fn DirectoryPicker(
             }
             button {
                 class: "icon-button",
-                title: "Browse...",
+                title: t!("preferences.controls.browse").to_string(),
                 onclick: handle_browse,
                 Icon { name: IconName::FolderOpen, size: 18 }
             }
@@ -69,7 +70,7 @@ pub fn DirectoryPicker(
                 class: "use-current-button",
                 disabled: current_directory.is_none(),
                 onclick: handle_use_current,
-                "Use Current"
+                {t!("preferences.controls.use_current").to_string()}
             }
         }
         ResetLine {

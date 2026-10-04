@@ -1,5 +1,6 @@
 use dioxus::document;
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::icon::{Icon, IconName};
 use crate::theme::{use_color_theme, Theme};
@@ -58,32 +59,24 @@ pub fn ThemeSelector(current_theme: Signal<Theme>) -> Element {
 
     // Get current theme icon and title
     let (current_icon, current_title) = match current_theme() {
-        Theme::Light => (IconName::Sun, "Light theme"),
-        Theme::Dark => (IconName::Moon, "Dark theme"),
-        Theme::Auto => (IconName::SunMoon, "Auto theme (follows system)"),
+        Theme::Light => (IconName::Sun, theme_title(Theme::Light)),
+        Theme::Dark => (IconName::Moon, theme_title(Theme::Dark)),
+        Theme::Auto => (IconName::SunMoon, theme_title(Theme::Auto)),
     };
 
     // Get other theme options (remaining 2 themes)
     let other_themes = match current_theme() {
         Theme::Light => [
-            (Theme::Dark, IconName::Moon, "Dark theme"),
-            (
-                Theme::Auto,
-                IconName::SunMoon,
-                "Auto theme (follows system)",
-            ),
+            (Theme::Dark, IconName::Moon, theme_title(Theme::Dark)),
+            (Theme::Auto, IconName::SunMoon, theme_title(Theme::Auto)),
         ],
         Theme::Dark => [
-            (Theme::Light, IconName::Sun, "Light theme"),
-            (
-                Theme::Auto,
-                IconName::SunMoon,
-                "Auto theme (follows system)",
-            ),
+            (Theme::Light, IconName::Sun, theme_title(Theme::Light)),
+            (Theme::Auto, IconName::SunMoon, theme_title(Theme::Auto)),
         ],
         Theme::Auto => [
-            (Theme::Light, IconName::Sun, "Light theme"),
-            (Theme::Dark, IconName::Moon, "Dark theme"),
+            (Theme::Light, IconName::Sun, theme_title(Theme::Light)),
+            (Theme::Dark, IconName::Moon, theme_title(Theme::Dark)),
         ],
     };
 
@@ -141,5 +134,13 @@ pub fn ThemeSelector(current_theme: Signal<Theme>) -> Element {
                 }
             }
         }
+    }
+}
+
+fn theme_title(theme: Theme) -> String {
+    match theme {
+        Theme::Light => t!("theme_selector.light").to_string(),
+        Theme::Dark => t!("theme_selector.dark").to_string(),
+        Theme::Auto => t!("theme_selector.auto").to_string(),
     }
 }

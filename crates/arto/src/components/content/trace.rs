@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::document_name::DocumentName;
 use crate::state::AppState;
@@ -55,10 +56,10 @@ pub fn MarginTrace(count: usize, visible: bool) -> Element {
         div {
             class: "margin-trace",
             class: if !visible { "away" },
-            "aria-label": "Recently read",
+            "aria-label": t!("trace.label").to_string(),
             "aria-hidden": if visible { "false" } else { "true" },
 
-            div { class: "margin-trace-label", "Recent" }
+            div { class: "margin-trace-label", {t!("trace.heading").to_string()} }
 
             for visit in rows {
                 button {

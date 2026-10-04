@@ -8,6 +8,7 @@ use crate::config::{
 };
 use dioxus::prelude::*;
 use dioxus_desktop::window;
+use rust_i18n::t;
 use std::path::PathBuf;
 
 /// Windows: how large they open, where they land, and which one a document
@@ -59,14 +60,14 @@ pub fn WindowTab(config: Signal<Config>, current_directory: Option<PathBuf>) -> 
         div {
             class: "preferences-pane",
 
-            h3 { class: "preference-section-title", "Size" }
+            h3 { class: "preference-section-title", {t!("preferences.window.size.title").to_string()} }
 
             div {
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Default Size" }
-                    p { class: "preference-description", "How large a window opens. Percent values are relative to the current screen." }
+                    label { {t!("preferences.window.size.default_size.label").to_string()} }
+                    p { class: "preference-description", {t!("preferences.window.size.default_size.description").to_string()} }
                 }
                 div {
                     class: "dimension-row",
@@ -74,7 +75,7 @@ pub fn WindowTab(config: Signal<Config>, current_directory: Option<PathBuf>) -> 
                         class: "dimension-grid",
                         div {
                             class: "dimension-field",
-                            label { "Width" }
+                            label { {t!("preferences.window.size.width").to_string()} }
                             DimensionInput {
                                 value: size_cfg.default_size.width,
                                 min: 0.0,
@@ -88,7 +89,7 @@ pub fn WindowTab(config: Signal<Config>, current_directory: Option<PathBuf>) -> 
                         }
                         div {
                             class: "dimension-field",
-                            label { "Height" }
+                            label { {t!("preferences.window.size.height").to_string()} }
                             DimensionInput {
                                 value: size_cfg.default_size.height,
                                 min: 0.0,
@@ -104,19 +105,19 @@ pub fn WindowTab(config: Signal<Config>, current_directory: Option<PathBuf>) -> 
                     button {
                         class: "use-current-button",
                         onclick: use_current_size,
-                        "Use Current"
+                        {t!("preferences.controls.use_current").to_string()}
                     }
                 }
             }
 
-            h3 { class: "preference-section-title", "Position" }
+            h3 { class: "preference-section-title", {t!("preferences.window.position.title").to_string()} }
 
             div {
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Default Position" }
-                    p { class: "preference-description", "Where a window lands. Percent values place it within the available screen area (0% = top/left, 100% = bottom/right)." }
+                    label { {t!("preferences.window.position.default_position.label").to_string()} }
+                    p { class: "preference-description", {t!("preferences.window.position.default_position.description").to_string()} }
                 }
                 OptionCards {
                     name: "window-position-mode".to_string(),
@@ -124,14 +125,14 @@ pub fn WindowTab(config: Signal<Config>, current_directory: Option<PathBuf>) -> 
                         OptionCardItem {
                             value: WindowPositionMode::Coordinates,
                             icon: Some(IconName::Command),
-                            title: "Coordinates".to_string(),
-                            description: Some("Use the X/Y values below".to_string()),
+                            title: t!("preferences.window.position.default_position.coordinates.title").to_string(),
+                            description: Some(t!("preferences.window.position.default_position.coordinates.description").to_string()),
                         },
                         OptionCardItem {
                             value: WindowPositionMode::Mouse,
                             icon: Some(IconName::Click),
-                            title: "Mouse Position".to_string(),
-                            description: Some("Open at the current mouse location".to_string()),
+                            title: t!("preferences.window.position.default_position.mouse.title").to_string(),
+                            description: Some(t!("preferences.window.position.default_position.mouse.description").to_string()),
                         },
                     ],
                     selected: position_cfg.default_position_mode,
@@ -176,7 +177,7 @@ pub fn WindowTab(config: Signal<Config>, current_directory: Option<PathBuf>) -> 
                     button {
                         class: "use-current-button",
                         onclick: use_current_position,
-                        "Use Current"
+                        {t!("preferences.controls.use_current").to_string()}
                     }
                 }
             }
@@ -185,8 +186,8 @@ pub fn WindowTab(config: Signal<Config>, current_directory: Option<PathBuf>) -> 
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Position Offset" }
-                    p { class: "preference-description", "If another window already uses a nearby position, shift the new window by this offset (pixels only)." }
+                    label { {t!("preferences.window.position.offset.label").to_string()} }
+                    p { class: "preference-description", {t!("preferences.window.position.offset.description").to_string()} }
                 }
                 div {
                     class: "dimension-grid",
@@ -249,16 +250,16 @@ pub fn WindowTab(config: Signal<Config>, current_directory: Option<PathBuf>) -> 
                 }
             }
 
-            h3 { class: "preference-section-title", "Opening" }
+            h3 { class: "preference-section-title", {t!("preferences.window.opening.title").to_string()} }
 
             div {
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Where a File Opens" }
+                    label { {t!("preferences.window.opening.file_open.label").to_string()} }
                     p {
                         class: "preference-description",
-                        "Which window receives a file or folder opened from Finder, the command line, or another instance of Arto."
+                        {t!("preferences.window.opening.file_open.description").to_string()}
                     }
                 }
                 OptionCards {
@@ -267,20 +268,20 @@ pub fn WindowTab(config: Signal<Config>, current_directory: Option<PathBuf>) -> 
                         OptionCardItem {
                             icon: None,
                             value: FileOpenBehavior::NewWindow,
-                            title: "New Window".to_string(),
-                            description: Some("Always create a new window".to_string()),
+                            title: t!("preferences.window.opening.file_open.new_window.title").to_string(),
+                            description: Some(t!("preferences.window.opening.file_open.new_window.description").to_string()),
                         },
                         OptionCardItem {
                             icon: None,
                             value: FileOpenBehavior::LastFocused,
-                            title: "Last Focused".to_string(),
-                            description: Some("Open in the last focused visible window".to_string()),
+                            title: t!("preferences.window.opening.file_open.last_focused.title").to_string(),
+                            description: Some(t!("preferences.window.opening.file_open.last_focused.description").to_string()),
                         },
                         OptionCardItem {
                             icon: None,
                             value: FileOpenBehavior::CurrentScreen,
-                            title: "Current Screen".to_string(),
-                            description: Some("Open in a visible window on the cursor screen".to_string()),
+                            title: t!("preferences.window.opening.file_open.current_screen.title").to_string(),
+                            description: Some(t!("preferences.window.opening.file_open.current_screen.description").to_string()),
                         },
                     ],
                     selected: file_open,
@@ -295,15 +296,15 @@ pub fn WindowTab(config: Signal<Config>, current_directory: Option<PathBuf>) -> 
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Folder to Start In" }
+                    label { {t!("preferences.window.opening.start_folder.label").to_string()} }
                     p {
                         class: "preference-description",
-                        "The folder the first window works in, beside the places you keep. Leave it empty to start with the places alone."
+                        {t!("preferences.window.opening.start_folder.description").to_string()}
                     }
                 }
                 DirectoryPicker {
                     value: default_directory,
-                    placeholder: "No folder — the places alone".to_string(),
+                    placeholder: t!("preferences.window.opening.start_folder.placeholder").to_string(),
                     current_directory: current_directory.clone(),
                     on_change: move |new_directory| {
                         config.write().directory.default_directory = new_directory;

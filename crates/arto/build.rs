@@ -4,6 +4,15 @@ use std::path::{Path, PathBuf};
 fn main() {
     stamp_version();
     compress_frontend();
+    watch_locales();
+}
+
+/// `rust_i18n::i18n!` reads `locales/` while it expands but does not tell
+/// cargo it did, so an edited translation would otherwise leave the
+/// compiled-in strings as they were until something else touched the crate.
+/// A build script that runs again rebuilds the crate with it.
+fn watch_locales() {
+    println!("cargo:rerun-if-changed=locales");
 }
 
 fn stamp_version() {

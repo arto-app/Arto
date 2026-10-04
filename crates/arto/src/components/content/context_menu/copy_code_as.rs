@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::path::PathBuf;
 
 use super::source_ops::build_path_with_range;
@@ -26,17 +27,17 @@ pub(super) fn CopyCodeAsSubmenu(
 
     rsx! {
         ContextMenuSubmenu {
-            label: "Copy Code As...",
+            label: t!("context_menu.copy_code_as").to_string(),
             icon: Some(IconName::Code),
 
             ContextMenuItem {
-                label: "Code",
+                label: t!("context_menu.code").to_string(),
                 icon: Some(IconName::Code),
                 on_click: {
                     let code_content = code_content.clone();
                     move |_| {
                         crate::utils::clipboard::copy_text(&code_content);
-                        crate::keybindings::dispatcher::show_action_feedback("Copied");
+                        crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
                         on_close.call(());
                     }
                 },
@@ -67,14 +68,14 @@ pub(super) fn CopyCodeAsSubmenu(
             if let Some((path_value, start, end)) = block_path_with_range.clone() {
                 ContextMenuItem {
                     label: if start != end {
-                        format!("Path with Range ({start}-{end})")
+                        t!("context_menu.path_with_range", start = start, end = end).to_string()
                     } else {
-                        format!("Path with Line ({start})")
+                        t!("context_menu.path_with_line", line = start).to_string()
                     },
                     on_click: {
                         move |_| {
                             crate::utils::clipboard::copy_text(&path_value);
-                            crate::keybindings::dispatcher::show_action_feedback("Copied");
+                            crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
                             on_close.call(());
                         }
                     },

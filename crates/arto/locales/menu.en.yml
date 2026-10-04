@@ -1,0 +1,48 @@
+menu:
+  app:
+    about: "About Arto"
+    preferences: "Preferences..."
+    quit: "Quit"
+  file:
+    title: "File"
+    new_window: "New Window"
+    duplicate_window: "Duplicate Window"
+    new_document: "New Document"
+    open: "Open File..."
+    open_directory: "Open Directory..."
+    copy_file_path: "Copy File Path"
+    reveal_in_finder: "Reveal in Finder"
+    close_window: "Close Window"
+    print: "Print..."
+  edit:
+    title: "Edit"
+    cut: "Cut"
+    copy: "Copy"
+    paste: "Paste"
+    select_all: "Select All"
+    find: "Find..."
+    find_next: "Find Next"
+    find_previous: "Find Previous"
+  view:
+    title: "View"
+    toggle_left_sidebar: "Toggle Left Sidebar"
+    focus_mode: "Focus Mode"
+    actual_size: "Actual Size"
+    zoom_in: "Zoom In"
+    zoom_out: "Zoom Out"
+  history:
+    title: "History"
+    back: "Go Back"
+    forward: "Go Forward"
+  window:
+    title: "Window"
+    close_all_child_windows: "Close All Child Windows"
+    close_all_windows: "Close All Windows"
+  help:
+    title: "Help"
+    homepage: "Go to Homepage"
+  dock:
+    new_window: "New Window"
+    open: "Open File..."
+    open_directory: "Open Directory..."
+    open_recent: "Open Recent"

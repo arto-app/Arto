@@ -1,0 +1,297 @@
+preferences:
+  appearance:
+    language:
+      title: "Language"
+      label: "Interface Language"
+      description: "The language of menus, preferences and the rest of Arto's own words. Documents are never translated."
+      auto: "System"
+      restart_note: "Arto shows the new language after it restarts."
+      restart: "Restart Arto"
+    mode:
+      title: "Mode"
+      default_theme:
+        label: "Default Theme"
+        description: "Whether to paint the light theme, the dark theme, or the one the system asks for."
+        auto: "Auto"
+        light: "Light"
+        dark: "Dark"
+    themes:
+      title: "Themes"
+      light:
+        label: "Light Theme"
+        description: "Which of GitHub's themes to paint in light mode."
+      dark:
+        label: "Dark Theme"
+        description: "Which of GitHub's themes to paint in dark mode. A light theme is a valid choice here."
+  window_title: "Preferences"
+  sections_label: "Preferences sections"
+  tabs:
+    appearance: "Appearance"
+    markdown: "Markdown"
+    reading: "Reading"
+    panel: "Panel"
+    window: "Window"
+    startup: "Startup"
+    keybindings: "Keybindings"
+    lenses: "Lenses"
+    about: "About"
+  controls:
+    reset: "Reset to %{value}"
+    toggle_on: "on"
+    toggle_off: "off"
+    no_folder: "no folder"
+    browse: "Browse..."
+    use_current: "Use Current"
+    use_default: "Use Default"
+    show_light_themes: "Show light themes too"
+    show_dark_themes: "Show dark themes too"
+    hide_light_themes: "Hide light themes"
+    hide_dark_themes: "Hide dark themes"
+  themes:
+    light: "Light default"
+    light_high_contrast: "Light high contrast"
+    light_colorblind: "Light Protanopia & Deuteranopia"
+    light_tritanopia: "Light Tritanopia"
+    dark: "Dark default"
+    dark_dimmed: "Dark dimmed"
+    dark_high_contrast: "Dark high contrast"
+    dark_colorblind: "Dark Protanopia & Deuteranopia"
+    dark_tritanopia: "Dark Tritanopia"
+  markdown:
+    syntax:
+      title: "Syntax"
+      auto_link_urls:
+        label: "Bare URLs become links"
+        description: "A URL written on its own, without the brackets that make a link."
+      math:
+        label: "Math"
+        description: "$…$ and $$…$$ are formulas. Off leaves the dollars to a document that writes them for something else — two shell variables on one line otherwise pair up into a formula."
+      wiki_links:
+        label: "Wiki links"
+        description: "[[Page]] and [[Page|label]] open another document, the way Obsidian writes them."
+      superscript:
+        label: "Superscript"
+        description: "^text^ is raised."
+      subscript:
+        label: "Subscript"
+        description: "~text~ is lowered. Off keeps a lone tilde literal, which is what a document writing ~5 minutes means by it."
+      definition_lists:
+        label: "Definition lists"
+        description: "A term followed by a line starting with a colon becomes a definition list."
+      heading_attributes:
+        label: "Heading attributes"
+        description: "A trailing {#id .class} on a heading names it, instead of showing up in its text."
+    typography:
+      title: "Typography"
+      smart_punctuation:
+        label: "Smart punctuation"
+        description: "Straight quotes curl, and -- and ... become a dash and an ellipsis."
+      cjk_emphasis:
+        label: "Emphasis against Japanese punctuation"
+        description: "**強調。** is emphasized. CommonMark reads the punctuation beside a delimiter to decide whether it may pair, and Japanese sets punctuation right against the words — so off is what GitHub shows, and on is what the document meant."
+    headings:
+      title: "Headings"
+      permalinks:
+        label: "Permalink beside each heading"
+        description: "A # that links to the heading, the way GitHub shows one."
+    raw_html:
+      title: "Raw HTML"
+      label: "HTML written into the Markdown"
+      description: "A document may embed markup the Markdown syntax cannot say — a <kbd>, a <details>, an <img> with a width — and passing it through is what makes that work. The same passthrough lets a <style> or a <script> restyle the page around the document."
+      allow:
+        title: "Allow"
+        description: "Every tag is written through"
+      filter:
+        title: "Filter"
+        description: "Markup works; the tags that reach past the document do not"
+      escape:
+        title: "Escape"
+        description: "The document shows its own markup"
+  reading:
+    current:
+      title: "Current Settings"
+      zoom:
+        label: "Current Zoom Level"
+        description: "The zoom level for the current window's document."
+    defaults:
+      title: "Default Settings"
+      zoom:
+        label: "Default Zoom Level"
+        description: "The zoom level a document is set at when a window opens."
+      min_content_width:
+        label: "Minimum Content Width"
+        description: "The width the document keeps while anything else can give way instead. Everything around the page folds at this number plus its own width, from the outside in: the margin trace, then the panel, then the contents gutter, then the rail. Raise it and a wide window folds them sooner."
+    typography:
+      title: "Typography"
+      measure:
+        label: "Line Length"
+        description: "The longest a line of text runs, in em. %{hint} A window narrower than this sets the text at its own width, and full-width content ignores it."
+        hint: "About %{full_width} full-width or %{half_width} half-width characters to a line."
+      presets:
+        label: "Line Length Presets"
+        narrow: "Narrow"
+        standard: "Standard"
+        wide: "Wide"
+      line_height:
+        label: "Line Height"
+        description: "The height of a line as a multiple of the text size. Text set in long lines, or in Japanese, reads easier with more."
+      font_family:
+        label: "Typeface"
+        description: "The face the text is set in. Code keeps its monospace face."
+        sans:
+          title: "Sans"
+          description: "As GitHub sets it"
+        serif:
+          title: "Serif"
+          description: "A book face"
+        mono:
+          title: "Mono"
+          description: "Every character one width"
+        custom:
+          title: "Custom"
+          description: "A font-family of your own"
+        invalid: "Not used, so the text stays in the Sans face: give a comma-separated list, quoting any name with more than letters, digits, _ and -."
+      font_size:
+        label: "Text Size"
+        description: "The size of the text, which headings and code follow. Zoom enlarges the whole page, images included; this sets only the text."
+      cjk_font_language:
+        label: "CJK Font Language"
+        description: "Whose faces Chinese, Japanese and Korean characters are drawn in. One Han character takes different glyphs in each language's faces; Auto leaves the face to the system. Choosing one moves Latin text off the system face on macOS (SF becomes Helvetica), since that face would draw CJK text in the system's own choice. A custom typeface is used as written."
+        auto: "Auto"
+    trace:
+      title: "Margin Trace"
+      when:
+        label: "When it is drawn"
+        description: "The documents read before this one, left at the edge of the page. It is the one window on the history nobody asks for, so it is the one you can turn off. A window too narrow to keep the document readable hides it whatever is chosen here."
+        never:
+          title: "Never"
+          description: "Keep the margin empty"
+        not_with_panel:
+          title: "Not with the panel"
+          description: "Hidden while the panel is out"
+        always:
+          title: "Always"
+          description: "Drawn whenever it fits"
+      count:
+        label: "Documents in the Trace"
+        description: "How many documents the margin trace names."
+    reading_time:
+      title: "Reading Time"
+      show:
+        label: "Show reading time"
+        description: "How long the document takes to read, and how long is left once you have started, beside the controls in the header. It counts the text, not the height of the page, so long code and tall diagrams do not run it ahead."
+      words_per_minute:
+        label: "Words per Minute"
+        description: "How fast you read scripts written in words, such as English."
+      characters_per_minute:
+        label: "Characters per Minute"
+        description: "How fast you read Chinese, Japanese and Korean, which are read a character at a time."
+      min_minutes:
+        label: "Shortest Document Timed"
+        description: "A document that takes less than this to read shows no reading time."
+        unit: " min"
+    changes:
+      title: "Changes Since Last Read"
+      show:
+        label: "Mark what changed"
+        description: "A line beside each block added or rewritten since the document was last read, a hairline where text was taken out, and a dot on the headings they fall under. A document counts as read when you leave it. Turned off, Arto stops keeping a copy of each document you read."
+      ignore_whitespace:
+        label: "Ignore spacing"
+        description: "A line whose words are only spaced differently is not marked as changed."
+  panel:
+    current:
+      title: "Current Settings"
+      zoom:
+        label: "Current Zoom Level"
+        description: "The zoom level for the current window's panel."
+    defaults:
+      title: "Default Settings"
+      width:
+        label: "Default Width"
+        description: "How wide the panel is when a window opens."
+      zoom:
+        label: "Default Zoom Level"
+        description: "The zoom level the panel's contents are set at when a window opens."
+      pinned:
+        label: "Pinned by default"
+        description: "Pinned, the panel takes its own width beside the document; unpinned, it comes over the page on hover and leaves again."
+      show_all_files:
+        label: "Show every file"
+        description: "Off, the tree lists Markdown alone."
+    behavior:
+      title: "Behavior"
+      on_open:
+        label: "After Opening a Document"
+        description: "What the panel does once a document has been opened from one of its rows. Some readers work down the list, opening one document after another; others go to it for one thing and want the page to themselves once they have it."
+        keep_open:
+          title: "Keep the panel"
+          description: "The list stays where it is"
+        close_panel:
+          title: "Close the panel"
+          description: "The document is left alone on screen"
+  window:
+    size:
+      title: "Size"
+      default_size:
+        label: "Default Size"
+        description: "How large a window opens. Percent values are relative to the current screen."
+      width: "Width"
+      height: "Height"
+    position:
+      title: "Position"
+      default_position:
+        label: "Default Position"
+        description: "Where a window lands. Percent values place it within the available screen area (0% = top/left, 100% = bottom/right)."
+        coordinates:
+          title: "Coordinates"
+          description: "Use the X/Y values below"
+        mouse:
+          title: "Mouse Position"
+          description: "Open at the current mouse location"
+      offset:
+        label: "Position Offset"
+        description: "If another window already uses a nearby position, shift the new window by this offset (pixels only)."
+    opening:
+      title: "Opening"
+      file_open:
+        label: "Where a File Opens"
+        description: "Which window receives a file or folder opened from Finder, the command line, or another instance of Arto."
+        new_window:
+          title: "New Window"
+          description: "Always create a new window"
+        last_focused:
+          title: "Last Focused"
+          description: "Open in the last focused visible window"
+        current_screen:
+          title: "Current Screen"
+          description: "Open in a visible window on the cursor screen"
+      start_folder:
+        label: "Folder to Start In"
+        description: "The folder the first window works in, beside the places you keep. Leave it empty to start with the places alone."
+        placeholder: "No folder — the places alone"
+  startup:
+    on_startup:
+      title: "When Arto Starts"
+      lede: "The first window of a session opens with the defaults, or picks up where the last window that closed left off."
+    on_new_window:
+      title: "When a Window Opens"
+      lede: "A second window opens with the defaults, or matching the window it was opened from. Which folders it starts with is not a setting: ⌘N carries the places alone, ⇧⌘N the current window's folders as well."
+    rows:
+      theme: "Theme"
+      window_size: "Window size"
+      window_position: "Window position"
+      zoom: "Zoom level"
+      panel: "Panel"
+      folder: "Folder"
+    options:
+      default: "Default"
+      last_closed: "Last closed"
+      last_focused: "Last focused"
+  about:
+    version: "Version %{version}"
+    description: "A local app that faithfully recreates GitHub-style Markdown rendering for a beautiful reading experience."
+    config_dir: "Configuration Directory"
+    open_in_finder: "Open in Finder"
+    view_on_github: "View on GitHub"
+    report_issue: "Report an Issue"
+    created_by: "Created by %{author}"

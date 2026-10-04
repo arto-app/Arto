@@ -16,6 +16,7 @@ use arto_config::{says_nothing, usable_lenses, Lens, LensDisplay, LensUnit};
 use arto_markdown::SourceRange;
 use dioxus::prelude::*;
 use parking_lot::Mutex;
+use rust_i18n::t;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
@@ -580,7 +581,7 @@ impl Run<'_> {
 
 fn render(markdown: &str, path: &Path) -> Result<String, String> {
     markdown::render_detached(markdown, path)
-        .map_err(|error| format!("the answer did not render: {error}"))
+        .map_err(|error| t!("lenses.errors.render", reason = error).into_owned())
 }
 
 /// The place in a record for an answer about the whole document.

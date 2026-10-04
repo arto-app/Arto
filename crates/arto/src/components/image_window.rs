@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 use sha2::{Digest, Sha256};
 
 use crate::assets::main_script_url;
@@ -62,7 +63,10 @@ pub fn ImageWindow(props: ImageWindowProps) -> Element {
     let current_theme = use_signal(|| props.theme);
     let zoom_level = use_signal(|| 100);
 
-    let title = props.alt.as_deref().unwrap_or("Image");
+    let title = props
+        .alt
+        .clone()
+        .unwrap_or_else(|| t!("viewer_window.image.untitled").to_string());
 
     // Setup shared hooks
     use_window_close_handler();
@@ -112,7 +116,7 @@ pub fn ImageWindow(props: ImageWindowProps) -> Element {
                     class: "image-window-controls",
                     CopyImageButton {
                         js_function: "copyImageToClipboard",
-                        label: "Copy image to clipboard",
+                        label: t!("viewer_window.image.copy").to_string(),
                     }
                     ThemeSelector { current_theme }
                 }
@@ -142,7 +146,7 @@ pub fn ImageWindow(props: ImageWindowProps) -> Element {
             // Status bar
             div {
                 class: "image-window-status",
-                "Zoom: {zoom_level}% | Scroll to zoom, drag to pan"
+                {t!("viewer_window.zoom_status.pan", zoom = zoom_level()).to_string()}
             }
         }
     }

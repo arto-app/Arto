@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 /// The way back to the value Arto ships with.
 ///
@@ -28,7 +29,7 @@ pub fn ResetLine(
                 r#type: "button",
                 class: "preference-reset",
                 onclick: move |_| on_reset.call(()),
-                "Reset to {shipped}"
+                {t!("preferences.controls.reset", value = shipped).to_string()}
             }
         }
     }

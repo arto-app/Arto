@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
 use crate::components::icon::IconName;
@@ -31,7 +32,7 @@ pub(super) fn HighlightItems(
     rsx! {
         if has_selection {
             ContextMenuSubmenu {
-                label: "Highlight",
+                label: t!("context_menu.highlight.title").to_string(),
                 icon: Some(IconName::Highlight),
                 for color in HighlightColor::ALL {
                     ContextMenuItem {
@@ -62,7 +63,7 @@ pub(super) fn HighlightItems(
 
         if !highlight_ids.is_empty() {
             ContextMenuItem {
-                label: "Remove Highlight",
+                label: t!("context_menu.highlight.remove").to_string(),
                 icon: Some(IconName::Trash),
                 shortcut: remove,
                 on_click: move |_| {
@@ -80,22 +81,23 @@ pub(super) fn HighlightItems(
 
 /// The item that opens a highlight's card, named for what the reader will
 /// do there.
-fn note_label(note: Option<&str>) -> &'static str {
+fn note_label(note: Option<&str>) -> String {
     if note.is_some() {
-        "Edit Note\u{2026}"
+        t!("context_menu.highlight.edit_note").to_string()
     } else {
-        "Add Note\u{2026}"
+        t!("context_menu.highlight.add_note").to_string()
     }
 }
 
-fn color_label(color: HighlightColor) -> &'static str {
+fn color_label(color: HighlightColor) -> String {
     match color {
-        HighlightColor::Green => "Green",
-        HighlightColor::Blue => "Blue",
-        HighlightColor::Pink => "Pink",
-        HighlightColor::Orange => "Orange",
-        HighlightColor::Purple => "Purple",
+        HighlightColor::Green => t!("context_menu.highlight.green"),
+        HighlightColor::Blue => t!("context_menu.highlight.blue"),
+        HighlightColor::Pink => t!("context_menu.highlight.pink"),
+        HighlightColor::Orange => t!("context_menu.highlight.orange"),
+        HighlightColor::Purple => t!("context_menu.highlight.purple"),
     }
+    .to_string()
 }
 
 #[cfg(test)]

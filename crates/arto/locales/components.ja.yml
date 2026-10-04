@@ -1,0 +1,152 @@
+app_menu:
+  about: "Arto について"
+  preferences: "設定…"
+  file:
+    title: "ファイル"
+    new_window: "新規ウインドウ"
+    duplicate_window: "ウインドウを複製"
+    new_document: "新規書類"
+    open_file: "ファイルを開く…"
+    open_directory: "フォルダを開く…"
+    copy_file_path: "ファイルのパスをコピー"
+    reveal_in_finder: "Finder に表示"
+    close_window: "ウインドウを閉じる"
+    print: "プリント…"
+  edit:
+    title: "編集"
+    find: "検索…"
+    find_next: "次を検索"
+    find_previous: "前を検索"
+  view:
+    title: "表示"
+    toggle_left_sidebar: "左サイドバーの表示を切り替える"
+    focus_mode: "集中モード"
+    actual_size: "実際のサイズ"
+    zoom_in: "拡大"
+    zoom_out: "縮小"
+  history:
+    title: "履歴"
+    go_back: "戻る"
+    go_forward: "進む"
+  window:
+    title: "ウインドウ"
+    close_all_child_windows: "すべての子ウインドウを閉じる"
+    close_all_windows: "すべてのウインドウを閉じる"
+  help:
+    title: "ヘルプ"
+    go_to_homepage: "ホームページへ移動"
+  quit: "終了"
+
+header:
+  menu: "メニュー"
+  copy_full_path: "フルパスをコピー"
+  reload_file: "ファイルを再読み込み"
+  search_in_page: "ページ内を検索"
+  full_width:
+    enable: "本文を全幅で表示"
+    disable: "本文の全幅表示を解除"
+  focus_mode: "集中モード"
+
+breadcrumb:
+  label: "最近読んだドキュメント"
+  empty: "ほかに読んだドキュメントはまだありません"
+  all_history: "すべての履歴…"
+
+bookmark_button:
+  add: "スター付きに追加"
+  remove: "スター付きから削除"
+
+find:
+  placeholder: "ページ内を検索"
+  close: "閉じる"
+
+theme_selector:
+  light: "ライトテーマ"
+  dark: "ダークテーマ"
+  auto: "自動テーマ（システムに合わせる）"
+
+drop_overlay:
+  message: "Markdown ファイルまたはフォルダをドロップして開く"
+
+highlight_card:
+  remove: "ハイライトを削除"
+  note_placeholder: "メモを追加…"
+  note_label: "メモ"
+  note_not_kept: "メモを保存できませんでした"
+
+viewer_window:
+  zoom_status:
+    pan: "ズーム: %{zoom}% | スクロールで拡大縮小、ドラッグで移動"
+    pan_fit: "ズーム: %{zoom}% | スクロールで拡大縮小、ドラッグで移動、ダブルクリックで全体を表示"
+  image:
+    untitled: "画像"
+    copy: "画像をクリップボードにコピー"
+  math:
+    copy: "数式を画像としてコピー"
+  mermaid:
+    copy: "ダイアグラムを画像としてコピー"
+
+palette:
+  placeholder: "ファイルを探す、読んだドキュメントに戻る、またはコマンドを入力"
+  empty:
+    nothing_read: "まだ何も読んでいません"
+    no_match: "その名前の項目はありません"
+  partial: "このフォルダは大きすぎてすべてを一覧できないため、表示されないファイルがあります。"
+  all_history: "すべての履歴…"
+  group:
+    commands: "コマンド"
+    recent: "最近"
+    starred: "スター付き"
+    places: "場所"
+    files: "ファイル"
+
+content:
+  unknown_file: "不明なファイル"
+
+file_error:
+  title: "ファイルを開けません"
+  hint: "このファイルは開けません。バイナリファイルか、対応していない形式の可能性があります。"
+  message: "エラー: %{error}"
+
+contents:
+  label: "目次"
+  heading: "目次"
+  no_headings: "見出しがありません"
+  changes:
+    count: "変更 · %{count}"
+    mark_read: "既読にする"
+    mark_read_hint: "画面に表示されている部分を既読にして、変更の印を消します"
+  pinned:
+    heading: "ピン留め"
+    row: "色、表示、削除"
+    show: "表示"
+    hide: "隠す"
+    enable: "有効にする"
+    disable: "無効にする"
+    remove: "削除"
+  highlights:
+    heading: "ハイライト"
+    row: "色、削除"
+    go_to: "ハイライトへ移動"
+    not_found: "ドキュメント内に見つかりません"
+    remove: "削除"
+
+trace:
+  label: "最近読んだドキュメント"
+  heading: "最近"
+
+welcome:
+  hint:
+    with_key: "%{key} で、読んだドキュメントを探したり、コマンドを呼び出したりできます。"
+    without_key: "コマンドパレットを開くと、読んだドキュメントを探したり、コマンドを呼び出したりできます。"
+  places:
+    heading: "場所"
+    empty: "フォルダにスターを付けると、どのウインドウでもここに表示されます。"
+    all: "すべての場所…"
+  starred:
+    heading: "スター付き"
+    all: "すべてのスター付き…"
+  recent:
+    heading: "最近"
+    empty: "Markdown ファイルを開くかここにドロップすると、次回ここに表示されます。"
+    all: "すべての履歴…"

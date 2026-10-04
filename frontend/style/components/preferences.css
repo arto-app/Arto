@@ -1274,6 +1274,45 @@
   border-color: var(--accent-bg);
 }
 
+/* A row's choice from a list that grows (the interface language) */
+.preference-select {
+  min-width: 160px;
+  padding: 8px 28px 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-size: var(--font-size-base);
+  font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%238c8c8c' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px 6px;
+  cursor: pointer;
+}
+
+.preference-select:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* What a setting needs before it shows: the restart it waits for */
+.preference-restart {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--accent-bg) 8%, transparent);
+  color: var(--text-color);
+  font-size: var(--font-size-md);
+}
+
 /* Binding notice (conflict / overwrite) */
 .binding-notice {
   margin: 8px 0 0;

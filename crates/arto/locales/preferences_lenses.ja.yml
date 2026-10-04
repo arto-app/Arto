@@ -1,0 +1,177 @@
+preferences:
+  lenses:
+    lede: "読んでいるドキュメントをエージェントやコマンドに見せ、その回答をドキュメントと一緒に表示します。ページの位置に訳文を、ヘッダーから要約を、各段落の横に注記を、といった具合です。レンズを開くまで、どこにも何も送信されません。"
+    lenses_title: "レンズ"
+    empty: "レンズはまだありません。下のレシピから、または空のレンズから始めてください。"
+    blank: "空のレンズ"
+    cancel: "キャンセル"
+    recipes:
+      title: "レシピから始める"
+      description: "あらかじめ用意されたレンズです。1 つ選び、言語と回答するエージェントを指定して追加します。"
+      add: "「%{label}」を追加"
+      between:
+        label: "翻訳元"
+        hint: "この言語のテキストはもう一方の言語に翻訳されます。"
+      and:
+        label: "翻訳先"
+        hint: "この言語のテキストはもう一方の言語に、それ以外の言語のテキストはこの言語に翻訳されます。"
+      language:
+        label: "言語"
+        hint: "回答を書く言語。英語の名前で指定します。"
+      audience:
+        label: "対象読者"
+        hint: "説明の対象となる読者。空欄の場合はその分野の初心者向けになります。"
+      translate_page:
+        title: "ページを翻訳"
+        description: "ドキュメント全体を 2 つの言語の間で翻訳し、先頭からブロックごとにページの位置に表示します。"
+      translate_beside:
+        title: "ブロックごとの横に訳文"
+        description: "各ブロックを 2 つの言語の間で翻訳し、余白の印の裏に置きます。原文はそのまま読めます。"
+      summarize:
+        title: "要約"
+        description: "ドキュメントの要旨と要点。ヘッダーから開きます。"
+      explain_terms:
+        title: "用語を解説"
+        description: "初心者が知らないかもしれない用語、略語、名前を使っているブロックの横に注記を付けます。"
+      critique:
+        title: "批評"
+        description: "根拠のない主張、あいまいな表現、論理の飛躍があるブロックの横に注記を付けます。"
+      fact_check:
+        title: "ファクトチェック"
+        description: "Web の情報と矛盾する、または裏付けが取れない主張のあるブロックの横に、出典付きで注記を付けます。エージェントには Web 検索が許可されます。"
+      explain_block:
+        title: "ブロックを解説"
+        description: "メニューから選んだブロックを、指定した読者向けに平易な言葉で解説します。"
+    asks:
+      label: "問い合わせ先"
+    model:
+      label: "モデル"
+      recipe_choice: "%{agent} に対するレシピの選択: %{model}。"
+      required_pick: "必須: サーバーが提供するモデルから選んでください。"
+      required: "必須: サーバーで実行するモデル。"
+      default: "空欄の場合はエージェント自身の既定値になります。"
+      asking: "エージェントにモデルを問い合わせています…"
+      unlisted: "モデルの一覧を取得できませんでした: %{reason}"
+    endpoint:
+      label: "エンドポイント"
+    problem:
+      not_ready: "未完了: %{problem}"
+      not_offered: "使用できません: %{problem}"
+    display:
+      page:
+        title: "ページを置き換える"
+        description: "回答が書かれるそばから、先頭からブロックごとにドキュメントの位置に表示されます。翻訳向けです。"
+      popover:
+        title: "求めに応じて 1 つの回答"
+        description: "ヘッダーからドキュメント全体について、またはメニューから 1 つのブロックについて問い合わせ、ポップオーバーに表示します。要約向けです。"
+      annotate:
+        title: "ブロックごとの横に注記"
+        description: "ブロックごとに個別に問い合わせ、各回答は余白の印の裏に置かれます。語釈や解説向けです。"
+    prompt:
+      per_block: "各ブロックについてエージェントに尋ねる内容です。ブロックはプロンプトの後に <text> と </text> の間に、その前後のブロックは <before> と </before>、<after> と </after> の間に置かれます。そのためプロンプトでは「<text> の用語を解説して」と書き、ほかのブロックは文脈としてだけ使うよう指示できます。回答が <nothing/> だけならブロックに印は付かないので、「特に記すことがなければ <nothing/> とだけ答えて」と書くこともできます。空欄の場合、エージェントにはブロックだけが渡されます。"
+      whole: "テキストに対してエージェントにしてほしいことです。テキストはプロンプトと空行の後に、何も囲まずに置かれます。プロンプトでは「このテキスト」と呼んでください。空欄の場合、エージェントにはテキストだけが渡されます。翻訳など 1 つの用途向けに学習したモデルはこの形を想定しています。"
+    agents:
+      command:
+        name: "コマンド"
+        description: "自分で用意したプログラム。リクエストを JSON で受け取ります。"
+      claude:
+        introduction: "claude コマンド。すでにサインインしているアカウントで使います。"
+        description: "claude コマンド。すでにサインインしているアカウントで使います。"
+      codex:
+        introduction: "codex コマンド。すでにサインインしているアカウントで使います。"
+        description: "codex コマンド。すでにサインインしているアカウントで使います。"
+      ollama:
+        introduction: "Ollama でこのマシン上で動くモデル。何も外部に送信されません。"
+        description: "Ollama サーバー。Ollama 独自の API を使います。"
+        endpoint_hint: "空欄の場合は http://127.0.0.1:11434 です。"
+      openai:
+        introduction: "OpenAI、または OpenAI 互換 API を持つサーバー。"
+        description: "OpenAI 互換 API を持つサーバー。LM Studio、llama.cpp、OpenAI など。"
+        endpoint_hint: "ベース URL（/chat/completions より前の部分）。空欄の場合は https://api.openai.com/v1、つまり OpenAI 自身です。"
+    capabilities:
+      web_search:
+        label: "Web を検索"
+        description: "ファクトチェック向けです。エージェントはテキストの内容を検索し、見つかったページを読むことができます。外部に送られるのは、すでにエージェントに渡された内容です。"
+      read_files:
+        label: "ドキュメント周辺のファイルを読む"
+        description: "ドキュメントがエージェントに、そばにあるファイルを読んで回答に書き込ませたり、検索を通じて外部に送らせたりできるようになります。信頼できるドキュメントにだけ許可してください。自動で再び開かれたときは、以前の回答を表示するだけで何も問い合わせません。"
+      shell:
+        label: "コマンドを実行"
+        description: "ファイルの読み取りで許可されることすべてに加え、コマンドでできることすべてが可能になります。codex はコマンドによる書き込みを防ぎますが、claude は防ぎません。信頼できるドキュメントにだけ許可してください。"
+    problems:
+      empty_id: "ID が空のレンズがあります"
+      duplicate_id: "レンズ %{id} が複数回定義されています"
+      nothing_to_run: "レンズ %{id} には実行するエージェントもコマンドもありません"
+      agent_and_command: "レンズ %{id} にはエージェントとコマンドの両方があります。実行できるのはどちらか一方です"
+      missing_model: "レンズ %{id} はサーバーに問い合わせるため、モデルが必要です"
+      not_for_agent: "レンズ %{id} は %{setting} を設定していますが、これはサーバーのエージェントだけが使います"
+      not_allowed: "レンズ %{id} は %{capability} を許可していますが、%{agent} には許可できません"
+      unit_without_page: "レンズ %{id} はドキュメントをブロックごとに渡しますが、それができるのはページを置き換えるレンズだけです"
+      page_on_block: "レンズ %{id} はページを置き換えるレンズで、ブロックではなくドキュメント全体を対象にします"
+      shortcut: "レンズ %{id} のショートカットを読み取れません: %{reason}"
+      concurrency: "レンズ %{id} の同時実行数は 1 から %{max} の範囲にしてください"
+      context: "レンズ %{id} が前後それぞれに渡せるブロックは最大 %{max} 個です"
+      timeout: "レンズ %{id} のコマンドには少なくとも 1 秒を与えてください"
+    card:
+      edit: "編集"
+      close: "閉じる"
+      remove: "削除"
+    form:
+      label:
+        label: "名前"
+        hint: "メニューに表示される名前。"
+      id:
+        label: "ID"
+        hint: "レンズごとに一意です。以前の回答はこの ID で保存されます。"
+      shortcut:
+        label: "ショートカット"
+        hint: "読んでいる間にレンズの表示を切り替えるキー。キー割り当てと同じ書き方です: Cmd+Shift+t、または続けて押すなら g t。"
+        taken: "割り当てられていません: このキーはすでに %{holder} に使われています。"
+      display: "回答の表示方法"
+      unit:
+        label: "渡し方"
+        description: "ドキュメント全体を 1 回で渡すのは汎用モデル向け、1 回に 1 ブロックずつ渡すのは小さな翻訳モデル向けです。"
+        document: "ドキュメント全体"
+        block: "ブロックごと"
+      on:
+        label: "対象"
+        description: "右クリックメニューのどこに表示するか: ブロックのレンズ、ドキュメントのレンズ、またはその両方。ブロックを対象にするレンズをショートカットで開くと、カーソルのあるブロックにだけ表示されます。"
+        either: "どちらでも"
+        block: "ブロック"
+        document: "ドキュメント"
+      command:
+        label: "コマンド"
+        hint: "プログラム、続いて引数を 1 行に 1 つずつ。シェルを通さず、書かれたとおりに実行されます。"
+      prompt: "プロンプト"
+      message: "エージェントに送られる内容"
+      system:
+        label: "システムプロンプト"
+        hint: "すべてのリクエストと一緒に送られます。"
+      api_key_command:
+        label: "API キーのコマンド"
+        hint: "保存したキーの代わりに、キーを出力するプログラム（1Password の op などのパスワードマネージャ）、続いて引数を 1 行に 1 つずつ。リクエストのたびに実行されます。"
+      program:
+        label: "プログラム"
+        hint: "プログラムが自動で見つからないときの場所。"
+      context_length:
+        label: "コンテキスト長"
+        hint: "トークン数。空欄の場合はリクエストごとに決まります。"
+      context:
+        label: "前後の文脈"
+        hint: "各ブロックと一緒に渡す前後それぞれのブロック数。最大 %{max}。"
+      concurrency:
+        label: "同時実行数"
+        hint: "1 から %{max}。"
+      timeout:
+        label: "タイムアウト"
+        hint: "1 回の実行が失敗とみなされるまでの秒数。"
+    api_key:
+      label: "API キー"
+      no_endpoint: "先にエンドポイントを設定してください。キーはエンドポイントごとに保存されます。"
+      stored: "%{account} のキーが保存されています。"
+      replace: "置き換える"
+      remove: "削除"
+      placeholder: "キーをペースト"
+      save: "保存"
+      overridden: "下で API キーのコマンドが設定されている間は使われません。"
+      hint: "システムの資格情報ストア（macOS ではキーチェーン）にエンドポイントごとに保存され、config.json には書かれません。同じサーバーに問い合わせるすべてのレンズで使われます。ローカルの Ollama のようにキーを必要としないサーバーには不要です。"

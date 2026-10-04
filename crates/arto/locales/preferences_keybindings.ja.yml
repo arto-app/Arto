@@ -1,0 +1,43 @@
+preferences:
+  keybindings:
+    presets:
+      title: "プリセット"
+      default:
+        name: "既定"
+        description: "矢印キー、Cmd+キー、Ctrl+Tab"
+      vim:
+        description: "j/k でスクロール、g g、続けて押すキー"
+      emacs:
+        description: "Ctrl+n/p、Ctrl+x の組み合わせ"
+      clear:
+        name: "クリア"
+        description: "すべてのキー割り当てを削除"
+    bindings:
+      title: "キー割り当て"
+      filter_placeholder: "キーまたはアクションで絞り込む…"
+      empty: "キー割り当てはまだありません。"
+      key: "キー"
+      action: "アクション"
+      no_match: "一致するキー割り当てはありません。"
+      add: "+ キー割り当てを追加"
+    contexts:
+      global: "グローバル"
+      menu_shortcuts: "メニューのショートカット"
+    form:
+      recording_placeholder: "キーを押してください…"
+      key_placeholder: "例: Cmd+k、g g"
+      done: "完了"
+      cancel: "キャンセル"
+      record: "記録"
+      select_action: "アクションを選択…"
+      save: "保存"
+      add: "追加"
+      delete: "削除"
+    notice:
+      single_chord: "メニューのショートカットは 1 つのキーの組み合わせにしてください（例: Cmd+K）"
+      binding: "「%{action}」（%{context}）"
+      conflicts_with: "%{binding} と競合しています"
+      also_bound: "%{binding} にも割り当てられています。どちらかがもう一方を隠します"
+      overrides: "このコンテキストでは %{binding} を上書きします"
+      overridden_in: "次のコンテキストで上書きされます: %{contexts}"
+      separator: "、"

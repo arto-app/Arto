@@ -50,7 +50,7 @@ pub(super) fn build_shortcut_help_items(context: KeyContext) -> Vec<ShortcutHelp
     map.into_iter()
         .map(|(key, (_source_ctx, action))| ShortcutHelpItem {
             key,
-            action: action_label(action),
+            action: keybindings::action_name(action),
         })
         .collect()
 }
@@ -85,27 +85,6 @@ pub(super) fn split_shortcut_help_columns(
         result.push(items[start..end].to_vec());
     }
     result
-}
-
-fn action_label(action: Action) -> String {
-    let action_name = action.to_string();
-    let display_name = action_name
-        .strip_prefix("clipboard.")
-        .or_else(|| action_name.strip_prefix("help."))
-        .unwrap_or(action_name.as_str());
-
-    display_name
-        .split('.')
-        .flat_map(|part| part.split('_'))
-        .map(|word| {
-            let mut chars = word.chars();
-            match chars.next() {
-                None => String::new(),
-                Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 pub(super) fn is_shortcut_overlay_visible(visibility: Signal<ShortcutOverlayVisibility>) -> bool {

@@ -4,6 +4,9 @@ use crate::components::icon::{Icon, IconName};
 use crate::lenses::{LensRun, Scope};
 use crate::state::AppState;
 use arto_config::LensDisplay;
+use rust_i18n::t;
+
+use crate::i18n::plural;
 
 /// The header's hold on the lenses a window is looking through: a few
 /// glyphs, since the header is narrow and the document is what is being
@@ -51,7 +54,7 @@ pub fn LensControls() -> Element {
 /// popover, which has one answer — that it is on its way.
 fn progress(run: &LensRun) -> String {
     match run.display {
-        LensDisplay::Popover => "working…".to_string(),
+        LensDisplay::Popover => t!("lenses.controls.working").into_owned(),
         _ => format!("{}/{}", run.done + run.outdated + run.failed, run.total),
     }
 }
@@ -61,15 +64,26 @@ fn progress(run: &LensRun) -> String {
 /// file, or a run stopped first — or a failure.
 fn attention_lines(runs: &[LensRun]) -> Vec<String> {
     let mut lines = Vec::new();
+    let line = |label: &str, state: String| {
+        t!(
+            "lenses.controls.attention.line",
+            label = label,
+            state = state
+        )
+        .into_owned()
+    };
     for run in runs.iter().filter(|run| !run.is_running()) {
         if run.outdated > 0 {
-            lines.push(format!("{} — {} outdated", run.label, run.outdated));
+            let state = plural("lenses.controls.attention.outdated", run.outdated);
+            lines.push(line(&run.label, state));
         }
         if run.unanswered > 0 {
-            lines.push(format!("{} — {} not answered", run.label, run.unanswered));
+            let state = plural("lenses.controls.attention.unanswered", run.unanswered);
+            lines.push(line(&run.label, state));
         }
         if run.error.is_some() || run.failed > 0 {
-            lines.push(format!("{} — failed", run.label));
+            let state = t!("lenses.controls.attention.failed").into_owned();
+            lines.push(line(&run.label, state));
         }
     }
     lines
@@ -80,17 +94,31 @@ fn attention_lines(runs: &[LensRun]) -> Vec<String> {
 /// changed, or several at once.
 fn update_label(run: &LensRun) -> String {
     if run.outdated == 0 && run.unanswered == 0 {
-        return format!("Retry what failed in {} ({})", run.label, run.failed);
+        return t!(
+            "lenses.controls.update.retry",
+            label = run.label,
+            count = run.failed
+        )
+        .into_owned();
     }
-    match (run.outdated, run.unanswered + run.failed) {
-        (outdated, 0) => format!("Regenerate what changed in {} ({outdated})", run.label),
-        (0, unanswered) => format!("Continue {} ({unanswered} left)", run.label),
-        (outdated, unanswered) => format!(
-            "Continue {} and regenerate what changed ({})",
-            run.label,
-            outdated + unanswered
+    let label = match (run.outdated, run.unanswered + run.failed) {
+        (outdated, 0) => t!(
+            "lenses.controls.update.regenerate",
+            label = run.label,
+            count = outdated
         ),
-    }
+        (0, unanswered) => t!(
+            "lenses.controls.update.continue",
+            label = run.label,
+            count = unanswered
+        ),
+        (outdated, unanswered) => t!(
+            "lenses.controls.update.continue_and_regenerate",
+            label = run.label,
+            count = outdated + unanswered
+        ),
+    };
+    label.into_owned()
 }
 
 /// The hourglass shown while lenses are being answered, and the list of
@@ -125,7 +153,7 @@ fn WorkingLenses(runs: Vec<LensRun>) -> Element {
                 div {
                     class: "lens-switch-menu",
                     role: "menu",
-                    div { class: "lens-switch-heading", "Working" }
+                    div { class: "lens-switch-heading", {t!("lenses.controls.heading.working").to_string()} }
                     for run in runs {
                         div {
                             key: "{run.token}",
@@ -138,7 +166,7 @@ fn WorkingLenses(runs: Vec<LensRun>) -> Element {
                             span { class: "lens-switch-note", "{progress(&run)}" }
                             button {
                                 class: "lens-row-action",
-                                title: "Stop {run.label}",
+                                title: t!("lenses.controls.stop", label = run.label).to_string(),
                                 onclick: move |_| crate::lenses::stop_run(state, run.token),
                                 Icon { name: IconName::Close, size: 12 }
                             }
@@ -160,7 +188,7 @@ fn LensMenu(runs: Vec<LensRun>) -> Element {
     let title = if attention {
         lines.join("\n")
     } else {
-        "Lenses".to_string()
+        t!("lenses.controls.title").into_owned()
     };
     let (pages, overlays): (Vec<LensRun>, Vec<LensRun>) = runs
         .iter()
@@ -200,10 +228,10 @@ fn LensMenu(runs: Vec<LensRun>) -> Element {
                     class: "lens-switch-menu",
                     role: "menu",
                     if !pages.is_empty() {
-                        div { class: "lens-switch-heading", "Page" }
+                        div { class: "lens-switch-heading", {t!("lenses.controls.heading.page").to_string()} }
                         MenuRow {
                             checked: applied_page.is_none(),
-                            label: "Original".to_string(),
+                            label: t!("lenses.controls.original").to_string(),
                             onclick: move |_| {
                                 if let Some(token) = applied_page {
                                     crate::lenses::hide_run(state, token);
@@ -222,7 +250,7 @@ fn LensMenu(runs: Vec<LensRun>) -> Element {
                         }
                     }
                     if !overlays.is_empty() {
-                        div { class: "lens-switch-heading", "Over the page" }
+                        div { class: "lens-switch-heading", {t!("lenses.controls.heading.over_the_page").to_string()} }
                         for run in overlays {
                             MenuRow {
                                 key: "{run.token}",
@@ -291,7 +319,7 @@ fn MenuRow(
             if working {
                 span {
                     class: "lens-switch-note",
-                    title: "Being answered",
+                    title: t!("lenses.controls.being_answered").to_string(),
                     Icon { name: IconName::Hourglass, size: 12, class: "lens-hourglass" }
                 }
             }
@@ -299,7 +327,7 @@ fn MenuRow(
                 button {
                     class: "lens-row-action",
                     class: if !working { "lens-row-action-end" },
-                    title: "Regenerate {label} — ask again about everything",
+                    title: t!("lenses.controls.regenerate", label = label).to_string(),
                     onclick: move |event| {
                         event.stop_propagation();
                         regenerate.call(());
@@ -359,9 +387,9 @@ fn SummaryAnswers(runs: Vec<LensRun>) -> Element {
                                 class: "lens-popover-head",
                                 span { class: "lens-popover-caption", "{run.label}" }
                                 if run.error.is_some() {
-                                    span { class: "lens-popover-badge is-danger", "Failed" }
+                                    span { class: "lens-popover-badge is-danger", {t!("lenses.controls.badge.failed").to_string()} }
                                 } else if run.outdated > 0 {
-                                    span { class: "lens-popover-badge is-warning", "Outdated" }
+                                    span { class: "lens-popover-badge is-warning", {t!("lenses.controls.badge.outdated").to_string()} }
                                 }
                             }
                             match (&run.html, &run.error) {
@@ -369,13 +397,14 @@ fn SummaryAnswers(runs: Vec<LensRun>) -> Element {
                                     div { class: "lens-answer-failed", "{reason}" }
                                 },
                                 (Some(html), None) => rsx! {
-                                    div { class: "markdown-body", dangerous_inner_html: "{html}" }
+                                    // An agent answers in a language of its own, not the interface's.
+                                    div { class: "markdown-body", lang: "", dangerous_inner_html: "{html}" }
                                 },
                                 (None, None) if run.is_running() => rsx! {
-                                    div { class: "lens-answer-waiting", "working…" }
+                                    div { class: "lens-answer-waiting", {t!("lenses.controls.working").to_string()} }
                                 },
                                 (None, None) => rsx! {
-                                    div { class: "lens-answer-waiting", "Not answered: stopped before the answer came." }
+                                    div { class: "lens-answer-waiting", {t!("lenses.controls.not_answered").to_string()} }
                                 },
                             }
                         }

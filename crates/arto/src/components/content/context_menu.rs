@@ -12,6 +12,7 @@ pub use data::*;
 
 use dioxus::document;
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::path::PathBuf;
 
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSeparator};
@@ -107,22 +108,27 @@ pub fn ContentContextMenu(
             (Some(f), Some(start), Some(end)) if start != end => {
                 let path_str = f.display().to_string();
                 (
-                    format!("Copy Path with Range ({start}-{end})"),
+                    t!(
+                        "context_menu.copy_path_with_range",
+                        start = start,
+                        end = end
+                    )
+                    .to_string(),
                     Some(format!("{path_str}:{start}-{end}")),
                 )
             }
             (Some(f), Some(line), _) => {
                 let path_str = f.display().to_string();
                 (
-                    format!("Copy Path with Line ({line})"),
+                    t!("context_menu.copy_path_with_line", line = line).to_string(),
                     Some(format!("{path_str}:{line}")),
                 )
             }
             (Some(f), None, _) => {
                 let path_str = f.display().to_string();
-                ("Copy Path".to_string(), Some(path_str))
+                (t!("context_menu.copy_path").to_string(), Some(path_str))
             }
-            (None, _, _) => ("Copy Path".to_string(), None),
+            (None, _, _) => (t!("context_menu.copy_path").to_string(), None),
         };
 
     rsx! {
@@ -147,7 +153,7 @@ pub fn ContentContextMenu(
             // === Section 1: Smart default copy operations ===
             if has_selection {
                 ContextMenuItem {
-                    label: "Copy",
+                    label: t!("context_menu.copy").to_string(),
                     icon: Some(IconName::Copy),
                     on_click: {
                         let on_close = on_close;
@@ -162,14 +168,14 @@ pub fn ContentContextMenu(
 
             if let Some(code_content) = copy_code_source.clone() {
                 ContextMenuItem {
-                    label: "Copy Code",
+                    label: t!("context_menu.copy_code").to_string(),
                     shortcut: shortcut("clipboard.copy_code"),
                     icon: Some(IconName::Copy),
                     on_click: {
                         let on_close = on_close;
                         move |_| {
                             crate::utils::clipboard::copy_text(&code_content);
-                            crate::keybindings::dispatcher::show_action_feedback("Copied");
+                            crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
                             on_close.call(());
                         }
                     },
@@ -179,14 +185,14 @@ pub fn ContentContextMenu(
             // Copy Table (smart default: TSV)
             if let Some(tsv) = table_tsv.clone() {
                 ContextMenuItem {
-                    label: "Copy Table",
+                    label: t!("context_menu.copy_table").to_string(),
                     shortcut: shortcut("clipboard.copy_table_as_tsv"),
                     icon: Some(IconName::Copy),
                     on_click: {
                         let on_close = on_close;
                         move |_| {
                             crate::utils::clipboard::copy_text(&tsv);
-                            crate::keybindings::dispatcher::show_action_feedback("Copied");
+                            crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
                             on_close.call(());
                         }
                     },
@@ -196,7 +202,7 @@ pub fn ContentContextMenu(
             // Copy Image (smart default: transparent background)
             if let Some((ref src, _)) = image_info {
                 ContextMenuItem {
-                    label: "Copy Image",
+                    label: t!("context_menu.copy_image").to_string(),
                     shortcut: shortcut("clipboard.copy_image"),
                     icon: Some(IconName::Photo),
                     on_click: {
@@ -216,7 +222,7 @@ pub fn ContentContextMenu(
             // Copy Image for Mermaid/Math blocks (default: transparent)
             if is_special_block {
                 ContextMenuItem {
-                    label: "Copy Image",
+                    label: t!("context_menu.copy_image").to_string(),
                     shortcut: shortcut("clipboard.copy_image"),
                     icon: Some(IconName::Photo),
                     on_click: {
@@ -239,7 +245,7 @@ pub fn ContentContextMenu(
                         let on_close = on_close;
                         move |_| {
                             crate::utils::clipboard::copy_text(&value);
-                            crate::keybindings::dispatcher::show_action_feedback("Copied");
+                            crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
                             on_close.call(());
                         }
                     },
@@ -250,7 +256,7 @@ pub fn ContentContextMenu(
             ContextMenuSeparator {}
 
             ContextMenuItem {
-                label: "Select All",
+                label: t!("context_menu.select_all").to_string(),
                 icon: Some(IconName::SelectAll),
                 on_click: {
                     let on_close = on_close;
@@ -262,7 +268,7 @@ pub fn ContentContextMenu(
             }
 
             ContextMenuItem {
-                label: "Find in Page",
+                label: t!("context_menu.find_in_page").to_string(),
                 shortcut: shortcut("search.open"),
                 icon: Some(IconName::Search),
                 on_click: {
@@ -296,7 +302,7 @@ pub fn ContentContextMenu(
                 ContextMenuSeparator {}
 
                 ContextMenuItem {
-                    label: "Copy File Path",
+                    label: t!("context_menu.copy_file_path").to_string(),
                     shortcut: shortcut("clipboard.copy_file_path"),
                     icon: Some(IconName::Copy),
                     on_click: {
@@ -309,7 +315,7 @@ pub fn ContentContextMenu(
                 }
 
                 ContextMenuItem {
-                    label: "Reveal in Finder",
+                    label: t!("context_menu.reveal_in_finder").to_string(),
                     shortcut: shortcut("file.reveal_in_finder"),
                     icon: Some(IconName::Folder),
                     on_click: {
@@ -322,7 +328,7 @@ pub fn ContentContextMenu(
                 }
 
                 ContextMenuItem {
-                    label: "Reload",
+                    label: t!("context_menu.reload").to_string(),
                     shortcut: shortcut("window.reload"),
                     icon: Some(IconName::Refresh),
                     on_click: {
@@ -416,7 +422,7 @@ pub fn ContentContextMenu(
                 },
                 ContentContext::Image { .. } => rsx! {
                     ContextMenuItem {
-                        label: "Save Image As...",
+                        label: t!("context_menu.save_image_as").to_string(),
                         icon: Some(IconName::Download),
                         shortcut: shortcut("file.save_image_as"),
                         on_click: {
@@ -430,7 +436,7 @@ pub fn ContentContextMenu(
                 },
                 ContentContext::Mermaid { .. } | ContentContext::MathBlock { .. } => rsx! {
                     ContextMenuItem {
-                        label: "Save Image As...",
+                        label: t!("context_menu.save_image_as").to_string(),
                         icon: Some(IconName::Download),
                         shortcut: shortcut("file.save_image_as"),
                         on_click: {
@@ -495,7 +501,7 @@ fn copy_markdown_source_direct(
         match handle.join() {
             Ok(Some(md)) => {
                 crate::utils::clipboard::copy_text(&md);
-                crate::keybindings::dispatcher::show_action_feedback("Copied");
+                crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
             }
             Ok(None) => {
                 tracing::debug!(%source_line, %source_line_end, "No source lines extracted")

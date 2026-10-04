@@ -119,6 +119,10 @@ pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
             style: "{typography}",
             article {
                 class: "markdown-body",
+                // The root carries the interface's language; the document's
+                // is unknown, and inheriting `ja` would draw a Chinese
+                // document's Han characters with Japanese glyphs.
+                lang: "",
                 "data-render-generation": generation,
                 dangerous_inner_html: "{html}"
             }

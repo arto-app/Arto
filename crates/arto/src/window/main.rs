@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 use crate::state::AppState;
 
-use crate::assets::{main_stylesheet_head, with_asset_protocol};
+use crate::assets::{main_head, with_asset_protocol};
 use crate::components::app::{App, AppProps};
 use crate::config::{WindowPositionOffset, CONFIG};
 use crate::state::Document;
@@ -53,7 +53,7 @@ pub fn create_main_window_config(params: &CreateMainWindowConfigParams) -> Confi
         })
         // Add main style in config. Otherwise the style takes time to load and
         // the window appears unstyled for a brief moment.
-        .with_custom_head(main_stylesheet_head())
+        .with_custom_head(main_head())
         // Use a custom index to set the initial theme correctly
         .with_custom_index(build_custom_index(params.theme))
 }

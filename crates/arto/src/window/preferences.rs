@@ -16,9 +16,10 @@ use dioxus::desktop::tao::dpi::LogicalSize;
 use dioxus::desktop::tao::window::WindowId;
 use dioxus::desktop::{window, Config, WindowBuilder};
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::path::PathBuf;
 
-use crate::assets::{main_stylesheet_head, with_asset_protocol};
+use crate::assets::{main_head, with_asset_protocol};
 use crate::components::preferences_window::{PreferencesWindow, PreferencesWindowProps};
 use crate::theme::Theme;
 
@@ -67,14 +68,14 @@ pub fn open_or_focus_preferences_window(snapshot: PreferencesSnapshot, theme: Th
             .with_menu(None)
             .with_window(super::icon::apply_app_icon(
                 WindowBuilder::new()
-                    .with_title("Preferences")
+                    .with_title(t!("preferences.window_title"))
                     .with_inner_size(LogicalSize::new(PREFERENCES_WIDTH, PREFERENCES_HEIGHT))
                     .with_min_inner_size(LogicalSize::new(
                         PREFERENCES_MIN_WIDTH,
                         PREFERENCES_MIN_HEIGHT,
                     )),
             ))
-            .with_custom_head(main_stylesheet_head())
+            .with_custom_head(main_head())
             .with_custom_index(build_preferences_window_index(theme));
 
         // Detached, because the click that asks for preferences also closes

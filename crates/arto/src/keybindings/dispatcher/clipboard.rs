@@ -4,6 +4,7 @@
 //! whatever the content cursor is on and only the page knows what that is.
 
 use dioxus::document;
+use rust_i18n::t;
 
 use super::*;
 
@@ -19,7 +20,7 @@ pub(super) fn copy_content_cursor_text(js_getter: &'static str) {
                 // can resolve, so anything leaving it says where the file is.
                 let text = crate::assets::images::with_paths_for_urls(&text);
                 crate::utils::clipboard::copy_text(&text);
-                show_action_feedback("Copied");
+                show_action_feedback(&t!("keybindings.feedback.copied"));
             }
             Ok(_) => {}
             Err(e) => tracing::debug!(js_getter, "Content cursor copy failed: {e}"),
@@ -100,7 +101,7 @@ pub(crate) async fn copy_rasterized_image(mut eval: document::Eval, subject: &st
     match eval.recv::<Option<String>>().await {
         Ok(Some(data_url)) => {
             crate::utils::clipboard::copy_image_from_data_url(&data_url);
-            show_action_feedback("Copied");
+            show_action_feedback(&t!("keybindings.feedback.copied"));
         }
         Ok(None) => {
             tracing::warn!(%subject, "Rasterizing for clipboard copy produced no image")
@@ -180,7 +181,7 @@ pub(super) fn copy_image_path_from_cursor() {
                 // The path the reader means, not the URL the WebView was given.
                 let src = crate::assets::images::with_paths_for_urls(&src);
                 crate::utils::clipboard::copy_text(&src);
-                show_action_feedback("Copied");
+                show_action_feedback(&t!("keybindings.feedback.copied"));
             }
             Ok(_) => {}
             Err(e) => tracing::debug!("Copy image path failed: {e}"),
@@ -196,7 +197,7 @@ pub(super) fn copy_link_path_from_cursor() {
         match eval.recv::<String>().await {
             Ok(href) if !href.is_empty() => {
                 crate::utils::clipboard::copy_text(href);
-                show_action_feedback("Copied");
+                show_action_feedback(&t!("keybindings.feedback.copied"));
             }
             Ok(_) => {}
             Err(e) => tracing::debug!("Copy link path failed: {e}"),
@@ -217,7 +218,7 @@ pub(super) fn copy_file_path_with_line(file: std::path::PathBuf, is_range: bool)
                 format!("{path_str}:{start}")
             };
             crate::utils::clipboard::copy_text(&text);
-            show_action_feedback("Copied");
+            show_action_feedback(&t!("keybindings.feedback.copied"));
         }
     });
 }
@@ -257,7 +258,7 @@ pub(super) fn copy_markdown_source(file: std::path::PathBuf) {
             match handle.join() {
                 Ok(Some(md)) => {
                     crate::utils::clipboard::copy_text(&md);
-                    show_action_feedback("Copied");
+                    show_action_feedback(&t!("keybindings.feedback.copied"));
                 }
                 Ok(None) => tracing::debug!(%start, %end, "No source lines extracted"),
                 Err(_) => tracing::debug!("Source extraction thread panicked"),

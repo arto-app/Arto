@@ -1,11 +1,12 @@
 use dioxus::desktop::tao::window::WindowId;
 use dioxus::desktop::{window, Config, WeakDesktopContext, WindowBuilder};
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use crate::assets::{main_stylesheet_head, with_asset_protocol};
+use crate::assets::{main_head, with_asset_protocol};
 use crate::components::image_window::{generate_image_id, ImageWindow, ImageWindowProps};
 use crate::components::math_window::{generate_math_id, MathWindow, MathWindowProps};
 use crate::components::mermaid_window::{generate_diagram_id, MermaidWindow, MermaidWindowProps};
@@ -231,9 +232,9 @@ pub fn open_or_focus_mermaid_window(source: String, theme: Theme) {
         let config = with_asset_protocol(Config::new())
             .with_menu(None)
             .with_window(super::icon::apply_app_icon(
-                WindowBuilder::new().with_title("Mermaid Viewer"),
+                WindowBuilder::new().with_title(t!("app.viewer_window.mermaid")),
             ))
-            .with_custom_head(main_stylesheet_head())
+            .with_custom_head(main_head())
             .with_custom_index(build_mermaid_window_index(theme));
 
         crate::utils::task::spawn_detached(create_and_register_child_window(
@@ -258,9 +259,9 @@ pub fn open_or_focus_math_window(source: String, theme: Theme) {
         let config = with_asset_protocol(Config::new())
             .with_menu(None)
             .with_window(super::icon::apply_app_icon(
-                WindowBuilder::new().with_title("Math Viewer"),
+                WindowBuilder::new().with_title(t!("app.viewer_window.math")),
             ))
-            .with_custom_head(main_stylesheet_head())
+            .with_custom_head(main_head())
             .with_custom_index(build_math_window_index(theme));
 
         crate::utils::task::spawn_detached(create_and_register_child_window(
@@ -286,9 +287,9 @@ pub fn open_or_focus_image_window(src: String, alt: Option<String>, theme: Theme
         let config = with_asset_protocol(Config::new())
             .with_menu(None)
             .with_window(super::icon::apply_app_icon(
-                WindowBuilder::new().with_title("Image Viewer"),
+                WindowBuilder::new().with_title(t!("app.viewer_window.image")),
             ))
-            .with_custom_head(main_stylesheet_head())
+            .with_custom_head(main_head())
             .with_custom_index(build_image_window_index(theme));
 
         crate::utils::task::spawn_detached(create_and_register_child_window(

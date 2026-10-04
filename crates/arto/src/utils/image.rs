@@ -6,6 +6,7 @@
 //! - Downloading images from external URLs
 
 use base64::Engine;
+use rust_i18n::t;
 use std::time::Duration;
 
 /// Maximum allowed image size (20 MiB) to prevent memory exhaustion.
@@ -117,16 +118,21 @@ pub fn save_image(src: impl AsRef<str>) {
 /// Returns a tuple of (filter_name, extensions, default_extension).
 fn get_file_info_from_mime_type(
     mime_type: Option<&str>,
-) -> (&'static str, Vec<&'static str>, &'static str) {
+) -> (String, Vec<&'static str>, &'static str) {
+    let filter = |format: &str| t!("app.save_image.filter", format = format).into_owned();
     match mime_type {
-        Some("image/png") => ("PNG Image", vec!["png"], "png"),
-        Some("image/jpeg") => ("JPEG Image", vec!["jpg", "jpeg"], "jpg"),
-        Some("image/gif") => ("GIF Image", vec!["gif"], "gif"),
-        Some("image/webp") => ("WebP Image", vec!["webp"], "webp"),
-        Some("image/avif") => ("AVIF Image", vec!["avif"], "avif"),
-        Some("image/svg+xml") => ("SVG Image", vec!["svg"], "svg"),
-        Some("image/bmp") => ("BMP Image", vec!["bmp"], "bmp"),
-        _ => ("Image", vec!["png", "jpg", "gif", "webp"], "png"),
+        Some("image/png") => (filter("PNG"), vec!["png"], "png"),
+        Some("image/jpeg") => (filter("JPEG"), vec!["jpg", "jpeg"], "jpg"),
+        Some("image/gif") => (filter("GIF"), vec!["gif"], "gif"),
+        Some("image/webp") => (filter("WebP"), vec!["webp"], "webp"),
+        Some("image/avif") => (filter("AVIF"), vec!["avif"], "avif"),
+        Some("image/svg+xml") => (filter("SVG"), vec!["svg"], "svg"),
+        Some("image/bmp") => (filter("BMP"), vec!["bmp"], "bmp"),
+        _ => (
+            t!("app.save_image.filter_any").into_owned(),
+            vec!["png", "jpg", "gif", "webp"],
+            "png",
+        ),
     }
 }
 

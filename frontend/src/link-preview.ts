@@ -15,6 +15,7 @@
  */
 
 import { getCurrentElement } from "./content-cursor";
+import { t } from "./i18n";
 import { renderMathElsewhere } from "./math-renderer";
 import { renderDiagramsElsewhere } from "./mermaid-renderer";
 import { renderCoordinator } from "./render-coordinator";
@@ -367,7 +368,7 @@ function show(anchor: HTMLElement, { title, excerpt, open }: Shown): void {
     body.append(...excerpt.nodes);
   } else {
     body.classList.add(UNAVAILABLE);
-    body.textContent = "No preview available";
+    body.textContent = t("frontend.link_preview.unavailable");
   }
 
   const parts: HTMLElement[] = [head, body];
@@ -375,7 +376,7 @@ function show(anchor: HTMLElement, { title, excerpt, open }: Shown): void {
     const more = document.createElement("button");
     more.type = "button";
     more.className = MORE;
-    more.textContent = "Open to read more…";
+    more.textContent = t("frontend.link_preview.read_more");
     more.addEventListener("click", followThen(open));
     parts.push(more);
   }

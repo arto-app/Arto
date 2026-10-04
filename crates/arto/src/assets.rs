@@ -188,17 +188,19 @@ pub fn image_base_url() -> String {
     format!("{ORIGIN}/img")
 }
 
-/// The `<head>` markup that loads the main stylesheet, for
-/// `Config::with_custom_head` on every window.
+/// The `<head>` markup every window starts with, for
+/// `Config::with_custom_head`: the main stylesheet, and the frontend's words
+/// for the interface locale.
 ///
 /// Kept as static head markup on purpose. `document::Stylesheet {}` would be
 /// the idiomatic rsx form, but it is inserted by the runtime after the first
 /// render, so the window would paint unstyled for a moment on every open.
 /// Head markup is parsed with the page and applies before anything shows.
-pub fn main_stylesheet_head() -> String {
+pub fn main_head() -> String {
     format!(
-        r#"<link rel="stylesheet" href="{}">"#,
-        url(frontend::MAIN_STYLE)
+        r#"<link rel="stylesheet" href="{}">{}"#,
+        url(frontend::MAIN_STYLE),
+        crate::i18n::frontend_catalog(),
     )
 }
 
@@ -301,7 +303,7 @@ mod tests {
 
     #[test]
     fn the_stylesheet_is_asked_for_over_the_protocol() {
-        let head = main_stylesheet_head();
+        let head = main_head();
         assert!(head.contains(ORIGIN), "{head}");
         assert!(head.contains("main.css"), "{head}");
     }

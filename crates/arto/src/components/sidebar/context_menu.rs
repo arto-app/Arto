@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::bookmarks::BOOKMARKS;
 use crate::components::context_menu::{clamp_menu_position, ContextMenuItem, ContextMenuSeparator};
@@ -162,14 +163,20 @@ pub fn SidebarContextMenu(
 
     // Dynamic labels based on item kind
     let open_label = if is_file {
-        "Open File"
+        t!("sidebar.context_menu.open_file").to_string()
     } else {
-        "Open Directory"
+        t!("sidebar.context_menu.open_directory").to_string()
     };
     let copy_path_label = if is_file {
-        "Copy File Path"
+        t!("sidebar.context_menu.copy_file_path").to_string()
     } else {
-        "Copy Directory Path"
+        t!("sidebar.context_menu.copy_directory_path").to_string()
+    };
+    let bookmark_label = match (is_file, is_bookmarked) {
+        (true, true) => t!("sidebar.context_menu.remove_from_starred"),
+        (true, false) => t!("sidebar.context_menu.add_to_starred"),
+        (false, true) => t!("sidebar.context_menu.remove_from_places"),
+        (false, false) => t!("sidebar.context_menu.add_to_places"),
     };
 
     rsx! {
@@ -194,9 +201,9 @@ pub fn SidebarContextMenu(
                 if folder_above(&path, role).is_some() {
                     ContextMenuItem {
                         label: if role == SidebarRowRole::PlaceRoot {
-                            "Move Place Up a Directory"
+                            t!("sidebar.context_menu.move_place_up").to_string()
                         } else {
-                            "Go to Parent Directory"
+                            t!("sidebar.context_menu.go_to_parent").to_string()
                         },
                         shortcut: if role == SidebarRowRole::CurrentRoot {
                             shortcut("directory.parent")
@@ -219,7 +226,7 @@ pub fn SidebarContextMenu(
             // offer, so the window's own folder is the one row without it.
             if !is_file && role != SidebarRowRole::CurrentRoot {
                 ContextMenuItem {
-                    label: "Change Root Directory",
+                    label: t!("sidebar.context_menu.change_root").to_string(),
                     shortcut: shortcut("cursor.enter"),
                     icon: Some(IconName::FolderOpen),
                     on_click: move |_| on_change_root_directory.call(()),
@@ -227,7 +234,7 @@ pub fn SidebarContextMenu(
             }
 
             ContextMenuItem {
-                label: "Open in New Window",
+                label: t!("sidebar.context_menu.open_in_new_window").to_string(),
                 icon: Some(IconName::AppWindow),
                 on_click: move |_| on_open_in_new_window.call(()),
             }
@@ -254,12 +261,7 @@ pub fn SidebarContextMenu(
 
                 span {
                     class: "context-menu-label",
-                    match (is_file, is_bookmarked) {
-                        (true, true) => "Remove from Starred",
-                        (true, false) => "Add to Starred",
-                        (false, true) => "Remove from Places",
-                        (false, false) => "Add to Places",
-                    }
+                    "{bookmark_label}"
                 }
             }
 
@@ -273,7 +275,7 @@ pub fn SidebarContextMenu(
             }
 
             ContextMenuItem {
-                label: "Reveal in Finder",
+                label: t!("sidebar.context_menu.reveal_in_finder").to_string(),
                 shortcut: shortcut("file.reveal_in_finder"),
                 icon: Some(IconName::Folder),
                 on_click: move |_| on_reveal_in_finder.call(()),
@@ -284,7 +286,7 @@ pub fn SidebarContextMenu(
 
 
             ContextMenuItem {
-                label: "Reload",
+                label: t!("sidebar.context_menu.reload").to_string(),
                 shortcut: shortcut("window.reload"),
                 icon: Some(IconName::Refresh),
                 on_click: move |_| on_reload.call(()),

@@ -6,6 +6,7 @@
 //! whether it is showing, taking it away — is done there.
 
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::icon::{Icon, IconName};
 use crate::pinned_search::{
@@ -22,7 +23,7 @@ pub fn PinnedMarks(pinned_searches: Vec<PinnedSearch>) -> Element {
     }
 
     rsx! {
-        div { class: "contents-toc-label", "Pinned" }
+        div { class: "contents-toc-label", {t!("contents.pinned.heading").to_string()} }
 
         for pinned in pinned_searches.iter() {
             PinnedMark { key: "{pinned.id}", pinned: pinned.clone() }
@@ -57,7 +58,7 @@ fn PinnedMark(pinned: PinnedSearch) -> Element {
             div {
                 class: "contents-toc-row contents-toc-pin",
                 class: if disabled { "disabled" },
-                title: "Colour, visibility, remove",
+                title: t!("contents.pinned.row").to_string(),
                 onclick: move |_| show_popover.toggle(),
 
                 // Except the colour, which is the mark showing or not showing
@@ -65,7 +66,7 @@ fn PinnedMark(pinned: PinnedSearch) -> Element {
                 // its own, and the thing the dot already says.
                 button {
                     class: "contents-toc-pin-dot {color.css_class()}",
-                    title: if disabled { "Show" } else { "Hide" },
+                    title: if disabled { t!("contents.pinned.show").to_string() } else { t!("contents.pinned.hide").to_string() },
                     onclick: {
                         let id = id.clone();
                         move |evt: Event<MouseData>| {
@@ -153,7 +154,7 @@ fn ColorPalettePopover(
             // Visibility toggle (Eye icon)
             button {
                 class: "color-palette-action",
-                title: if is_disabled { "Enable" } else { "Disable" },
+                title: if is_disabled { t!("contents.pinned.enable").to_string() } else { t!("contents.pinned.disable").to_string() },
                 onclick: move |_| on_toggle.call(()),
                 if is_disabled {
                     Icon { name: IconName::EyeOff, size: 18 }
@@ -165,7 +166,7 @@ fn ColorPalettePopover(
             // Remove button
             button {
                 class: "color-palette-action color-palette-remove",
-                title: "Remove",
+                title: t!("contents.pinned.remove").to_string(),
                 onclick: move |_| on_remove.call(()),
                 Icon { name: IconName::Trash, size: 18 }
             }

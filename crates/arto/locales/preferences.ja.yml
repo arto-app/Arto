@@ -1,0 +1,297 @@
+preferences:
+  appearance:
+    language:
+      title: "言語"
+      label: "表示言語"
+      description: "メニューや設定など、Arto 自身が表示する文言の言語です。ドキュメントは翻訳されません。"
+      auto: "システム"
+      restart_note: "新しい言語は Arto の再起動後に反映されます。"
+      restart: "Arto を再起動"
+    mode:
+      title: "モード"
+      default_theme:
+        label: "既定のテーマ"
+        description: "ライトテーマとダークテーマのどちらで表示するか、またはシステムの設定に従うかを選びます。"
+        auto: "自動"
+        light: "ライト"
+        dark: "ダーク"
+    themes:
+      title: "テーマ"
+      light:
+        label: "ライトテーマ"
+        description: "ライトモードで使う GitHub のテーマです。"
+      dark:
+        label: "ダークテーマ"
+        description: "ダークモードで使う GitHub のテーマです。ライト系のテーマも選べます。"
+  window_title: "設定"
+  sections_label: "設定の項目"
+  tabs:
+    appearance: "外観"
+    markdown: "Markdown"
+    reading: "閲覧"
+    panel: "パネル"
+    window: "ウインドウ"
+    startup: "起動"
+    keybindings: "キーバインド"
+    lenses: "レンズ"
+    about: "Arto について"
+  controls:
+    reset: "%{value} に戻す"
+    toggle_on: "オン"
+    toggle_off: "オフ"
+    no_folder: "フォルダなし"
+    browse: "参照…"
+    use_current: "現在の値を使用"
+    use_default: "既定値を使用"
+    show_light_themes: "ライト系のテーマも表示"
+    show_dark_themes: "ダーク系のテーマも表示"
+    hide_light_themes: "ライト系のテーマを隠す"
+    hide_dark_themes: "ダーク系のテーマを隠す"
+  themes:
+    light: "ライト（既定）"
+    light_high_contrast: "ライト（ハイコントラスト）"
+    light_colorblind: "ライト（1型・2型色覚）"
+    light_tritanopia: "ライト（3型色覚）"
+    dark: "ダーク（既定）"
+    dark_dimmed: "ダーク（ディム）"
+    dark_high_contrast: "ダーク（ハイコントラスト）"
+    dark_colorblind: "ダーク（1型・2型色覚）"
+    dark_tritanopia: "ダーク（3型色覚）"
+  markdown:
+    syntax:
+      title: "構文"
+      auto_link_urls:
+        label: "URL を自動でリンクにする"
+        description: "リンクの括弧を付けずに単独で書かれた URL をリンクにします。"
+      math:
+        label: "数式"
+        description: "$…$ と $$…$$ を数式として扱います。オフにすると、ドル記号を別の目的で書くドキュメントのためにそのまま残します。オンでは、1 行に 2 つのシェル変数があるだけで対になり数式になってしまいます。"
+      wiki_links:
+        label: "Wiki リンク"
+        description: "[[Page]] と [[Page|label]] で、Obsidian と同じように別のドキュメントを開きます。"
+      superscript:
+        label: "上付き文字"
+        description: "^text^ を上付きにします。"
+      subscript:
+        label: "下付き文字"
+        description: "~text~ を下付きにします。オフにすると単独のチルダはそのまま残ります。~5 分と書いたドキュメントが意図するのはこちらです。"
+      definition_lists:
+        label: "定義リスト"
+        description: "用語の次の行がコロンで始まると定義リストになります。"
+      heading_attributes:
+        label: "見出しの属性"
+        description: "見出し末尾の {#id .class} を本文に表示せず、見出しの id や class として扱います。"
+    typography:
+      title: "タイポグラフィ"
+      smart_punctuation:
+        label: "スマート句読点"
+        description: "ストレートクォートを曲がった引用符に、-- と ... をダッシュと三点リーダーに変換します。"
+      cjk_emphasis:
+        label: "日本語の約物に接する強調"
+        description: "**強調。** を強調として表示します。CommonMark は区切り記号の隣の約物を見て対になるかを判断しますが、日本語では約物が語に直接接します。そのため、オフは GitHub の表示どおり、オンはドキュメントが意図したとおりになります。"
+    headings:
+      title: "見出し"
+      permalinks:
+        label: "見出しの横にパーマリンクを表示"
+        description: "GitHub と同じように、見出しへのリンクとなる # を表示します。"
+    raw_html:
+      title: "生の HTML"
+      label: "Markdown に書かれた HTML"
+      description: "Markdown の構文では表せないマークアップ（<kbd>、<details>、幅を指定した <img> など）をドキュメントに埋め込めるのは、HTML をそのまま通すからです。同じ仕組みで、<style> や <script> がドキュメントの周りのページの見た目を変えることもできます。"
+      allow:
+        title: "許可"
+        description: "すべてのタグをそのまま出力"
+      filter:
+        title: "フィルタ"
+        description: "マークアップは有効、ドキュメントの外に及ぶタグは無効"
+      escape:
+        title: "エスケープ"
+        description: "マークアップを文字のまま表示"
+  reading:
+    current:
+      title: "現在の設定"
+      zoom:
+        label: "現在のズーム倍率"
+        description: "現在のウインドウのドキュメントのズーム倍率です。"
+    defaults:
+      title: "既定の設定"
+      zoom:
+        label: "既定のズーム倍率"
+        description: "ウインドウを開いたときのドキュメントのズーム倍率です。"
+      min_content_width:
+        label: "本文の最小幅"
+        description: "ほかの要素を畳める限り、ドキュメントが確保する幅です。ページの周りの要素は、この値にそれぞれの幅を足した幅を下回ると、外側から順に畳まれます。余白の履歴、パネル、目次の余白、レールの順です。大きくすると、広いウインドウでも早めに畳まれます。"
+    typography:
+      title: "タイポグラフィ"
+      measure:
+        label: "行の長さ"
+        description: "テキスト 1 行の最大の長さ（em 単位）です。%{hint} ウインドウがこれより狭いときはウインドウの幅に合わせ、全幅のコンテンツには適用されません。"
+        hint: "1 行に全角で約 %{full_width} 文字、半角で約 %{half_width} 文字です。"
+      presets:
+        label: "行の長さのプリセット"
+        narrow: "狭い"
+        standard: "標準"
+        wide: "広い"
+      line_height:
+        label: "行の高さ"
+        description: "文字サイズに対する行の高さの倍率です。長い行や日本語の文章は、大きめにすると読みやすくなります。"
+      font_family:
+        label: "書体"
+        description: "本文の書体です。コードは等幅書体のままです。"
+        sans:
+          title: "サンセリフ"
+          description: "GitHub と同じ"
+        serif:
+          title: "セリフ"
+          description: "書籍向けの書体"
+        mono:
+          title: "等幅"
+          description: "すべての文字が同じ幅"
+        custom:
+          title: "カスタム"
+          description: "任意の font-family"
+        invalid: "使用されないため、本文はサンセリフのままです。カンマ区切りで指定し、英数字・_・- 以外を含む名前は引用符で囲んでください。"
+      font_size:
+        label: "文字サイズ"
+        description: "本文の文字サイズで、見出しとコードもこれに従います。ズームは画像を含むページ全体を拡大しますが、これは文字だけを変えます。"
+      cjk_font_language:
+        label: "CJK フォントの言語"
+        description: "中国語・日本語・韓国語の文字をどの言語の書体で描くかを選びます。同じ漢字でも言語ごとに字形が異なります。自動ではシステムに任せます。いずれかを選ぶと、macOS では欧文もシステム書体から外れます（SF が Helvetica になります）。システム書体のままだと CJK の文字がシステムの選んだ書体で描かれるためです。カスタムの書体は指定どおりに使われます。"
+        auto: "自動"
+    trace:
+      title: "余白の履歴"
+      when:
+        label: "表示するタイミング"
+        description: "このドキュメントの前に読んだドキュメントを、ページの端に並べたものです。履歴のうち頼まれずに現れる唯一の表示なので、これだけはオフにできます。ドキュメントを読みやすく保てないほど狭いウインドウでは、ここでの選択にかかわらず隠れます。"
+        never:
+          title: "表示しない"
+          description: "余白を空けておく"
+        not_with_panel:
+          title: "パネルと併用しない"
+          description: "パネルが出ているあいだは隠す"
+        always:
+          title: "常に表示"
+          description: "収まるときは常に表示"
+      count:
+        label: "履歴に並べる数"
+        description: "余白の履歴に表示するドキュメントの数です。"
+    reading_time:
+      title: "読了時間"
+      show:
+        label: "読了時間を表示"
+        description: "ドキュメントを読むのにかかる時間と、読み始めてからの残り時間を、ヘッダーのコントロールの横に表示します。ページの高さではなくテキストの量から数えるので、長いコードや大きな図で先に進みすぎることはありません。"
+      words_per_minute:
+        label: "1 分あたりの単語数"
+        description: "英語など、単語で書かれた文章を読む速さです。"
+      characters_per_minute:
+        label: "1 分あたりの文字数"
+        description: "中国語・日本語・韓国語のように 1 文字ずつ読む文章を読む速さです。"
+      min_minutes:
+        label: "読了時間を表示する最短時間"
+        description: "これより短い時間で読めるドキュメントには、読了時間を表示しません。"
+        unit: " 分"
+    changes:
+      title: "前回読んだあとの変更"
+      show:
+        label: "変更箇所に印を付ける"
+        description: "前回読んだあとに追加・書き換えられたブロックの横に線を、削除された箇所に細線を、それらを含む見出しに点を付けます。ドキュメントは、そこから離れた時点で読んだものとみなします。オフにすると、Arto は読んだドキュメントの写しを保存しなくなります。"
+      ignore_whitespace:
+        label: "空白の違いを無視"
+        description: "空白の入れ方だけが異なる行は、変更として扱いません。"
+  panel:
+    current:
+      title: "現在の設定"
+      zoom:
+        label: "現在のズーム倍率"
+        description: "現在のウインドウのパネルのズーム倍率です。"
+    defaults:
+      title: "既定の設定"
+      width:
+        label: "既定の幅"
+        description: "ウインドウを開いたときのパネルの幅です。"
+      zoom:
+        label: "既定のズーム倍率"
+        description: "ウインドウを開いたときのパネルの内容のズーム倍率です。"
+      pinned:
+        label: "既定で固定する"
+        description: "固定すると、パネルはドキュメントの横に専用の幅を取ります。固定しないと、ホバーしたときにページの上に重なって現れ、離れると消えます。"
+      show_all_files:
+        label: "すべてのファイルを表示"
+        description: "オフにすると、ツリーには Markdown だけを表示します。"
+    behavior:
+      title: "動作"
+      on_open:
+        label: "ドキュメントを開いたあと"
+        description: "パネルの行からドキュメントを開いたあとのパネルの動作です。一覧を順にたどって次々に開く人もいれば、目当てのものを開いたらページを広く使いたい人もいます。"
+        keep_open:
+          title: "パネルを残す"
+          description: "一覧はそのまま残ります"
+        close_panel:
+          title: "パネルを閉じる"
+          description: "画面にはドキュメントだけが残ります"
+  window:
+    size:
+      title: "サイズ"
+      default_size:
+        label: "既定のサイズ"
+        description: "ウインドウを開くときの大きさです。パーセントは現在の画面に対する割合です。"
+      width: "幅"
+      height: "高さ"
+    position:
+      title: "位置"
+      default_position:
+        label: "既定の位置"
+        description: "ウインドウを開く位置です。パーセントは利用可能な画面領域内の位置を表します（0% = 上端・左端、100% = 下端・右端）。"
+        coordinates:
+          title: "座標"
+          description: "下の X/Y の値を使用"
+        mouse:
+          title: "マウスの位置"
+          description: "現在のマウスの位置に開く"
+      offset:
+        label: "位置のずらし幅"
+        description: "近くの位置に別のウインドウがあるとき、新しいウインドウをこの分だけずらします（ピクセル単位のみ）。"
+    opening:
+      title: "開き方"
+      file_open:
+        label: "ファイルを開くウインドウ"
+        description: "Finder、コマンドライン、または別の Arto から開いたファイルやフォルダを、どのウインドウで受け取るかを選びます。"
+        new_window:
+          title: "新規ウインドウ"
+          description: "常に新しいウインドウを作成"
+        last_focused:
+          title: "最後に使用したウインドウ"
+          description: "最後にフォーカスした表示中のウインドウで開く"
+        current_screen:
+          title: "現在の画面"
+          description: "カーソルのある画面の表示中のウインドウで開く"
+      start_folder:
+        label: "開始時のフォルダ"
+        description: "最初のウインドウで、登録した場所とあわせて開くフォルダです。空にすると、登録した場所だけで始まります。"
+        placeholder: "フォルダなし（登録した場所のみ）"
+  startup:
+    on_startup:
+      title: "Arto の起動時"
+      lede: "起動して最初のウインドウを、既定の設定で開くか、最後に閉じたウインドウの状態から再開するかを選びます。"
+    on_new_window:
+      title: "ウインドウを開くとき"
+      lede: "2 つ目以降のウインドウを、既定の設定で開くか、開いた元のウインドウに合わせるかを選びます。どのフォルダで始まるかは設定ではありません。⌘N は登録した場所だけを、⇧⌘N は現在のウインドウのフォルダもあわせて引き継ぎます。"
+    rows:
+      theme: "テーマ"
+      window_size: "ウインドウのサイズ"
+      window_position: "ウインドウの位置"
+      zoom: "ズーム倍率"
+      panel: "パネル"
+      folder: "フォルダ"
+    options:
+      default: "既定"
+      last_closed: "最後に閉じたもの"
+      last_focused: "最後に使用したもの"
+  about:
+    version: "バージョン %{version}"
+    description: "GitHub スタイルの Markdown レンダリングを忠実に再現し、心地よく読めるようにするローカルアプリです。"
+    config_dir: "設定フォルダ"
+    open_in_finder: "Finder で開く"
+    view_on_github: "GitHub で見る"
+    report_issue: "問題を報告"
+    created_by: "作者: %{author}"

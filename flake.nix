@@ -69,7 +69,16 @@
           frontend-assets = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
             pname = "${packageMeta.pname}-frontend-assets";
             inherit (packageMeta) version;
-            src = ./frontend;
+            # The frontend bundles the English catalog of its own words, which
+            # lives with the app's other translations under crates/arto/locales.
+            src = lib.fileset.toSource {
+              root = ./.;
+              fileset = lib.fileset.unions [
+                ./frontend
+                ./crates/arto/locales
+              ];
+            };
+            pnpmRoot = "frontend";
 
             nativeBuildInputs = [
               pkgs.nodejs-slim
@@ -78,7 +87,11 @@
             ];
 
             pnpmDeps = pkgs.fetchPnpmDeps {
-              inherit (finalAttrs) pname version src;
+              inherit (finalAttrs) pname version;
+              # The dependencies are the lockfile's alone, so they are fetched
+              # from the frontend directory and the hash does not move when a
+              # translation does.
+              src = ./frontend;
               pnpm = pkgs.pnpm_10;
               # To update this hash when frontend dependencies change:
               # 1. Change hash to: lib.fakeHash or ""
@@ -93,6 +106,7 @@
               runHook preBuild
               # Override output directory for Nix build
               export VITE_OUT_DIR=$out
+              cd frontend
               pnpm run build
               runHook postBuild
             '';
@@ -121,6 +135,9 @@
                 # Keybinding presets are JSON embedded with include_str!, which
                 # commonCargoSources (Rust sources only) leaves out.
                 (root + /crates/arto-keybindings/src/presets)
+                # The interface's translations, read by rust_i18n::i18n! and
+                # include_str! as the app crate compiles.
+                (root + /crates/arto/locales)
                 (lib.fileset.maybeMissing (root + /crates/arto/VERSION))
                 # Dioxus.toml references the icon, Info.plist, the NSIS hook
                 # and LICENSE by relative path from the app crate. Only those

@@ -120,6 +120,10 @@ struct Cli {
     /// runs until it is quit, with or without this flag.
     #[arg(long)]
     wait_ready: bool,
+    /// The process this launch replaces, when Arto restarts itself; the new
+    /// instance waits for it to exit before starting.
+    #[arg(long = arto::relaunch::AFTER_EXIT_OF, value_name = "PID", hide = true)]
+    after_exit_of: Option<u32>,
     /// Files or directories to open
     #[arg()]
     paths: Vec<PathBuf>,
@@ -214,6 +218,10 @@ fn main() {
         Some(OpenModeArg::New) => CliOpenMode::NewWindow,
         None => CliOpenMode::Config,
     };
+
+    if let Some(pid) = cli.after_exit_of {
+        arto::relaunch::wait_for_exit(pid);
+    }
 
     let invocation = CliInvocation {
         paths: cli.paths,

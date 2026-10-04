@@ -3,6 +3,8 @@
  * Provides a foundation for specialized viewers like Mermaid, Math, and Image windows.
  */
 
+import { t } from "./i18n";
+
 interface ViewerState {
   scale: number;
   offsetX: number;
@@ -240,7 +242,7 @@ export abstract class BaseViewerController {
     const errorDiv = document.createElement("div");
     errorDiv.style.cssText = "color: red; padding: 2rem;";
     const strong = document.createElement("strong");
-    strong.textContent = "Rendering Error:";
+    strong.textContent = t("frontend.viewer.rendering_error");
     const pre = document.createElement("pre");
     pre.style.whiteSpace = "pre-wrap";
     pre.textContent = String(error);

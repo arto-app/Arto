@@ -1,5 +1,6 @@
 use dioxus::document;
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::icon::{Icon, IconName};
 use crate::components::pinned_marks::PinnedMarks;
@@ -184,7 +185,7 @@ fn Names(
             nav {
                 class: "contents-toc",
                 class: if open { "open" },
-                "aria-label": "Contents",
+                "aria-label": t!("contents.label").to_string(),
 
                 // First, because it is the question a document opened again
                 // asks before any other: what is new since I last read it.
@@ -203,13 +204,13 @@ fn Names(
                                 });
                             },
                             span { class: "contents-toc-changes-dot" }
-                            span { class: "contents-toc-name", "Changes \u{b7} {changes}" }
+                            span { class: "contents-toc-name", {t!("contents.changes.count", count = changes).to_string()} }
                         }
                         button {
                             class: "contents-toc-changes-read",
-                            title: "Take what is on screen as read, and clear the marks",
+                            title: t!("contents.changes.mark_read_hint").to_string(),
                             onclick: move |_| state.mark_changes_read(),
-                            "Mark as read"
+                            {t!("contents.changes.mark_read").to_string()}
                         }
                     }
                 }
@@ -219,11 +220,11 @@ fn Names(
                 UserHighlights {}
 
                 if !headings.is_empty() {
-                    div { class: "contents-toc-label", "Contents" }
+                    div { class: "contents-toc-label", {t!("contents.heading").to_string()} }
                 }
 
                 if headings.is_empty() && nothing_marked {
-                    div { class: "contents-toc-empty", "No headings" }
+                    div { class: "contents-toc-empty", {t!("contents.no_headings").to_string()} }
                 }
 
                 for (at, heading) in headings.iter().cloned().enumerate() {

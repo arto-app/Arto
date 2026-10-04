@@ -12,6 +12,7 @@
 
 use dioxus::document;
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::icon::{Icon, IconName};
 use crate::state::AppState;
@@ -99,7 +100,7 @@ pub fn HeaderFind() -> Element {
                 input {
                     r#type: "text",
                     class: "search-input",
-                    placeholder: "Find in page",
+                    placeholder: t!("find.placeholder").to_string(),
                     autocorrect: "off",
                     autocapitalize: "off",
                     spellcheck: "false",
@@ -131,7 +132,7 @@ pub fn HeaderFind() -> Element {
             // already doing.
             button {
                 class: "nav-button",
-                title: "Close",
+                title: t!("find.close").to_string(),
                 onclick: move |_| state.search_open.set(false),
                 Icon { name: IconName::Close }
             }
