@@ -17,6 +17,7 @@ mod behavior;
 mod color_theme;
 mod directory_config;
 mod file_open_behavior;
+mod language;
 mod lens_agents;
 mod lens_recipes;
 mod lenses;
@@ -38,6 +39,7 @@ pub use behavior::*;
 pub use color_theme::*;
 pub use directory_config::*;
 pub use file_open_behavior::*;
+pub use language::*;
 pub use lens_agents::*;
 pub use lens_recipes::*;
 pub use lenses::*;
@@ -61,6 +63,8 @@ pub struct Config {
     /// The JSON Schema editors validate this file against.
     #[serde(rename = "$schema")]
     pub schema: SchemaUrl,
+    /// The language of Arto's interface: `auto` follows the system.
+    pub language: Language,
     pub directory: DirectoryConfig,
     pub file_open: FileOpenBehavior,
     // Owned by the crate that renders (arto-markdown) so every consumer of
@@ -108,6 +112,8 @@ mod tests {
     #[test]
     fn test_config_default() {
         let config = Config::default();
+
+        assert_eq!(config.language, Language::Auto);
 
         // Theme defaults
         assert_eq!(config.theme.default_theme, Theme::Auto);
@@ -202,6 +208,7 @@ mod tests {
     fn test_config_serialization_roundtrip() {
         let config = Config {
             schema: SchemaUrl("https://example.com/config.schema.json".to_string()),
+            language: Language::Ja,
             theme: ThemeConfig {
                 default_theme: Theme::Dark,
                 light_theme: ColorTheme::LightHighContrast,
