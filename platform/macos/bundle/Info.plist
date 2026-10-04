@@ -3,6 +3,14 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <!-- The languages Arto's own interface has. Without them AppKit draws the
+       panels and menu items it supplies (file dialogs, the items it adds to
+       the menu bar) in English whatever the system language is. -->
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>ja</string>
+  </array>
   <key>CFBundleDisplayName</key><string>Arto</string>
   <key>CFBundleExecutable</key><string>arto</string>
   <key>CFBundleIdentifier</key><string>com.lambdalisue.Arto</string>
