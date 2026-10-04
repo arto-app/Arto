@@ -46,6 +46,9 @@ pub fn MainApp() -> Element {
         }
     });
 
+    #[cfg(target_os = "macos")]
+    use_hook(crate::menu::dock::install);
+
     // Set up global menu event handling
     #[cfg(target_os = "macos")]
     use_muda_event_handler(move |event| {

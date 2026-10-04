@@ -45,3 +45,12 @@ use_muda_event_handler(move |event| {
 Both return `bool` (handled or not). The native menu bar is macOS only —
 everywhere else the same commands hang off the glyph at the head of the
 header — so check the `cfg` guards before touching registration.
+
+## Dock menu
+
+`menu::dock` builds the menu shown on a right click of the Dock icon. Tao's
+delegate has no `applicationDockMenu:`, so `dock::install` (called from
+`MainApp`) adds it to the delegate's class at runtime, and AppKit asks for a
+fresh menu every time it opens. Its items use `dock.*` ids of their own and
+are handled first by the global handler: the menu bar's Open items act on the
+focused window, and an app reached from the Dock may have none.
