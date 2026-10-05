@@ -10,10 +10,26 @@ use crate::config::{
 use crate::events::SET_CONTENT_ZOOM_IN_WINDOW;
 use dioxus::desktop::tao::window::WindowId;
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 /// Line lengths offered by name. Standard is the measure most books settle
 /// on; Wide is the length the page has always had.
-const MEASURE_PRESETS: [(&str, f64); 3] = [("Narrow", 40.0), ("Standard", 50.0), ("Wide", 60.0)];
+fn measure_presets() -> [(String, f64); 3] {
+    [
+        (
+            t!("preferences.reading.typography.presets.narrow").to_string(),
+            40.0,
+        ),
+        (
+            t!("preferences.reading.typography.presets.standard").to_string(),
+            50.0,
+        ),
+        (
+            t!("preferences.reading.typography.presets.wide").to_string(),
+            60.0,
+        ),
+    ]
+}
 
 const SAMPLE_LATIN: &str = "The quick brown fox jumps over the lazy dog. A line that runs too long loses the eye on its way back to the start of the next; one that is too short breaks the sentence into pieces.";
 
@@ -29,22 +45,37 @@ const SAMPLES_CJK: [&str; 4] = [
 ];
 
 /// CJK font languages offered by name, in the order they are offered.
-const LANGUAGES: [(CjkFontLanguage, &str); 5] = [
-    (CjkFontLanguage::Auto, "Auto"),
-    (CjkFontLanguage::Ja, "日本語"),
-    (CjkFontLanguage::ZhHans, "简体中文"),
-    (CjkFontLanguage::ZhHant, "繁體中文"),
-    (CjkFontLanguage::Ko, "한국어"),
+const LANGUAGES: [CjkFontLanguage; 5] = [
+    CjkFontLanguage::Auto,
+    CjkFontLanguage::Ja,
+    CjkFontLanguage::ZhHans,
+    CjkFontLanguage::ZhHant,
+    CjkFontLanguage::Ko,
 ];
+
+/// Each language is named in itself, so only Auto is translated.
+fn cjk_language_label(language: CjkFontLanguage) -> String {
+    match language {
+        CjkFontLanguage::Auto => {
+            t!("preferences.reading.typography.cjk_font_language.auto").to_string()
+        }
+        CjkFontLanguage::Ja => "日本語".to_string(),
+        CjkFontLanguage::ZhHans => "简体中文".to_string(),
+        CjkFontLanguage::ZhHant => "繁體中文".to_string(),
+        CjkFontLanguage::Ko => "한국어".to_string(),
+    }
+}
 
 /// A line length told as the characters it holds: an em is one full-width
 /// character or about two half-width ones.
 fn measure_hint(measure: f64) -> String {
     let full_width = normalize_measure(measure) as u32;
-    format!(
-        "About {full_width} full-width or {} half-width characters to a line.",
-        full_width * 2
+    t!(
+        "preferences.reading.typography.measure.hint",
+        full_width = full_width,
+        half_width = full_width * 2
     )
+    .to_string()
 }
 
 /// The page itself: how large it is set, how much width it keeps, and what is
@@ -67,14 +98,14 @@ pub fn ReadingTab(
         div {
             class: "preferences-pane",
 
-            h3 { class: "preference-section-title", "Current Settings" }
+            h3 { class: "preference-section-title", {t!("preferences.reading.current.title").to_string()} }
 
             div {
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Current Zoom Level" }
-                    p { class: "preference-description", "The zoom level for the current window's document." }
+                    label { {t!("preferences.reading.current.zoom.label").to_string()} }
+                    p { class: "preference-description", {t!("preferences.reading.current.zoom.description").to_string()} }
                 }
                 SliderInput {
                     value: current_zoom(),
@@ -92,14 +123,14 @@ pub fn ReadingTab(
                 }
             }
 
-            h3 { class: "preference-section-title", "Default Settings" }
+            h3 { class: "preference-section-title", {t!("preferences.reading.defaults.title").to_string()} }
 
             div {
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Default Zoom Level" }
-                    p { class: "preference-description", "The zoom level a document is set at when a window opens." }
+                    label { {t!("preferences.reading.defaults.zoom.label").to_string()} }
+                    p { class: "preference-description", {t!("preferences.reading.defaults.zoom.description").to_string()} }
                 }
                 SliderInput {
                     value: zoom_cfg.default_zoom_level,
@@ -120,10 +151,10 @@ pub fn ReadingTab(
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Minimum Content Width" }
+                    label { {t!("preferences.reading.defaults.min_content_width.label").to_string()} }
                     p {
                         class: "preference-description",
-                        "The width the document keeps while anything else can give way instead. Everything around the page folds at this number plus its own width, from the outside in: the margin trace, then the panel, then the contents gutter, then the rail. Raise it and a wide window folds them sooner."
+                        {t!("preferences.reading.defaults.min_content_width.description").to_string()}
                     }
                 }
                 SliderInput {
@@ -139,16 +170,16 @@ pub fn ReadingTab(
                 }
             }
 
-            h3 { class: "preference-section-title", "Typography" }
+            h3 { class: "preference-section-title", {t!("preferences.reading.typography.title").to_string()} }
 
             div {
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Line Length" }
+                    label { {t!("preferences.reading.typography.measure.label").to_string()} }
                     p {
                         class: "preference-description",
-                        "The longest a line of text runs, in em. {measure_hint(typography_cfg.measure)} A window narrower than this sets the text at its own width, and full-width content ignores it."
+                        {t!("preferences.reading.typography.measure.description", hint = measure_hint(typography_cfg.measure)).to_string()}
                     }
                 }
                 SliderInput {
@@ -166,14 +197,11 @@ pub fn ReadingTab(
 
             ChoiceRow {
                 name: "reading-measure-preset".to_string(),
-                label: "Line Length Presets".to_string(),
+                label: t!("preferences.reading.typography.presets.label").to_string(),
                 description: None,
-                options: MEASURE_PRESETS
-                    .iter()
-                    .map(|(label, measure)| ChoiceItem {
-                        value: *measure,
-                        label: label.to_string(),
-                    })
+                options: measure_presets()
+                    .into_iter()
+                    .map(|(label, measure)| ChoiceItem { value: measure, label })
                     .collect(),
                 selected: typography_cfg.measure,
                 on_change: move |measure| {
@@ -185,8 +213,8 @@ pub fn ReadingTab(
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Line Height" }
-                    p { class: "preference-description", "The height of a line as a multiple of the text size. Text set in long lines, or in Japanese, reads easier with more." }
+                    label { {t!("preferences.reading.typography.line_height.label").to_string()} }
+                    p { class: "preference-description", {t!("preferences.reading.typography.line_height.description").to_string()} }
                 }
                 SliderInput {
                     value: typography_cfg.line_height,
@@ -206,8 +234,8 @@ pub fn ReadingTab(
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Typeface" }
-                    p { class: "preference-description", "The face the text is set in. Code keeps its monospace face." }
+                    label { {t!("preferences.reading.typography.font_family.label").to_string()} }
+                    p { class: "preference-description", {t!("preferences.reading.typography.font_family.description").to_string()} }
                 }
                 OptionCards {
                     name: "reading-font-family".to_string(),
@@ -215,26 +243,26 @@ pub fn ReadingTab(
                         OptionCardItem {
                             icon: None,
                             value: FontFamilyChoice::Sans,
-                            title: "Sans".to_string(),
-                            description: Some("As GitHub sets it".to_string()),
+                            title: t!("preferences.reading.typography.font_family.sans.title").to_string(),
+                            description: Some(t!("preferences.reading.typography.font_family.sans.description").to_string()),
                         },
                         OptionCardItem {
                             icon: None,
                             value: FontFamilyChoice::Serif,
-                            title: "Serif".to_string(),
-                            description: Some("A book face".to_string()),
+                            title: t!("preferences.reading.typography.font_family.serif.title").to_string(),
+                            description: Some(t!("preferences.reading.typography.font_family.serif.description").to_string()),
                         },
                         OptionCardItem {
                             icon: None,
                             value: FontFamilyChoice::Mono,
-                            title: "Mono".to_string(),
-                            description: Some("Every character one width".to_string()),
+                            title: t!("preferences.reading.typography.font_family.mono.title").to_string(),
+                            description: Some(t!("preferences.reading.typography.font_family.mono.description").to_string()),
                         },
                         OptionCardItem {
                             icon: None,
                             value: FontFamilyChoice::Custom,
-                            title: "Custom".to_string(),
-                            description: Some("A font-family of your own".to_string()),
+                            title: t!("preferences.reading.typography.font_family.custom.title").to_string(),
+                            description: Some(t!("preferences.reading.typography.font_family.custom.description").to_string()),
                         },
                     ],
                     selected: typography_cfg.font_family,
@@ -258,7 +286,7 @@ pub fn ReadingTab(
                         if typography_cfg.font_stack().is_none() {
                             p {
                                 class: "preference-description",
-                                "Not used, so the text stays in the Sans face: give a comma-separated list, quoting any name with more than letters, digits, _ and -."
+                                {t!("preferences.reading.typography.font_family.invalid").to_string()}
                             }
                         }
                     }
@@ -269,8 +297,8 @@ pub fn ReadingTab(
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Text Size" }
-                    p { class: "preference-description", "The size of the text, which headings and code follow. Zoom enlarges the whole page, images included; this sets only the text." }
+                    label { {t!("preferences.reading.typography.font_size.label").to_string()} }
+                    p { class: "preference-description", {t!("preferences.reading.typography.font_size.description").to_string()} }
                 }
                 SliderInput {
                     value: typography_cfg.font_size,
@@ -287,13 +315,13 @@ pub fn ReadingTab(
 
             ChoiceRow {
                 name: "reading-cjk-font-language".to_string(),
-                label: "CJK Font Language".to_string(),
-                description: Some("Whose faces Chinese, Japanese and Korean characters are drawn in. One Han character takes different glyphs in each language's faces; Auto leaves the face to the system. Choosing one moves Latin text off the system face on macOS (SF becomes Helvetica), since that face would draw CJK text in the system's own choice. A custom typeface is used as written.".to_string()),
+                label: t!("preferences.reading.typography.cjk_font_language.label").to_string(),
+                description: Some(t!("preferences.reading.typography.cjk_font_language.description").to_string()),
                 options: LANGUAGES
-                    .iter()
-                    .map(|(language, label)| ChoiceItem {
-                        value: *language,
-                        label: label.to_string(),
+                    .into_iter()
+                    .map(|language| ChoiceItem {
+                        value: language,
+                        label: cjk_language_label(language),
                     })
                     .collect(),
                 selected: typography_cfg.cjk_font_language,
@@ -315,16 +343,16 @@ pub fn ReadingTab(
                 }
             }
 
-            h3 { class: "preference-section-title", "Margin Trace" }
+            h3 { class: "preference-section-title", {t!("preferences.reading.trace.title").to_string()} }
 
             div {
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "When it is drawn" }
+                    label { {t!("preferences.reading.trace.when.label").to_string()} }
                     p {
                         class: "preference-description",
-                        "The documents read before this one, left at the edge of the page. It is the one window on the history nobody asks for, so it is the one you can turn off. A window too narrow to keep the document readable hides it whatever is chosen here."
+                        {t!("preferences.reading.trace.when.description").to_string()}
                     }
                 }
                 OptionCards {
@@ -333,20 +361,20 @@ pub fn ReadingTab(
                         OptionCardItem {
                             icon: None,
                             value: RecentTrace::Never,
-                            title: "Never".to_string(),
-                            description: Some("Keep the margin empty".to_string()),
+                            title: t!("preferences.reading.trace.when.never.title").to_string(),
+                            description: Some(t!("preferences.reading.trace.when.never.description").to_string()),
                         },
                         OptionCardItem {
                             icon: None,
                             value: RecentTrace::HiddenWhenSidebar,
-                            title: "Not with the panel".to_string(),
-                            description: Some("Hidden while the panel is out".to_string()),
+                            title: t!("preferences.reading.trace.when.not_with_panel.title").to_string(),
+                            description: Some(t!("preferences.reading.trace.when.not_with_panel.description").to_string()),
                         },
                         OptionCardItem {
                             icon: None,
                             value: RecentTrace::Always,
-                            title: "Always".to_string(),
-                            description: Some("Drawn whenever it fits".to_string()),
+                            title: t!("preferences.reading.trace.when.always.title").to_string(),
+                            description: Some(t!("preferences.reading.trace.when.always.description").to_string()),
                         },
                     ],
                     selected: sidebar_cfg.recent_trace,
@@ -361,8 +389,8 @@ pub fn ReadingTab(
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Documents in the Trace" }
-                    p { class: "preference-description", "How many documents the margin trace names." }
+                    label { {t!("preferences.reading.trace.count.label").to_string()} }
+                    p { class: "preference-description", {t!("preferences.reading.trace.count.description").to_string()} }
                 }
                 SliderInput {
                     value: sidebar_cfg.recent_trace_count as f64,
@@ -377,11 +405,11 @@ pub fn ReadingTab(
                 }
             }
 
-            h3 { class: "preference-section-title", "Reading Time" }
+            h3 { class: "preference-section-title", {t!("preferences.reading.reading_time.title").to_string()} }
 
             ToggleRow {
-                label: "Show reading time".to_string(),
-                description: Some("How long the document takes to read, and how long is left once you have started, beside the controls in the header. It counts the text, not the height of the page, so long code and tall diagrams do not run it ahead.".to_string()),
+                label: t!("preferences.reading.reading_time.show.label").to_string(),
+                description: Some(t!("preferences.reading.reading_time.show.description").to_string()),
                 checked: reading_cfg.show_time,
                 on_change: move |on| config.write().reading.show_time = on,
                 shipped: Some(defaults.reading.show_time),
@@ -391,8 +419,8 @@ pub fn ReadingTab(
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Words per Minute" }
-                    p { class: "preference-description", "How fast you read scripts written in words, such as English." }
+                    label { {t!("preferences.reading.reading_time.words_per_minute.label").to_string()} }
+                    p { class: "preference-description", {t!("preferences.reading.reading_time.words_per_minute.description").to_string()} }
                 }
                 SliderInput {
                     value: reading_cfg.words_per_minute as f64,
@@ -411,8 +439,8 @@ pub fn ReadingTab(
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Characters per Minute" }
-                    p { class: "preference-description", "How fast you read Chinese, Japanese and Korean, which are read a character at a time." }
+                    label { {t!("preferences.reading.reading_time.characters_per_minute.label").to_string()} }
+                    p { class: "preference-description", {t!("preferences.reading.reading_time.characters_per_minute.description").to_string()} }
                 }
                 SliderInput {
                     value: reading_cfg.characters_per_minute as f64,
@@ -431,15 +459,15 @@ pub fn ReadingTab(
                 class: "preference-item",
                 div {
                     class: "preference-item-header",
-                    label { "Shortest Document Timed" }
-                    p { class: "preference-description", "A document that takes less than this to read shows no reading time." }
+                    label { {t!("preferences.reading.reading_time.min_minutes.label").to_string()} }
+                    p { class: "preference-description", {t!("preferences.reading.reading_time.min_minutes.description").to_string()} }
                 }
                 SliderInput {
                     value: reading_cfg.min_minutes as f64,
                     min: 0.0,
                     max: 30.0,
                     step: 1.0,
-                    unit: " min".to_string(),
+                    unit: t!("preferences.reading.reading_time.min_minutes.unit").to_string(),
                     on_change: move |minutes: f64| {
                         config.write().reading.min_minutes = minutes.max(0.0) as u32;
                     },
@@ -447,19 +475,19 @@ pub fn ReadingTab(
                 }
             }
 
-            h3 { class: "preference-section-title", "Changes Since Last Read" }
+            h3 { class: "preference-section-title", {t!("preferences.reading.changes.title").to_string()} }
 
             ToggleRow {
-                label: "Mark what changed".to_string(),
-                description: Some("A line beside each block added or rewritten since the document was last read, a hairline where text was taken out, and a dot on the headings they fall under. A document counts as read when you leave it. Turned off, Arto stops keeping a copy of each document you read.".to_string()),
+                label: t!("preferences.reading.changes.show.label").to_string(),
+                description: Some(t!("preferences.reading.changes.show.description").to_string()),
                 checked: reading_cfg.show_changes,
                 on_change: move |on| config.write().reading.show_changes = on,
                 shipped: Some(defaults.reading.show_changes),
             }
 
             ToggleRow {
-                label: "Ignore spacing".to_string(),
-                description: Some("A line whose words are only spaced differently is not marked as changed.".to_string()),
+                label: t!("preferences.reading.changes.ignore_whitespace.label").to_string(),
+                description: Some(t!("preferences.reading.changes.ignore_whitespace.description").to_string()),
                 checked: reading_cfg.ignore_whitespace_changes,
                 on_change: move |on| config.write().reading.ignore_whitespace_changes = on,
                 shipped: Some(defaults.reading.ignore_whitespace_changes),

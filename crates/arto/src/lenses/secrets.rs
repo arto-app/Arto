@@ -12,6 +12,7 @@
 //! here replaces what was kept.
 
 use parking_lot::Mutex;
+use rust_i18n::t;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
@@ -87,7 +88,7 @@ async fn blocking<T: Send + 'static>(
 
 fn entry(account: &str) -> Result<keyring::Entry, String> {
     keyring::Entry::new(SERVICE, account)
-        .map_err(|error| format!("the system's credential store is not available: {error}"))
+        .map_err(|error| t!("lenses.errors.credential_store", reason = error).into_owned())
 }
 
 #[cfg(test)]

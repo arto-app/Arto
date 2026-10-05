@@ -2,6 +2,7 @@
 //! and what happens to the row it is on.
 
 use super::*;
+use rust_i18n::t;
 
 /// Clone sidebar data needed for cursor navigation, releasing the read guard.
 ///
@@ -277,9 +278,9 @@ pub(super) fn toggle_bookmark_on_cursor_or_current(state: &mut AppState) {
 
     let is_bookmarked = crate::bookmarks::toggle_bookmark(&path);
     if is_bookmarked {
-        show_action_feedback("Bookmarked");
+        show_action_feedback(&t!("keybindings.feedback.bookmarked"));
     } else {
-        show_action_feedback("Bookmark removed");
+        show_action_feedback(&t!("keybindings.feedback.bookmark_removed"));
     }
 }
 

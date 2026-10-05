@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::icon::{Icon, IconName};
 
@@ -15,7 +16,7 @@ pub(super) fn DragDropOverlay() -> Element {
                 }
                 div {
                     class: "drag-drop-text",
-                    "Drop Markdown file or directory to open"
+                    {t!("drop_overlay.message").to_string()}
                 }
             }
         }

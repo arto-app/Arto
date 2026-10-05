@@ -1,0 +1,51 @@
+lenses:
+  controls:
+    title: "Lenses"
+    working: "working…"
+    heading:
+      working: "Working"
+      page: "Page"
+      over_the_page: "Over the page"
+    original: "Original"
+    stop: "Stop %{label}"
+    being_answered: "Being answered"
+    regenerate: "Regenerate %{label} — ask again about everything"
+    attention:
+      line: "%{label} — %{state}"
+      outdated:
+        one: "%{count} outdated"
+        other: "%{count} outdated"
+      unanswered:
+        one: "%{count} not answered"
+        other: "%{count} not answered"
+      failed: "failed"
+    update:
+      retry: "Retry what failed in %{label} (%{count})"
+      regenerate: "Regenerate what changed in %{label} (%{count})"
+      continue: "Continue %{label} (%{count} left)"
+      continue_and_regenerate: "Continue %{label} and regenerate what changed (%{count})"
+    badge:
+      failed: "Failed"
+      outdated: "Outdated"
+    not_answered: "Not answered: stopped before the answer came."
+  errors:
+    no_command: "the lens has no command"
+    spawn: "cannot start %{program}: %{reason}"
+    io: "cannot talk to the command: %{reason}"
+    timeout: "the command took longer than %{seconds} seconds"
+    too_large: "the command wrote more than %{mib} MiB"
+    failed: "the command failed%{status}%{stderr}"
+    with_status: " with status %{code}"
+    not_utf8: "the command wrote something that is not UTF-8"
+    unreachable: "cannot reach the server: %{reason}"
+    status: "the server answered %{status}%{message}"
+    api_key: "cannot get the API key: %{reason}"
+    empty_key: "it is empty"
+    no_program: "the agent has no program"
+    credential_store: "the system's credential store is not available: %{reason}"
+    render: "the answer did not render: %{reason}"
+  message_shape:
+    block: "the block"
+    before: "the blocks before it"
+    after: "the blocks after it"
+    whole: "the document, or the block asked about"

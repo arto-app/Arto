@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::icon::{Icon, IconName};
 use crate::state::{AppState, Face};
@@ -50,7 +51,7 @@ pub fn Rail(on_peek: EventHandler<Face>) -> Element {
 
             RailButton {
                 icon: IconName::Folder,
-                label: "Places",
+                label: t!("sidebar.rail.places").to_string(),
                 active: showing && face == Face::Places,
                 held: held && face == Face::Places,
                 on_click: move |_| press(state, Face::Places),
@@ -58,7 +59,7 @@ pub fn Rail(on_peek: EventHandler<Face>) -> Element {
             }
             RailButton {
                 icon: IconName::Star,
-                label: "Starred",
+                label: t!("sidebar.rail.starred").to_string(),
                 active: showing && face == Face::Starred,
                 held: held && face == Face::Starred,
                 on_click: move |_| press(state, Face::Starred),
@@ -66,7 +67,7 @@ pub fn Rail(on_peek: EventHandler<Face>) -> Element {
             }
             RailButton {
                 icon: IconName::History,
-                label: "Recent",
+                label: t!("sidebar.rail.recent").to_string(),
                 active: showing && face == Face::Recent,
                 held: held && face == Face::Recent,
                 on_click: move |_| press(state, Face::Recent),
@@ -74,7 +75,7 @@ pub fn Rail(on_peek: EventHandler<Face>) -> Element {
             }
             RailButton {
                 icon: IconName::Link,
-                label: "Links",
+                label: t!("sidebar.rail.links").to_string(),
                 active: showing && face == Face::Links,
                 held: held && face == Face::Links,
                 on_click: move |_| press(state, Face::Links),
@@ -87,7 +88,7 @@ pub fn Rail(on_peek: EventHandler<Face>) -> Element {
             // peeks nothing: the panel it would show is not this panel.
             RailButton {
                 icon: IconName::Gear,
-                label: "Settings",
+                label: t!("sidebar.rail.settings").to_string(),
                 active: false,
                 held: false,
                 on_click: move |_| state.open_preferences(),
@@ -141,7 +142,7 @@ fn peek(mut dwell: Signal<u32>, on_peek: EventHandler<Face>, face: Face) {
 #[component]
 fn RailButton(
     icon: IconName,
-    label: &'static str,
+    label: String,
     active: bool,
     held: bool,
     on_click: EventHandler<()>,

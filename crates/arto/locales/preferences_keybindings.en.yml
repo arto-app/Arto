@@ -1,0 +1,43 @@
+preferences:
+  keybindings:
+    presets:
+      title: "Presets"
+      default:
+        name: "Default"
+        description: "Arrow keys, Cmd+Key, Ctrl+Tab"
+      vim:
+        description: "j/k scroll, g g, chord sequences"
+      emacs:
+        description: "Ctrl+n/p, Ctrl+x combos"
+      clear:
+        name: "Clear"
+        description: "Remove all keybindings"
+    bindings:
+      title: "Bindings"
+      filter_placeholder: "Filter by key or action..."
+      empty: "No bindings defined yet."
+      key: "Key"
+      action: "Action"
+      no_match: "No matching bindings."
+      add: "+ Add binding"
+    contexts:
+      global: "Global"
+      menu_shortcuts: "Menu Shortcuts"
+    form:
+      recording_placeholder: "Press a key..."
+      key_placeholder: "e.g. Cmd+k, g g"
+      done: "Done"
+      cancel: "Cancel"
+      record: "Record"
+      select_action: "Select action..."
+      save: "Save"
+      add: "Add"
+      delete: "Delete"
+    notice:
+      single_chord: "Menu shortcuts must be a single chord (e.g. Cmd+K)"
+      binding: "\"%{action}\" (%{context})"
+      conflicts_with: "Conflicts with %{binding}"
+      also_bound: "Also bound as %{binding} — one will shadow the other"
+      overrides: "Overrides %{binding} in this context"
+      overridden_in: "Will be overridden in: %{contexts}"
+      separator: ", "

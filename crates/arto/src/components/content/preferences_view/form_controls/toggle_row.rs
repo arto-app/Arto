@@ -1,5 +1,6 @@
 use super::ResetLine;
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 /// One on/off setting: what it is on the left, a switch on the right.
 ///
@@ -19,7 +20,14 @@ pub fn ToggleRow(
 ) -> Element {
     let reset_to = shipped
         .filter(|shipped| shipped != &checked)
-        .map(|shipped| if shipped { "on" } else { "off" }.to_string());
+        .map(|shipped| {
+            if shipped {
+                t!("preferences.controls.toggle_on")
+            } else {
+                t!("preferences.controls.toggle_off")
+            }
+            .to_string()
+        });
 
     rsx! {
         div {

@@ -1,0 +1,26 @@
+{
+  "frontend": {
+    "changes": {
+      "added": "前回読んだ後に追加されました%{when}",
+      "modified": "前回読んだ後に変更されました%{when}",
+      "removed_below": "前回読んだ後に、この下の文章が削除されました%{when}",
+      "removed_above": "前回読んだ後に、この上の文章が削除されました%{when}",
+      "when": "（%{since}）",
+      "just_now": "たった今"
+    },
+    "code_copy": {
+      "copy_code": "コードをクリップボードにコピー",
+      "copy_image": "画像としてコピー"
+    },
+    "lenses": {
+      "original_handle": "原文 — Option (⌥) を押しながらブロックに重ねても表示できます"
+    },
+    "link_preview": {
+      "unavailable": "プレビューはありません",
+      "read_more": "開いて続きを読む…"
+    },
+    "viewer": {
+      "rendering_error": "描画エラー:"
+    }
+  }
+}

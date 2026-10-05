@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::document_name::DocumentName;
 use crate::components::icon::{Icon, IconName};
@@ -71,7 +72,7 @@ pub fn Breadcrumb(label: String) -> Element {
                 class: if is_open() { "open" },
                 // No `title`: it would land on the list this opens. See the
                 // app menu's glyph in `components::header`.
-                "aria-label": "Recently read",
+                "aria-label": t!("breadcrumb.label").to_string(),
                 onclick: move |_| is_open.toggle(),
                 if !prefix.is_empty() {
                     span { class: "breadcrumb-prefix", "{prefix}" }
@@ -92,7 +93,7 @@ pub fn Breadcrumb(label: String) -> Element {
                     class: "breadcrumb-menu",
 
                     if rows.is_empty() {
-                        div { class: "breadcrumb-empty", "Nothing else read yet" }
+                        div { class: "breadcrumb-empty", {t!("breadcrumb.empty").to_string()} }
                     }
 
                     // Grouped by day, like every other window on this history:
@@ -137,7 +138,7 @@ pub fn Breadcrumb(label: String) -> Element {
                             is_open.set(false);
                         },
                         Icon { name: IconName::History, size: 14 }
-                        span { class: "breadcrumb-row-name", "All history…" }
+                        span { class: "breadcrumb-row-name", {t!("breadcrumb.all_history").to_string()} }
                     }
                 }
             }

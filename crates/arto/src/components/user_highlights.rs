@@ -8,6 +8,7 @@
 //! listed at the end, faint, so the reader can see it was lost and let it go.
 
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::collections::HashMap;
 
 use crate::components::icon::{Icon, IconName};
@@ -66,9 +67,9 @@ fn heading_of(
 /// is one, since the row shows only its start.
 fn row_title(lost: bool, note: Option<&str>) -> String {
     match (lost, note) {
-        (true, _) => "Not found in the document".to_string(),
+        (true, _) => t!("contents.highlights.not_found").to_string(),
         (false, Some(note)) => note.to_string(),
-        (false, None) => "Go to the highlight".to_string(),
+        (false, None) => t!("contents.highlights.go_to").to_string(),
     }
 }
 
@@ -84,7 +85,7 @@ pub fn UserHighlights() -> Element {
     let headings = state.headings.read().clone();
 
     rsx! {
-        div { class: "contents-toc-label", "Highlights" }
+        div { class: "contents-toc-label", {t!("contents.highlights.heading").to_string()} }
 
         for (highlight, lost) in in_reading_order(&highlights, &places) {
             UserHighlightRow {
@@ -151,7 +152,7 @@ fn UserHighlightRow(
 
                 button {
                     class: "contents-toc-pin-dot {color.css_class()}",
-                    title: "Colour, remove",
+                    title: t!("contents.highlights.row").to_string(),
                     onclick: move |evt: Event<MouseData>| {
                         evt.stop_propagation();
                         show_popover.toggle();
@@ -182,7 +183,7 @@ fn UserHighlightRow(
                     class: "color-palette-popover",
 
                     if lost {
-                        span { class: "color-palette-note", "Not found in the document" }
+                        span { class: "color-palette-note", {t!("contents.highlights.not_found").to_string()} }
                     } else {
                         for choice in HighlightColor::ALL {
                             button {
@@ -209,7 +210,7 @@ fn UserHighlightRow(
 
                     button {
                         class: "color-palette-action color-palette-remove",
-                        title: "Remove",
+                        title: t!("contents.highlights.remove").to_string(),
                         onclick: remove,
                         Icon { name: IconName::Trash, size: 18 }
                     }

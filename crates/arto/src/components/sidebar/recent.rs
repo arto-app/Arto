@@ -1,5 +1,6 @@
 use chrono::Local;
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::document_name::DocumentName;
 use crate::components::icon::{Icon, IconName};
@@ -72,7 +73,7 @@ pub fn RecentFace() -> Element {
                 class: "left-sidebar-face-list",
 
             if groups.is_empty() {
-                div { class: "left-sidebar-explorer-empty", "Nothing read yet" }
+                div { class: "left-sidebar-explorer-empty", {t!("sidebar.recent.empty").to_string()} }
             }
 
             for (bucket, entries) in groups {

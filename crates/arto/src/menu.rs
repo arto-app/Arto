@@ -8,6 +8,7 @@ pub mod dock;
 use dioxus_desktop::muda::accelerator::Accelerator;
 use dioxus_desktop::muda::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use dioxus_desktop::window;
+use rust_i18n::t;
 use std::cell::RefCell;
 
 use crate::config::CONFIG;
@@ -119,19 +120,19 @@ thread_local! {
 struct RegisteredMenuItem {
     id: MenuId,
     item: MenuItem,
-    base_label: &'static str,
+    base_label: String,
 }
 
 /// Create a menu item, deriving its native accelerator (or cosmetic hint) from
 /// the current menu-shortcut config, and register it for later refresh.
-fn create_menu_item(id: MenuId, label: &'static str) -> MenuItem {
+fn create_menu_item(id: MenuId, label: &str) -> MenuItem {
     let item = MenuItem::with_id(id.as_str(), label, true, None::<Accelerator>);
     apply_menu_shortcut(id, &item, label);
     MENU_ITEMS.with(|items| {
         items.borrow_mut().push(RegisteredMenuItem {
             id,
             item: item.clone(),
-            base_label: label,
+            base_label: label.to_string(),
         });
     });
     item
@@ -179,7 +180,7 @@ fn menu_shortcut_key_for_action(action: &str) -> Option<String> {
 pub fn refresh_menu_accelerators() {
     MENU_ITEMS.with(|items| {
         for registered in items.borrow().iter() {
-            apply_menu_shortcut(registered.id, &registered.item, registered.base_label);
+            apply_menu_shortcut(registered.id, &registered.item, &registered.base_label);
         }
     });
 }
@@ -240,11 +241,11 @@ fn add_app_menu(menu: &Menu) {
 
     arto_menu
         .append_items(&[
-            &create_menu_item(MenuId::About, "About Arto"),
+            &create_menu_item(MenuId::About, &t!("menu.app.about")),
             &PredefinedMenuItem::separator(),
-            &create_menu_item(MenuId::Preferences, "Preferences..."),
+            &create_menu_item(MenuId::Preferences, &t!("menu.app.preferences")),
             &PredefinedMenuItem::separator(),
-            &PredefinedMenuItem::quit(Some("Quit")),
+            &PredefinedMenuItem::quit(Some(t!("menu.app.quit").as_ref())),
         ])
         .unwrap();
 
@@ -252,23 +253,23 @@ fn add_app_menu(menu: &Menu) {
 }
 
 fn add_file_menu(menu: &Menu) {
-    let file_menu = Submenu::new("File", true);
+    let file_menu = Submenu::new(t!("menu.file.title"), true);
 
     file_menu
         .append_items(&[
-            &create_menu_item(MenuId::NewWindow, "New Window"),
-            &create_menu_item(MenuId::DuplicateWindow, "Duplicate Window"),
-            &create_menu_item(MenuId::NewDocument, "New Document"),
+            &create_menu_item(MenuId::NewWindow, &t!("menu.file.new_window")),
+            &create_menu_item(MenuId::DuplicateWindow, &t!("menu.file.duplicate_window")),
+            &create_menu_item(MenuId::NewDocument, &t!("menu.file.new_document")),
             &PredefinedMenuItem::separator(),
-            &create_menu_item(MenuId::Open, "Open File..."),
-            &create_menu_item(MenuId::OpenDirectory, "Open Directory..."),
+            &create_menu_item(MenuId::Open, &t!("menu.file.open")),
+            &create_menu_item(MenuId::OpenDirectory, &t!("menu.file.open_directory")),
             &PredefinedMenuItem::separator(),
-            &create_menu_item(MenuId::CopyFilePath, "Copy File Path"),
-            &create_menu_item(MenuId::RevealInFinder, "Reveal in Finder"),
+            &create_menu_item(MenuId::CopyFilePath, &t!("menu.file.copy_file_path")),
+            &create_menu_item(MenuId::RevealInFinder, &t!("menu.file.reveal_in_finder")),
             &PredefinedMenuItem::separator(),
-            &create_menu_item(MenuId::CloseWindow, "Close Window"),
+            &create_menu_item(MenuId::CloseWindow, &t!("menu.file.close_window")),
             &PredefinedMenuItem::separator(),
-            &create_menu_item(MenuId::Print, "Print..."),
+            &create_menu_item(MenuId::Print, &t!("menu.file.print")),
         ])
         .unwrap();
 
@@ -276,19 +277,19 @@ fn add_file_menu(menu: &Menu) {
 }
 
 fn add_edit_menu(menu: &Menu) {
-    let edit_menu = Submenu::new("Edit", true);
+    let edit_menu = Submenu::new(t!("menu.edit.title"), true);
 
     edit_menu
         .append_items(&[
-            &PredefinedMenuItem::cut(Some("Cut")),
-            &PredefinedMenuItem::copy(Some("Copy")),
-            &PredefinedMenuItem::paste(Some("Paste")),
+            &PredefinedMenuItem::cut(Some(t!("menu.edit.cut").as_ref())),
+            &PredefinedMenuItem::copy(Some(t!("menu.edit.copy").as_ref())),
+            &PredefinedMenuItem::paste(Some(t!("menu.edit.paste").as_ref())),
             &PredefinedMenuItem::separator(),
-            &PredefinedMenuItem::select_all(Some("Select All")),
+            &PredefinedMenuItem::select_all(Some(t!("menu.edit.select_all").as_ref())),
             &PredefinedMenuItem::separator(),
-            &create_menu_item(MenuId::Find, "Find..."),
-            &create_menu_item(MenuId::FindNext, "Find Next"),
-            &create_menu_item(MenuId::FindPrevious, "Find Previous"),
+            &create_menu_item(MenuId::Find, &t!("menu.edit.find")),
+            &create_menu_item(MenuId::FindNext, &t!("menu.edit.find_next")),
+            &create_menu_item(MenuId::FindPrevious, &t!("menu.edit.find_previous")),
         ])
         .unwrap();
 
@@ -296,16 +297,19 @@ fn add_edit_menu(menu: &Menu) {
 }
 
 fn add_view_menu(menu: &Menu) {
-    let view_menu = Submenu::new("View", true);
+    let view_menu = Submenu::new(t!("menu.view.title"), true);
 
     view_menu
         .append_items(&[
-            &create_menu_item(MenuId::ToggleLeftSidebar, "Toggle Left Sidebar"),
-            &create_menu_item(MenuId::ToggleFocusMode, "Focus Mode"),
+            &create_menu_item(
+                MenuId::ToggleLeftSidebar,
+                &t!("menu.view.toggle_left_sidebar"),
+            ),
+            &create_menu_item(MenuId::ToggleFocusMode, &t!("menu.view.focus_mode")),
             &PredefinedMenuItem::separator(),
-            &create_menu_item(MenuId::ActualSize, "Actual Size"),
-            &create_menu_item(MenuId::ZoomIn, "Zoom In"),
-            &create_menu_item(MenuId::ZoomOut, "Zoom Out"),
+            &create_menu_item(MenuId::ActualSize, &t!("menu.view.actual_size")),
+            &create_menu_item(MenuId::ZoomIn, &t!("menu.view.zoom_in")),
+            &create_menu_item(MenuId::ZoomOut, &t!("menu.view.zoom_out")),
         ])
         .unwrap();
 
@@ -313,12 +317,12 @@ fn add_view_menu(menu: &Menu) {
 }
 
 fn add_history_menu(menu: &Menu) {
-    let history_menu = Submenu::new("History", true);
+    let history_menu = Submenu::new(t!("menu.history.title"), true);
 
     history_menu
         .append_items(&[
-            &create_menu_item(MenuId::GoBack, "Go Back"),
-            &create_menu_item(MenuId::GoForward, "Go Forward"),
+            &create_menu_item(MenuId::GoBack, &t!("menu.history.back")),
+            &create_menu_item(MenuId::GoForward, &t!("menu.history.forward")),
         ])
         .unwrap();
 
@@ -326,12 +330,18 @@ fn add_history_menu(menu: &Menu) {
 }
 
 fn add_window_menu(menu: &Menu) {
-    let window_menu = Submenu::new("Window", true);
+    let window_menu = Submenu::new(t!("menu.window.title"), true);
 
     window_menu
         .append_items(&[
-            &create_menu_item(MenuId::CloseAllChildWindows, "Close All Child Windows"),
-            &create_menu_item(MenuId::CloseAllWindows, "Close All Windows"),
+            &create_menu_item(
+                MenuId::CloseAllChildWindows,
+                &t!("menu.window.close_all_child_windows"),
+            ),
+            &create_menu_item(
+                MenuId::CloseAllWindows,
+                &t!("menu.window.close_all_windows"),
+            ),
         ])
         .unwrap();
 
@@ -339,10 +349,13 @@ fn add_window_menu(menu: &Menu) {
 }
 
 fn add_help_menu(menu: &Menu) {
-    let help_menu = Submenu::new("Help", true);
+    let help_menu = Submenu::new(t!("menu.help.title"), true);
 
     help_menu
-        .append(&create_menu_item(MenuId::GoToHomepage, "Go to Homepage"))
+        .append(&create_menu_item(
+            MenuId::GoToHomepage,
+            &t!("menu.help.homepage"),
+        ))
         .unwrap();
 
     menu.append(&help_menu).unwrap();

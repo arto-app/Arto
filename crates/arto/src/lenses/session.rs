@@ -5,6 +5,7 @@ use super::agent::{ApiKey, Decoder, Input, Invocation, Transport, SYSTEM_PROMPT}
 use super::job::{Job, Request};
 use super::runner;
 use super::{app_server, http};
+use rust_i18n::t;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -112,7 +113,9 @@ pub(crate) async fn api_key(
     };
     let key = key.trim().to_string();
     if key.is_empty() {
-        return Err(runner::RunError::ApiKey("it is empty".to_string()));
+        return Err(runner::RunError::ApiKey(
+            t!("lenses.errors.empty_key").into_owned(),
+        ));
     }
     Ok(Some(key))
 }

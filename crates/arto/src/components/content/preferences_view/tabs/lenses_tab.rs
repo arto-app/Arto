@@ -2,8 +2,9 @@ use super::super::form_controls::{ChoiceItem, ChoiceRow, OptionCardItem, OptionC
 use crate::components::icon::{Icon, IconName};
 use crate::components::reorder::{drop_side, DragRow};
 use crate::config::{
-    lens_problems, unused_lens_id, usable_lenses, Config, Lens, LensAgent, LensDisplay, LensRecipe,
-    LensTarget, LensUnit, RecipeBlanks, MAX_LENS_CONCURRENCY, MAX_LENS_CONTEXT,
+    lens_problems, unused_lens_id, usable_lenses, Config, Lens, LensAgent, LensCapability,
+    LensDisplay, LensError, LensRecipe, LensTarget, LensUnit, RecipeBlanks, MAX_LENS_CONCURRENCY,
+    MAX_LENS_CONTEXT,
 };
 use crate::keybindings::lens_shortcut_holder;
 use crate::lenses::{
@@ -11,6 +12,7 @@ use crate::lenses::{
     store_key, ModelSource,
 };
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -39,13 +41,13 @@ pub fn LensesTab(config: Signal<Config>) -> Element {
 
             p {
                 class: "preference-lede",
-                "An agent or a command that looks at the document you are reading and shows its answer with it — a translation in the page's places, a summary from the header, a note beside each paragraph. Nothing is sent anywhere until you open one."
+                {t!("preferences.lenses.lede").to_string()}
             }
 
-            h3 { class: "preference-section-title", "Lenses" }
+            h3 { class: "preference-section-title", {t!("preferences.lenses.lenses_title").to_string()} }
 
             if lenses.is_empty() {
-                p { class: "preference-description lens-empty", "No lenses yet. Start from a recipe below, or from a blank one." }
+                p { class: "preference-description lens-empty", {t!("preferences.lenses.empty").to_string()} }
             }
 
             for (index, (lens, problem)) in lenses.into_iter().zip(problems).enumerate() {
@@ -54,7 +56,7 @@ pub fn LensesTab(config: Signal<Config>) -> Element {
                     config,
                     index,
                     lens,
-                    problem: problem.map(|problem| problem.to_string()),
+                    problem: problem.map(|problem| problem_text(&problem)),
                     open,
                     is_dragging: dragging.read().as_ref().map(|(at, _)| *at) == Some(index),
                     drop_side: drop_side(&dragging.read(), &drop_target.read(), index),
@@ -82,14 +84,14 @@ pub fn LensesTab(config: Signal<Config>) -> Element {
                         add(Lens::new(id));
                     },
                     Icon { name: IconName::Add, size: 14 }
-                    span { "Blank lens" }
+                    span { {t!("preferences.lenses.blank").to_string()} }
                 }
             }
 
-            h3 { class: "preference-section-title", "Start from a recipe" }
+            h3 { class: "preference-section-title", {t!("preferences.lenses.recipes.title").to_string()} }
             p {
                 class: "preference-description",
-                "A lens written in advance: pick one, fill in the language and who answers, and add it."
+                {t!("preferences.lenses.recipes.description").to_string()}
             }
             RecipePicker {
                 taken: config.read().lenses.clone(),
@@ -153,7 +155,8 @@ fn RecipePicker(
     });
     let problem = draft
         .as_ref()
-        .and_then(|lens| lens_problems(std::slice::from_ref(lens)).remove(0));
+        .and_then(|lens| lens_problems(std::slice::from_ref(lens)).remove(0))
+        .map(|problem| problem_text(&problem));
     let filled = blanks.read().clone();
 
     rsx! {
@@ -182,9 +185,9 @@ fn RecipePicker(
                         div {
                             class: "lens-recipe-head",
                             Icon { name: recipe_icon(option), size: 20, class: "lens-recipe-icon" }
-                            span { class: "lens-recipe-title", "{option.title()}" }
+                            span { class: "lens-recipe-title", "{recipe_title(option)}" }
                         }
-                        span { class: "lens-recipe-desc", "{option.description()}" }
+                        span { class: "lens-recipe-desc", "{recipe_description(option)}" }
                         span { class: "lens-recipe-tag", "{display_title(option.display())}" }
                     }
                 }
@@ -197,42 +200,42 @@ fn RecipePicker(
                         div {
                             class: "lens-language-pair",
                             TextField {
-                                label: "Between",
-                                hint: "Text in this language is translated into the other.",
+                                label: t!("preferences.lenses.recipes.between.label"),
+                                hint: t!("preferences.lenses.recipes.between.hint"),
                                 value: filled.languages[0].clone(),
                                 on_input: move |text: String| blanks.write().languages[0] = text,
                             }
                             span { class: "lens-language-swap", "aria-hidden": "true", "⇄" }
                             TextField {
-                                label: "And",
-                                hint: "Text in this language is translated into the other; text in any other language, into this one.",
+                                label: t!("preferences.lenses.recipes.and.label"),
+                                hint: t!("preferences.lenses.recipes.and.hint"),
                                 value: filled.languages[1].clone(),
                                 on_input: move |text: String| blanks.write().languages[1] = text,
                             }
                         }
                     } else {
                         TextField {
-                            label: "Language",
-                            hint: "The language the answer is written in, named in English.",
+                            label: t!("preferences.lenses.recipes.language.label"),
+                            hint: t!("preferences.lenses.recipes.language.hint"),
                             value: filled.language.clone(),
                             on_input: move |text: String| blanks.write().language = text,
                         }
                     }
                     if chosen.asks_audience() {
                         TextField {
-                            label: "For whom",
-                            hint: "Who the explanation is written for — a newcomer to the subject when left empty.",
+                            label: t!("preferences.lenses.recipes.audience.label"),
+                            hint: t!("preferences.lenses.recipes.audience.hint"),
                             value: filled.audience.clone(),
                             on_input: move |text: String| blanks.write().audience = text,
                         }
                     }
                     ChoiceRow {
                         name: "recipe-agent".to_string(),
-                        label: "Asks".to_string(),
-                        description: Some(filled.agent.profile().introduction.to_string()),
+                        label: t!("preferences.lenses.asks.label").to_string(),
+                        description: Some(agent_introduction(filled.agent)),
                         options: LensAgent::ALL
                             .into_iter()
-                            .map(|agent| ChoiceItem { value: agent, label: agent_name(Some(agent)).to_string() })
+                            .map(|agent| ChoiceItem { value: agent, label: agent_name(Some(agent)) })
                             .collect::<Vec<_>>(),
                         selected: filled.agent,
                         on_change: move |agent| {
@@ -247,17 +250,17 @@ fn RecipePicker(
                         source: ModelSource::of(&draft),
                         key_revision,
                         hint: match chosen.model(filled.agent) {
-                            Some(model) => format!("The recipe's choice for {}: {model}.", agent_name(Some(filled.agent))),
-                            None if filled.agent.is_server() => "Required: pick one the server offers.".to_string(),
-                            None => "Left empty, the agent's own default.".to_string(),
+                            Some(model) => t!("preferences.lenses.model.recipe_choice", agent = agent_name(Some(filled.agent)), model = model).to_string(),
+                            None if filled.agent.is_server() => t!("preferences.lenses.model.required_pick").to_string(),
+                            None => t!("preferences.lenses.model.default").to_string(),
                         },
                         value: filled.model.clone(),
                         on_input: move |text: String| blanks.write().model = text,
                     }
-                    if let Some(server) = filled.agent.server().filter(|server| server.remote) {
+                    if filled.agent.server().is_some_and(|server| server.remote) {
                         TextField {
-                            label: "Endpoint",
-                            hint: server.endpoint_hint,
+                            label: t!("preferences.lenses.endpoint.label"),
+                            hint: endpoint_hint(filled.agent),
                             value: filled.endpoint.clone(),
                             monospace: true,
                             on_input: move |text: String| blanks.write().endpoint = text,
@@ -272,7 +275,7 @@ fn RecipePicker(
                         }
                     }
                     if let Some(problem) = &problem {
-                        p { class: "lens-card-problem", "Not ready: {problem}" }
+                        p { class: "lens-card-problem", {t!("preferences.lenses.problem.not_ready", problem = problem).to_string()} }
                     }
                     div {
                         class: "lens-add-line",
@@ -288,14 +291,14 @@ fn RecipePicker(
                                     }
                                 },
                                 Icon { name: IconName::Add, size: 14 }
-                                span { "Add “{draft.label}”" }
+                                span { {t!("preferences.lenses.recipes.add", label = draft.label).to_string()} }
                             }
                         }
                         button {
                             class: "lens-button",
                             r#type: "button",
                             onclick: move |_| recipe.set(None),
-                            "Cancel"
+                            {t!("preferences.lenses.cancel").to_string()}
                         }
                     }
                 }
@@ -364,40 +367,180 @@ fn argv(text: &str) -> Vec<String> {
 }
 
 /// What a display does, in the words the cards and the list use.
-fn display_title(display: LensDisplay) -> &'static str {
-    match display {
-        LensDisplay::Page => "Replaces the page",
-        LensDisplay::Popover => "One answer on request",
-        LensDisplay::Annotate => "A note beside each block",
-    }
+fn display_title(display: LensDisplay) -> String {
+    let title = match display {
+        LensDisplay::Page => t!("preferences.lenses.display.page.title"),
+        LensDisplay::Popover => t!("preferences.lenses.display.popover.title"),
+        LensDisplay::Annotate => t!("preferences.lenses.display.annotate.title"),
+    };
+    title.into_owned()
 }
 
-fn display_description(display: LensDisplay) -> &'static str {
-    match display {
-        LensDisplay::Page => {
-            "The answer takes the document's places, block by block from the top as it is written. For a translation."
-        }
-        LensDisplay::Popover => {
-            "Asked for the whole document from the header, or for one block from its menu, and shown in a popover. For a summary."
-        }
-        LensDisplay::Annotate => {
-            "Every block is asked about on its own; each answer waits behind a mark in the margin. For a gloss or an explanation."
-        }
-    }
+fn display_description(display: LensDisplay) -> String {
+    let description = match display {
+        LensDisplay::Page => t!("preferences.lenses.display.page.description"),
+        LensDisplay::Popover => t!("preferences.lenses.display.popover.description"),
+        LensDisplay::Annotate => t!("preferences.lenses.display.annotate.description"),
+    };
+    description.into_owned()
 }
 
 /// How to write the prompt for a lens shown as `display`: how the text
 /// reaches the agent, and so what the prompt can call it.
-fn prompt_hint(display: LensDisplay) -> &'static str {
-    if display.is_per_block() {
-        "What the agent is asked about each block. The block comes after your prompt between <text> and </text>, and the blocks around it between <before> and </before> and <after> and </after> — so the prompt can say \"explain the terms in <text>\" and tell the agent to use the others as context only. An answer of <nothing/> alone leaves the block unmarked, so a prompt can say \"if there is nothing worth noting, answer with exactly <nothing/>\". Left empty, the agent is handed the block alone."
+fn prompt_hint(display: LensDisplay) -> String {
+    let hint = if display.is_per_block() {
+        t!("preferences.lenses.prompt.per_block")
     } else {
-        "What the agent is asked to do with the text, which comes after your prompt and a blank line with nothing around it — call it \"the text\". Left empty, the agent is handed the text alone, which is what a model trained for one task, such as translation, expects."
+        t!("preferences.lenses.prompt.whole")
+    };
+    hint.into_owned()
+}
+
+/// What an agent is called. A product's own name is not translated; a
+/// program of the reader's own is.
+fn agent_name(agent: Option<LensAgent>) -> String {
+    match agent {
+        Some(agent) => agent.profile().name.to_string(),
+        None => t!("preferences.lenses.agents.command.name").into_owned(),
     }
 }
 
-fn agent_name(agent: Option<LensAgent>) -> &'static str {
-    agent.map_or("Command", |agent| agent.profile().name)
+/// What choosing `agent` means, for someone setting a lens up from a recipe.
+fn agent_introduction(agent: LensAgent) -> String {
+    let introduction = match agent {
+        LensAgent::Claude => t!("preferences.lenses.agents.claude.introduction"),
+        LensAgent::Codex => t!("preferences.lenses.agents.codex.introduction"),
+        LensAgent::Ollama => t!("preferences.lenses.agents.ollama.introduction"),
+        LensAgent::Openai => t!("preferences.lenses.agents.openai.introduction"),
+    };
+    introduction.into_owned()
+}
+
+/// What `agent` is, beside the choice in a lens's settings; a program of
+/// the reader's own when there is none.
+fn agent_description(agent: Option<LensAgent>) -> String {
+    let description = match agent {
+        Some(LensAgent::Claude) => t!("preferences.lenses.agents.claude.description"),
+        Some(LensAgent::Codex) => t!("preferences.lenses.agents.codex.description"),
+        Some(LensAgent::Ollama) => t!("preferences.lenses.agents.ollama.description"),
+        Some(LensAgent::Openai) => t!("preferences.lenses.agents.openai.description"),
+        None => t!("preferences.lenses.agents.command.description"),
+    };
+    description.into_owned()
+}
+
+/// What the endpoint setting of `agent`'s server takes.
+fn endpoint_hint(agent: LensAgent) -> String {
+    let hint = match agent {
+        LensAgent::Ollama => t!("preferences.lenses.agents.ollama.endpoint_hint"),
+        LensAgent::Openai => t!("preferences.lenses.agents.openai.endpoint_hint"),
+        LensAgent::Claude | LensAgent::Codex => return String::new(),
+    };
+    hint.into_owned()
+}
+
+/// What the preferences call a capability, and what allowing it means.
+fn capability_text(capability: LensCapability) -> (String, String) {
+    let (label, description) = match capability {
+        LensCapability::WebSearch => (
+            t!("preferences.lenses.capabilities.web_search.label"),
+            t!("preferences.lenses.capabilities.web_search.description"),
+        ),
+        LensCapability::ReadFiles => (
+            t!("preferences.lenses.capabilities.read_files.label"),
+            t!("preferences.lenses.capabilities.read_files.description"),
+        ),
+        LensCapability::Shell => (
+            t!("preferences.lenses.capabilities.shell.label"),
+            t!("preferences.lenses.capabilities.shell.description"),
+        ),
+    };
+    (label.into_owned(), description.into_owned())
+}
+
+fn recipe_title(recipe: LensRecipe) -> String {
+    let title = match recipe {
+        LensRecipe::TranslatePage => t!("preferences.lenses.recipes.translate_page.title"),
+        LensRecipe::TranslateBeside => t!("preferences.lenses.recipes.translate_beside.title"),
+        LensRecipe::Summarize => t!("preferences.lenses.recipes.summarize.title"),
+        LensRecipe::ExplainTerms => t!("preferences.lenses.recipes.explain_terms.title"),
+        LensRecipe::Critique => t!("preferences.lenses.recipes.critique.title"),
+        LensRecipe::FactCheck => t!("preferences.lenses.recipes.fact_check.title"),
+        LensRecipe::ExplainBlock => t!("preferences.lenses.recipes.explain_block.title"),
+    };
+    title.into_owned()
+}
+
+fn recipe_description(recipe: LensRecipe) -> String {
+    let description = match recipe {
+        LensRecipe::TranslatePage => t!("preferences.lenses.recipes.translate_page.description"),
+        LensRecipe::TranslateBeside => {
+            t!("preferences.lenses.recipes.translate_beside.description")
+        }
+        LensRecipe::Summarize => t!("preferences.lenses.recipes.summarize.description"),
+        LensRecipe::ExplainTerms => t!("preferences.lenses.recipes.explain_terms.description"),
+        LensRecipe::Critique => t!("preferences.lenses.recipes.critique.description"),
+        LensRecipe::FactCheck => t!("preferences.lenses.recipes.fact_check.description"),
+        LensRecipe::ExplainBlock => t!("preferences.lenses.recipes.explain_block.description"),
+    };
+    description.into_owned()
+}
+
+/// Why a lens cannot be offered. [`LensError`]'s own message stays English
+/// for the CLI; this is the same sentence in the interface's language.
+fn problem_text(problem: &LensError) -> String {
+    let id = |id: &String| format!("{id:?}");
+    let text = match problem {
+        LensError::EmptyId => t!("preferences.lenses.problems.empty_id"),
+        LensError::DuplicateId(lens) => {
+            t!("preferences.lenses.problems.duplicate_id", id = id(lens))
+        }
+        LensError::NothingToRun(lens) => {
+            t!("preferences.lenses.problems.nothing_to_run", id = id(lens))
+        }
+        LensError::AgentAndCommand(lens) => t!(
+            "preferences.lenses.problems.agent_and_command",
+            id = id(lens)
+        ),
+        LensError::MissingModel(lens) => {
+            t!("preferences.lenses.problems.missing_model", id = id(lens))
+        }
+        LensError::NotForAgent(lens, setting) => t!(
+            "preferences.lenses.problems.not_for_agent",
+            id = id(lens),
+            setting = setting
+        ),
+        LensError::NotAllowed(lens, capability, agent) => t!(
+            "preferences.lenses.problems.not_allowed",
+            id = id(lens),
+            capability = capability,
+            agent = agent
+        ),
+        LensError::UnitWithoutPage(lens) => t!(
+            "preferences.lenses.problems.unit_without_page",
+            id = id(lens)
+        ),
+        LensError::PageOnBlock(lens) => {
+            t!("preferences.lenses.problems.page_on_block", id = id(lens))
+        }
+        LensError::Shortcut(lens, reason) => t!(
+            "preferences.lenses.problems.shortcut",
+            id = id(lens),
+            reason = reason
+        ),
+        LensError::Concurrency(lens) => t!(
+            "preferences.lenses.problems.concurrency",
+            id = id(lens),
+            max = MAX_LENS_CONCURRENCY
+        ),
+        LensError::Context(lens) => t!(
+            "preferences.lenses.problems.context",
+            id = id(lens),
+            max = MAX_LENS_CONTEXT
+        ),
+        LensError::Timeout(lens) => t!("preferences.lenses.problems.timeout", id = id(lens)),
+    };
+    text.into_owned()
 }
 
 /// One lens: what it is called and does at a glance, dragged by that line
@@ -424,7 +567,7 @@ fn LensCard(
     let mut confirming = use_signal(|| false);
     let runner = match (&lens.agent, &lens.model) {
         (Some(_), Some(model)) => format!("{} · {model}", agent_name(lens.agent)),
-        _ => agent_name(lens.agent).to_string(),
+        _ => agent_name(lens.agent),
     };
     let drop_class = match drop_side {
         Some(true) => "lens-drop-after",
@@ -463,7 +606,7 @@ fn LensCard(
                     button {
                         class: "lens-icon-button",
                         class: if is_open { "active" },
-                        title: if is_open { "Close" } else { "Edit" },
+                        title: if is_open { t!("preferences.lenses.card.close").to_string() } else { t!("preferences.lenses.card.edit").to_string() },
                         onclick: move |_| open.set(if is_open { None } else { Some(index) }),
                         Icon { name: IconName::Edit, size: 16 }
                     }
@@ -476,12 +619,12 @@ fn LensCard(
                                 open.set(None);
                             },
                             onmouseleave: move |_| confirming.set(false),
-                            "Remove"
+                            {t!("preferences.lenses.card.remove").to_string()}
                         }
                     } else {
                         button {
                             class: "lens-icon-button",
-                            title: "Remove",
+                            title: t!("preferences.lenses.card.remove").to_string(),
                             onclick: move |_| confirming.set(true),
                             Icon { name: IconName::Trash, size: 16 }
                         }
@@ -490,7 +633,7 @@ fn LensCard(
             }
 
             if let Some(problem) = &problem {
-                p { class: "lens-card-problem", "Not offered: {problem}" }
+                p { class: "lens-card-problem", {t!("preferences.lenses.problem.not_offered", problem = problem).to_string()} }
             }
 
             if is_open {
@@ -527,21 +670,21 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
             class: "lens-form",
 
             TextField {
-                label: "Label",
-                hint: "What the menus call it.",
+                label: t!("preferences.lenses.form.label.label"),
+                hint: t!("preferences.lenses.form.label.hint"),
                 value: lens.label.clone(),
                 on_input: move |text: String| edit(config, index, |lens| lens.label = text),
             }
             TextField {
-                label: "ID",
-                hint: "Unique among the lenses; earlier answers are kept under it.",
+                label: t!("preferences.lenses.form.id.label"),
+                hint: t!("preferences.lenses.form.id.hint"),
                 value: lens.id.clone(),
                 monospace: true,
                 on_input: move |text: String| edit(config, index, |lens| lens.id = text.trim().to_string()),
             }
             TextField {
-                label: "Shortcut",
-                hint: "Keys that show or hide the lens while reading, written as in Keybindings: Cmd+Shift+t, or g t for one after another.",
+                label: t!("preferences.lenses.form.shortcut.label"),
+                hint: t!("preferences.lenses.form.shortcut.hint"),
                 value: lens.shortcut.clone().unwrap_or_default(),
                 monospace: true,
                 on_input: move |text: String| edit(config, index, |lens| {
@@ -550,14 +693,14 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
                 }),
             }
             if let Some(holder) = shortcut_holder {
-                p { class: "lens-card-problem", "Not bound: these keys already belong to {holder}." }
+                p { class: "lens-card-problem", {t!("preferences.lenses.form.shortcut.taken", holder = holder).to_string()} }
             }
 
             // Cards rather than a row of words: what each display does is
             // the whole of the choice, and a word for it says too little.
             div {
                 class: "lens-field",
-                span { class: "lens-field-label", "How the answer is shown" }
+                span { class: "lens-field-label", {t!("preferences.lenses.form.display").to_string()} }
                 OptionCards {
                     name: format!("lens-{index}-display"),
                     options: [LensDisplay::Page, LensDisplay::Popover, LensDisplay::Annotate]
@@ -565,8 +708,8 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
                         .map(|display| OptionCardItem {
                             icon: None,
                             value: display,
-                            title: display_title(display).to_string(),
-                            description: Some(display_description(display).to_string()),
+                            title: display_title(display),
+                            description: Some(display_description(display)),
                         })
                         .collect::<Vec<_>>(),
                     selected: lens.display,
@@ -577,11 +720,11 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
             if lens.display == LensDisplay::Page {
                 ChoiceRow {
                     name: format!("lens-{index}-unit"),
-                    label: "Handed over".to_string(),
-                    description: Some("The whole document in one run suits a general model; one block per run suits a small translation model.".to_string()),
+                    label: t!("preferences.lenses.form.unit.label").to_string(),
+                    description: Some(t!("preferences.lenses.form.unit.description").to_string()),
                     options: vec![
-                        ChoiceItem { value: LensUnit::Document, label: "Whole document".to_string() },
-                        ChoiceItem { value: LensUnit::Block, label: "Block by block".to_string() },
+                        ChoiceItem { value: LensUnit::Document, label: t!("preferences.lenses.form.unit.document").to_string() },
+                        ChoiceItem { value: LensUnit::Block, label: t!("preferences.lenses.form.unit.block").to_string() },
                     ],
                     selected: lens.unit,
                     on_change: move |unit| edit(config, index, |lens| lens.unit = unit),
@@ -589,16 +732,16 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
             } else {
                 ChoiceRow {
                     name: format!("lens-{index}-on"),
-                    label: "Looks at".to_string(),
-                    description: Some("Where the right-click menu offers it: Lens on Block, Lens on Document, or both. A shortcut shows a lens that looks at a block only over the block the cursor is on.".to_string()),
+                    label: t!("preferences.lenses.form.on.label").to_string(),
+                    description: Some(t!("preferences.lenses.form.on.description").to_string()),
                     options: LensTarget::ALL
                         .into_iter()
                         .map(|on| ChoiceItem {
                             value: on,
                             label: match on {
-                                LensTarget::Either => "Either",
-                                LensTarget::Block => "A block",
-                                LensTarget::Document => "The document",
+                                LensTarget::Either => t!("preferences.lenses.form.on.either"),
+                                LensTarget::Block => t!("preferences.lenses.form.on.block"),
+                                LensTarget::Document => t!("preferences.lenses.form.on.document"),
                             }
                             .to_string(),
                         })
@@ -610,17 +753,13 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
 
             ChoiceRow {
                 name: format!("lens-{index}-agent"),
-                label: "Asks".to_string(),
-                description: Some(
-                    lens.agent
-                        .map_or("A program of your own, handed the request as JSON.", |agent| agent.profile().description)
-                        .to_string(),
-                ),
+                label: t!("preferences.lenses.asks.label").to_string(),
+                description: Some(agent_description(lens.agent)),
                 options: LensAgent::ALL
                     .map(Some)
                     .into_iter()
                     .chain([None])
-                    .map(|agent| ChoiceItem { value: agent, label: agent_name(agent).to_string() })
+                    .map(|agent| ChoiceItem { value: agent, label: agent_name(agent) })
                     .collect::<Vec<_>>(),
                 selected: lens.agent,
                 on_change: move |agent| edit(config, index, |lens| lens.set_agent(agent)),
@@ -628,8 +767,8 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
 
             if is_command {
                 ArgvField {
-                    label: "Command",
-                    hint: "The program, then each argument on a line of its own. It is run as written, without a shell.",
+                    label: t!("preferences.lenses.form.command.label"),
+                    hint: t!("preferences.lenses.form.command.hint"),
                     value: lens.command.clone(),
                     rows: 3,
                     on_change: move |args: Vec<String>| edit(config, index, |lens| lens.command = args),
@@ -639,12 +778,12 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
                     index,
                     source: ModelSource::of(&lens),
                     key_revision,
-                    hint: if server.is_some() { "Required: the model the server runs." } else { "Left empty, the agent's own default." },
+                    hint: if server.is_some() { t!("preferences.lenses.model.required") } else { t!("preferences.lenses.model.default") },
                     value: lens.model.clone().unwrap_or_default(),
                     on_input: move |text: String| edit(config, index, |lens| lens.model = optional(text)),
                 }
                 TextArea {
-                    label: "Prompt",
+                    label: t!("preferences.lenses.form.prompt"),
                     hint: prompt_hint(lens.display),
                     value: lens.prompt.clone().unwrap_or_default(),
                     rows: 5,
@@ -654,22 +793,22 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
                 // is sent can be seen rather than taken on trust.
                 details {
                     class: "lens-message",
-                    summary { "What the agent is sent" }
+                    summary { {t!("preferences.lenses.form.message").to_string()} }
                     pre { "{message_shape(lens.display, lens.prompt.as_deref())}" }
                 }
             }
 
             if server.is_some() {
                 TextField {
-                    label: "Endpoint",
-                    hint: server.map_or("", |server| server.endpoint_hint),
+                    label: t!("preferences.lenses.endpoint.label"),
+                    hint: lens.agent.map(endpoint_hint).unwrap_or_default(),
                     value: lens.endpoint.clone().unwrap_or_default(),
                     monospace: true,
                     on_input: move |text: String| edit(config, index, |lens| lens.endpoint = optional(text)),
                 }
                 TextArea {
-                    label: "System prompt",
-                    hint: "Sent with every request.",
+                    label: t!("preferences.lenses.form.system.label"),
+                    hint: t!("preferences.lenses.form.system.hint"),
                     value: lens.system.clone().unwrap_or_default(),
                     rows: 2,
                     on_input: move |text: String| edit(config, index, |lens| lens.system = optional(text)),
@@ -683,16 +822,16 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
                     },
                 }
                 ArgvField {
-                    label: "API key command",
-                    hint: "Instead of a stored key: a program that prints it — a password manager such as 1Password's op — then each argument on a line of its own. It is run for every request.",
+                    label: t!("preferences.lenses.form.api_key_command.label"),
+                    hint: t!("preferences.lenses.form.api_key_command.hint"),
                     value: lens.api_key_command.clone(),
                     rows: 2,
                     on_change: move |args: Vec<String>| edit(config, index, |lens| lens.api_key_command = args),
                 }
             } else if !is_command {
                 TextField {
-                    label: "Program",
-                    hint: "Where the program is, when it is not found on its own.",
+                    label: t!("preferences.lenses.form.program.label"),
+                    hint: t!("preferences.lenses.form.program.hint"),
                     value: lens.program.as_ref().map(|path| path.display().to_string()).unwrap_or_default(),
                     monospace: true,
                     on_input: move |text: String| edit(config, index, |lens| lens.program = optional(text).map(PathBuf::from)),
@@ -701,8 +840,8 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
 
             if server.is_some_and(|server| server.context_length) {
                 NumberField {
-                    label: "Context length",
-                    hint: "In tokens. Left empty, sized to each request.",
+                    label: t!("preferences.lenses.form.context_length.label"),
+                    hint: t!("preferences.lenses.form.context_length.hint"),
                     value: lens.context_length.map(|length| length.to_string()).unwrap_or_default(),
                     on_input: move |text: String| {
                         let length = text.trim().parse::<u32>().ok();
@@ -717,8 +856,8 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
             for capability in lens.agent.map_or(&[][..], |agent| agent.profile().capabilities).iter().copied() {
                 ToggleRow {
                     key: "{capability}",
-                    label: capability.label().to_string(),
-                    description: Some(capability.description().to_string()),
+                    label: capability_text(capability).0,
+                    description: Some(capability_text(capability).1),
                     checked: lens.allow.contains(&capability),
                     on_change: move |on| edit(config, index, |lens| {
                         lens.allow.retain(|allowed| *allowed != capability);
@@ -732,22 +871,22 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
 
             if lens.display == LensDisplay::Annotate {
                 NumberField {
-                    label: "Context",
-                    hint: format!("Blocks on each side handed over with each block, at most {MAX_LENS_CONTEXT}."),
+                    label: t!("preferences.lenses.form.context.label"),
+                    hint: t!("preferences.lenses.form.context.hint", max = MAX_LENS_CONTEXT),
                     value: lens.context.to_string(),
                     on_input: move |text: String| set_number(config, index, &text, |lens, n| lens.context = n),
                 }
                 NumberField {
-                    label: "Runs at once",
-                    hint: format!("1 to {MAX_LENS_CONCURRENCY}."),
+                    label: t!("preferences.lenses.form.concurrency.label"),
+                    hint: t!("preferences.lenses.form.concurrency.hint", max = MAX_LENS_CONCURRENCY),
                     value: lens.concurrency.to_string(),
                     on_input: move |text: String| set_number(config, index, &text, |lens, n| lens.concurrency = n),
                 }
             }
 
             NumberField {
-                label: "Timeout",
-                hint: "Seconds one run may take before it counts as failed.",
+                label: t!("preferences.lenses.form.timeout.label"),
+                hint: t!("preferences.lenses.form.timeout.hint"),
                 value: lens.timeout_seconds.to_string(),
                 on_input: move |text: String| set_number(config, index, &text, |lens, n| lens.timeout_seconds = n),
             }
@@ -847,19 +986,19 @@ fn ModelField(
     let (models, status) = match &*offered.read() {
         None => (
             Vec::new(),
-            Some("Asking the agent for its models…".to_string()),
+            Some(t!("preferences.lenses.model.asking").into_owned()),
         ),
         Some(Ok(models)) => (models.clone(), None),
         Some(Err(reason)) => (
             Vec::new(),
-            Some(format!("The models could not be listed: {reason}")),
+            Some(t!("preferences.lenses.model.unlisted", reason = reason).into_owned()),
         ),
     };
 
     rsx! {
         label {
             class: "lens-field",
-            span { class: "lens-field-label", "Model" }
+            span { class: "lens-field-label", {t!("preferences.lenses.model.label").to_string()} }
             input {
                 class: "lens-input",
                 r#type: "text",
@@ -950,8 +1089,8 @@ fn ApiKeyField(
         return rsx! {
             div {
                 class: "lens-field",
-                span { class: "lens-field-label", "API key" }
-                span { class: "lens-field-hint", "Set the endpoint first: the key is kept for it." }
+                span { class: "lens-field-label", {t!("preferences.lenses.api_key.label").to_string()} }
+                span { class: "lens-field-hint", {t!("preferences.lenses.api_key.no_endpoint").to_string()} }
             }
         };
     };
@@ -965,22 +1104,22 @@ fn ApiKeyField(
     rsx! {
         div {
             class: "lens-field",
-            span { class: "lens-field-label", "API key" }
+            span { class: "lens-field-label", {t!("preferences.lenses.api_key.label").to_string()} }
             if is_stored && !replacing() {
                 div {
                     class: "lens-key-line",
-                    span { class: "lens-key-stored", "A key is stored for {for_account}." }
+                    span { class: "lens-key-stored", {t!("preferences.lenses.api_key.stored", account = for_account).to_string()} }
                     button {
                         class: "lens-button",
                         r#type: "button",
                         onclick: move |_| replacing.set(true),
-                        "Replace"
+                        {t!("preferences.lenses.api_key.replace").to_string()}
                     }
                     button {
                         class: "lens-button lens-button-danger",
                         r#type: "button",
                         onclick: remove,
-                        "Remove"
+                        {t!("preferences.lenses.api_key.remove").to_string()}
                     }
                 }
             } else if !asking {
@@ -990,7 +1129,7 @@ fn ApiKeyField(
                         class: "lens-input monospace",
                         r#type: "password",
                         autocomplete: "off",
-                        placeholder: "Paste the key",
+                        placeholder: t!("preferences.lenses.api_key.placeholder").to_string(),
                         value: "{draft}",
                         oninput: move |event| draft.set(event.value()),
                     }
@@ -999,7 +1138,7 @@ fn ApiKeyField(
                             class: "lens-button",
                             r#type: "button",
                             onclick: save,
-                            "Save"
+                            {t!("preferences.lenses.api_key.save").to_string()}
                         }
                     }
                     if replacing() {
@@ -1010,7 +1149,7 @@ fn ApiKeyField(
                                 draft.set(String::new());
                                 replacing.set(false);
                             },
-                            "Cancel"
+                            {t!("preferences.lenses.cancel").to_string()}
                         }
                     }
                 }
@@ -1018,9 +1157,9 @@ fn ApiKeyField(
             span {
                 class: "lens-field-hint",
                 if overridden {
-                    "Not used while an API key command is set below."
+                    {t!("preferences.lenses.api_key.overridden").to_string()}
                 } else {
-                    "Kept in the system's credential store — the Keychain on macOS — under the endpoint, never in config.json, and used by every lens that asks the same server. A server that wants no key, such as a local Ollama, needs none."
+                    {t!("preferences.lenses.api_key.hint").to_string()}
                 }
             }
             if let Some(reason) = failure().or(read_error) {

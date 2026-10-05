@@ -8,6 +8,7 @@
 //! window.
 
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -84,7 +85,9 @@ fn HighlightCard(card: OpenCard) -> Element {
             // The card is already gone, so a note that could not be written
             // cannot be handed back to it; the reader is at least told.
             if draft.changed() && !crate::highlights::annotate(&document, &id, &draft.now) {
-                crate::keybindings::dispatcher::show_action_feedback("The note could not be kept");
+                crate::keybindings::dispatcher::show_action_feedback(&t!(
+                    "highlight_card.note_not_kept"
+                ));
             }
         }
     });
@@ -175,7 +178,7 @@ fn HighlightCard(card: OpenCard) -> Element {
 
                 button {
                     class: "color-palette-action color-palette-remove",
-                    title: "Remove Highlight",
+                    title: t!("highlight_card.remove").to_string(),
                     onclick: {
                         let document = document.clone();
                         let id = id.clone();
@@ -197,8 +200,8 @@ fn HighlightCard(card: OpenCard) -> Element {
             textarea {
                 class: "highlight-card-note",
                 rows: "4",
-                placeholder: "Add a note\u{2026}",
-                aria_label: "Note",
+                placeholder: t!("highlight_card.note_placeholder").to_string(),
+                aria_label: t!("highlight_card.note_label").to_string(),
                 initial_value: "{initial}",
                 oninput: {
                     let draft = draft.clone();

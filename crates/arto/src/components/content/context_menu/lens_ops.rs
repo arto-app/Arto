@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
 use crate::components::icon::IconName;
@@ -20,7 +21,7 @@ pub(super) fn LensItems(on_close: EventHandler<()>) -> Element {
     let offered = lenses::offered_lenses();
     let submenus = [
         (
-            "Lens on Block",
+            t!("context_menu.lenses.on_block").to_string(),
             Scope::Cursor,
             offered
                 .iter()
@@ -29,7 +30,7 @@ pub(super) fn LensItems(on_close: EventHandler<()>) -> Element {
                 .collect::<Vec<_>>(),
         ),
         (
-            "Lens on Document",
+            t!("context_menu.lenses.on_document").to_string(),
             Scope::Document,
             offered
                 .iter()
@@ -108,34 +109,34 @@ fn OpenLensItems(run: LensRun, on_close: EventHandler<()>) -> Element {
 
     rsx! {
         if run.applied {
-            ContextMenuItem { label: "Hide", icon: Some(IconName::ApertureOff), on_click: act(lenses::hide_run) }
+            ContextMenuItem { label: t!("context_menu.lenses.hide").to_string(), icon: Some(IconName::ApertureOff), on_click: act(lenses::hide_run) }
         } else {
-            ContextMenuItem { label: "Show", icon: Some(IconName::Aperture), on_click: act(lenses::show) }
+            ContextMenuItem { label: t!("context_menu.lenses.show").to_string(), icon: Some(IconName::Aperture), on_click: act(lenses::show) }
         }
         if run.is_running() {
-            ContextMenuItem { label: "Stop", icon: Some(IconName::Close), on_click: act(lenses::stop_run) }
+            ContextMenuItem { label: t!("context_menu.lenses.stop").to_string(), icon: Some(IconName::Close), on_click: act(lenses::stop_run) }
         } else if run.unanswered > 0 {
             ContextMenuItem {
-                label: format!("Continue ({} left)", run.stale()),
+                label: t!("context_menu.lenses.continue", count = run.stale()).to_string(),
                 icon: Some(IconName::Refresh),
                 on_click: act(lenses::regenerate),
             }
         } else if run.outdated > 0 {
             ContextMenuItem {
-                label: format!("Regenerate what changed ({})", run.stale()),
+                label: t!("context_menu.lenses.regenerate_changed", count = run.stale()).to_string(),
                 icon: Some(IconName::Refresh),
                 on_click: act(lenses::regenerate),
             }
         } else if run.failed > 0 {
             ContextMenuItem {
-                label: format!("Retry what failed ({})", run.failed),
+                label: t!("context_menu.lenses.retry_failed", count = run.failed).to_string(),
                 icon: Some(IconName::Refresh),
                 on_click: act(lenses::regenerate),
             }
         }
         if !run.is_running() {
             ContextMenuItem {
-                label: "Regenerate all",
+                label: t!("context_menu.lenses.regenerate_all").to_string(),
                 icon: Some(IconName::Refresh),
                 on_click: act(lenses::regenerate_all),
             }
@@ -144,7 +145,7 @@ fn OpenLensItems(run: LensRun, on_close: EventHandler<()>) -> Element {
             // Open over one block, it looks at the block the menu was
             // opened on only when asked again.
             ContextMenuItem {
-                label: "Look at this block",
+                label: t!("context_menu.lenses.look_at_block").to_string(),
                 icon: Some(IconName::Aperture),
                 on_click: {
                     let id = run.lens_id.clone();
@@ -156,7 +157,7 @@ fn OpenLensItems(run: LensRun, on_close: EventHandler<()>) -> Element {
             }
         } else {
             ContextMenuItem {
-                label: if confirming() { "Click again to delete its answers" } else { "Forget its answers…" },
+                label: if confirming() { t!("context_menu.lenses.confirm_forget").to_string() } else { t!("context_menu.lenses.forget").to_string() },
                 icon: Some(IconName::Trash),
                 on_click: move |_| {
                     if confirming() {

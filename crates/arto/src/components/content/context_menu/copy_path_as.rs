@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::path::PathBuf;
 
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
@@ -18,17 +19,17 @@ pub(super) fn CopyPathAsSubmenu(
 
     rsx! {
         ContextMenuSubmenu {
-            label: "Copy Path As...",
+            label: t!("context_menu.copy_path_as").to_string(),
             icon: Some(IconName::Copy),
 
             ContextMenuItem {
-                label: "Path",
+                label: t!("context_menu.path").to_string(),
                 icon: Some(IconName::File),
                 on_click: {
                     let path_str = path_str.clone();
                     move |_| {
                         crate::utils::clipboard::copy_text(&path_str);
-                        crate::keybindings::dispatcher::show_action_feedback("Copied");
+                        crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
                         on_close.call(());
                     }
                 },
@@ -36,13 +37,13 @@ pub(super) fn CopyPathAsSubmenu(
 
             if let Some(line) = source_line {
                 ContextMenuItem {
-                    label: format!("Path with Line ({line})"),
+                    label: t!("context_menu.path_with_line", line = line).to_string(),
                     icon: Some(IconName::File),
                     on_click: {
                         let value = format!("{path_str}:{line}");
                         move |_| {
                             crate::utils::clipboard::copy_text(&value);
-                            crate::keybindings::dispatcher::show_action_feedback("Copied");
+                            crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
                             on_close.call(());
                         }
                     },
@@ -52,13 +53,13 @@ pub(super) fn CopyPathAsSubmenu(
             if has_range {
                 if let (Some(start), Some(end)) = (source_line, source_line_end) {
                     ContextMenuItem {
-                        label: format!("Path with Range ({start}-{end})"),
+                        label: t!("context_menu.path_with_range", start = start, end = end).to_string(),
                         icon: Some(IconName::File),
                         on_click: {
                             let value = format!("{path_str}:{start}-{end}");
                             move |_| {
                                 crate::utils::clipboard::copy_text(&value);
-                                crate::keybindings::dispatcher::show_action_feedback("Copied");
+                                crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
                                 on_close.call(());
                             }
                         },

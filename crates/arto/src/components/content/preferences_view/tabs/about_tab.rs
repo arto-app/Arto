@@ -2,11 +2,16 @@ use crate::components::icon::{Icon, IconName};
 use crate::config::Config;
 use crate::utils::file_operations;
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 #[component]
 pub fn AboutTab() -> Element {
     let icon = crate::assets::app_icon_data_url();
-    let version_text = format!("Version {}", env!("ARTO_BUILD_VERSION"));
+    let version_text = t!(
+        "preferences.about.version",
+        version = env!("ARTO_BUILD_VERSION")
+    )
+    .to_string();
     let config_dir_path = Config::path()
         .parent()
         .map(|p| p.to_path_buf())
@@ -40,13 +45,13 @@ pub fn AboutTab() -> Element {
 
                 // Description
                 p { class: "about-description",
-                    "A local app that faithfully recreates GitHub-style Markdown rendering for a beautiful reading experience."
+                    {t!("preferences.about.description").to_string()}
                 }
 
                 // Configuration directory
                 div {
                     class: "about-config-dir",
-                    p { class: "about-config-dir-label", "Configuration Directory" }
+                    p { class: "about-config-dir-label", {t!("preferences.about.config_dir").to_string()} }
                     div {
                         class: "about-config-dir-row",
                         input {
@@ -64,7 +69,7 @@ pub fn AboutTab() -> Element {
                                 }
                             },
                             span { class: "about-link-icon", Icon { name: IconName::FolderOpen, size: 18 } }
-                            span { class: "about-link-text", "Open in Finder" }
+                            span { class: "about-link-text", {t!("preferences.about.open_in_finder").to_string()} }
                         }
                     }
                 }
@@ -78,7 +83,7 @@ pub fn AboutTab() -> Element {
                         rel: "noopener noreferrer",
                         class: "about-link",
                         span { class: "about-link-icon", Icon { name: IconName::BrandGithub, size: 20 } }
-                        span { class: "about-link-text", "View on GitHub" }
+                        span { class: "about-link-text", {t!("preferences.about.view_on_github").to_string()} }
                     }
                     a {
                         href: "https://github.com/arto-app/Arto/issues",
@@ -86,14 +91,14 @@ pub fn AboutTab() -> Element {
                         rel: "noopener noreferrer",
                         class: "about-link",
                         span { class: "about-link-icon", Icon { name: IconName::Bug, size: 20 } }
-                        span { class: "about-link-text", "Report an Issue" }
+                        span { class: "about-link-text", {t!("preferences.about.report_issue").to_string()} }
                     }
                 }
 
                 // Footer
                 div {
                     class: "about-footer",
-                    p { "Created by lambdalisue" }
+                    p { {t!("preferences.about.created_by", author = "lambdalisue").to_string()} }
                     p { "Copyright © 2025 lambdalisue" }
                 }
             }

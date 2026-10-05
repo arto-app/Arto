@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::cmp::Ordering;
 use std::fs;
 use std::path::PathBuf;
@@ -108,7 +109,7 @@ pub fn FileExplorer() -> Element {
             // and a control that appears once the answer exists cannot be the
             // thing that answers.
             RootGroup {
-                label: "Current",
+                label: t!("sidebar.explorer.current").to_string(),
                 roots: temps(),
                 group: Group::Current,
                 refresh_counter,
@@ -121,7 +122,7 @@ pub fn FileExplorer() -> Element {
 
             if !places().is_empty() {
                 RootGroup {
-                    label: "Bookmarks",
+                    label: t!("sidebar.explorer.bookmarks").to_string(),
                     roots: places(),
                     group: Group::Bookmark,
                     refresh_counter,
@@ -140,7 +141,7 @@ pub fn FileExplorer() -> Element {
                     }
                 },
                 Icon { name: IconName::FolderPlus, size: 12 }
-                span { "Add folder…" }
+                span { {t!("sidebar.explorer.add_folder").to_string()} }
             }
         }
     }
@@ -166,7 +167,7 @@ fn panel_cursor_on(state: &AppState, group: Group, path: &std::path::Path) -> bo
 /// left where a line is the only thing that can separate them.
 #[component]
 fn RootGroup(
-    label: &'static str,
+    label: String,
     roots: Vec<PathBuf>,
     /// Which of the tree's groups these roots are drawn in.
     group: Group,
@@ -189,14 +190,14 @@ fn RootGroup(
             if let Some(on_change) = on_change {
                 button {
                     class: "left-sidebar-root-group-action",
-                    title: "Change this window's folder",
+                    title: t!("sidebar.explorer.change_folder").to_string(),
                     onclick: move |_| on_change.call(()),
                     Icon { name: IconName::FolderOpen, size: 12 }
                 }
             }
         }
         if roots.is_empty() {
-            div { class: "left-sidebar-root-empty", "Not in a folder yet" }
+            div { class: "left-sidebar-root-empty", {t!("sidebar.explorer.no_folder").to_string()} }
         }
 
         for (index, root) in roots.into_iter().enumerate() {
@@ -473,8 +474,8 @@ fn FileTreeNode(
     let name = path
         .file_name()
         .and_then(|n| n.to_str())
-        .unwrap_or("Unknown")
-        .to_string();
+        .map(str::to_string)
+        .unwrap_or_else(|| t!("sidebar.explorer.unknown").to_string());
 
     let is_markdown = !is_dir && is_markdown_file(&path);
 

@@ -1,0 +1,51 @@
+lenses:
+  controls:
+    title: "レンズ"
+    working: "処理中…"
+    heading:
+      working: "処理中"
+      page: "ページ"
+      over_the_page: "ページに重ねる"
+    original: "原文"
+    stop: "%{label} を停止"
+    being_answered: "回答を待っています"
+    regenerate: "%{label} を再生成 — すべてについてもう一度問い合わせます"
+    attention:
+      line: "%{label} — %{state}"
+      outdated:
+        one: "%{count} 件が古い回答"
+        other: "%{count} 件が古い回答"
+      unanswered:
+        one: "%{count} 件が未回答"
+        other: "%{count} 件が未回答"
+      failed: "失敗"
+    update:
+      retry: "%{label} の失敗した箇所を再試行（%{count}）"
+      regenerate: "%{label} の変更箇所を再生成（%{count}）"
+      continue: "%{label} を続行（残り %{count}）"
+      continue_and_regenerate: "%{label} を続行し、変更箇所を再生成（%{count}）"
+    badge:
+      failed: "失敗"
+      outdated: "古い回答"
+    not_answered: "未回答: 回答が届く前に停止しました。"
+  errors:
+    no_command: "レンズにコマンドがありません"
+    spawn: "%{program} を起動できません: %{reason}"
+    io: "コマンドとやり取りできません: %{reason}"
+    timeout: "コマンドが %{seconds} 秒以内に終わりませんでした"
+    too_large: "コマンドの出力が %{mib} MiB を超えました"
+    failed: "コマンドが失敗しました%{status}%{stderr}"
+    with_status: "（ステータス %{code}）"
+    not_utf8: "コマンドが UTF-8 ではない出力を書き出しました"
+    unreachable: "サーバーに接続できません: %{reason}"
+    status: "サーバーがステータス %{status} を返しました%{message}"
+    api_key: "API キーを取得できません: %{reason}"
+    empty_key: "キーが空です"
+    no_program: "エージェントのプログラムがありません"
+    credential_store: "システムの資格情報ストアを利用できません: %{reason}"
+    render: "回答を表示できませんでした: %{reason}"
+  message_shape:
+    block: "ブロック"
+    before: "その前のブロック"
+    after: "その後のブロック"
+    whole: "ドキュメント、または問い合わせたブロック"

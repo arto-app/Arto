@@ -15,6 +15,7 @@
  */
 
 import { getCurrentElement } from "./content-cursor";
+import { t } from "./i18n";
 import { contentZoom, placePopover } from "./popover";
 import { readSourceRange } from "./source-range";
 
@@ -758,7 +759,7 @@ function placeHandle(block: HTMLElement | null): void {
   if (!handle?.isConnected) {
     handle = document.createElement("div");
     handle.className = HANDLE;
-    handle.title = "Original — or hold Option (⌥) over the block";
+    handle.title = t("frontend.lenses.original_handle");
     handle.innerHTML = HANDLE_ICON;
     document.body.appendChild(handle);
   }

@@ -1,6 +1,7 @@
 use super::super::form_controls::{ChoiceItem, ChoiceRow};
 use crate::config::{Config, NewWindowBehavior, StartupBehavior};
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 /// Whether a window opens with the defaults or carries something over.
 ///
@@ -18,94 +19,94 @@ pub fn StartupTab(config: Signal<Config>) -> Element {
         div {
             class: "preferences-pane",
 
-            h3 { class: "preference-section-title", "When Arto Starts" }
+            h3 { class: "preference-section-title", {t!("preferences.startup.on_startup.title").to_string()} }
 
             p {
                 class: "preference-lede",
-                "The first window of a session opens with the defaults, or picks up where the last window that closed left off."
+                {t!("preferences.startup.on_startup.lede").to_string()}
             }
 
             OnStartupRow {
                 name: "startup-theme",
-                label: "Theme",
+                label: t!("preferences.startup.rows.theme").to_string(),
                 selected: cfg.theme.on_startup,
                 on_change: move |value| config.write().theme.on_startup = value,
                 shipped: Some(defaults.theme.on_startup),
             }
             OnStartupRow {
                 name: "startup-window-size",
-                label: "Window size",
+                label: t!("preferences.startup.rows.window_size").to_string(),
                 selected: cfg.window_size.on_startup,
                 on_change: move |value| config.write().window_size.on_startup = value,
                 shipped: Some(defaults.window_size.on_startup),
             }
             OnStartupRow {
                 name: "startup-window-position",
-                label: "Window position",
+                label: t!("preferences.startup.rows.window_position").to_string(),
                 selected: cfg.window_position.on_startup,
                 on_change: move |value| config.write().window_position.on_startup = value,
                 shipped: Some(defaults.window_position.on_startup),
             }
             OnStartupRow {
                 name: "startup-zoom",
-                label: "Zoom level",
+                label: t!("preferences.startup.rows.zoom").to_string(),
                 selected: cfg.zoom.on_startup,
                 on_change: move |value| config.write().zoom.on_startup = value,
                 shipped: Some(defaults.zoom.on_startup),
             }
             OnStartupRow {
                 name: "startup-panel",
-                label: "Panel",
+                label: t!("preferences.startup.rows.panel").to_string(),
                 selected: cfg.sidebar.on_startup,
                 on_change: move |value| config.write().sidebar.on_startup = value,
                 shipped: Some(defaults.sidebar.on_startup),
             }
             OnStartupRow {
                 name: "startup-folder",
-                label: "Folder",
+                label: t!("preferences.startup.rows.folder").to_string(),
                 selected: cfg.directory.on_startup,
                 on_change: move |value| config.write().directory.on_startup = value,
                 shipped: Some(defaults.directory.on_startup),
             }
 
-            h3 { class: "preference-section-title", "When a Window Opens" }
+            h3 { class: "preference-section-title", {t!("preferences.startup.on_new_window.title").to_string()} }
 
             p {
                 class: "preference-lede",
-                "A second window opens with the defaults, or matching the window it was opened from. Which folders it starts with is not a setting: ⌘N carries the places alone, ⇧⌘N the current window's folders as well."
+                {t!("preferences.startup.on_new_window.lede").to_string()}
             }
 
             OnNewWindowRow {
                 name: "new-window-theme",
-                label: "Theme",
+                label: t!("preferences.startup.rows.theme").to_string(),
                 selected: cfg.theme.on_new_window,
                 on_change: move |value| config.write().theme.on_new_window = value,
                 shipped: Some(defaults.theme.on_new_window),
             }
             OnNewWindowRow {
                 name: "new-window-size",
-                label: "Window size",
+                label: t!("preferences.startup.rows.window_size").to_string(),
                 selected: cfg.window_size.on_new_window,
                 on_change: move |value| config.write().window_size.on_new_window = value,
                 shipped: Some(defaults.window_size.on_new_window),
             }
             OnNewWindowRow {
                 name: "new-window-position",
-                label: "Window position",
+                label: t!("preferences.startup.rows.window_position").to_string(),
                 selected: cfg.window_position.on_new_window,
                 on_change: move |value| config.write().window_position.on_new_window = value,
                 shipped: Some(defaults.window_position.on_new_window),
             }
             OnNewWindowRow {
                 name: "new-window-zoom",
-                label: "Zoom level",
+                label: t!("preferences.startup.rows.zoom").to_string(),
                 selected: cfg.zoom.on_new_window,
                 on_change: move |value| config.write().zoom.on_new_window = value,
                 shipped: Some(defaults.zoom.on_new_window),
             }
             OnNewWindowRow {
                 name: "new-window-panel",
-                label: "Panel",
+                label: t!("preferences.startup.rows.panel").to_string(),
                 selected: cfg.sidebar.on_new_window,
                 on_change: move |value| config.write().sidebar.on_new_window = value,
                 shipped: Some(defaults.sidebar.on_new_window),
@@ -117,7 +118,7 @@ pub fn StartupTab(config: Signal<Config>) -> Element {
 #[component]
 fn OnStartupRow(
     name: &'static str,
-    label: &'static str,
+    label: String,
     selected: StartupBehavior,
     on_change: EventHandler<StartupBehavior>,
     shipped: Option<StartupBehavior>,
@@ -125,15 +126,15 @@ fn OnStartupRow(
     rsx! {
         ChoiceRow {
             name: name.to_string(),
-            label: label.to_string(),
+            label,
             options: vec![
                 ChoiceItem {
                     value: StartupBehavior::Default,
-                    label: "Default".to_string(),
+                    label: t!("preferences.startup.options.default").to_string(),
                 },
                 ChoiceItem {
                     value: StartupBehavior::LastClosed,
-                    label: "Last closed".to_string(),
+                    label: t!("preferences.startup.options.last_closed").to_string(),
                 },
             ],
             selected,
@@ -146,7 +147,7 @@ fn OnStartupRow(
 #[component]
 fn OnNewWindowRow(
     name: &'static str,
-    label: &'static str,
+    label: String,
     selected: NewWindowBehavior,
     on_change: EventHandler<NewWindowBehavior>,
     shipped: Option<NewWindowBehavior>,
@@ -154,15 +155,15 @@ fn OnNewWindowRow(
     rsx! {
         ChoiceRow {
             name: name.to_string(),
-            label: label.to_string(),
+            label,
             options: vec![
                 ChoiceItem {
                     value: NewWindowBehavior::Default,
-                    label: "Default".to_string(),
+                    label: t!("preferences.startup.options.default").to_string(),
                 },
                 ChoiceItem {
                     value: NewWindowBehavior::LastFocused,
-                    label: "Last focused".to_string(),
+                    label: t!("preferences.startup.options.last_focused").to_string(),
                 },
             ],
             selected,

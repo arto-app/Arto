@@ -8,6 +8,7 @@
 //! this is only what it found, drawn as the panel draws every other list.
 
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::path::PathBuf;
 
 use crate::backlinks::{ResolvedLink, Source, BACKLINKS_CHANGED};
@@ -70,11 +71,13 @@ pub fn LinksFace() -> Element {
     };
     let empty = match (&scope, &found) {
         (None, _) if state.current_file().is_none() => {
-            Some("Open a document to see what links to it")
+            Some(t!("sidebar.links.open_document").to_string())
         }
-        (None, _) => Some("Open a folder to see what links here"),
-        (Some(_), None) => Some("Scanning\u{2026}"),
-        (Some(_), Some(found)) if found.sources.is_empty() => Some("No backlinks"),
+        (None, _) => Some(t!("sidebar.links.open_folder").to_string()),
+        (Some(_), None) => Some(t!("sidebar.links.scanning").to_string()),
+        (Some(_), Some(found)) if found.sources.is_empty() => {
+            Some(t!("sidebar.links.none").to_string())
+        }
         _ => None,
     };
 
@@ -87,7 +90,7 @@ pub fn LinksFace() -> Element {
 
                 div {
                     class: "left-sidebar-root-group-label",
-                    span { "Linked from" }
+                    span { {t!("sidebar.links.heading").to_string()} }
                 }
 
                 if let Some(message) = empty {
@@ -107,7 +110,7 @@ pub fn LinksFace() -> Element {
                     if found.partial {
                         div {
                             class: "left-sidebar-explorer-empty",
-                            "Only part of this folder was searched"
+                            {t!("sidebar.links.partial").to_string()}
                         }
                     }
                 }
@@ -174,7 +177,7 @@ fn LinkExcerpt(path: PathBuf, link: ResolvedLink) -> Element {
     rsx! {
         div {
             class: "left-sidebar-links-excerpt",
-            title: "Line {line}",
+            title: t!("sidebar.links.line", line = line).to_string(),
             onclick: move |_| state.open_from_panel_at(&path, line),
             "{before}"
             mark { "{marked}" }

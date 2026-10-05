@@ -1,0 +1,56 @@
+commands:
+  history:
+    back: "Back"
+    forward: "Forward"
+  search:
+    open: "Find in Page"
+  highlight:
+    note: "Highlight with Note"
+  zoom:
+    in: "Zoom In"
+    out: "Zoom Out"
+    reset: "Actual Size"
+  clipboard:
+    copy_file_path: "Copy File Path"
+    copy_as_markdown: "Copy Document as Markdown"
+  window:
+    new: "New Window"
+    duplicate: "Duplicate Window"
+    new_document: "New Document"
+    close: "Close Window"
+    close_all_child_windows: "Close All Child Windows"
+    close_all_windows: "Close All Windows"
+    toggle_sidebar: "Toggle Sidebar"
+    toggle_focus_mode: "Focus Mode"
+    reload: "Reload Document"
+  file:
+    open: "Open File…"
+    open_directory: "Open Directory…"
+    set_parent_as_root: "Make This the Window's Folder"
+    toggle_bookmark: "Toggle Star"
+    preferences: "Preferences…"
+    reveal_in_finder: "Reveal in Finder"
+    print: "Print…"
+  app:
+    about: "About Arto"
+    quit: "Quit Arto"
+    go_to_homepage: "Go to Homepage"
+  contents:
+    toggle: "Contents"
+  changes:
+    mark_read: "Mark as Read"
+  lens:
+    stop: "Stop Lens"
+    hide: "Hide Lens"
+  sidebar:
+    toggle_show_all_files: "Show All Files"
+    face_places: "Show Places"
+    face_recent: "Show Recent"
+    face_starred: "Show Starred"
+    face_links: "Show Links"
+    face_next: "Next Face"
+    face_prev: "Previous Face"
+  theme:
+    set_light: "Light Theme"
+    set_dark: "Dark Theme"
+    set_auto: "Match System Theme"

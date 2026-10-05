@@ -10,6 +10,7 @@
 use crate::config::ReadingConfig;
 use crate::markdown::{ReadingBlock, ReadingProfile};
 use crate::scroll_anchor::ScrollAnchor;
+use rust_i18n::t;
 
 /// Code is scanned rather than read, a line at a time.
 const SECONDS_PER_CODE_LINE: f64 = 2.0;
@@ -128,15 +129,15 @@ pub fn label(
         return None;
     }
     if at_top {
-        return Some(format!("{} min read", minutes(total)));
+        return Some(t!("app.reading_time.read", minutes = minutes(total)).into_owned());
     }
     if at_end {
         return None;
     }
     if remaining < 60.0 {
-        return Some("<1 min left".to_string());
+        return Some(t!("app.reading_time.under_a_minute_left").into_owned());
     }
-    Some(format!("{} min left", minutes(remaining)))
+    Some(t!("app.reading_time.left", minutes = minutes(remaining)).into_owned())
 }
 
 /// The breakdown behind the estimate. A count of zero is left out: an
@@ -145,12 +146,12 @@ fn tooltip(profile: &ReadingProfile, total: f64) -> String {
     let (words, characters) = profile.blocks.iter().fold((0u64, 0u64), |(w, c), block| {
         (w + u64::from(block.words), c + u64::from(block.cjk_chars))
     });
-    let mut parts = vec![format!("{} min total", minutes(total))];
+    let mut parts = vec![t!("app.reading_time.total", minutes = minutes(total)).into_owned()];
     if words > 0 {
-        parts.push(format!("{} words", thousands(words)));
+        parts.push(t!("app.reading_time.words", count = thousands(words)).into_owned());
     }
     if characters > 0 {
-        parts.push(format!("{} characters", thousands(characters)));
+        parts.push(t!("app.reading_time.characters", count = thousands(characters)).into_owned());
     }
     parts.join(" · ")
 }

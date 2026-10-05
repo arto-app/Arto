@@ -1,0 +1,35 @@
+app:
+  document:
+    unnamed: "Unnamed"
+    welcome: "Welcome"
+  window_title:
+    unknown_file: "Unknown"
+    error: "Arto - %{name} (Error)"
+  viewer_window:
+    mermaid: "Mermaid Viewer"
+    math: "Math Viewer"
+    image: "Image Viewer"
+    preferences: "Preferences"
+  reading_time:
+    read: "%{minutes} min read"
+    left: "%{minutes} min left"
+    under_a_minute_left: "<1 min left"
+    total: "%{minutes} min total"
+    words: "%{count} words"
+    characters: "%{count} characters"
+  history:
+    today: "Today"
+    yesterday: "Yesterday"
+    this_week: "This week"
+    last_week: "Last week"
+    weekday:
+      mon: "Mon"
+      tue: "Tue"
+      wed: "Wed"
+      thu: "Thu"
+      fri: "Fri"
+      sat: "Sat"
+      sun: "Sun"
+  save_image:
+    filter: "%{format} Image"
+    filter_any: "Image"

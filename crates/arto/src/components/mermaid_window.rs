@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 use sha2::{Digest, Sha256};
 
 use crate::assets::main_script_url;
@@ -104,7 +105,7 @@ pub fn MermaidWindow(props: MermaidWindowProps) -> Element {
             // Status bar
             div {
                 class: "mermaid-window-status",
-                "Zoom: {zoom_level}% | Scroll to zoom, drag to pan, double-click to fit"
+                {t!("viewer_window.zoom_status.pan_fit", zoom = zoom_level()).to_string()}
             }
         }
     }
@@ -224,8 +225,8 @@ fn MermaidCopyImageButton() -> Element {
     rsx! {
         button {
             class: "viewer-control-btn {extra_class}",
-            "aria-label": "Copy diagram as image",
-            title: "Copy diagram as image",
+            "aria-label": t!("viewer_window.mermaid.copy").to_string(),
+            title: t!("viewer_window.mermaid.copy").to_string(),
             disabled: is_copying,
             onclick: handle_click,
             Icon { name: icon, size: 18 }

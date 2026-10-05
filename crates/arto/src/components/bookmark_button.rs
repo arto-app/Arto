@@ -1,6 +1,7 @@
 //! The control that stars a document, wherever a document is listed.
 
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::path::PathBuf;
 
 use crate::bookmarks::{toggle_bookmark, BOOKMARKS, BOOKMARKS_CHANGED};
@@ -52,9 +53,9 @@ pub fn BookmarkButton(
     // after a screen that no longer carries that name is a control the reader
     // has to translate.
     let title = if is_bookmarked {
-        "Remove from Starred"
+        t!("bookmark_button.remove")
     } else {
-        "Add to Starred"
+        t!("bookmark_button.add")
     };
 
     let bookmarked_class = if is_bookmarked { "bookmarked" } else { "" };

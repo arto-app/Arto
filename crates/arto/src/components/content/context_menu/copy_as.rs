@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::path::PathBuf;
 
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
@@ -18,11 +19,11 @@ pub(super) fn CopyAsSubmenu(
 
     rsx! {
         ContextMenuSubmenu {
-            label: "Copy As...",
+            label: t!("context_menu.copy_as").to_string(),
             icon: Some(IconName::Copy),
 
             ContextMenuItem {
-                label: "Text",
+                label: t!("context_menu.text").to_string(),
                 icon: Some(IconName::LetterT),
                 on_click: {
                     let text = selected_text.clone();

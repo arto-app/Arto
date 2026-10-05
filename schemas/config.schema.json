@@ -9,6 +9,11 @@
       "$ref": "#/$defs/SchemaUrl",
       "default": "https://raw.githubusercontent.com/arto-app/Arto/main/schemas/config.schema.json"
     },
+    "language": {
+      "description": "The language of Arto's interface: `auto` follows the system.",
+      "$ref": "#/$defs/Language",
+      "default": "auto"
+    },
     "directory": {
       "$ref": "#/$defs/DirectoryConfig",
       "default": {
@@ -147,6 +152,26 @@
     "SchemaUrl": {
       "description": "Where editors find the JSON Schema of this file.",
       "type": "string"
+    },
+    "Language": {
+      "description": "The language Arto's own interface is shown in.\n\nThe documents read are never translated; this only chooses the words of\nmenus, preferences and the like. `auto` follows the system language and\nfalls back to English when the system asks for one Arto does not have.",
+      "oneOf": [
+        {
+          "description": "The system language, or English when Arto has no translation for it",
+          "type": "string",
+          "const": "auto"
+        },
+        {
+          "description": "English",
+          "type": "string",
+          "const": "en"
+        },
+        {
+          "description": "Japanese (日本語)",
+          "type": "string",
+          "const": "ja"
+        }
+      ]
     },
     "DirectoryConfig": {
       "description": "Where the file tree is rooted when the app starts.\n\nThere is no `onNewWindow` here: which folders a new window starts with is\ndecided by the command that opened it — Cmd+N carries the places alone,\nCmd+Shift+N duplicates this window's temporary roots as well — rather\nthan by a setting that has to guess between them.",

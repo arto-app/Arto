@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::icon::{Icon, IconName};
 
@@ -15,7 +16,7 @@ pub fn FileErrorView(filename: String, error_message: String) -> Element {
                 }
                 h2 {
                     class: "no-file-title file-error-title",
-                    "Cannot Open File"
+                    {t!("file_error.title").to_string()}
                 }
                 p {
                     class: "no-file-description file-error-filename",
@@ -31,7 +32,7 @@ pub fn FileErrorView(filename: String, error_message: String) -> Element {
                         }
                         span {
                             class: "no-file-hint-text",
-                            "This file cannot be opened. It may be a binary file or an unsupported format."
+                            {t!("file_error.hint").to_string()}
                         }
                     }
                     div {
@@ -42,7 +43,7 @@ pub fn FileErrorView(filename: String, error_message: String) -> Element {
                         }
                         span {
                             class: "no-file-hint-text",
-                            "Error: {error_message}"
+                            {t!("file_error.message", error = error_message).to_string()}
                         }
                     }
                 }

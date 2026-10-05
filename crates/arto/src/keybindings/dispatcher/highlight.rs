@@ -5,6 +5,7 @@
 //! the document to draw it again.
 
 use dioxus::document;
+use rust_i18n::t;
 
 use super::*;
 use crate::highlights::card::{self, Rect};
@@ -52,21 +53,18 @@ pub(crate) fn highlight_selection(state: &AppState, color: HighlightColor, from_
             }
             Ok(Some(Selected { anchor, .. })) => {
                 if crate::highlights::add(&file, anchor, color).is_none() {
-                    show_action_feedback(NOT_KEPT);
+                    show_action_feedback(&t!("keybindings.feedback.highlight_not_kept"));
                     return;
                 }
                 // The highlight is what shows the words were taken; a
                 // selection left over them would hide it.
                 let _ = document::eval("window.getSelection()?.removeAllRanges();").await;
             }
-            Ok(None) => show_action_feedback("Select text to highlight"),
+            Ok(None) => show_action_feedback(&t!("keybindings.feedback.select_text_to_highlight")),
             Err(error) => tracing::debug!(%error, "The selection was not described"),
         }
     });
 }
-
-/// What the reader is told when a highlight could not be written down.
-const NOT_KEPT: &str = "The highlight could not be kept";
 
 /// Highlight the selection in the colour picked last and open the card of
 /// the new highlight, to write a note on it. A selection already inside a
@@ -97,7 +95,7 @@ pub(super) fn highlight_with_note(state: &AppState) {
                         // A card for a highlight that was not kept would take
                         // a note with nowhere to go.
                         let Some(id) = crate::highlights::add(&file, selected.anchor, color) else {
-                            show_action_feedback(NOT_KEPT);
+                            show_action_feedback(&t!("keybindings.feedback.highlight_not_kept"));
                             return;
                         };
                         id
@@ -108,7 +106,7 @@ pub(super) fn highlight_with_note(state: &AppState) {
                     card::open(state, file, id, rect);
                 }
             }
-            Ok(None) => show_action_feedback("Select text to highlight"),
+            Ok(None) => show_action_feedback(&t!("keybindings.feedback.select_text_to_highlight")),
             Err(error) => tracing::debug!(%error, "The selection was not described"),
         }
     });

@@ -1,6 +1,7 @@
 //! What a listed document can be done to, without opening it.
 
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::path::PathBuf;
 
 use crate::components::bookmark_button::BookmarkButton;
@@ -62,7 +63,7 @@ pub fn RowActions(
             if root && path.parent().is_some() {
                 button {
                     class: "left-sidebar-row-action",
-                    title: if place { "Move this place up a folder" } else { "Go up to the folder above" },
+                    title: if place { t!("sidebar.row_actions.move_place_up").to_string() } else { t!("sidebar.row_actions.go_up").to_string() },
                     onclick: {
                         let path = path.clone();
                         move |evt: Event<MouseData>| {
@@ -77,7 +78,7 @@ pub fn RowActions(
             if rootable {
                 button {
                     class: "left-sidebar-row-action",
-                    title: "Make this the window's folder",
+                    title: t!("sidebar.row_actions.make_root").to_string(),
                     onclick: {
                         let path = path.clone();
                         move |evt: Event<MouseData>| {
@@ -92,7 +93,7 @@ pub fn RowActions(
             button {
                 class: "left-sidebar-row-action",
                 class: if copied() { "copied" },
-                title: "Copy full path",
+                title: t!("sidebar.row_actions.copy_path").to_string(),
                 onclick: {
                     let path = path.clone();
                     move |evt: Event<MouseData>| {
@@ -116,7 +117,7 @@ pub fn RowActions(
             if forgettable {
                 button {
                     class: "left-sidebar-row-action",
-                    title: "Forget",
+                    title: t!("sidebar.row_actions.forget").to_string(),
                     onclick: {
                         let path = path.clone();
                         move |evt: Event<MouseData>| {
@@ -131,7 +132,7 @@ pub fn RowActions(
             if starred {
                 button {
                     class: "left-sidebar-row-action left-sidebar-row-action-shown",
-                    title: if place { "Remove from Places" } else { "Remove from Starred" },
+                    title: if place { t!("sidebar.row_actions.remove_from_places").to_string() } else { t!("sidebar.row_actions.remove_from_starred").to_string() },
                     onclick: {
                         let path = path.clone();
                         move |evt: Event<MouseData>| {

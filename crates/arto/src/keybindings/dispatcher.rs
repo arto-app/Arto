@@ -1,5 +1,6 @@
 use dioxus::document;
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::document_link::{open_document_link, LinkOpen};
 use crate::pinned_search::add_pinned_search;
@@ -118,7 +119,7 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::CopyFilePath => {
             if let Some(file) = get_current_file(&state) {
                 crate::utils::clipboard::copy_text(file.to_string_lossy());
-                show_action_feedback("Copied");
+                show_action_feedback(&t!("keybindings.feedback.copied"));
             }
         }
         Action::CopyFilePathWithLine | Action::CopyFilePathWithRange => {

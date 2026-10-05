@@ -1,5 +1,6 @@
 use chrono::Local;
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::path::PathBuf;
 
 use crate::bookmarks::{BOOKMARKS, BOOKMARKS_CHANGED};
@@ -48,7 +49,8 @@ pub fn WelcomeView() -> Element {
     let _ = state.visits_revision.read();
 
     let now = Local::now();
-    let palette_hint = crate::keybindings::shortcut_hint_for_global_action("palette.open");
+    let palette_hint = crate::keybindings::shortcut_hint_for_global_action("palette.open")
+        .map(|hint| around_key(t!("welcome.hint.with_key").to_string(), hint));
 
     let visits = VISITS.read();
     let recent: Vec<Visit> = visits.items.iter().take(MAX_ROWS).cloned().collect();
@@ -98,12 +100,12 @@ pub fn WelcomeView() -> Element {
                 // list the palette already floats over whatever is on screen.
                 p {
                     class: "welcome-hint",
-                    if let Some(hint) = palette_hint {
-                        "Press "
+                    if let Some((before, hint, after)) = palette_hint {
+                        "{before}"
                         kbd { class: "welcome-key", "{hint}" }
-                        " to find something you have read, or to name a command."
+                        "{after}"
                     } else {
-                        "Open the command palette to find something you have read, or to name a command."
+                        {t!("welcome.hint.without_key").to_string()}
                     }
                 }
 
@@ -120,13 +122,13 @@ pub fn WelcomeView() -> Element {
                             h2 {
                                 class: "welcome-heading",
                                 Icon { name: IconName::Folder, size: 12 }
-                                "Places"
+                                {t!("welcome.places.heading").to_string()}
                             }
 
                             if places.is_empty() {
                                 p {
                                     class: "welcome-empty",
-                                    "Star a folder and it will be here, in every window."
+                                    {t!("welcome.places.empty").to_string()}
                                 }
                             }
 
@@ -144,7 +146,7 @@ pub fn WelcomeView() -> Element {
                                 button {
                                     class: "welcome-more",
                                     onclick: move |_| state.show_face(Face::Places),
-                                    "All places…"
+                                    {t!("welcome.places.all").to_string()}
                                 }
                             }
                         }
@@ -154,7 +156,7 @@ pub fn WelcomeView() -> Element {
                                 h2 {
                                     class: "welcome-heading",
                                     Icon { name: IconName::Star, size: 12 }
-                                    "Starred"
+                                    {t!("welcome.starred.heading").to_string()}
                                 }
 
                                 for path in starred {
@@ -171,7 +173,7 @@ pub fn WelcomeView() -> Element {
                                     button {
                                         class: "welcome-more",
                                         onclick: move |_| state.show_face(Face::Starred),
-                                        "All stars…"
+                                        {t!("welcome.starred.all").to_string()}
                                     }
                                 }
                             }
@@ -185,13 +187,13 @@ pub fn WelcomeView() -> Element {
                         h2 {
                             class: "welcome-heading",
                             Icon { name: IconName::History, size: 12 }
-                            "Recent"
+                            {t!("welcome.recent.heading").to_string()}
                         }
 
                         if groups.is_empty() {
                             p {
                                 class: "welcome-empty",
-                                "Open a Markdown file, or drop one here, and it will be waiting next time."
+                                {t!("welcome.recent.empty").to_string()}
                             }
                         }
 
@@ -218,13 +220,26 @@ pub fn WelcomeView() -> Element {
                             button {
                                 class: "welcome-more",
                                 onclick: move |_| state.show_face(Face::Recent),
-                                "All history…"
+                                {t!("welcome.recent.all").to_string()}
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/// `sentence` split where its `%{key}` stands, with `key` between the halves.
+///
+/// The shortcut is drawn as a key cap rather than as text, so it cannot be
+/// passed to the translation as an argument; and where it sits in the
+/// sentence is the translation's to decide, since a language that puts the
+/// verb last puts the key first.
+fn around_key(sentence: String, key: String) -> (String, String, String) {
+    match sentence.split_once("%{key}") {
+        Some((before, after)) => (before.to_string(), key, after.to_string()),
+        None => (String::new(), key, format!(" {sentence}")),
     }
 }
 
@@ -263,5 +278,35 @@ fn WelcomeRow(
                 span { class: "welcome-row-when", "{when}" }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_key_sits_where_the_sentence_places_it() {
+        let split = |sentence: &str| around_key(sentence.to_string(), "⌘K".to_string());
+        assert_eq!(
+            split("Press %{key} to find it."),
+            (
+                "Press ".to_string(),
+                "⌘K".to_string(),
+                " to find it.".to_string()
+            )
+        );
+        assert_eq!(
+            split("%{key} で探せます。"),
+            (String::new(), "⌘K".to_string(), " で探せます。".to_string())
+        );
+    }
+
+    #[test]
+    fn a_sentence_without_a_place_for_the_key_follows_it() {
+        assert_eq!(
+            around_key("Find it.".to_string(), "⌘K".to_string()),
+            (String::new(), "⌘K".to_string(), " Find it.".to_string())
+        );
     }
 }

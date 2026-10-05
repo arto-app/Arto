@@ -6,10 +6,11 @@ use dioxus::prelude::*;
 use crate::components::icon::{Icon, IconName};
 use crate::config::{BindingSet, Config, KeyAction};
 use crate::keybindings::{
-    accelerator_for_key, presets, resolve_bindings, KeyContext, ResolvedBinding, ACTION_GROUPS,
-    MENU_ACTIONS,
+    accelerator_for_key, action_group_name, action_title, context_name, presets, resolve_bindings,
+    Action, KeyContext, ResolvedBinding, ACTION_GROUPS, MENU_ACTIONS,
 };
 use crate::keybindings::{KeyChord, ShortcutSequence};
+use rust_i18n::t;
 
 /// Which shortcut table a section edits.
 ///
@@ -34,7 +35,7 @@ pub fn KeybindingsTab(config: Signal<Config>) -> Element {
             class: "preferences-pane",
 
             // Preset cards
-            h3 { class: "preference-section-title", "Presets" }
+            h3 { class: "preference-section-title", {t!("preferences.keybindings.presets.title").to_string()} }
             div {
                 class: "preset-cards",
                 button {
@@ -42,8 +43,8 @@ pub fn KeybindingsTab(config: Signal<Config>) -> Element {
                     onclick: move |_| {
                         config.write().keybindings = presets::default::bindings();
                     },
-                    span { class: "preset-card-name", "Default" }
-                    span { class: "preset-card-desc", "Arrow keys, Cmd+Key, Ctrl+Tab" }
+                    span { class: "preset-card-name", {t!("preferences.keybindings.presets.default.name").to_string()} }
+                    span { class: "preset-card-desc", {t!("preferences.keybindings.presets.default.description").to_string()} }
                 }
                 button {
                     class: "preset-card",
@@ -51,7 +52,7 @@ pub fn KeybindingsTab(config: Signal<Config>) -> Element {
                         config.write().keybindings = presets::vim::bindings();
                     },
                     span { class: "preset-card-name", "Vim" }
-                    span { class: "preset-card-desc", "j/k scroll, g g, chord sequences" }
+                    span { class: "preset-card-desc", {t!("preferences.keybindings.presets.vim.description").to_string()} }
                 }
                 button {
                     class: "preset-card",
@@ -59,24 +60,24 @@ pub fn KeybindingsTab(config: Signal<Config>) -> Element {
                         config.write().keybindings = presets::emacs::bindings();
                     },
                     span { class: "preset-card-name", "Emacs" }
-                    span { class: "preset-card-desc", "Ctrl+n/p, Ctrl+x combos" }
+                    span { class: "preset-card-desc", {t!("preferences.keybindings.presets.emacs.description").to_string()} }
                 }
                 button {
                     class: "preset-card",
                     onclick: move |_| {
                         config.write().keybindings = BindingSet::default();
                     },
-                    span { class: "preset-card-name", "Clear" }
-                    span { class: "preset-card-desc", "Remove all keybindings" }
+                    span { class: "preset-card-name", {t!("preferences.keybindings.presets.clear.name").to_string()} }
+                    span { class: "preset-card-desc", {t!("preferences.keybindings.presets.clear.description").to_string()} }
                 }
             }
 
             // Binding sections grouped by context
-            h3 { class: "preference-section-title", "Bindings" }
+            h3 { class: "preference-section-title", {t!("preferences.keybindings.bindings.title").to_string()} }
             input {
                 r#type: "text",
                 class: "binding-filter-input",
-                placeholder: "Filter by key or action...",
+                placeholder: t!("preferences.keybindings.bindings.filter_placeholder").to_string(),
                 value: "{filter_text}",
                 oninput: move |evt| filter_text.set(evt.value()),
                 onkeydown: move |evt: KeyboardEvent| {
@@ -89,14 +90,14 @@ pub fn KeybindingsTab(config: Signal<Config>) -> Element {
             }
 
             BindingSection {
-                title: "Menu Shortcuts",
+                title: menu_shortcuts_title(),
                 scope: BindingScope::Menu,
                 bindings: keybindings.menu_shortcuts.clone(),
                 filter_query: filter_text(),
                 config,
             }
             BindingSection {
-                title: "Global",
+                title: context_label(None),
                 scope: BindingScope::Engine(None),
                 bindings: keybindings.global.clone(),
                 filter_query: filter_text(),
@@ -105,7 +106,7 @@ pub fn KeybindingsTab(config: Signal<Config>) -> Element {
             for context in KeyContext::ALL {
                 BindingSection {
                     key: "{context}",
-                    title: context.label(),
+                    title: context_name(context),
                     scope: BindingScope::Engine(Some(context)),
                     bindings: keybindings.of(context).clone(),
                     filter_query: filter_text(),
@@ -126,7 +127,7 @@ enum SortColumn {
 /// Per-context binding section with sort and filter support.
 #[component]
 fn BindingSection(
-    title: &'static str,
+    title: String,
     scope: BindingScope,
     bindings: Vec<KeyAction>,
     filter_query: String,
@@ -206,7 +207,7 @@ fn BindingSection(
             h4 { class: "binding-section-title", "{title}" }
 
             if bindings.is_empty() && !*show_add_form.read() {
-                p { class: "binding-empty", "No bindings defined yet." }
+                p { class: "binding-empty", {t!("preferences.keybindings.bindings.empty").to_string()} }
             }
 
             if !bindings.is_empty() {
@@ -218,7 +219,7 @@ fn BindingSection(
                                 th {
                                     class: "binding-header-key",
                                     onclick: move |_| toggle_sort(SortColumn::Key),
-                                    "Key"
+                                    {t!("preferences.keybindings.bindings.key").to_string()}
                                     if let Some(icon) = sort_icon(SortColumn::Key) {
                                         Icon { name: icon, size: 12 }
                                     }
@@ -226,7 +227,7 @@ fn BindingSection(
                                 th {
                                     class: "binding-header-action",
                                     onclick: move |_| toggle_sort(SortColumn::Action),
-                                    "Action"
+                                    {t!("preferences.keybindings.bindings.action").to_string()}
                                     if let Some(icon) = sort_icon(SortColumn::Action) {
                                         Icon { name: icon, size: 12 }
                                     }
@@ -278,7 +279,7 @@ fn BindingSection(
                         }
                     }
                 } else if !query_lower.is_empty() {
-                    p { class: "binding-empty", "No matching bindings." }
+                    p { class: "binding-empty", {t!("preferences.keybindings.bindings.no_match").to_string()} }
                 }
             }
 
@@ -296,7 +297,7 @@ fn BindingSection(
                 button {
                     class: "binding-add-btn",
                     onclick: move |_| show_add_form.set(true),
-                    "+ Add binding"
+                    {t!("preferences.keybindings.bindings.add").to_string()}
                 }
             }
         }
@@ -499,13 +500,19 @@ fn BindingForm(
                     // before the engine, so also warn on menu-scope overlap.
                     same_scope.or_else(|| {
                         let menu_shortcuts = config.read().keybindings.menu_shortcuts.clone();
-                        cross_scope_conflict(&menu_shortcuts, &key_str, "Menu Shortcuts")
+                        cross_scope_conflict(&menu_shortcuts, &key_str, &menu_shortcuts_title())
                     })
                 }
                 BindingScope::Menu => {
                     let keybindings = config.read().keybindings.clone();
                     check_menu_conflict(&keybindings.menu_shortcuts, &key_str, is_edit, &orig_key)
-                        .or_else(|| cross_scope_conflict(&keybindings.global, &key_str, "Global"))
+                        .or_else(|| {
+                            cross_scope_conflict(
+                                &keybindings.global,
+                                &key_str,
+                                &context_label(None),
+                            )
+                        })
                 }
             }
         }
@@ -544,7 +551,7 @@ fn BindingForm(
                     input {
                         r#type: "text",
                         class: if *recording.read() { "key-recorder-text recording" } else { "key-recorder-text" },
-                        placeholder: if *recording.read() { "Press a key..." } else { "e.g. Cmd+k, g g" },
+                        placeholder: if *recording.read() { t!("preferences.keybindings.form.recording_placeholder").to_string() } else { t!("preferences.keybindings.form.key_placeholder").to_string() },
                         value: "{key_input}",
                         readonly: *recording.read(),
                         oninput: move |evt| {
@@ -586,7 +593,7 @@ fn BindingForm(
                                 // Done: keep recorded value, stop recording
                                 recording.set(false);
                             },
-                            "Done"
+                            {t!("preferences.keybindings.form.done").to_string()}
                         }
                         button {
                             class: "key-record-btn",
@@ -597,7 +604,7 @@ fn BindingForm(
                                 recording_input_epoch.set(0);
                                 recording.set(false);
                             },
-                            "Cancel"
+                            {t!("preferences.keybindings.form.cancel").to_string()}
                         }
                     } else {
                         button {
@@ -610,7 +617,7 @@ fn BindingForm(
                                 recording_input_epoch.set(0);
                                 recording.set(true);
                             },
-                            "Record"
+                            {t!("preferences.keybindings.form.record").to_string()}
                         }
                     }
                 }
@@ -624,7 +631,7 @@ fn BindingForm(
                         value: "",
                         disabled: true,
                         selected: selected_action_value.is_empty(),
-                        "Select action..."
+                        {t!("preferences.keybindings.form.select_action").to_string()}
                     }
                     // Menu shortcuts may only target menu-backed actions; engine
                     // bindings can target any action (grouped by category).
@@ -646,7 +653,7 @@ fn BindingForm(
                     } else {
                         for (group_label, actions) in ACTION_GROUPS {
                             optgroup {
-                                label: *group_label,
+                                label: action_group_name(group_label),
                                 for action in *actions {
                                     {
                                         let action_value = action.to_string();
@@ -703,7 +710,7 @@ fn BindingForm(
                         drop(cfg);
                         on_close.call(());
                     },
-                    if is_edit { "Save" } else { "Add" }
+                    if is_edit { {t!("preferences.keybindings.form.save").to_string()} } else { {t!("preferences.keybindings.form.add").to_string()} }
                 }
                 button {
                     class: "binding-form-cancel",
@@ -711,7 +718,7 @@ fn BindingForm(
                         recording.set(false);
                         on_close.call(());
                     },
-                    "Cancel"
+                    {t!("preferences.keybindings.form.cancel").to_string()}
                 }
                 // Delete button (edit mode only), pushed to the right
                 if is_edit {
@@ -728,7 +735,7 @@ fn BindingForm(
                                 on_close.call(());
                             }
                         },
-                        "Delete"
+                        {t!("preferences.keybindings.form.delete").to_string()}
                     }
                 }
             }
@@ -761,7 +768,7 @@ fn check_menu_conflict(
 ) -> Option<BindingNotice> {
     if accelerator_for_key(new_key).is_none() {
         return Some(BindingNotice::Conflict(
-            "Menu shortcuts must be a single chord (e.g. Cmd+K)".to_string(),
+            t!("preferences.keybindings.notice.single_chord").into_owned(),
         ));
     }
 
@@ -774,10 +781,13 @@ fn check_menu_conflict(
             .map(|s| s.to_string())
             .unwrap_or_default();
         if existing == new_seq {
-            return Some(BindingNotice::Conflict(format!(
-                "Conflicts with \"{}\" (Menu Shortcuts)",
-                action_label(&ka.action)
-            )));
+            return Some(BindingNotice::Conflict(
+                t!(
+                    "preferences.keybindings.notice.conflicts_with",
+                    binding = binding_desc(&ka.action, &menu_shortcuts_title())
+                )
+                .into_owned(),
+            ));
         }
     }
     None
@@ -800,17 +810,26 @@ fn cross_scope_conflict(
             .map(|s| s.to_string())
             .unwrap_or_default();
         if existing == new_seq {
-            return Some(BindingNotice::Conflict(format!(
-                "Also bound as \"{}\" ({other_label}) — one will shadow the other",
-                action_label(&ka.action)
-            )));
+            return Some(BindingNotice::Conflict(
+                t!(
+                    "preferences.keybindings.notice.also_bound",
+                    binding = binding_desc(&ka.action, other_label)
+                )
+                .into_owned(),
+            ));
         }
     }
     None
 }
 
-/// Convert an action string like "scroll.down" to a human-readable label "Scroll Down".
+/// What a binding's action is called: "scroll.down" is "Scroll Down".
+///
+/// An action this version does not know — a hand-edited mapping — has no
+/// name of its own, and is shown as its id spelled out.
 fn action_label(action_str: &str) -> String {
+    if let Ok(action) = Action::from_str(action_str) {
+        return action_title(action);
+    }
     action_str
         .split('.')
         .flat_map(|part| part.split('_'))
@@ -829,11 +848,26 @@ fn action_label(action_str: &str) -> String {
 }
 
 /// Human-readable label for a context.
-fn context_label(context: Option<KeyContext>) -> &'static str {
+fn context_label(context: Option<KeyContext>) -> String {
     match context {
-        None => "Global",
-        Some(context) => context.label(),
+        None => t!("preferences.keybindings.contexts.global").into_owned(),
+        Some(context) => context_name(context),
     }
+}
+
+/// What the section of menu shortcuts is called.
+fn menu_shortcuts_title() -> String {
+    t!("preferences.keybindings.contexts.menu_shortcuts").into_owned()
+}
+
+/// An action and where it is bound, as a notice names an existing binding.
+fn binding_desc(action: &str, context: &str) -> String {
+    t!(
+        "preferences.keybindings.notice.binding",
+        action = action_label(action),
+        context = context
+    )
+    .into_owned()
 }
 
 /// Result of checking a binding for conflicts or overrides.
@@ -903,18 +937,19 @@ fn check_conflict_inner(
             continue;
         }
 
-        let action_desc = format!(
-            "\"{}\" ({})",
-            action_label(&binding.action.to_string()),
-            context_label(binding.context),
-        );
+        let action_desc =
+            binding_desc(&binding.action.to_string(), &context_label(binding.context));
 
         match (binding.context, context) {
             // Same context (including both Global) → true conflict
             (None, None) | (Some(_), Some(_)) if binding.context == context => {
-                return Some(BindingNotice::Conflict(format!(
-                    "Conflicts with {action_desc}"
-                )))
+                return Some(BindingNotice::Conflict(
+                    t!(
+                        "preferences.keybindings.notice.conflicts_with",
+                        binding = action_desc
+                    )
+                    .into_owned(),
+                ))
             }
             // New context binding overrides existing global
             (None, Some(_)) => {
@@ -922,7 +957,7 @@ fn check_conflict_inner(
             }
             // New global binding will be overridden by existing context binding
             (Some(_), None) => {
-                overridden_by.push(context_label(binding.context).to_string());
+                overridden_by.push(context_label(binding.context));
             }
             // Different specific contexts → no overlap
             _ => {}
@@ -930,18 +965,22 @@ fn check_conflict_inner(
     }
 
     if let Some(desc) = overrides_global {
-        return Some(BindingNotice::Overwrite(format!(
-            "Overrides {desc} in this context"
-        )));
+        return Some(BindingNotice::Overwrite(
+            t!("preferences.keybindings.notice.overrides", binding = desc).into_owned(),
+        ));
     }
 
     if !overridden_by.is_empty() {
         overridden_by.sort();
         overridden_by.dedup();
-        return Some(BindingNotice::Overwrite(format!(
-            "Will be overridden in: {}",
-            overridden_by.join(", ")
-        )));
+        let separator = t!("preferences.keybindings.notice.separator");
+        return Some(BindingNotice::Overwrite(
+            t!(
+                "preferences.keybindings.notice.overridden_in",
+                contexts = overridden_by.join(&*separator)
+            )
+            .into_owned(),
+        ));
     }
 
     None

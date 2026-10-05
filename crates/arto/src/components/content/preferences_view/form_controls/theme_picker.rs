@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use super::ResetLine;
 use crate::config::ColorTheme;
@@ -26,7 +27,7 @@ pub fn ThemePicker(
 ) -> Element {
     let reset_to = shipped
         .filter(|shipped| shipped != &selected)
-        .map(|shipped| shipped.label().to_string());
+        .map(theme_label);
 
     let (matching, others): (Vec<ColorTheme>, Vec<ColorTheme>) = ColorTheme::ALL
         .into_iter()
@@ -56,11 +57,15 @@ pub fn ThemePicker(
                 class: "theme-cards-toggle",
                 onclick: move |_| expanded.toggle(),
                 if showing_others {
-                    if dark_mode { "Hide light themes" } else { "Hide dark themes" }
+                    if dark_mode {
+                        {t!("preferences.controls.hide_light_themes").to_string()}
+                    } else {
+                        {t!("preferences.controls.hide_dark_themes").to_string()}
+                    }
                 } else if dark_mode {
-                    "Show light themes too"
+                    {t!("preferences.controls.show_light_themes").to_string()}
                 } else {
-                    "Show dark themes too"
+                    {t!("preferences.controls.show_dark_themes").to_string()}
                 }
             }
         }
@@ -113,7 +118,24 @@ fn ThemeCard(
                     }
                 }
             }
-            span { class: "option-card-title", "{theme.label()}" }
+            span { class: "option-card-title", "{theme_label(theme)}" }
         }
     }
+}
+
+/// The theme's name in the interface language. [`ColorTheme::label`] stays
+/// English because the CLI and the schema read it too.
+fn theme_label(theme: ColorTheme) -> String {
+    match theme {
+        ColorTheme::Light => t!("preferences.themes.light"),
+        ColorTheme::LightHighContrast => t!("preferences.themes.light_high_contrast"),
+        ColorTheme::LightColorblind => t!("preferences.themes.light_colorblind"),
+        ColorTheme::LightTritanopia => t!("preferences.themes.light_tritanopia"),
+        ColorTheme::Dark => t!("preferences.themes.dark"),
+        ColorTheme::DarkDimmed => t!("preferences.themes.dark_dimmed"),
+        ColorTheme::DarkHighContrast => t!("preferences.themes.dark_high_contrast"),
+        ColorTheme::DarkColorblind => t!("preferences.themes.dark_colorblind"),
+        ColorTheme::DarkTritanopia => t!("preferences.themes.dark_tritanopia"),
+    }
+    .to_string()
 }

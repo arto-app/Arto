@@ -23,6 +23,7 @@ use objc2::runtime::{AnyClass, AnyObject, Imp, Sel};
 use objc2::{msg_send, sel, MainThreadMarker};
 use objc2_app_kit::NSApplication;
 use percent_encoding::{percent_decode_str, percent_encode, NON_ALPHANUMERIC};
+use rust_i18n::t;
 
 use crate::visits::{documents, Visit, VISITS};
 use crate::window::{self as app_window, CreateMainWindowConfigParams};
@@ -143,16 +144,16 @@ thread_local! {
 fn build_dock_menu() -> Menu {
     let menu = Menu::new();
     menu.append_items(&[
-        &DockItem::NewWindow.menu_item("New Window"),
+        &DockItem::NewWindow.menu_item(&t!("menu.dock.new_window")),
         &PredefinedMenuItem::separator(),
-        &DockItem::OpenFile.menu_item("Open File..."),
-        &DockItem::OpenDirectory.menu_item("Open Directory..."),
+        &DockItem::OpenFile.menu_item(&t!("menu.dock.open")),
+        &DockItem::OpenDirectory.menu_item(&t!("menu.dock.open_directory")),
     ])
     .unwrap();
 
     let recent = recent_documents(&VISITS.read().items, RECENT_LIMIT);
     if !recent.is_empty() {
-        let submenu = Submenu::new("Open Recent", true);
+        let submenu = Submenu::new(t!("menu.dock.open_recent"), true);
         for (path, label) in recent.iter().zip(recent_labels(&recent)) {
             submenu
                 .append(&DockItem::Recent(path.clone()).menu_item(&label))

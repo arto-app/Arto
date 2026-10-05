@@ -14,6 +14,7 @@
 use crate::scroll_anchor::ScrollAnchor;
 use chrono::{DateTime, Datelike, Days, Local, NaiveDate, Weekday};
 use parking_lot::RwLock;
+use rust_i18n::t;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -86,10 +87,10 @@ impl Bucket {
     /// share one definition rather than three that can drift.
     pub fn heading(&self) -> String {
         match self {
-            Self::Today => "Today".to_string(),
-            Self::Yesterday => "Yesterday".to_string(),
-            Self::ThisWeek => "This week".to_string(),
-            Self::LastWeek => "Last week".to_string(),
+            Self::Today => t!("app.history.today").into_owned(),
+            Self::Yesterday => t!("app.history.yesterday").into_owned(),
+            Self::ThisWeek => t!("app.history.this_week").into_owned(),
+            Self::LastWeek => t!("app.history.last_week").into_owned(),
             Self::Month(year, month) => format!("{year}-{month:02}"),
             Self::Year(year) => year.to_string(),
         }
@@ -153,9 +154,23 @@ pub fn short_when(at: DateTime<Local>, now: DateTime<Local>) -> String {
     let days = (now.date_naive() - at.date_naive()).num_days();
     match days {
         0 | 1 => at.format("%H:%M").to_string(),
-        2..=6 => at.format("%a").to_string(),
+        2..=6 => weekday_name(at.weekday()),
         _ => at.format("%-m/%-d").to_string(),
     }
+}
+
+// chrono's `%a` is English whatever the interface locale is.
+fn weekday_name(weekday: Weekday) -> String {
+    match weekday {
+        Weekday::Mon => t!("app.history.weekday.mon"),
+        Weekday::Tue => t!("app.history.weekday.tue"),
+        Weekday::Wed => t!("app.history.weekday.wed"),
+        Weekday::Thu => t!("app.history.weekday.thu"),
+        Weekday::Fri => t!("app.history.weekday.fri"),
+        Weekday::Sat => t!("app.history.weekday.sat"),
+        Weekday::Sun => t!("app.history.weekday.sun"),
+    }
+    .into_owned()
 }
 
 /// When `path` was last read, if it ever was.

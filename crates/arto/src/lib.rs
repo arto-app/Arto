@@ -14,6 +14,7 @@ mod highlight_color;
 mod highlights;
 mod history;
 mod hooks;
+mod i18n;
 pub mod ipc;
 mod keybindings;
 mod lenses;
@@ -23,6 +24,7 @@ mod markdown;
 mod menu;
 mod pinned_search;
 mod reading_time;
+pub mod relaunch;
 mod roots;
 mod scroll_anchor;
 mod state;
@@ -31,6 +33,8 @@ pub mod utils;
 mod visits;
 mod watcher;
 mod window;
+
+rust_i18n::i18n!("locales", fallback = "en");
 
 use dioxus::desktop::tao::event::{Event, WindowEvent};
 use tracing_subscriber::filter::EnvFilter;
@@ -86,6 +90,8 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
         }
         ipc::SendResult::NoExistingInstance | ipc::SendResult::Failed(_) => {}
     }
+
+    i18n::init();
 
     // Clear stale WebView cache when build changes (app upgrade via Homebrew, etc.)
     cache::clear_stale_webview_cache_if_needed();
@@ -162,6 +168,7 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
                 } => {
                     window::update_last_focused_window(*window_id);
                 }
+                Event::LoopDestroyed => relaunch::on_loop_destroyed(),
                 Event::MainEventsCleared => {
                     // Defense in depth: drain the IPC queue once per event-loop cycle.
                     //

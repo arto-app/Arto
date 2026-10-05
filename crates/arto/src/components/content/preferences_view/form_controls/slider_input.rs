@@ -1,5 +1,6 @@
 use super::ResetLine;
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 /// Slider input component with numeric input and optional action button.
 ///
@@ -93,13 +94,13 @@ pub fn SliderInput(
                 button {
                     class: "use-current-button",
                     onclick: move |_| on_change.call(current),
-                    "Use Current"
+                    {t!("preferences.controls.use_current").to_string()}
                 }
             } else if let Some(default) = default_value {
                 button {
                     class: "use-current-button",
                     onclick: move |_| on_change.call(default),
-                    "Use Default"
+                    {t!("preferences.controls.use_default").to_string()}
                 }
             }
         }

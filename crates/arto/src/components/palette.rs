@@ -1,12 +1,13 @@
 use dioxus::document;
 use dioxus::prelude::*;
+use rust_i18n::t;
 
 use crate::components::document_name::DocumentName;
 use crate::components::icon::{Icon, IconName};
 use crate::components::matched::Matched;
 use crate::files::Listing;
 use crate::fuzzy::{best, Query};
-use crate::keybindings::{Action, COMMAND_ACTIONS};
+use crate::keybindings::{command_name, Action, COMMAND_ACTIONS};
 use crate::state::AppState;
 use crate::visits::{Visit, VISITS, VISITS_CHANGED};
 use std::collections::HashSet;
@@ -45,7 +46,7 @@ const MAX_FILE_ROWS: usize = 16;
 /// one that names a folder.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Row {
-    /// Something to do, named by [`Action::command_label`].
+    /// Something to do, named by [`command_name`].
     Command(Action),
     /// Somewhere to go back to.
     Document(Visit),
@@ -58,7 +59,8 @@ pub enum Row {
 }
 
 impl Row {
-    /// The heading this row sits under.
+    /// The group this row sits under, named in English; [`Row::heading`] is
+    /// what the reader sees.
     ///
     /// Short lists read faster than one long one: the eye stops looking for a
     /// command among the documents.
@@ -69,6 +71,16 @@ impl Row {
             Self::Starred(_) => "Starred",
             Self::Place(_) => "Places",
             Self::File(_) => "Files",
+        }
+    }
+
+    fn heading(&self) -> String {
+        match self {
+            Self::Command(_) => t!("palette.group.commands").to_string(),
+            Self::Document(_) => t!("palette.group.recent").to_string(),
+            Self::Starred(_) => t!("palette.group.starred").to_string(),
+            Self::Place(_) => t!("palette.group.places").to_string(),
+            Self::File(_) => t!("palette.group.files").to_string(),
         }
     }
 
@@ -115,8 +127,8 @@ fn ranked_commands(query: &Query, cap: usize) -> Vec<Action> {
         return Vec::new();
     }
     let ranked = COMMAND_ACTIONS.iter().copied().filter_map(|action| {
-        let label = action.command_label()?;
-        Some((query.rank(label)?, action))
+        let label = command_name(action)?;
+        Some((query.rank(&label)?, action))
     });
     best(ranked, cap)
 }
@@ -408,14 +420,14 @@ pub fn Palette() -> Element {
                     Icon { name: IconName::Search, size: 14 }
                     PaletteField {
                         query,
-                        placeholder: "Find a file, go back to one you have read, or name a command",
+                        placeholder: t!("palette.placeholder").to_string(),
                     }
                 }
 
                 if rows.is_empty() {
                     div {
                         class: "palette-empty",
-                        if needle.trim().is_empty() { "Nothing read yet" } else { "Nothing by that name" }
+                        if needle.trim().is_empty() { {t!("palette.empty.nothing_read").to_string()} } else { {t!("palette.empty.no_match").to_string()} }
                     }
                 }
 
@@ -435,7 +447,7 @@ pub fn Palette() -> Element {
                 if partial {
                     div {
                         class: "palette-note",
-                        "This folder was too large to list whole — some files are not offered."
+                        {t!("palette.partial").to_string()}
                     }
                 }
 
@@ -446,7 +458,7 @@ pub fn Palette() -> Element {
                         close();
                     },
                     Icon { name: IconName::History, size: 14 }
-                    span { class: "palette-row-name", "All history…" }
+                    span { class: "palette-row-name", {t!("palette.all_history").to_string()} }
                 }
             }
         }
@@ -467,7 +479,7 @@ pub fn Palette() -> Element {
 /// thing thrown away. Nothing writes to the field — the palette is mounted
 /// when it opens and gone when it closes, so it starts empty on its own.
 #[component]
-pub fn PaletteField(query: Signal<String>, placeholder: &'static str) -> Element {
+pub fn PaletteField(query: Signal<String>, placeholder: String) -> Element {
     let mut state = use_context::<AppState>();
     let mut query = query;
 
@@ -789,18 +801,18 @@ mod tests {
         ranked_commands(&Query::new(query), usize::MAX)
     }
 
-    fn names(query: &str) -> Vec<&'static str> {
+    fn names(query: &str) -> Vec<String> {
         commands_for(query)
             .into_iter()
-            .filter_map(|action| action.command_label())
+            .filter_map(command_name)
             .collect()
     }
 
     #[test]
     fn characters_in_order_are_enough_to_name_a_command() {
-        assert!(names("close windows").contains(&"Close All Windows"));
-        assert!(names("cw").contains(&"Close All Windows"));
-        assert!(!names("close tabs").contains(&"Close All Windows"));
+        assert!(names("close windows").contains(&"Close All Windows".to_string()));
+        assert!(names("cw").contains(&"Close All Windows".to_string()));
+        assert!(!names("close tabs").contains(&"Close All Windows".to_string()));
     }
 
     #[test]
@@ -846,12 +858,12 @@ pub fn PaletteRows(
 ) -> Element {
     // A word above the first row of each kind. It is what makes a long list
     // read as several short ones, and it costs one row each.
-    let headings: Vec<Option<&'static str>> = rows
+    let headings: Vec<Option<String>> = rows
         .iter()
         .enumerate()
         .map(|(index, row)| {
             let first = index == 0 || rows[index - 1].group() != row.group();
-            first.then(|| row.group())
+            first.then(|| row.heading())
         })
         .collect();
 
@@ -859,7 +871,7 @@ pub fn PaletteRows(
         div {
             class: "palette-rows",
             for (index, row) in rows.iter().enumerate() {
-                if let Some(heading) = headings[index] {
+                if let Some(heading) = &headings[index] {
                     div { class: "palette-group", "{heading}" }
                 }
                 match row {
@@ -873,7 +885,7 @@ pub fn PaletteRows(
                             span {
                                 class: "palette-row-name",
                                 Matched {
-                                    text: action.command_label().unwrap_or_default().to_string(),
+                                    text: command_name(*action).unwrap_or_default(),
                                     query: query.clone(),
                                 }
                             }

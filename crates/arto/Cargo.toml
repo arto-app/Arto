@@ -18,6 +18,7 @@ categories = ["gui", "text-processing"]
 include = [
   "src/**",
   "build.rs",
+  "locales/**",
   "assets/Arto.png",
   "assets/arto-header-welcome-dark.png",
   "assets/arto-header-welcome-light.png",
@@ -77,6 +78,8 @@ flate2 = "1.1"
 mouse_position = "0.1.4"
 nucleo-matcher = "0.3"
 ignore = "0.4"
+rust-i18n = "4.2.4"
+sys-locale = "0.3.2"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -84,7 +87,9 @@ signal-hook = "0.4"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
   "Win32_System_Console",
+  "Win32_System_Threading",
   "Win32_UI_WindowsAndMessaging",
 ] }
 
@@ -100,5 +105,6 @@ tracing-oslog = "0.3.0"
 flate2 = "1.1"
 
 [dev-dependencies]
+rust-i18n-support = { version = "4.2.4", features = ["codegen"] }
 tempfile.workspace = true
 tokio = { version = "1.52.3", features = ["macros", "process", "rt", "sync", "time"] }

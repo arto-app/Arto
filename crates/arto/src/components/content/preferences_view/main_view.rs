@@ -8,6 +8,7 @@ use crate::config::{Config, CONFIG, CONFIG_CHANGED_BROADCAST};
 use crate::window::preferences::PreferencesSnapshot;
 use dioxus::prelude::*;
 use parking_lot::RwLock;
+use rust_i18n::t;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
@@ -39,18 +40,19 @@ impl PreferencesTab {
         Self::Lenses,
     ];
 
-    fn title(self) -> &'static str {
+    fn title(self) -> String {
         match self {
-            Self::Appearance => "Appearance",
-            Self::Markdown => "Markdown",
-            Self::Reading => "Reading",
-            Self::Panel => "Panel",
-            Self::Window => "Window",
-            Self::Startup => "Startup",
-            Self::Keybindings => "Keybindings",
-            Self::Lenses => "Lenses",
-            Self::About => "About",
+            Self::Appearance => t!("preferences.tabs.appearance"),
+            Self::Markdown => t!("preferences.tabs.markdown"),
+            Self::Reading => t!("preferences.tabs.reading"),
+            Self::Panel => t!("preferences.tabs.panel"),
+            Self::Window => t!("preferences.tabs.window"),
+            Self::Startup => t!("preferences.tabs.startup"),
+            Self::Keybindings => t!("preferences.tabs.keybindings"),
+            Self::Lenses => t!("preferences.tabs.lenses"),
+            Self::About => t!("preferences.tabs.about"),
         }
+        .to_string()
     }
 
     fn icon(self) -> IconName {
@@ -216,7 +218,7 @@ pub fn PreferencesView(snapshot: PreferencesSnapshot) -> Element {
                 nav {
                     class: "preferences-nav",
                     role: "tablist",
-                    "aria-label": "Preferences sections",
+                    "aria-label": t!("preferences.sections_label").to_string(),
 
                     for tab in PreferencesTab::ALL {
                         button {

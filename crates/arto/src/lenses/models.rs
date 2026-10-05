@@ -8,6 +8,7 @@ use super::agent::{self, Adapter, Invocation, Transport};
 use super::{http, runner, session};
 use arto_config::{Lens, LensAgent};
 use parking_lot::Mutex;
+use rust_i18n::t;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -94,7 +95,9 @@ async fn look_up(source: &ModelSource) -> Result<Vec<String>, String> {
 /// Run the agent's program alone with `args` in place of the flags a lens
 /// runs it with.
 async fn run(invocation: &Invocation, argv: &[String], args: &[&str]) -> Result<String, String> {
-    let program = argv.first().ok_or("the agent has no program")?;
+    let program = argv
+        .first()
+        .ok_or_else(|| t!("lenses.errors.no_program").into_owned())?;
     let command: Vec<String> = std::iter::once(program.clone())
         .chain(args.iter().map(|arg| arg.to_string()))
         .collect();

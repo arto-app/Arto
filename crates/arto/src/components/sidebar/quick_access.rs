@@ -8,6 +8,7 @@
 //! row carries the folder it sits in.
 
 use dioxus::prelude::*;
+use rust_i18n::t;
 use std::path::PathBuf;
 
 use crate::bookmarks::{move_bookmark, BOOKMARKS, BOOKMARKS_CHANGED};
@@ -87,11 +88,11 @@ pub fn StarredFace() -> Element {
                 // first row the same air every other face gives its first row.
                 div {
                     class: "left-sidebar-root-group-label",
-                    span { "Starred" }
+                    span { {t!("sidebar.starred.heading").to_string()} }
                 }
 
                 if rows.is_empty() {
-                    div { class: "left-sidebar-explorer-empty", "Nothing starred yet" }
+                    div { class: "left-sidebar-explorer-empty", {t!("sidebar.starred.empty").to_string()} }
                 }
 
                 div {
