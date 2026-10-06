@@ -70,7 +70,7 @@ jobs:
   build:
     needs: plan
     runs-on: ${{ matrix.os }}
-    # macOS is the source of the notarized DMG and gates the Homebrew
+    # macOS is the source of the DMG that gates the Homebrew
     # dispatch, so it must succeed. Linux and Windows bundling are newer and
     # less proven, so their failures are tolerated (visible as red legs) and
     # must not block the macOS release.
