@@ -3114,9 +3114,9 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.48.0"
+version = "1.49.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86f0f8fee8c926415c58d6ae43a08523a26faccb2323f5e6b644fe7dd4ef6b82"
+checksum = "b67d3d2e287e4b86c10b3f3b641033d1f89b74bdb39d05f34952e2b9a6fe21cd"
 dependencies = [
  "console",
  "globset",
@@ -3440,9 +3440,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.189"
+version = "0.2.190"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
+checksum = "ce5d3ddc6d3fa000eb1536d85e147bfe31aacaba692ed6a876f95cb7c855be78"
 
 [[package]]
 name = "libfuzzer-sys"
@@ -4396,27 +4396,27 @@ dependencies = [
 
 [[package]]
 name = "ox_content_allocator"
-version = "3.2.11"
+version = "3.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c8f478ccd3f3fa40e5194ee8d8c18262e1dab638beb74aff5084d91e7f519c9"
+checksum = "f5835e0b680072574ccaf7b4f4851bf9f555c833e949b7ea2d872e73476b428e"
 dependencies = [
  "bumpalo",
 ]
 
 [[package]]
 name = "ox_content_ast"
-version = "3.2.11"
+version = "3.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "747f1a9bd4e92440636ec3295f402944a6be9ab89c17e450e883ab90bf14656c"
+checksum = "38c954f46ee05058f02d26255b5addf45405fce63666a74e48bbd7e9046d81d1"
 dependencies = [
  "ox_content_allocator",
 ]
 
 [[package]]
 name = "ox_content_parser"
-version = "3.2.11"
+version = "3.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9bc6c7891fdb48f8b771164de498f218098a2e662f8e546f8fc1e5d078a4876"
+checksum = "87bfea541b209a57887b1db39055eca5dac095e5e7f0af23a311130cb0f64523"
 dependencies = [
  "compact_str",
  "memchr",
@@ -4429,9 +4429,9 @@ dependencies = [
 
 [[package]]
 name = "ox_content_renderer"
-version = "3.2.11"
+version = "3.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41e70c33bf128b20d74acb506e676e7c59639df0adaf1c6fb8e90ad954e34972"
+checksum = "ea58e67fe133d55710bb1f6a3e71487de9a69fabd59c3ceaa9d138123a73df44"
 dependencies = [
  "compact_str",
  "memchr",
@@ -6280,9 +6280,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.53.1"
+version = "1.53.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "202caea871b69668250d242070849eb495be178ed697a3e98aebce5bc81a0bed"
+checksum = "e95f91fcc7a621e8b030f6aa23c71fe9838ae2fb4d8118b75602a328f5144044"
 dependencies = [
  "bytes",
  "libc",
@@ -6652,9 +6652,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.26.1"
+version = "1.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ef6dac1e96601b4fb3acccccff2139741fcb757cb9a36089bf5be91cfb285ce"
+checksum = "97277d36b9c3ace13e58fa6e753f8b0bbbf302a18dd193240d70f9e29681059a"
 dependencies = [
  "getrandom 0.4.3",
  "js-sys",
