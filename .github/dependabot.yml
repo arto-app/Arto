@@ -5,6 +5,9 @@
 # Minor and patch bumps are grouped into one PR per ecosystem so the review
 # cost stays flat; major bumps stay separate because each one needs its own
 # API check (see the dependency-update notes in CONTRIBUTING.md).
+#
+# Commit messages follow the Scoped Commits convention in AGENTS.md:
+# `deps:` for the packages, `ci:` for the workflows.
 version: 2
 updates:
   - package-ecosystem: cargo
@@ -15,6 +18,8 @@ updates:
     # compromised or yanked release is usually caught upstream first.
     cooldown:
       default-days: 7
+    commit-message:
+      prefix: deps
     groups:
       cargo-minor-and-patch:
         update-types: [minor, patch]
@@ -36,6 +41,8 @@ updates:
     # compromised or yanked release is usually caught upstream first.
     cooldown:
       default-days: 7
+    commit-message:
+      prefix: deps
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
@@ -48,6 +55,8 @@ updates:
     # compromised or yanked release is usually caught upstream first.
     cooldown:
       default-days: 7
+    commit-message:
+      prefix: ci
     groups:
       actions:
         update-types: [minor, patch]

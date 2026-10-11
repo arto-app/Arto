@@ -28,5 +28,6 @@ jobs:
       - uses: nixbuild/nix-quick-install-action@v35
       - uses: DeterminateSystems/update-flake-lock@v29
         with:
-          pr-title: "chore(nix): update flake.lock"
+          pr-title: "nix: update flake.lock"
+          commit-msg: "nix: update flake.lock"
           pr-labels: dependencies

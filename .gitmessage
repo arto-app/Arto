@@ -1,21 +1,19 @@
 
-# **Conventional Commits**
+# **Scoped Commits**
 #
-# <type>[optional scope]: <description>
+# <scope>: <description>
 #
-# feat:      feature (minor)
-# deps:      dependencies (minor/patch)
-# fix:       bug fix (patch)
-# refactor:  refactoring code
-# test:      test fix; no code change
-# docs:      documentation fix; no code change
-# style:     formatting, missing semi colons, etc; no code change
-# chore:     updating build tasks, package manager configs, etc; no code change
+# <why this change is needed>
+#
+# The scope names where the change is: arto, markdown, config, keybindings,
+# lsp, page, frontend, samples, schemas, platform, docs, adr, spec, agents,
+# build, ci, nix, deps — the table in AGENTS.md says what each covers.
+# Several scopes are joined with ", "; a change across the tree is "treewide".
+#
+# The description is lower case, without a trailing period, within 72
+# characters. The body says why; a breaking change ends with a
+# "BREAKING CHANGE:" trailer.
 #
 # **Install**
 #
 #   git config commit.template .gitmessage
-#
-# **Reference**
-#
-# - https://www.conventionalcommits.org/en/v1.0.0/

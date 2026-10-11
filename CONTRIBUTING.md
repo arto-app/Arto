@@ -16,7 +16,7 @@ nix develop
 ```
 
 This automatically provides:
-- Rust toolchain with required targets
+- The Rust toolchain `rust-toolchain.toml` pins
 - pnpm for frontend dependencies
 - just command runner
 - dioxus-cli for development
@@ -28,7 +28,7 @@ This automatically provides:
 
 If you prefer not to use Nix, install these prerequisites manually:
 
-- [Rust](https://rust-lang.org/) (stable toolchain)
+- [rustup](https://rustup.rs/), which installs the toolchain `rust-toolchain.toml` pins
 - [pnpm](https://pnpm.io/)
 - [just](https://github.com/casey/just)
 - [dioxus-cli](https://crates.io/crates/dioxus-cli)
@@ -50,8 +50,11 @@ cargo run --release
 # Run with hot-reload (requires dioxus-cli)
 dx serve --platform desktop
 
-# Format, lint, and test
-just fmt check test
+# Format everything
+just fmt
+
+# Everything CI checks: formatting, lints, tests, docs and workflows
+just ci
 ```
 
 ## Production Build
@@ -240,8 +243,8 @@ state of the registry, not a file.
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feat/amazing-feature`)
 3. Make your changes
-4. Run `just fmt check test` to ensure code quality
-5. Commit with [Conventional Commits](https://www.conventionalcommits.org/) format
+4. Run `just ci` to ensure code quality
+5. Commit with the Scoped Commits format described in [AGENTS.md](./AGENTS.md#commits)
 6. Push and create a Pull Request
 
 ## License
