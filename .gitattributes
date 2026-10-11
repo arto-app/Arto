@@ -1,3 +1,7 @@
+# Check text out with LF on every OS, so a Windows checkout builds and tests
+# the same bytes as the others.
+* text=auto eol=lf
+
 # Images referenced from Markdown are inlined byte-for-byte as base64 data
 # URLs, so a checkout that rewrites their line endings changes the rendered
 # HTML. SVG is the only image format git would treat as text; keep it out of

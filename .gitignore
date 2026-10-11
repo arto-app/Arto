@@ -4,7 +4,9 @@ dist/
 /result
 node_modules/
 package-lock.json
+/.envrc
 .direnv/
+/.claude/worktrees/
 
 # Build-generated version file (CI only)
 crates/arto/VERSION
