@@ -8,6 +8,10 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    rust-overlay = {
+      url = "git+https://github.com/oxalica/rust-overlay?shallow=1";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     crane.url = "github:ipetkov/crane";
   };
 
@@ -15,6 +19,7 @@
     {
       self,
       nixpkgs,
+      rust-overlay,
       crane,
     }:
     let
@@ -27,14 +32,24 @@
         "x86_64-linux"
       ];
       eachSystem = nixpkgs.lib.genAttrs systems;
+      pkgsFor =
+        system:
+        import nixpkgs {
+          inherit system;
+          overlays = [ (import rust-overlay) ];
+        };
+      # The toolchain rust-toolchain.toml pins, which rustup also reads on the
+      # legs that build without Nix, so every build compiles with one rustc.
+      rustFor = pkgs: pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+      craneLibFor = pkgs: (crane.mkLib pkgs).overrideToolchain rustFor;
     in
     {
       packages = eachSystem (
         system:
         let
-          pkgs = nixpkgs.legacyPackages.${system};
+          pkgs = pkgsFor system;
           inherit (pkgs) lib;
-          craneLib = crane.mkLib pkgs;
+          craneLib = craneLibFor pkgs;
 
           # Package metadata - version resolved from VERSION file (CI) or git rev (local).
           # The version lives in the workspace manifest (`[workspace.package]`),
@@ -43,9 +58,10 @@
           cargoToml = builtins.fromTOML (builtins.readFile ./crates/arto/Cargo.toml);
           versionFile = ./crates/arto/VERSION;
           artoVersion =
-            if builtins.pathExists versionFile
-            then builtins.replaceStrings [ "\n" ] [ "" ] (builtins.readFile versionFile)
-            else "${workspaceToml.workspace.package.version}-${self.dirtyShortRev or self.shortRev or "unknown"}";
+            if builtins.pathExists versionFile then
+              builtins.replaceStrings [ "\n" ] [ "" ] (builtins.readFile versionFile)
+            else
+              "${workspaceToml.workspace.package.version}-${self.dirtyShortRev or self.shortRev or "unknown"}";
           packageMeta = {
             pname = cargoToml.package.name;
             version = artoVersion;
@@ -174,15 +190,12 @@
           # Build-time wrappers for macOS commands
           # See nix/codesign-wrapper.sh and nix/xattr-wrapper.sh for details
           codesignWrapper = pkgs.writeShellScriptBin "codesign" (
-            builtins.replaceStrings
-              [ "@CODESIGN_BIN@" ]
-              [ "${pkgs.darwin.sigtool}/bin/codesign" ]
-              (builtins.readFile ./nix/codesign-wrapper.sh)
+            builtins.replaceStrings [ "@CODESIGN_BIN@" ] [ "${pkgs.darwin.sigtool}/bin/codesign" ] (
+              builtins.readFile ./nix/codesign-wrapper.sh
+            )
           );
 
-          xattrWrapper = pkgs.writeShellScriptBin "xattr" (
-            builtins.readFile ./nix/xattr-wrapper.sh
-          );
+          xattrWrapper = pkgs.writeShellScriptBin "xattr" (builtins.readFile ./nix/xattr-wrapper.sh);
 
           # NOTE: The macOS Quick Look preview extension (Swift shim + Rust
           # `arto_page` static library) is assembled and embedded by the
@@ -248,42 +261,43 @@
               # https://crane.dev/API.html#cranelibinstallfromcargobuildloghook
               doNotPostBuildInstallCargoBinaries = true;
 
-              installPhaseCommand = lib.optionalString isDarwin ''
-                # Find .app bundle (path may change with dioxus-cli versions)
-                app_path="${dxBundlePath}/${appBundleName}"
+              installPhaseCommand =
+                lib.optionalString isDarwin ''
+                  # Find .app bundle (path may change with dioxus-cli versions)
+                  app_path="${dxBundlePath}/${appBundleName}"
 
-                if [[ ! -d "$app_path" ]]; then
-                  echo "Error: Expected .app bundle not found at $app_path"
-                  echo "Searching for ${appBundleName} in target/dx..."
-                  find target/dx -name "${appBundleName}" -type d || true
-                  exit 1
-                fi
+                  if [[ ! -d "$app_path" ]]; then
+                    echo "Error: Expected .app bundle not found at $app_path"
+                    echo "Searching for ${appBundleName} in target/dx..."
+                    find target/dx -name "${appBundleName}" -type d || true
+                    exit 1
+                  fi
 
-                mkdir -p $out/Applications
-                cp -r "$app_path" $out/Applications/
+                  mkdir -p $out/Applications
+                  cp -r "$app_path" $out/Applications/
 
-                # Create symlink for CLI usage (enables `arto` command in PATH)
-                mkdir -p $out/bin
-                ln -s "$out/Applications/${appBundleName}/Contents/MacOS/${appExecutableName}" "$out/bin/${appExecutableName}"
-              ''
-              + lib.optionalString isLinux ''
-                app_dir="${dxBundlePath}"
+                  # Create symlink for CLI usage (enables `arto` command in PATH)
+                  mkdir -p $out/bin
+                  ln -s "$out/Applications/${appBundleName}/Contents/MacOS/${appExecutableName}" "$out/bin/${appExecutableName}"
+                ''
+                + lib.optionalString isLinux ''
+                  app_dir="${dxBundlePath}"
 
-                if [[ ! -d "$app_dir" ]]; then
-                  echo "Error: Expected build output not found at $app_dir"
-                  echo "Searching for build output in target/dx..."
-                  find target/dx -type d 2>/dev/null || true
-                  exit 1
-                fi
+                  if [[ ! -d "$app_dir" ]]; then
+                    echo "Error: Expected build output not found at $app_dir"
+                    echo "Searching for build output in target/dx..."
+                    find target/dx -type d 2>/dev/null || true
+                    exit 1
+                  fi
 
-                # Install the entire app directory (binary + assets) since
-                # Dioxus asset!() macro resolves paths relative to the binary.
-                mkdir -p $out/lib/${appExecutableName}
-                cp -r "$app_dir"/. $out/lib/${appExecutableName}/
+                  # Install the entire app directory (binary + assets) since
+                  # Dioxus asset!() macro resolves paths relative to the binary.
+                  mkdir -p $out/lib/${appExecutableName}
+                  cp -r "$app_dir"/. $out/lib/${appExecutableName}/
 
-                mkdir -p $out/bin
-                ln -s $out/lib/${appExecutableName}/${appExecutableName} $out/bin/${appExecutableName}
-              '';
+                  mkdir -p $out/bin
+                  ln -s $out/lib/${appExecutableName}/${appExecutableName} $out/bin/${appExecutableName}
+                '';
             }
           );
 
@@ -344,15 +358,15 @@
       devShells = eachSystem (system: {
         default =
           let
-            pkgs = nixpkgs.legacyPackages.${system};
-            craneLib = crane.mkLib pkgs;
+            pkgs = pkgsFor system;
+            craneLib = craneLibFor pkgs;
           in
+          # The toolchain (cargo, rustc, rustfmt, clippy, rust-analyzer) comes
+          # from rust-toolchain.toml through craneLib.
           craneLib.devShell {
             inputsFrom = with self.packages.${system}; [ frontend-assets ];
             packages = [
-              # Rust tools (craneLib.devShell provides: cargo, rustc, rustfmt, clippy)
-              # We only add additional tools not included by default:
-              pkgs.rust-analyzer # IDE support
+              pkgs.nixfmt # `just fmt`, `just fmt-check`
 
               # The same checks CI runs (see .github/workflows/ci.yml), so a
               # failure there can be reproduced with the matching just recipe.
@@ -391,7 +405,7 @@
             # Workaround: Nix sets DEVELOPER_DIR to its apple-sdk, which breaks `just build` dmg creation.
             # https://github.com/NixOS/nixpkgs/issues/355486
             # RUST_SRC_PATH exposes Rust standard library sources for rust-analyzer and similar tools.
-            RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
+            RUST_SRC_PATH = "${rustFor pkgs}/lib/rustlib/src/rust/library";
 
             shellHook = ''
               unset DEVELOPER_DIR
@@ -409,5 +423,7 @@
             '';
           };
       });
+
+      formatter = eachSystem (system: nixpkgs.legacyPackages.${system}.nixfmt);
     };
 }
