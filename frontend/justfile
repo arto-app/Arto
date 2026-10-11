@@ -12,6 +12,9 @@ assets: setup
 fmt: setup
   pnpm run fmt
 
+fmt-check: setup
+  pnpm run fmt:check
+
 check: setup assets
   pnpm run check
 
