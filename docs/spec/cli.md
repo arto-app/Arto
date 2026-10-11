@@ -12,8 +12,8 @@ below works the same:
 ```
 
 On Windows, the copy to put on your `PATH` is the single binary from the
-[releases] page rather than the installed one. Only the single binary is a
-console program, and only a console program is one the shell waits for: with
+[releases] page rather than the installed one. Only the single binary is one
+the shell waits for: with
 the installed copy the prompt comes back before Arto has finished, so a
 redirect can be read half-written, `--wait-ready` holds nothing, and no exit
 code reaches the script.

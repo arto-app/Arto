@@ -47,10 +47,9 @@ from the top down. Every block keeps its place whatever the model does, which
 suits a model that drops or merges blocks when given a whole document; the
 price is that no run sees the rest of the document.
 
-An answer is Markdown written by a model, which the document it read can
-talk into writing anything, so it is shown with less trust than the document
-itself: raw HTML in it is shown as written, whatever `markdown.rawHtml`
-allows, and nothing in it is fetched from another host — an image from
+An answer is shown with less trust than the document itself: raw HTML in it
+is shown as written, whatever `markdown.rawHtml` allows, and nothing in it is
+fetched from another host — an image from
 elsewhere shows as its alt text. A document's `<kbd>` therefore shows as the
 tag in its translation.
 
@@ -155,16 +154,12 @@ unreadable, like any other malformed value.
 ## Agents
 
 An agent is asked the `prompt`, then a blank line, then the text and nothing
-else — the one shape every model reads as the text, so a model trained for a
-single task, such as a translation model, gets exactly what it expects. The
-block of an `annotate` lens is set apart in `<text>` tags instead, with its
+else. The block of an `annotate` lens is set apart in `<text>` tags instead, with its
 neighbours in `<before>` and `<after>`, since they have to be told apart.
 An `annotate` answer of `<nothing/>` alone, or an empty one, leaves its block
 unmarked, so a lens can be asked to note only what stands out — "if there is
 nothing to note, answer with exactly `<nothing/>`" — and mark just those
-blocks. Ask for the mark rather than for no answer: a model told to write
-nothing tends to write a sentence saying there is nothing, and that sentence
-would mark the block like any other note.
+blocks.
 
 | `agent` | Asked through | The answer arrives |
 | --- | --- | --- |
@@ -174,29 +169,22 @@ would mark the block like any other note.
 | `openai` | An OpenAI-compatible chat completions API: LM Studio, llama.cpp's server, vLLM, OpenAI, OpenRouter and the like | as it is written |
 
 The command-line agents are run with as little of their own set-up as they
-allow, because a lens asks a question about a text, and what an agent loads
-beyond that only makes each run slower and its answer less predictable. They
-use the sign-in you already have for them. Arto looks for the program on
+allow. They use the sign-in you already have for them. Arto looks for the program on
 `PATH` and in the usual install directories — Homebrew, `~/.local`, Nix
 profiles — because an app opened from the Finder or the Dock does not get
 your shell's `PATH`; set `program` when it lives elsewhere.
 
-Ollama is asked through its own API rather than its OpenAI-compatible one
-because only its own takes the context length with each request. Left to
-itself, Ollama loads a model with the longest context the model takes, which
-for a small model made for long contexts means tens of gigabytes of memory;
-Arto asks for enough to hold the text and an answer as long as it, rounded up
-so that requests of a similar size share a loaded model. Set `contextLength`
+Ollama is asked through its own API, for a context long enough to hold the
+text and an answer as long as it, rounded up so that requests of a similar
+size share a loaded model. Set `contextLength`
 to choose it yourself.
 
 A server that wants an API key gets the one stored for its endpoint in
 **Preferences → Lenses**, which keeps it in the system's credential store —
 the Keychain on macOS, the Credential Manager on Windows, the Secret Service
-elsewhere — never in `config.json`, so the file can be kept in a dotfiles
-repository. Every lens that asks the same endpoint uses the one key, and a
+elsewhere — never in `config.json`. Every lens that asks the same endpoint uses the one key, and a
 server with none stored, such as a local Ollama, is asked without one. Arto
-does not read the key from the environment: an app opened from the Finder or
-the Dock does not see the shell's. To keep the key in a password manager
+does not read the key from the environment. To keep the key in a password manager
 instead, set `apiKeyCommand` to a program that prints it — 1Password's
 `op read`, say — which is run for every request.
 
@@ -208,10 +196,7 @@ translate into, say — in `system`.
 ### What an agent is allowed
 
 Left as it is, a command-line agent can do nothing but read the text it is
-handed and answer. That is not caution for its own sake: the document is
-handed to the agent, and a document can be written to talk an agent into
-anything its tools can do — to read the files beside it and write them into
-its answer, or send them out through a search. `allow` hands a lens more,
+handed and answer. `allow` hands a lens more,
 one thing at a time, and only for that lens:
 
 | `allow` | The agent may | `claude` | `codex` |
@@ -225,8 +210,7 @@ the document, so allow them only for lenses you open over documents you
 trust. The menus mark such a lens with a warning sign, and one that opens
 again by itself — with a document it was open over, or as that document
 changes — shows what it answered before and asks nothing until you
-regenerate it: the file may have changed into something you would not have
-opened it over. Switching a lens to another agent clears `allow`.
+regenerate it. Switching a lens to another agent clears `allow`.
 
 Ollama and OpenAI-compatible servers are asked for a chat completion, which
 has no tools to allow.
