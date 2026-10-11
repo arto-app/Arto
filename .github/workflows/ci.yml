@@ -77,12 +77,12 @@ jobs:
           # Lockfiles count as flake changes: a new crate may need a native
           # library the Nix build lacks, and a pnpm lockfile change moves the
           # pnpmDeps hash, so both must go through the from-scratch build.
-          if matches '^(flake\.nix|flake\.lock|nix/|Cargo\.lock|frontend/pnpm-lock\.yaml|\.github/workflows/nix\.yml)'; then flake=true; fi
+          if matches '^(flake\.nix|flake\.lock|rust-toolchain\.toml|nix/|Cargo\.lock|frontend/pnpm-lock\.yaml|\.github/workflows/nix\.yml)'; then flake=true; fi
           if matches '(\.md$|^docs/|^lychee\.toml$|^\.github/scripts/)'; then docs=true; fi
           # The arm64 legs duplicate their x86_64 siblings except for the
           # packaging inputs, so they run only when those inputs (or a label)
           # ask. crates/arto/assets holds the icon Dioxus.toml embeds.
-          if matches '^(crates/arto/Dioxus\.toml|crates/arto/assets/|crates/arto/justfile|justfile|platform/|flake\.nix|flake\.lock|\.github/workflows/bundle\.yml|\.github/actions/)'; then bundle=true; fi
+          if matches '^(crates/arto/Dioxus\.toml|crates/arto/assets/|crates/arto/justfile|justfile|platform/|flake\.nix|flake\.lock|rust-toolchain\.toml|\.github/workflows/bundle\.yml|\.github/actions/)'; then bundle=true; fi
           case ",$LABELS," in *,ci:bundle,*) bundle=true ;; esac
           if [ "$bundle" = true ]; then targets="$all"; else targets="$native"; fi
           {
@@ -121,7 +121,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Formatting is gated here only: oxfmt on the Windows leg used to fail
       # on git's CRLF conversion for reasons unrelated to the change.
-      - run: pnpm run fmt && git diff --exit-code
+      - run: pnpm run fmt:check
       - run: pnpm run check
       - run: pnpm run test
       - run: pnpm run build
@@ -143,6 +143,10 @@ jobs:
     if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    # Bash on Windows too, as the recipes expect.
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -172,57 +176,32 @@ jobs:
       - name: Install Xvfb (Linux headless display)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y xvfb
-      # `just` recipes run through the devShell on macOS/Linux and directly on
-      # Windows; the prefixes below keep the remaining steps identical.
-      - name: Choose command prefixes
-        shell: bash
-        run: |
-          if [ "$RUNNER_OS" != "Windows" ]; then
-            echo "NIX=nix develop -c" >> "$GITHUB_ENV"
-          fi
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            echo "XVFB=xvfb-run -a" >> "$GITHUB_ENV"
-          fi
-      # The prefixes are meant to split into words (SC2086).
+      # setup-toolchain loaded the devShell into the job on macOS and Linux,
+      # so every OS runs the same just recipes below.
+      - name: Choose the display wrapper
+        if: runner.os == 'Linux'
+        run: echo "XVFB=xvfb-run -a" >> "$GITHUB_ENV"
       - name: Format
-        shell: bash
-        run: |
-          # shellcheck disable=SC2086
-          $NIX cargo fmt --all --check
+        run: just arto::fmt-check
       - name: Check and lint
-        shell: bash
-        run: |
-          # shellcheck disable=SC2086
-          $NIX just arto::check
+        run: just arto::check
+      # The wrapper is meant to split into words (SC2086).
       - name: Test
-        shell: bash
         run: |
           # shellcheck disable=SC2086
-          $XVFB $NIX just arto::test-ci
+          $XVFB just arto::test-ci
       - name: Documentation
         if: matrix.target == 'ubuntu'
-        shell: bash
-        run: |
-          # shellcheck disable=SC2086
-          $NIX just arto::doc
+        run: just arto::doc
       - name: Feature combinations
         if: matrix.target == 'ubuntu'
-        shell: bash
-        run: |
-          # shellcheck disable=SC2086
-          $NIX just arto::features
+        run: just arto::features
       - name: Advisories and licenses
         if: matrix.target == 'ubuntu'
-        shell: bash
-        run: |
-          # shellcheck disable=SC2086
-          $NIX just arto::deny
+        run: just arto::deny
       - name: Unused dependencies
         if: matrix.target == 'ubuntu'
-        shell: bash
-        run: |
-          # shellcheck disable=SC2086
-          $NIX just arto::machete
+        run: just arto::machete
 
   # Evaluate every flake output without building. Catches a source fileset
   # that names a moved file, a missing attribute, or a broken devShell in a
@@ -238,6 +217,8 @@ jobs:
           persist-credentials: false
       - uses: nixbuild/nix-quick-install-action@v35
       - run: nix flake check --no-build --all-systems
+      # The Nix half of `just fmt-check`, which the rust legs leave out.
+      - run: nix fmt -- --check flake.nix
 
   # Documentation: relative links and anchors (offline), and repository paths
   # named in code spans that no longer exist.

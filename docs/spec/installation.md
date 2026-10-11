@@ -37,11 +37,8 @@ chmod +x arto_<version>_x86_64.AppImage
 ./arto_<version>_x86_64.AppImage
 ```
 
-The AppImage needs WebKitGTK 4.1 installed on the system. It is the one thing
-the image deliberately does not carry: WebKitGTK renders pages in helper
-processes that it looks for at a path fixed when your distribution built it, so
-the library and those helpers only work as the set your package manager
-installed. Install it first if it is missing:
+The AppImage needs WebKitGTK 4.1 installed on the system; the image does not
+carry it. Install it first if it is missing:
 
 ```sh
 sudo dnf install webkit2gtk4.1          # Fedora
@@ -81,19 +78,16 @@ it there. The Linux binary still needs WebKitGTK 4.1 on the system, exactly as
 the `.deb` and the AppImage do.
 
 On Windows the two also differ in how they meet a terminal. The installed copy
-is a GUI program, which is what keeps a command prompt from opening behind a
-document started from Explorer or the Start menu. The single binary is a
-console program, because it is the copy people run from a terminal and only
-such a program makes the shell wait for it — see [CLI usage](./cli.md).
+is a GUI program, so no command prompt opens behind a document started from
+Explorer or the Start menu. The single binary is a console program, so a shell
+waits for it — see [CLI usage](./cli.md).
 Double-click it instead and it hides the console it was given.
 
 Both carry the Microsoft C runtime inside them, so neither asks for the Visual
 C++ redistributable to be installed first.
 
-macOS has no such download on purpose. Most of what makes Arto worth
-installing there — the Finder associations and the Quick Look preview — is
-carried by the app bundle rather than by the executable inside it, so the DMG
-is the whole story.
+macOS has no such download; Arto is installed there as the app bundle, which
+carries the Finder associations and the Quick Look preview.
 
 ## Nix
 

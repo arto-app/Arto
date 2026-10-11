@@ -48,28 +48,24 @@ runs:
         name: arto
         authToken: ${{ inputs.cachix-auth-token }}
         skipPush: ${{ github.event_name == 'pull_request' }}
-    # Expose the devShell's cargo and rustc on PATH. The commands themselves
-    # still run through `nix develop -c` (for the environment variables the
-    # shell sets), but Swatinem/rust-cache keys its cache on `rustc -vV` from
-    # a plain step, so the toolchain must be reachable without the shell.
-    # The PATH edits below are the point of this action and run only on
-    # trusted triggers (no pull_request_target anywhere), so the environment
-    # file audit is silenced for them.
+    # Load the devShell (flake.nix) into the job, so the steps after this
+    # action run the same commands as on Windows, with no `nix develop -c`
+    # in front of them.
     - if: inputs.toolchain == 'nix' && runner.os != 'Windows'
-      shell: bash
-      run: | # zizmor: ignore[github-env]
-        cargo_dir="$(nix develop -c bash -c 'dirname "$(command -v cargo)"')"
-        echo "$cargo_dir" >> "$GITHUB_PATH"
-        echo "devShell toolchain: $cargo_dir"
+      uses: nicknovitski/nix-develop@v1
 
     # --- Native toolchain (every platform) ---
     # Windows-only code paths (the cfg(windows) named-pipe IPC, the hamburger
     # menu, engine-owned menu shortcuts) are invisible to the macOS/Linux legs
     # and have regressed unnoticed before, so Windows always builds natively.
+    # The action brings rustup; the toolchain itself is the one
+    # rust-toolchain.toml pins, the same one the devShell carries.
     - if: inputs.toolchain == 'native' || runner.os == 'Windows'
       uses: dtolnay/rust-toolchain@stable
-      with:
-        components: clippy, rustfmt
+    - name: Install the pinned toolchain
+      if: inputs.toolchain == 'native' || runner.os == 'Windows'
+      shell: bash
+      run: rustup toolchain install
     - if: (inputs.toolchain == 'native' || runner.os == 'Windows') && inputs.tools != ''
       uses: taiki-e/install-action@v2
       with:

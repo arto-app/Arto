@@ -12,10 +12,10 @@
 
 <p align="center">
   <a href="https://arto-app.github.io"><strong>Website</strong></a> ·
-  <a href="./docs/installation.md">Install</a> ·
-  <a href="./docs/cli.md">CLI</a> ·
-  <a href="./docs/configuration.md">Configuration</a> ·
-  <a href="./docs/keybindings.md">Keybindings</a> ·
+  <a href="./docs/spec/installation.md">Install</a> ·
+  <a href="./docs/spec/cli.md">CLI</a> ·
+  <a href="./docs/spec/configuration.md">Configuration</a> ·
+  <a href="./docs/spec/keybindings.md">Keybindings</a> ·
   <a href="./CONTRIBUTING.md">Contributing</a>
 </p>
 
@@ -27,7 +27,7 @@
 </p>
 
 > [!WARNING]
-> Arto is **beta**. Features may change without regard to backward compatibility. macOS is the platform it is developed and tested on; Linux and Windows builds exist but are **experimental** — see [Platform support](./docs/installation.md#platform-support).
+> Arto is **beta**. Features may change without regard to backward compatibility. macOS is the platform it is developed and tested on; Linux and Windows builds exist but are **experimental** — see [Platform support](./docs/spec/installation.md#platform-support).
 
 ## Why
 
@@ -51,11 +51,11 @@ Markdown is where documentation, communication and thinking now live, and readin
 
 **Rich content** — Mermaid diagrams and KaTeX math where they stand, drawn as they come into view so a long document opens as quickly as a short one. The context menu copies a selection as Markdown, a code block with or without its fence, a table as Markdown, CSV or TSV, and an image as Markdown or as the image itself — as well as the document's path, with the line you are on or a range of them.
 
-**Lenses** — Claude, Codex, a local model through Ollama or any OpenAI-compatible server asked about the document you are reading, the file itself never changed: a translation taking the document's places block by block from the top, each original a point at its right margin away; a summary opened from the header; a note kept beside each paragraph. Nothing is sent anywhere until you open a lens, and then only to what you configured — see [Lenses](./docs/lenses.md).
+**Lenses** — Claude, Codex, a local model through Ollama or any OpenAI-compatible server asked about the document you are reading, the file itself never changed: a translation taking the document's places block by block from the top, each original a point at its right margin away; a summary opened from the header; a note kept beside each paragraph. Nothing is sent anywhere until you open a lens, and then only to what you configured — see [Lenses](./docs/spec/lenses.md).
 
 **Fitting in** — GitHub's own themes, including dimmed, high contrast and the colour-vision ones, with a separate choice for light and dark mode and the system deciding which applies. Keybindings ship as Default, Vim, Emacs and Clear presets, every binding editable and chord sequences supported. Zoom by keyboard or trackpad with the level remembered, `⌘P` to print or save a PDF through a stylesheet made for paper, and — on macOS — `Space` on a Markdown file previews it rendered, in the Finder preview pane too.
 
-<sub>Shortcuts above are the macOS defaults; `⌘` is `Ctrl` on Linux and Windows. All of them are rebindable — see [Keybindings](./docs/keybindings.md).</sub>
+<sub>Shortcuts above are the macOS defaults; `⌘` is `Ctrl` on Linux and Windows. All of them are rebindable — see [Keybindings](./docs/spec/keybindings.md).</sub>
 
 <p align="center">
   <picture>
@@ -85,7 +85,7 @@ Markdown is where documentation, communication and thinking now live, and readin
 brew install --cask arto-app/tap/arto
 ```
 
-Linux packages, a single binary for Linux and Windows, and Nix: [Installation](./docs/installation.md).
+Linux packages, a single binary for Linux and Windows, and Nix: [Installation](./docs/spec/installation.md).
 
 ## From the terminal
 
@@ -103,7 +103,7 @@ arto page README.md > README.html
 
 The page follows your configuration, and ships with a Content-Security-Policy that blocks any script embedded in the Markdown. The same renderer is available as a standalone `arto-page` binary, for machines that need the output but not the window.
 
-Full flags and behaviour: [CLI usage](./docs/cli.md).
+Full flags and behaviour: [CLI usage](./docs/spec/cli.md).
 
 ## Built with
 

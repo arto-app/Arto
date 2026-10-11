@@ -1,6 +1,6 @@
 # Development Tips & Best Practices
 
-Practical lessons learned from developing Arto. These tips complement the architectural documentation in CLAUDE.md.
+Practical lessons learned from developing Arto. These tips complement the architectural documentation in AGENTS.md and .claude/rules/.
 
 ## Table of Contents
 
@@ -1032,7 +1032,7 @@ div {
 
 ## Further Reading
 
-- **CLAUDE.md**: Full architectural patterns and guidelines
+- **AGENTS.md**: Full architectural patterns and guidelines
 - **config-module.md**: Configuration module organization patterns
 - **serde-patterns.md**: Detailed serde optimization strategies
 - **architecture-overview.md**: Understanding config/state/persistence layers

@@ -7,13 +7,28 @@ default:
 
 setup: frontend::setup
 
-fmt: arto::fmt frontend::fmt
+fmt: arto::fmt frontend::fmt fmt-nix
+
+fmt-check: arto::fmt-check frontend::fmt-check fmt-nix-check
+
+# nixfmt comes from the devShell, which Windows and a setup without Nix do
+# not have; there flake.nix is left to CI's flake-eval job.
+[private]
+fmt-nix:
+  if command -v nixfmt >/dev/null; then nixfmt flake.nix; else echo "nixfmt not found; skipping flake.nix" >&2; fi
+
+[private]
+fmt-nix-check:
+  if command -v nixfmt >/dev/null; then nixfmt --check flake.nix; else echo "nixfmt not found; skipping flake.nix" >&2; fi
 
 check: frontend::assets arto::check frontend::check
 
 test: frontend::assets arto::test frontend::test
 
 verify: fmt check test
+
+# Everything CI checks, in one recipe: the gate before a change is done.
+ci: fmt-check check test docs workflows arto::doc arto::features arto::deny arto::machete
 
 # Links in Markdown files (offline, see lychee.toml) and repository paths
 # named in documentation; the same checks the CI docs job runs.
