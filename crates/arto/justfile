@@ -101,11 +101,30 @@ _apply-bundle-metadata:
 # skipping the re-sign would leave a broken seal and the extension would not
 # load. The extension is signed WITHOUT hardened runtime to match the app
 # (`hardened_runtime = false`) and to keep the WebView's JavaScript JIT enabled.
+#
+# Both are signed by the identity ARTO_SIGN_IDENTITY names, else by "Arto
+# Release" when the keychain has it (`just macos-import-identity`), else
+# ad-hoc. A local build signed by the release identity is one macOS cannot
+# tell from an installed release, so neither forgets what the other was let
+# do.
 [macos]
 [private]
 _embed-quicklook:
   #!/usr/bin/env bash
   set -euo pipefail
+  identity="${ARTO_SIGN_IDENTITY:-}"
+  if [ -z "$identity" ]; then
+    # An identity, not a certificate: the certificate alone, without its
+    # private key, cannot sign. Captured before grepping: under `pipefail`,
+    # `grep -q` closing the pipe early would fail `security` instead.
+    identities="$(security find-identity -p codesigning)"
+    if grep -qF '"Arto Release"' <<<"$identities"; then
+      identity="Arto Release"
+    else
+      identity="-"
+      echo "no \"Arto Release\" in the keychain; signing ad-hoc" >&2
+    fi
+  fi
   app="{{target}}/dx/arto/release/macos/Arto.app"
   appex="$app/Contents/PlugIns/ArtoQuickLook.appex"
   arch="$(uname -m)"
@@ -126,11 +145,11 @@ _embed-quicklook:
     -Xlinker -e -Xlinker _NSExtensionMain \
     -o "$appex/Contents/MacOS/ArtoQuickLook"
   cp "$ql/Info.plist" "$appex/Contents/Info.plist"
-  echo "Signing extension (inside-out: extension first, then the app)…"
-  codesign --force --sign - --timestamp=none \
+  echo "Signing extension (inside-out: extension first, then the app) by ${identity}…"
+  codesign --force --sign "$identity" --timestamp=none \
     --entitlements "$ql/ArtoQuickLook.entitlements" \
     "$appex"
-  codesign --force --sign - --timestamp=none "$app"
+  codesign --force --sign "$identity" --timestamp=none "$app"
   echo "Quick Look preview extension embedded at Contents/PlugIns/ArtoQuickLook.appex"
 
 # Package the (already extension-embedded and signed) app bundle into a

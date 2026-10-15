@@ -13,9 +13,14 @@ permissions:
 
 jobs:
   bundle:
-    uses: ./.github/workflows/bundle.yml
+    uses: ./.github/workflows/bundle.yml # zizmor: ignore[secrets-inherit]
     with:
       version: ${{ github.event.release.tag_name }}
+      sign: true
+    # A called workflow reads the secrets of the environment "release" only
+    # when they are inherited; they cannot be passed by name, as the caller
+    # has no environment to read them from.
+    secrets: inherit
 
   # The crates at the version the installers carry. After `bundle`, because a
   # published version can only be yanked, never replaced or corrected — so a
@@ -159,9 +164,9 @@ jobs:
 
           ### Why Two Approvals Are Needed
 
-          macOS treats the DMG container and the app inside separately. Since both are unsigned,
-          each requires manual approval through System Settings. This is standard macOS security
-          for applications without Apple Developer ID certificates.
+          macOS treats the DMG container and the app inside separately. Neither carries an Apple
+          Developer ID signature or notarization, so each requires manual approval through System
+          Settings. This is standard macOS security for applications without Apple Developer ID certificates.
 
           ### Quick Method (Terminal - for advanced users)
 
@@ -177,7 +182,7 @@ jobs:
 
           ### Note for macOS Sequoia (15.0+) Users
 
-          The right-click → "Open" shortcut no longer works for unsigned apps.
+          The right-click → "Open" shortcut no longer works for apps that are not notarized.
           You must use System Settings → Privacy & Security as described above.
 
           ---
