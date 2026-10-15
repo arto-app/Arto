@@ -4,11 +4,12 @@ name: "Update flake.lock"
 # crane) are refreshed by this scheduled job instead. It opens a pull request
 # with the new flake.lock.
 #
-# The PR is created with the workflow's own GITHUB_TOKEN, and GitHub does not
-# start workflows for events caused by that token (a guard against recursive
-# runs). So the CI workflow, including the Nix build, does NOT run on the PR by
-# itself: close and reopen it, or push to it, to get CI. Supplying a personal
-# access token via the action's `token` input would lift that restriction.
+# The PR is created with the FLAKE_LOCK_TOKEN secret, a fine-grained personal
+# access token with read and write access to Contents and Pull requests on this
+# repository. The workflow's own GITHUB_TOKEN is not used because GitHub does
+# not start workflows for events caused by it (a guard against recursive runs),
+# so CI would never run on the PR. Without the secret the job falls back to
+# GITHUB_TOKEN: the PR still opens, but CI needs a close and reopen.
 on:
   schedule:
     - cron: "0 3 * * 1"
@@ -28,6 +29,7 @@ jobs:
       - uses: nixbuild/nix-quick-install-action@v35
       - uses: DeterminateSystems/update-flake-lock@v29
         with:
+          token: ${{ secrets.FLAKE_LOCK_TOKEN || github.token }}
           pr-title: "nix: update flake.lock"
           commit-msg: "nix: update flake.lock"
           pr-labels: dependencies
