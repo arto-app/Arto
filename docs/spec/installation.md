@@ -10,6 +10,10 @@ Install with the [Homebrew] tap. Arto is not signed or notarized with an Apple
 Developer ID, so the cask removes the quarantine attribute that would otherwise
 stop macOS from opening it — see [homebrew-tap] for why.
 
+Every release is signed by the same self-signed certificate, so an update
+keeps what you allowed the previous release to do, such as reading the API
+keys Arto keeps in the keychain.
+
 ```sh
 brew install --cask arto-app/tap/arto
 ```

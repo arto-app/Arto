@@ -16,6 +16,12 @@ on:
         description: Version to stamp into the bundles (empty keeps 0.0.0)
         type: string
         default: ""
+      # Signs the macOS app by the release identity, kept in the secrets of
+      # the environment "release"; ad-hoc otherwise. Every release is signed
+      # by the same one, so an update keeps what users let the app do.
+      sign:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       targets:
@@ -75,6 +81,7 @@ jobs:
     # less proven, so their failures are tolerated (visible as red legs) and
     # must not block the macOS release.
     continue-on-error: ${{ matrix.target != 'macos' }}
+    environment: ${{ inputs.sign && matrix.target == 'macos' && 'release' || '' }}
     # A cold cargo cache plus `cargo install dioxus-cli` (~10m) pushes a full
     # release build well past 30m.
     timeout-minutes: 60
@@ -160,6 +167,14 @@ jobs:
           $v = $env:VERSION -replace '^v', ''
           (Get-Content Cargo.toml) -replace '= "0\.0\.0"', "= `"$v`"" | Set-Content Cargo.toml
           Set-Content -NoNewline crates/arto/VERSION $v
+      - name: Import the release signing identity
+        if: inputs.sign && runner.os == 'macOS'
+        run: |
+          .github/import-macos-identity.sh "$RUNNER_TEMP/signing.keychain-db"
+          echo "ARTO_SIGN_IDENTITY=Arto Release" >>"$GITHUB_ENV"
+        env:
+          MACOS_SIGNING_P12: ${{ secrets.MACOS_SIGNING_P12 }}
+          MACOS_SIGNING_PASSWORD: ${{ secrets.MACOS_SIGNING_PASSWORD }}
       - run: just build
       # Refuse to publish a bundle that carries build-environment dependencies
       # or that cannot start. Windows has no Nix toolchain to carry in, and
