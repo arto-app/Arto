@@ -240,13 +240,18 @@ impl AppState {
     /// Asking for a face is asking to look at it, so it does not also require
     /// opening the panel first.
     pub fn show_face(&mut self, face: Face) {
+        self.turn_to_face(face);
+        self.show_panel();
+    }
+
+    /// Put `face` on the panel, whether or not the panel is out.
+    pub fn turn_to_face(&mut self, face: Face) {
         // Each face is a different list, so a cursor left over from the last
         // one would be pointing at a row that is not drawn any more.
         if self.sidebar.peek().face != face {
             self.panel_cursor.set(None);
         }
         self.sidebar.write().face = face;
-        self.show_panel();
     }
 
     /// Open a document picked out of the panel at one of its lines.
@@ -377,6 +382,43 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn with_state(f: impl FnOnce(AppState)) {
+        fn app() -> Element {
+            rsx! {}
+        }
+        let mut dom = VirtualDom::new(app);
+        dom.rebuild_in_place();
+        dom.in_scope(ScopeId::APP, || f(AppState::default()));
+    }
+
+    #[test]
+    fn turning_to_another_face_forgets_the_cursor() {
+        with_state(|mut state| {
+            state.sidebar.write().face = Face::Places;
+            state
+                .panel_cursor
+                .set(Some((Group::Current, PathBuf::from("/a.md"))));
+
+            state.turn_to_face(Face::Recent);
+
+            assert_eq!(state.sidebar.read().face, Face::Recent);
+            assert_eq!(*state.panel_cursor.read(), None);
+        });
+    }
+
+    #[test]
+    fn turning_to_the_face_on_screen_keeps_the_cursor() {
+        with_state(|mut state| {
+            state.sidebar.write().face = Face::Places;
+            let row = (Group::Current, PathBuf::from("/a.md"));
+            state.panel_cursor.set(Some(row.clone()));
+
+            state.turn_to_face(Face::Places);
+
+            assert_eq!(*state.panel_cursor.read(), Some(row));
+        });
+    }
 
     #[test]
     fn the_faces_step_in_the_order_the_rail_draws_them() {

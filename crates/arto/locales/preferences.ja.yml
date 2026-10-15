@@ -220,6 +220,18 @@ preferences:
         description: "オフにすると、ツリーには Markdown だけを表示します。"
     behavior:
       title: "動作"
+      peek_on_hover:
+        label: "ホバーで開く"
+        description: "レールにポインタを置くとパネルが出てきます。オフにすると、レールのアイコンをクリックしたときだけ開きます。"
+      pin_on:
+        label: "パネルの固定"
+        description: "レールのアイコンでパネルをドキュメントの横に固定する操作です。"
+        click:
+          title: "クリック"
+          description: "クリックで固定し、同じアイコンをもう一度クリックすると閉じます"
+        double_click:
+          title: "ダブルクリック"
+          description: "クリックするとポインタが離れるまで表示し、ダブルクリックで固定します"
       on_open:
         label: "ドキュメントを開いたあと"
         description: "パネルの行からドキュメントを開いたあとのパネルの動作です。一覧を順にたどって次々に開く人もいれば、目当てのものを開いたらページを広く使いたい人もいます。"

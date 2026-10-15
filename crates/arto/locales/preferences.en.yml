@@ -220,6 +220,18 @@ preferences:
         description: "Off, the tree lists Markdown alone."
     behavior:
       title: "Behavior"
+      peek_on_hover:
+        label: "Open on hover"
+        description: "Resting the pointer on the rail brings the panel out. Off, it comes out only when a glyph on the rail is clicked."
+      pin_on:
+        label: "Pinning the Panel"
+        description: "Which click on a glyph of the rail keeps the panel beside the document."
+        click:
+          title: "Click"
+          description: "A click pins the panel; another click on the same glyph puts it away"
+        double_click:
+          title: "Double click"
+          description: "A click shows the panel until the pointer leaves it; a double click pins it"
       on_open:
         label: "After Opening a Document"
         description: "What the panel does once a document has been opened from one of its rows. Some readers work down the list, opening one document after another; others go to it for one thing and want the page to themselves once they have it."
