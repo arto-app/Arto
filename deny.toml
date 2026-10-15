@@ -8,9 +8,9 @@ all-features = true
 version = 2
 yanked = "deny"
 # Unmaintained crates nothing here can replace directly. Most arrive through
-# the Dioxus desktop stack (wry, tao, gtk on Linux); two come through direct
-# dependencies of the app (image, display-info). Reviewed 2026-09; drop an
-# entry once the named dependency moves off the crate.
+# the Dioxus desktop stack (wry, tao, gtk on Linux); the rest come through
+# direct dependencies (image, display-info, serde_yaml_ng). Reviewed 2026-10;
+# drop an entry once the named dependency moves off the crate.
 ignore = [
   { id = "RUSTSEC-2024-0370", reason = "proc-macro-error via glib-macros/gtk3-macros, i.e. the gtk-rs chain below" },
   { id = "RUSTSEC-2024-0411", reason = "gtk-rs GTK3 bindings via wry/tao on Linux" },
@@ -23,6 +23,7 @@ ignore = [
   { id = "RUSTSEC-2024-0419", reason = "gtk-rs GTK3 bindings via wry/tao on Linux" },
   { id = "RUSTSEC-2024-0420", reason = "gtk-rs GTK3 bindings via wry/tao on Linux" },
   { id = "RUSTSEC-2024-0436", reason = "paste via pulp/exr under the image crate (arto and arboard)" },
+  { id = "RUSTSEC-2024-0449", reason = "unsafe-libyaml via serde_yaml_ng (arto-markdown's front matter); its latest release still uses it" },
   { id = "RUSTSEC-2025-0057", reason = "fxhash via display-info (arto) and selectors/kuchikiki (wry)" },
 ]
 
