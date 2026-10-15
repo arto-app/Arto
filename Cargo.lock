@@ -939,26 +939,24 @@ dependencies = [
 
 [[package]]
 name = "compile-time"
-version = "0.3.7"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93ae90e9d2c5ee878600b1604aa04ded144a0c7e9ec233cd879ae0922d40f0a1"
+checksum = "72196c3ad358618b77e0c8395b977786e89482d97761d28f4a6c719c28c2e1af"
 dependencies = [
  "compile-time-macros",
- "semver",
  "time",
 ]
 
 [[package]]
 name = "compile-time-macros"
-version = "0.3.7"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa04123619670d1d4f8299132b864e7b7a65aedba0dbe2ea40fa8dd0c9e2873b"
+checksum = "5c5319cbb7d6ce9f683e79149506f5786db2b785c8d2818987bbd38a751fc478"
 dependencies = [
  "macro-string 0.3.0",
  "proc-macro2",
  "quote",
  "rustc_version",
- "semver",
  "syn 3.0.5",
  "time",
 ]
