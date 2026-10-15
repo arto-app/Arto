@@ -63,6 +63,8 @@
         "recentTrace": "hidden_when_sidebar",
         "recentTraceCount": 6,
         "onOpen": "keep_open",
+        "peekOnHover": true,
+        "pinOn": "click",
         "onStartup": "default",
         "onNewWindow": "default"
       }
@@ -431,6 +433,16 @@
           "$ref": "#/$defs/OpenFromPanel",
           "default": "keep_open"
         },
+        "peekOnHover": {
+          "description": "Whether resting the pointer on the rail brings the panel out.\n\nOff, the panel comes out only when a glyph on the rail is clicked, and\nstays until it is put away again.",
+          "type": "boolean",
+          "default": true
+        },
+        "pinOn": {
+          "description": "Which click on the rail holds the panel beside the document.",
+          "$ref": "#/$defs/PinPanelOn",
+          "default": "click"
+        },
         "onStartup": {
           "description": "Behavior on app startup: \"default\" or \"last_closed\"",
           "$ref": "#/$defs/StartupBehavior"
@@ -480,6 +492,21 @@
           "description": "The panel puts itself away, leaving the document alone on screen. A\npinned panel unpins: what was asked for is the document by itself.",
           "type": "string",
           "const": "close_panel"
+        }
+      ]
+    },
+    "PinPanelOn": {
+      "description": "Which click on a glyph of the rail holds the panel beside the document.",
+      "oneOf": [
+        {
+          "description": "A click holds the face; a click on the face already held puts the\npanel away.",
+          "type": "string",
+          "const": "click"
+        },
+        {
+          "description": "A click brings the face out over the document, as resting on the\nglyph does, and it goes again when the pointer leaves. A double click\nholds it; a double click on the face already held puts the panel away.",
+          "type": "string",
+          "const": "double_click"
         }
       ]
     },

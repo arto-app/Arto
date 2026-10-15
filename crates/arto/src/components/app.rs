@@ -344,13 +344,13 @@ pub fn App(
             if rail_visible() {
                 crate::components::sidebar::rail::Rail {
                     on_peek: move |face| {
-                        // Resting on a glyph brings that face over the
-                        // document. A panel that is being held stays as it
+                        // Resting on a glyph, or clicking it, brings that
+                        // face over the document. A panel that is being held stays as it
                         // was: what is held was chosen, and a pointer passing
                         // over the rail is not a choice — it would rewrite the
                         // reader's own with nothing but a hover.
                         if !left_pinned {
-                            state.sidebar.write().face = face;
+                            state.turn_to_face(face);
                             left_hover_active.set(true);
                             left_hide_gen.set(left_hide_gen() + 1);
                         }

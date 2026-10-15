@@ -1,6 +1,7 @@
 use super::super::form_controls::{OptionCardItem, OptionCards, SliderInput, ToggleRow};
 use crate::config::{
-    normalize_sidebar_zoom, Config, OpenFromPanel, MAX_SIDEBAR_ZOOM, MIN_SIDEBAR_ZOOM, ZOOM_STEP,
+    normalize_sidebar_zoom, Config, OpenFromPanel, PinPanelOn, MAX_SIDEBAR_ZOOM, MIN_SIDEBAR_ZOOM,
+    ZOOM_STEP,
 };
 use crate::events::SET_SIDEBAR_ZOOM_IN_WINDOW;
 use dioxus::desktop::tao::window::WindowId;
@@ -114,6 +115,48 @@ pub fn PanelTab(
             }
 
             h3 { class: "preference-section-title", {t!("preferences.panel.behavior.title").to_string()} }
+
+            ToggleRow {
+                label: t!("preferences.panel.behavior.peek_on_hover.label").to_string(),
+                description: Some(t!("preferences.panel.behavior.peek_on_hover.description").to_string()),
+                checked: sidebar_cfg.peek_on_hover,
+                on_change: move |on| config.write().sidebar.peek_on_hover = on,
+                shipped: Some(defaults.sidebar.peek_on_hover),
+            }
+
+            div {
+                class: "preference-item",
+                div {
+                    class: "preference-item-header",
+                    label { {t!("preferences.panel.behavior.pin_on.label").to_string()} }
+                    p {
+                        class: "preference-description",
+                        {t!("preferences.panel.behavior.pin_on.description").to_string()}
+                    }
+                }
+                OptionCards {
+                    name: "panel-pin-on".to_string(),
+                    options: vec![
+                        OptionCardItem {
+                            icon: None,
+                            value: PinPanelOn::Click,
+                            title: t!("preferences.panel.behavior.pin_on.click.title").to_string(),
+                            description: Some(t!("preferences.panel.behavior.pin_on.click.description").to_string()),
+                        },
+                        OptionCardItem {
+                            icon: None,
+                            value: PinPanelOn::DoubleClick,
+                            title: t!("preferences.panel.behavior.pin_on.double_click.title").to_string(),
+                            description: Some(t!("preferences.panel.behavior.pin_on.double_click.description").to_string()),
+                        },
+                    ],
+                    selected: sidebar_cfg.pin_on,
+                    on_change: move |gesture| {
+                        config.write().sidebar.pin_on = gesture;
+                    },
+                    shipped: Some(defaults.sidebar.pin_on),
+                }
+            }
 
             div {
                 class: "preference-item",

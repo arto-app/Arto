@@ -234,6 +234,8 @@ mod tests {
                 recent_trace: RecentTrace::Always,
                 recent_trace_count: 4,
                 on_open: OpenFromPanel::ClosePanel,
+                peek_on_hover: false,
+                pin_on: PinPanelOn::DoubleClick,
                 on_startup: StartupBehavior::LastClosed,
                 on_new_window: NewWindowBehavior::LastFocused,
             },
