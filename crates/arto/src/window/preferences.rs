@@ -73,7 +73,13 @@ pub fn open_or_focus_preferences_window(snapshot: PreferencesSnapshot, theme: Th
                     .with_min_inner_size(LogicalSize::new(
                         PREFERENCES_MIN_WIDTH,
                         PREFERENCES_MIN_HEIGHT,
-                    )),
+                    ))
+                    // A settings window is not one to zoom or take full
+                    // screen. With the green button enabled it reads as a
+                    // document window, and tiling window managers (OmniWM,
+                    // among others) lay it out beside the documents instead
+                    // of leaving it floating.
+                    .with_maximizable(false),
             ))
             .with_custom_head(main_head())
             .with_custom_index(build_preferences_window_index(theme));
