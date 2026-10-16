@@ -18,6 +18,7 @@ pub(crate) mod links;
 mod outline;
 mod reading;
 mod source_map;
+mod video;
 mod wiki;
 
 pub use source_map::*;

@@ -31,6 +31,7 @@ import * as fragmentLink from "./fragment-link";
 import * as viewportQueue from "./viewport-queue";
 import * as scrollAnchor from "./scroll-anchor";
 import * as stickyTableHead from "./sticky-table-head";
+import * as videoFallback from "./video-fallback";
 import { forgetStep, setupFocusScrolling, stepFocus } from "./focus-mode";
 import type { ScrollAnchor } from "./scroll-anchor";
 
@@ -325,6 +326,8 @@ export function init(): void {
   setupScrollbarReach();
   // A long table's header row, held at the top of the view while it is read.
   stickyTableHead.setup();
+  // A GitHub video that cannot play, swapped for the link it holds.
+  videoFallback.setup();
   // What a mark of a change since last read means, over the mark.
   changes.setup();
   // A key can move the content cursor without scrolling, and focus mode marks

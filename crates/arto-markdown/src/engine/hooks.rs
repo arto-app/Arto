@@ -1,5 +1,5 @@
 //! Render hooks: the Mermaid and math containers, headings that carry an
-//! attribute block, and wiki links.
+//! attribute block, wiki links, and GitHub video attachments.
 //!
 //! Everything else falls through to the built-in renderer. The
 //! `preprocessed-*` containers hold the source text twice — escaped as the
@@ -48,6 +48,13 @@ impl HtmlRenderHooks for ArtoHooks<'_> {
             Node::Heading(heading) if heading.id.is_some() || !heading.classes.is_empty() => {
                 self.render_heading(heading, cx)
             }
+            Node::Paragraph(paragraph) => match self.video_attachment(paragraph.span) {
+                Some(url) => {
+                    write_video(cx, paragraph.span, url);
+                    HtmlRenderControl::Handled
+                }
+                None => HtmlRenderControl::Default,
+            },
             Node::Link(link) if self.is_wiki_link(link.span) => self.render_wiki_link(link, cx),
             Node::Text(text) if self.in_wiki_label => {
                 cx.write_escaped(text.value);
@@ -89,7 +96,18 @@ impl HtmlRenderHooks for ArtoHooks<'_> {
     }
 }
 
-impl ArtoHooks<'_> {
+impl<'a> ArtoHooks<'a> {
+    /// The GitHub video the paragraph at `span` consists of, if any (see
+    /// [`super::video`]).
+    ///
+    /// Read from the source rather than from the paragraph's children: a bare
+    /// URL is a link node or plain text depending on the autolink options,
+    /// and GitHub plays the video either way.
+    fn video_attachment(&self, span: Span) -> Option<&'a str> {
+        let source = self.source.get(span.start as usize..span.end as usize)?;
+        super::video::attachment(source)
+    }
+
     /// Whether the link at `span` was written as `[[target]]` — see
     /// [`super::wiki::is_wiki_link`].
     ///
@@ -177,6 +195,28 @@ impl ArtoHooks<'_> {
         cx.write(">\n");
         HtmlRenderControl::Handled
     }
+}
+
+/// Write a paragraph holding the player for the video at `url`, muted and
+/// with controls as GitHub shows it.
+///
+/// The paragraph stays so that the line keeps its source range, which the
+/// cursor and the scroll anchor read off block elements. The link inside the
+/// player is what is left where remote media is not loaded (see
+/// [`crate::without_remote_media`]), and what the page swaps the player for
+/// when it fails to play (`frontend/src/video-fallback.ts`).
+fn write_video(cx: &mut HtmlRenderContext<'_>, span: Span, url: &str) {
+    cx.write("<p data-source-span=\"");
+    cx.write_display(span.start);
+    cx.write("-");
+    cx.write_display(span.end);
+    cx.write("\"><video src=\"");
+    cx.write_attribute_escaped(url);
+    cx.write("\" controls muted><a href=\"");
+    cx.write_attribute_escaped(url);
+    cx.write("\">");
+    cx.write_escaped(url);
+    cx.write("</a></video></p>\n");
 }
 
 /// Write one block container: `<tag data-source-span class data-original-content>`.
