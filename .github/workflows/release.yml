@@ -1,8 +1,8 @@
 name: "Release"
 
 # On a published GitHub release: bundle every leg with the release version,
-# attach the installers to the release, publish the crates, and tell the
-# Homebrew tap.
+# attach the installers to the release, publish the crates, tell the
+# Homebrew tap, and build the flake from the tag into the Nix cache.
 
 on:
   release:
@@ -254,6 +254,21 @@ jobs:
             echo "::error::the macOS .dmg is not on the release" >&2
             exit 1
           fi
+
+  # The flake as `nix run github:arto-app/Arto/vX.Y.Z` fetches it: from the
+  # archive GitHub serves for the tag, whose VERSION holds the tag. That build
+  # differs from main's even for the same commit, so it is built and cached
+  # here, and the run fails unless the packages carry the release's version.
+  nix:
+    uses: lambdalisue/nix-github-release/.github/workflows/build.yml@v0.1.0
+    with:
+      ref: ${{ github.event.release.tag_name }}
+      packages: arto arto-page
+      runners: '["blacksmith-6vcpu-macos-15", "blacksmith-4vcpu-ubuntu-2404", "blacksmith-4vcpu-ubuntu-2404-arm"]'
+      timeout-minutes: 60
+      cachix-cache: arto
+    secrets:
+      cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
   dispatch:
     needs: release

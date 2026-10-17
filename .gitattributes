@@ -12,3 +12,7 @@
 # produce, and serde_json writes LF; a CRLF checkout would fail that test on
 # Windows without anything having changed.
 schemas/*.json text eol=lf
+
+# GitHub runs `git describe` into VERSION when it serves an archive, which is
+# how the flake learns the tag it was fetched at (see flake.nix).
+VERSION export-subst

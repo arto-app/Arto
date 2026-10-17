@@ -13,6 +13,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     crane.url = "github:ipetkov/crane";
+    nix-github-release = {
+      url = "github:lambdalisue/nix-github-release/v0.1.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -21,6 +25,7 @@
       nixpkgs,
       rust-overlay,
       crane,
+      nix-github-release,
     }:
     let
       # No x86_64-darwin: nixpkgs dropped it in 26.11, so the pinned
@@ -51,17 +56,12 @@
           inherit (pkgs) lib;
           craneLib = craneLibFor pkgs;
 
-          # Package metadata - version resolved from VERSION file (CI) or git rev (local).
-          # The version lives in the workspace manifest (`[workspace.package]`),
-          # the package name in the app crate's manifest.
-          workspaceToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+          # Package metadata. The version is the tag this flake was fetched at,
+          # read from the root VERSION that GitHub fills in when it serves the
+          # archive (see github:lambdalisue/nix-github-release); a checkout
+          # builds as 0.0.0-<commit>. The package name is the app crate's.
           cargoToml = builtins.fromTOML (builtins.readFile ./crates/arto/Cargo.toml);
-          versionFile = ./crates/arto/VERSION;
-          artoVersion =
-            if builtins.pathExists versionFile then
-              builtins.replaceStrings [ "\n" ] [ "" ] (builtins.readFile versionFile)
-            else
-              "${workspaceToml.workspace.package.version}-${self.dirtyShortRev or self.shortRev or "unknown"}";
+          artoVersion = nix-github-release.lib.version { inherit self; };
           packageMeta = {
             pname = cargoToml.package.name;
             version = artoVersion;
@@ -154,7 +154,6 @@
                 # The interface's translations, read by rust_i18n::i18n! and
                 # include_str! as the app crate compiles.
                 (root + /crates/arto/locales)
-                (lib.fileset.maybeMissing (root + /crates/arto/VERSION))
                 # Dioxus.toml references the icon, Info.plist, the NSIS hook
                 # and LICENSE by relative path from the app crate. Only those
                 # subtrees are included: the Quick Look shim and the bundle
@@ -203,102 +202,114 @@
           # runs on the macOS CI runner with the full Command Line Tools. The
           # Nix build intentionally does not build or embed it.
 
+          # Stamped into Cargo.toml as well, for what reads CARGO_PKG_VERSION
+          # rather than ARTO_BUILD_VERSION — arto-page's `--version`.
+          stampCargo = nix-github-release.lib.stampCargo {
+            inherit pkgs;
+            version = artoVersion;
+          };
+
           arto = craneLib.buildPackage (
-            commonArgs
-            // {
-              inherit (packageMeta) pname version;
-              inherit cargoArtifacts;
+            stampCargo (
+              commonArgs
+              // {
+                inherit (packageMeta) pname version;
+                inherit cargoArtifacts;
 
-              # Disable: some tests depend on macOS display APIs (NSScreen) which
-              # are unavailable in the Nix sandbox. Run tests via `cargo test` instead.
-              doCheck = false;
+                # Disable: some tests depend on macOS display APIs (NSScreen) which
+                # are unavailable in the Nix sandbox. Run tests via `cargo test` instead.
+                doCheck = false;
 
-              nativeBuildInputs =
-                # Wrappers must come first to override system commands in PATH
-                lib.optionals isDarwin [
-                  codesignWrapper
-                  xattrWrapper
-                ]
-                ++ [
-                  pkgs.dioxus-cli
-                ]
-                ++ lib.optionals isDarwin [
-                  pkgs.darwin.autoSignDarwinBinariesHook
-                ]
-                ++ lib.optionals isLinux [
-                  pkgs.pkg-config
-                  pkgs.wrapGAppsHook3
-                ];
+                nativeBuildInputs =
+                  # Wrappers must come first to override system commands in PATH
+                  lib.optionals isDarwin [
+                    codesignWrapper
+                    xattrWrapper
+                  ]
+                  ++ [
+                    pkgs.dioxus-cli
+                  ]
+                  ++ lib.optionals isDarwin [
+                    pkgs.darwin.autoSignDarwinBinariesHook
+                  ]
+                  ++ lib.optionals isLinux [
+                    pkgs.pkg-config
+                    pkgs.wrapGAppsHook3
+                  ];
 
-              postPatch = ''
-                mkdir -p crates/arto/assets/frontend crates/arto-page/assets/frontend
-                cp -r ${frontend-assets}/* crates/arto/assets/frontend/
-                # The page crate embeds the stylesheet, the page runtime and the
-                # library bundles a document may call for.
-                cp ${frontend-assets}/main.css ${frontend-assets}/page* \
-                  crates/arto-page/assets/frontend/
-              '';
+                postPatch = ''
+                  mkdir -p crates/arto/assets/frontend crates/arto-page/assets/frontend
+                  cp -r ${frontend-assets}/* crates/arto/assets/frontend/
+                  # The page crate embeds the stylesheet, the page runtime and the
+                  # library bundles a document may call for.
+                  cp ${frontend-assets}/main.css ${frontend-assets}/page* \
+                    crates/arto-page/assets/frontend/
+                '';
 
-              # Use buildPhaseCargoCommand instead of cargoBuildCommand because crane's
-              # additional build argument `--message-format` cannot be passed to dioxus-cli properly.
-              # https://crane.dev/API.html#cranelibbuildpackage
-              #
-              # `dx` is run from the app crate so it picks up that crate's
-              # Dioxus.toml; the output still lands in the workspace `target/`.
-              buildPhaseCargoCommand =
-                if isDarwin then
+                # Use buildPhaseCargoCommand instead of cargoBuildCommand because crane's
+                # additional build argument `--message-format` cannot be passed to dioxus-cli properly.
+                # https://crane.dev/API.html#cranelibbuildpackage
+                #
+                # `dx` is run from the app crate so it picks up that crate's
+                # Dioxus.toml; the output still lands in the workspace `target/`.
+                buildPhaseCargoCommand =
+                  if isDarwin then
+                    ''
+                      (cd crates/arto && dx bundle --release --platform desktop --package-types macos)
+                    ''
+                  else
+                    ''
+                      (cd crates/arto && dx build --release --platform desktop)
+                    '';
+
+                # The build output is a platform-specific bundle, and crane cannot infer the
+                # install destination, so we manually install without capturing cargoBuildLog
+                # in buildPhase.
+                # https://crane.dev/API.html#cranelibinstallfromcargobuildloghook
+                doNotPostBuildInstallCargoBinaries = true;
+
+                installPhaseCommand =
+                  lib.optionalString isDarwin ''
+                    # Find .app bundle (path may change with dioxus-cli versions)
+                    app_path="${dxBundlePath}/${appBundleName}"
+
+                    if [[ ! -d "$app_path" ]]; then
+                      echo "Error: Expected .app bundle not found at $app_path"
+                      echo "Searching for ${appBundleName} in target/dx..."
+                      find target/dx -name "${appBundleName}" -type d || true
+                      exit 1
+                    fi
+
+                    mkdir -p $out/Applications
+                    cp -r "$app_path" $out/Applications/
+
+                    # Create symlink for CLI usage (enables `arto` command in PATH)
+                    mkdir -p $out/bin
+                    ln -s "$out/Applications/${appBundleName}/Contents/MacOS/${appExecutableName}" "$out/bin/${appExecutableName}"
                   ''
-                    (cd crates/arto && dx bundle --release --platform desktop --package-types macos)
-                  ''
-                else
-                  ''
-                    (cd crates/arto && dx build --release --platform desktop)
+                  + lib.optionalString isLinux ''
+                    app_dir="${dxBundlePath}"
+
+                    if [[ ! -d "$app_dir" ]]; then
+                      echo "Error: Expected build output not found at $app_dir"
+                      echo "Searching for build output in target/dx..."
+                      find target/dx -type d 2>/dev/null || true
+                      exit 1
+                    fi
+
+                    # Install the entire app directory (binary + assets) since
+                    # Dioxus asset!() macro resolves paths relative to the binary.
+                    mkdir -p $out/lib/${appExecutableName}
+                    cp -r "$app_dir"/. $out/lib/${appExecutableName}/
+
+                    mkdir -p $out/bin
+                    ln -s $out/lib/${appExecutableName}/${appExecutableName} $out/bin/${appExecutableName}
                   '';
 
-              # The build output is a platform-specific bundle, and crane cannot infer the
-              # install destination, so we manually install without capturing cargoBuildLog
-              # in buildPhase.
-              # https://crane.dev/API.html#cranelibinstallfromcargobuildloghook
-              doNotPostBuildInstallCargoBinaries = true;
-
-              installPhaseCommand =
-                lib.optionalString isDarwin ''
-                  # Find .app bundle (path may change with dioxus-cli versions)
-                  app_path="${dxBundlePath}/${appBundleName}"
-
-                  if [[ ! -d "$app_path" ]]; then
-                    echo "Error: Expected .app bundle not found at $app_path"
-                    echo "Searching for ${appBundleName} in target/dx..."
-                    find target/dx -name "${appBundleName}" -type d || true
-                    exit 1
-                  fi
-
-                  mkdir -p $out/Applications
-                  cp -r "$app_path" $out/Applications/
-
-                  # Create symlink for CLI usage (enables `arto` command in PATH)
-                  mkdir -p $out/bin
-                  ln -s "$out/Applications/${appBundleName}/Contents/MacOS/${appExecutableName}" "$out/bin/${appExecutableName}"
-                ''
-                + lib.optionalString isLinux ''
-                  app_dir="${dxBundlePath}"
-
-                  if [[ ! -d "$app_dir" ]]; then
-                    echo "Error: Expected build output not found at $app_dir"
-                    echo "Searching for build output in target/dx..."
-                    find target/dx -type d 2>/dev/null || true
-                    exit 1
-                  fi
-
-                  # Install the entire app directory (binary + assets) since
-                  # Dioxus asset!() macro resolves paths relative to the binary.
-                  mkdir -p $out/lib/${appExecutableName}
-                  cp -r "$app_dir"/. $out/lib/${appExecutableName}/
-
-                  mkdir -p $out/bin
-                  ln -s $out/lib/${appExecutableName}/${appExecutableName} $out/bin/${appExecutableName}
-                '';
-            }
+                # Also lets the release check run `--version` against the tag.
+                meta.mainProgram = appExecutableName;
+              }
+            )
           );
 
           # The standalone page renderer: a plain cargo binary, no Dioxus, no
@@ -306,21 +317,25 @@
           # the app, so it shares the frontend-assets derivation and the
           # dependency artifacts; only the install step differs from `arto`.
           arto-page = craneLib.buildPackage (
-            commonArgs
-            // {
-              pname = "arto-page";
-              inherit (packageMeta) version;
-              inherit cargoArtifacts;
-              doCheck = false;
+            stampCargo (
+              commonArgs
+              // {
+                pname = "arto-page";
+                inherit (packageMeta) version;
+                inherit cargoArtifacts;
+                doCheck = false;
 
-              postPatch = ''
-                mkdir -p crates/arto-page/assets/frontend
-                cp ${frontend-assets}/main.css ${frontend-assets}/page* \
-                  crates/arto-page/assets/frontend/
-              '';
+                postPatch = ''
+                  mkdir -p crates/arto-page/assets/frontend
+                  cp ${frontend-assets}/main.css ${frontend-assets}/page* \
+                    crates/arto-page/assets/frontend/
+                '';
 
-              cargoExtraArgs = "-p arto-page --bin arto-page";
-            }
+                cargoExtraArgs = "-p arto-page --bin arto-page";
+
+                meta.mainProgram = "arto-page";
+              }
+            )
           );
         in
         {

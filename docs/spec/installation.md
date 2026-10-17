@@ -104,7 +104,8 @@ nix run github:arto-app/Arto
 For a permanent installation, use [nix-darwin] or [home-manager]. Add the flake input:
 
 ```nix
-arto.url = "github:arto-app/Arto";
+arto.url = "github:arto-app/Arto";          # follows main
+arto.url = "github:arto-app/Arto/vX.Y.Z";   # or pins a release, and reports its version
 ```
 
 Then add the package to `environment.systemPackages` (nix-darwin) or `home.packages` (home-manager):
