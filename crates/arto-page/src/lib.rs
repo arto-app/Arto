@@ -440,7 +440,16 @@ pub fn render_markdown(
     };
     let rendered =
         arto_markdown::render_to_html(markdown, base_path, &render).map_err(PageError::Render)?;
-    Ok(build_document(&rendered.html, options))
+    // The policy loads media only from `data:` URLs, so what would come from
+    // elsewhere is swapped for its stand-in before the page is built: an
+    // image for its alt text, a video for the link it holds. Left in, the
+    // page would show an empty frame where the document had something to say.
+    let html = if options.content_security_policy {
+        arto_markdown::without_remote_media(&rendered.html)
+    } else {
+        rendered.html
+    };
+    Ok(build_document(&html, options))
 }
 
 /// Read a file to a string, refusing to read more than [`MAX_FILE_BYTES`].
@@ -924,6 +933,24 @@ mod tests {
             sha256_base64(&inline_script(PAGE_JS))
         )));
         assert!(html.contains(&format!("'sha256-{}'", sha256_base64(BOOTSTRAP_JS))));
+    }
+
+    #[test]
+    fn test_render_markdown_leaves_a_link_where_the_policy_blocks_a_video() {
+        let url = "https://github.com/user-attachments/assets/2f1c9e0a";
+        let markdown = format!("{url}\n");
+        let base = Path::new("/nonexistent/doc.md");
+
+        let html = render_markdown(&markdown, base, &PageOptions::default()).unwrap();
+        assert!(!html.contains("<video"), "{html}");
+        assert!(html.contains(&format!(r#"<a href="{url}">"#)), "{html}");
+
+        let options = PageOptions {
+            content_security_policy: false,
+            ..PageOptions::default()
+        };
+        let html = render_markdown(&markdown, base, &options).unwrap();
+        assert!(html.contains(&format!(r#"<video src="{url}""#)), "{html}");
     }
 
     #[test]

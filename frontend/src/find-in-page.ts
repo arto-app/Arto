@@ -120,9 +120,12 @@ function applyHighlights(
       // `state.highlightElements` and a count that no longer matches what
       // navigation can reach. The typeset form is not searchable text
       // either, so nothing is lost by never matching there.
+      //
+      // What a `<video>` holds is shown only when it cannot play, and then
+      // `video-fallback.ts` takes it out of the player, where it is matched.
       if (
         parent?.closest(
-          "pre, .mermaid, .preprocessed-math-inline, .preprocessed-math-display," +
+          "pre, video, .mermaid, .preprocessed-math-inline, .preprocessed-math-display," +
             " .search-highlight, .pinned-highlight, .pinned-highlight-disabled",
         )
       ) {

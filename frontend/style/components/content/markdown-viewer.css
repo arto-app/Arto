@@ -80,6 +80,14 @@
       }
     }
 
+    /* Primer's Markdown stylesheet bounds `img` but not `video`, which
+       github.com sizes with classes of its own; these are its limits. */
+    video {
+      display: block;
+      max-width: 100%;
+      max-height: 640px;
+    }
+
     pre.preprocessed-mermaid {
       text-align: center;
       /* Override the Markdown stylesheet pre rules (12px/1em) to match

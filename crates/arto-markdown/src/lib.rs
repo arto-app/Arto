@@ -141,6 +141,20 @@
 //! [`rebase_document_links`] first, so its links keep naming what they named
 //! there.
 //!
+//! ## Videos
+//!
+//! A paragraph that is nothing but the URL of a video uploaded to GitHub
+//! (`https://github.com/user-attachments/assets/…`, or a video file on
+//! `user-images.githubusercontent.com`) becomes
+//! `<p data-source-range="…"><video src="…" controls muted><a href="…">…</a></video></p>`,
+//! which is how github.com shows the URL its editor writes for a dropped
+//! video. The link inside is the player's fallback content: a page that
+//! loads no remote media (a preview, `arto page` under its policy) goes
+//! through [`without_remote_media`] and keeps only the link, and
+//! `frontend/src/video-fallback.ts` swaps a player that fails to play for
+//! it. A URL inside a sentence, or a link with a label, stays a link.
+//! Styled by `frontend/style/components/content/markdown-viewer.css`.
+//!
 //! ## Headings
 //!
 //! [`render_to_html_with_toc`] returns [`HeadingInfo`] for every heading
@@ -408,9 +422,25 @@ fn is_remote(url: &str, local: Option<&str>) -> bool {
     }
 }
 
+/// `html` with every image, video or other media that would be fetched from
+/// another host taken out, for a page that is not allowed to load it.
+///
+/// An image leaves its alt text; a video or an audio player leaves the
+/// fallback content inside it, which for a GitHub video is the link to it.
+/// Inline `data:` media is kept.
+pub fn without_remote_media(html: impl AsRef<str>) -> String {
+    strip_remote_media(html.as_ref(), None, false)
+}
+
 /// `html` without its `data-source-range` attributes, and without media
 /// fetched from anywhere but `local` (see [`render_detached`]).
 fn detach(html: &str, local: Option<&str>) -> String {
+    strip_remote_media(html, local, true)
+}
+
+/// `html` without media fetched from anywhere but `local`, and without its
+/// `data-source-range` attributes when `strip_ranges` is set.
+fn strip_remote_media(html: &str, local: Option<&str>, strip_ranges: bool) -> String {
     let fetches_elsewhere = |el: &lol_html::html_content::Element| {
         let srcset = el.get_attribute("srcset").unwrap_or_default();
         ["src", "poster", "data"]
@@ -424,21 +454,33 @@ fn detach(html: &str, local: Option<&str>) -> String {
             )
             .any(|url| is_remote(&url, local))
     };
-    let settings = lol_html::Settings::new()
-        .append_element_content_handler(lol_html::element!("[data-source-range]", |el| {
-            el.remove_attribute("data-source-range");
-            Ok(())
-        }))
-        .append_element_content_handler(lol_html::element!(
-            "img, video, audio, source, track, picture, object, embed, input",
-            move |el| {
-                if fetches_elsewhere(el) {
-                    let alt = el.get_attribute("alt").unwrap_or_default();
-                    el.replace(&alt, lol_html::html_content::ContentType::Text);
-                }
+    let mut settings = lol_html::Settings::new();
+    if strip_ranges {
+        settings = settings.append_element_content_handler(lol_html::element!(
+            "[data-source-range]",
+            |el| {
+                el.remove_attribute("data-source-range");
                 Ok(())
             }
         ));
+    }
+    let settings = settings.append_element_content_handler(lol_html::element!(
+        "img, video, audio, source, track, picture, object, embed, input",
+        move |el| {
+            if fetches_elsewhere(el) {
+                // What a player holds is shown only where it cannot play, so
+                // it is the stand-in; the media nested in it is matched by
+                // this handler as well.
+                if matches!(el.tag_name().as_str(), "video" | "audio") {
+                    el.remove_and_keep_content();
+                } else {
+                    let alt = el.get_attribute("alt").unwrap_or_default();
+                    el.replace(&alt, lol_html::html_content::ContentType::Text);
+                }
+            }
+            Ok(())
+        }
+    ));
     let mut output = Vec::new();
     let mut rewriter = lol_html::HtmlRewriter::new(settings, |chunk: &[u8]| {
         output.extend_from_slice(chunk);
