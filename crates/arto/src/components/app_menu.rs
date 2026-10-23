@@ -177,7 +177,7 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
             // === Help ===
             ContextMenuSubmenu { label: t!("app_menu.help.title").to_string(), icon: Some(IconName::HelpCircle),
                 ContextMenuItem { label: t!("app_menu.help.go_to_homepage").to_string(), shortcut: shortcut("app.go_to_homepage"), icon: Some(IconName::ExternalLink), on_click: move |_| {
-                    let _ = open::that("https://github.com/arto-app/Arto");
+                    crate::keybindings::dispatcher::open_homepage();
                     close();
                 } }
             }

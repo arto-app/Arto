@@ -12,10 +12,10 @@ use rust_i18n::t;
 use std::cell::RefCell;
 
 use crate::config::CONFIG;
-use crate::keybindings::dispatcher::dispatch_action;
+use crate::keybindings::dispatcher::{dispatch_action, stateless_action};
 use crate::keybindings::{accelerator_for_key, format_shortcut_hint, Action};
 use crate::state::AppState;
-use crate::window::{self, CreateMainWindowConfigParams};
+use crate::window;
 
 /// Menu identifier enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -107,6 +107,37 @@ impl MenuId {
             Self::GoToHomepage => "help.homepage",
         }
     }
+
+    /// What choosing this item does: the same action its keyboard shortcut
+    /// runs, and the one its shortcut is configured under.
+    fn action(self) -> Action {
+        match self {
+            Self::About => Action::AppAbout,
+            Self::NewWindow => Action::WindowNew,
+            Self::DuplicateWindow => Action::WindowDuplicate,
+            Self::NewDocument => Action::WindowNewDocument,
+            Self::Open => Action::FileOpen,
+            Self::OpenDirectory => Action::FileOpenDirectory,
+            Self::RevealInFinder => Action::FileRevealInFinder,
+            Self::CopyFilePath => Action::CopyFilePath,
+            Self::CloseWindow => Action::WindowClose,
+            Self::CloseAllChildWindows => Action::WindowCloseAllChildWindows,
+            Self::CloseAllWindows => Action::WindowCloseAllWindows,
+            Self::Print => Action::FilePrint,
+            Self::Preferences => Action::FilePreferences,
+            Self::Find => Action::SearchOpen,
+            Self::FindNext => Action::SearchNext,
+            Self::FindPrevious => Action::SearchPrev,
+            Self::ToggleLeftSidebar => Action::WindowToggleSidebar,
+            Self::ToggleFocusMode => Action::WindowToggleFocusMode,
+            Self::ActualSize => Action::ZoomReset,
+            Self::ZoomIn => Action::ZoomIn,
+            Self::ZoomOut => Action::ZoomOut,
+            Self::GoBack => Action::HistoryBack,
+            Self::GoForward => Action::HistoryForward,
+            Self::GoToHomepage => Action::AppGoToHomepage,
+        }
+    }
 }
 
 thread_local! {
@@ -146,7 +177,7 @@ fn create_menu_item(id: MenuId, label: &str) -> MenuItem {
 /// Anything else falls back to a right-aligned cosmetic hint; no binding means
 /// no shortcut shown.
 fn apply_menu_shortcut(id: MenuId, item: &MenuItem, base_label: &str) {
-    let key = menu_action_for_id(id).and_then(menu_shortcut_key_for_action);
+    let key = menu_shortcut_key_for_action(&id.action().to_string());
     let accelerator = key.as_deref().and_then(accelerator_for_key);
 
     if accelerator.is_some() {
@@ -183,36 +214,6 @@ pub fn refresh_menu_accelerators() {
             apply_menu_shortcut(registered.id, &registered.item, &registered.base_label);
         }
     });
-}
-
-/// Map menu items to keybinding actions for hint display.
-fn menu_action_for_id(id: MenuId) -> Option<&'static str> {
-    Some(match id {
-        MenuId::About => "app.about",
-        MenuId::NewWindow => "window.new",
-        MenuId::DuplicateWindow => "window.duplicate",
-        MenuId::NewDocument => "window.new_document",
-        MenuId::Open => "file.open",
-        MenuId::OpenDirectory => "file.open_directory",
-        MenuId::RevealInFinder => "file.reveal_in_finder",
-        MenuId::CopyFilePath => "clipboard.copy_file_path",
-        MenuId::CloseWindow => "window.close",
-        MenuId::CloseAllChildWindows => "window.close_all_child_windows",
-        MenuId::CloseAllWindows => "window.close_all_windows",
-        MenuId::Print => "file.print",
-        MenuId::Preferences => "file.preferences",
-        MenuId::Find => "search.open",
-        MenuId::FindNext => "search.next",
-        MenuId::FindPrevious => "search.prev",
-        MenuId::ToggleLeftSidebar => "window.toggle_sidebar",
-        MenuId::ToggleFocusMode => "window.toggle_focus_mode",
-        MenuId::ActualSize => "zoom.reset",
-        MenuId::ZoomIn => "zoom.in",
-        MenuId::ZoomOut => "zoom.out",
-        MenuId::GoBack => "history.back",
-        MenuId::GoForward => "history.forward",
-        MenuId::GoToHomepage => "app.go_to_homepage",
-    })
 }
 
 /// Build the application menu bar
@@ -373,12 +374,8 @@ pub fn is_close_action(event: &MenuEvent) -> bool {
 ///
 /// # Handled events
 /// - Every Dock menu item (see [`dock::handle_menu_event`])
-/// - `NewWindow`: Creates a new window (no state needed)
+/// - Every item whose action needs no window (see [`stateless_action`])
 /// - `NewDocument` (no windows exist): Creates a window as fallback
-/// - `Preferences`: Declined here (requires per-window state), returns `false`
-/// - `CloseAllChildWindows`: Uses window manager API
-/// - `CloseAllWindows`: Uses window manager API
-/// - `GoToHomepage`: Opens URL in external browser
 ///
 /// # Returns
 /// `true` if the event was fully handled, `false` if it needs state-dependent handling.
@@ -387,49 +384,20 @@ pub fn handle_menu_event_global(event: &MenuEvent) -> bool {
         return true;
     }
 
-    let menu_id = event.id().0.as_ref();
-
-    let id = match MenuId::from_str(menu_id) {
-        Some(id) => id,
-        None => return false,
+    let Some(id) = MenuId::from_str(event.id().0.as_ref()) else {
+        return false;
     };
-
-    match id {
-        MenuId::NewWindow => {
-            window::create_main_window_sync(
-                &window(),
-                crate::state::Document::default(),
-                CreateMainWindowConfigParams::default(),
-            );
+    let action = match id.action() {
+        Action::WindowNewDocument if !window::has_any_main_windows() => Action::WindowNew,
+        action => action,
+    };
+    match stateless_action(&action) {
+        Some(run) => {
+            run();
+            true
         }
-        MenuId::NewDocument => {
-            if !window::has_any_main_windows() {
-                window::create_main_window_sync(
-                    &window(),
-                    crate::state::Document::default(),
-                    CreateMainWindowConfigParams::default(),
-                );
-                return true;
-            }
-            return false;
-        }
-        MenuId::Preferences => {
-            // Declined here; requires per-window AppState access
-            return false;
-        }
-        MenuId::CloseAllChildWindows => {
-            window::close_child_windows_for_last_focused();
-        }
-        MenuId::CloseAllWindows => {
-            window::close_all_main_windows();
-        }
-        MenuId::GoToHomepage => {
-            let _ = open::that("https://github.com/arto-app/Arto");
-        }
-        _ => return false,
+        None => false,
     }
-
-    true
 }
 
 /// Handle menu events that require per-window AppState.
@@ -466,34 +434,12 @@ pub fn handle_menu_event_with_state(event: &MenuEvent, state: &mut AppState) -> 
         None => return false,
     };
 
-    // Map the menu item to its action and dispatch through the shared
-    // dispatcher, so a menu click and its keyboard shortcut run the exact same
-    // effect (single source of truth).
-    let action = match id {
-        MenuId::About => Action::AppAbout,
-        MenuId::Preferences => Action::FilePreferences,
-        MenuId::NewDocument => Action::WindowNewDocument,
-        // Duplicating needs this window's document and roots, so it is state-
-        // dependent rather than global like New Window.
-        MenuId::DuplicateWindow => Action::WindowDuplicate,
-        MenuId::Open => Action::FileOpen,
-        MenuId::OpenDirectory => Action::FileOpenDirectory,
-        MenuId::CloseWindow => Action::WindowClose,
-        MenuId::ToggleLeftSidebar => Action::WindowToggleSidebar,
-        MenuId::ToggleFocusMode => Action::WindowToggleFocusMode,
-        MenuId::ActualSize => Action::ZoomReset,
-        MenuId::ZoomIn => Action::ZoomIn,
-        MenuId::ZoomOut => Action::ZoomOut,
-        MenuId::GoBack => Action::HistoryBack,
-        MenuId::GoForward => Action::HistoryForward,
-        MenuId::RevealInFinder => Action::FileRevealInFinder,
-        MenuId::CopyFilePath => Action::CopyFilePath,
-        MenuId::Print => Action::FilePrint,
-        MenuId::Find => Action::SearchOpen,
-        MenuId::FindNext => Action::SearchNext,
-        MenuId::FindPrevious => Action::SearchPrev,
-        _ => return false,
-    };
+    // Answered by [`handle_menu_event_global`], which every menu event also
+    // reaches.
+    let action = id.action();
+    if stateless_action(&action).is_some() {
+        return false;
+    }
 
     dispatch_action(&action, *state);
     true
@@ -588,9 +534,9 @@ mod tests {
     #[test]
     fn menu_actions_cover_all_menu_items() {
         for &id in ALL_MENU_IDS {
-            let action = menu_action_for_id(id).expect("menu item has an action");
+            let action = id.action();
             assert!(
-                crate::keybindings::is_menu_action(action),
+                crate::keybindings::MENU_ACTIONS.contains(&action),
                 "MENU_ACTIONS is missing {action:?} for {id:?}"
             );
         }
@@ -602,14 +548,33 @@ mod tests {
     #[test]
     fn every_menu_action_has_a_menu_item() {
         for action in crate::keybindings::MENU_ACTIONS {
-            let name = action.to_string();
             assert!(
-                ALL_MENU_IDS
-                    .iter()
-                    .any(|&id| menu_action_for_id(id) == Some(name.as_str())),
-                "no menu item carries {name:?}"
+                ALL_MENU_IDS.iter().any(|&id| id.action() == *action),
+                "no menu item carries {action:?}"
             );
         }
+    }
+
+    /// What the menu bar does without a window to act on: open one, close
+    /// them, and leave for the homepage. Everything else waits for the
+    /// focused window's own state.
+    #[test]
+    fn only_window_management_and_the_homepage_need_no_window() {
+        let stateless: Vec<MenuId> = ALL_MENU_IDS
+            .iter()
+            .copied()
+            .filter(|id| stateless_action(&id.action()).is_some())
+            .collect();
+
+        assert_eq!(
+            stateless,
+            vec![
+                MenuId::NewWindow,
+                MenuId::CloseAllChildWindows,
+                MenuId::CloseAllWindows,
+                MenuId::GoToHomepage,
+            ]
+        );
     }
 
     /// from_str returns None for unknown IDs
