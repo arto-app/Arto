@@ -1,5 +1,5 @@
 use super::super::form_controls::{
-    DimensionInput, DirectoryPicker, OptionCardItem, OptionCards, ResetLine,
+    DimensionInput, DirectoryPicker, OptionCardItem, OptionCards, PreferenceItem, ResetLine,
 };
 use crate::components::icon::IconName;
 use crate::config::{
@@ -47,13 +47,9 @@ pub fn WindowTab(
 
             h3 { class: "preference-section-title", {t!("preferences.window.size.title").to_string()} }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.window.size.default_size.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.window.size.default_size.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.window.size.default_size.label").to_string(),
+                description: t!("preferences.window.size.default_size.description").to_string(),
                 div {
                     class: "dimension-row",
                     div {
@@ -97,13 +93,9 @@ pub fn WindowTab(
 
             h3 { class: "preference-section-title", {t!("preferences.window.position.title").to_string()} }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.window.position.default_position.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.window.position.default_position.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.window.position.default_position.label").to_string(),
+                description: t!("preferences.window.position.default_position.description").to_string(),
                 OptionCards {
                     name: "window-position-mode".to_string(),
                     options: vec![
@@ -167,13 +159,9 @@ pub fn WindowTab(
                 }
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.window.position.offset.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.window.position.offset.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.window.position.offset.label").to_string(),
+                description: t!("preferences.window.position.offset.description").to_string(),
                 div {
                     class: "dimension-grid",
                     div {
@@ -237,16 +225,9 @@ pub fn WindowTab(
 
             h3 { class: "preference-section-title", {t!("preferences.window.opening.title").to_string()} }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.window.opening.file_open.label").to_string()} }
-                    p {
-                        class: "preference-description",
-                        {t!("preferences.window.opening.file_open.description").to_string()}
-                    }
-                }
+            PreferenceItem {
+                label: t!("preferences.window.opening.file_open.label").to_string(),
+                description: t!("preferences.window.opening.file_open.description").to_string(),
                 OptionCards {
                     name: "window-file-open".to_string(),
                     options: vec![
@@ -277,16 +258,9 @@ pub fn WindowTab(
                 }
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.window.opening.start_folder.label").to_string()} }
-                    p {
-                        class: "preference-description",
-                        {t!("preferences.window.opening.start_folder.description").to_string()}
-                    }
-                }
+            PreferenceItem {
+                label: t!("preferences.window.opening.start_folder.label").to_string(),
+                description: t!("preferences.window.opening.start_folder.description").to_string(),
                 DirectoryPicker {
                     value: default_directory,
                     placeholder: t!("preferences.window.opening.start_folder.placeholder").to_string(),

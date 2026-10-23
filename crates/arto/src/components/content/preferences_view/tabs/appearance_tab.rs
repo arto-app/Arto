@@ -1,4 +1,6 @@
-use super::super::form_controls::{OptionCardItem, OptionCards, ResetLine, ThemePicker};
+use super::super::form_controls::{
+    OptionCardItem, OptionCards, PreferenceItem, ResetLine, ThemePicker,
+};
 use crate::components::icon::IconName;
 use crate::config::{Config, Language};
 use crate::theme::{preview_theme, Theme};
@@ -32,13 +34,9 @@ pub fn AppearanceTab(config: Signal<Config>) -> Element {
 
             h3 { class: "preference-section-title", {t!("preferences.appearance.mode.title").to_string()} }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.appearance.mode.default_theme.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.appearance.mode.default_theme.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.appearance.mode.default_theme.label").to_string(),
+                description: t!("preferences.appearance.mode.default_theme.description").to_string(),
                 OptionCards {
                     name: "theme-default".to_string(),
                     options: vec![
@@ -71,13 +69,9 @@ pub fn AppearanceTab(config: Signal<Config>) -> Element {
 
             h3 { class: "preference-section-title", {t!("preferences.appearance.themes.title").to_string()} }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.appearance.themes.light.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.appearance.themes.light.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.appearance.themes.light.label").to_string(),
+                description: t!("preferences.appearance.themes.light.description").to_string(),
                 ThemePicker {
                     name: "theme-light".to_string(),
                     dark_mode: false,
@@ -90,13 +84,9 @@ pub fn AppearanceTab(config: Signal<Config>) -> Element {
                 }
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.appearance.themes.dark.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.appearance.themes.dark.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.appearance.themes.dark.label").to_string(),
+                description: t!("preferences.appearance.themes.dark.description").to_string(),
                 ThemePicker {
                     name: "theme-dark".to_string(),
                     dark_mode: true,
