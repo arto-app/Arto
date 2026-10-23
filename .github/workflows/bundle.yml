@@ -199,9 +199,9 @@ jobs:
       - name: Verify bundle
         run: just verify-bundle
       # The single executable, for people who would rather download a file
-      # than install a package. It shares everything `just build` compiled, so
-      # this costs a link and no more — except on Windows, where the app crate
-      # is compiled once again for the console subsystem the download wants.
+      # than install a package. It shares nothing `just build` compiled (the
+      # `standalone` recipe says why), so it is a second release build: the
+      # workspace crates alone with a warm cache, the whole graph from cold.
       - name: Build standalone binary
         if: matrix.standalone != ''
         run: just standalone
