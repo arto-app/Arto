@@ -564,16 +564,9 @@ macro_rules! action_strings {
 /// How [`Action::Lens`] is written: the prefix, then the lens's place.
 const LENS_PREFIX: &str = "lens.";
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("unknown action: {0:?}")]
 pub struct ActionParseError(pub(crate) String);
-
-impl fmt::Display for ActionParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "unknown action: {:?}", self.0)
-    }
-}
-
-impl std::error::Error for ActionParseError {}
 
 action_strings! {
     ScrollDown => "scroll.down",
@@ -682,6 +675,14 @@ action_strings! {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_unknown_action_names_itself_in_the_error() {
+        assert_eq!(
+            Action::from_str("no.such").unwrap_err().to_string(),
+            r#"unknown action: "no.such""#
+        );
+    }
 
     /// Collect all actions from ACTION_GROUPS into a flat Vec.
     fn all_actions() -> Vec<Action> {

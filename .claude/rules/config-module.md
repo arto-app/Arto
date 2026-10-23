@@ -16,7 +16,6 @@ crates/arto-config/src/       # Library crate: types + file I/O, no runtime stat
 ├── behavior.rs              # Section types and enums, one file per section
 ├── directory_config.rs
 ├── sidebar_config.rs
-├── theme.rs
 ├── theme_config.rs
 └── persistence.rs           # Paths, load(), save(), ConfigError
 

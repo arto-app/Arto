@@ -17,7 +17,7 @@ mod atomic_write;
 mod behavior;
 mod color_theme;
 mod directory_config;
-mod file_open_behavior;
+mod font_stack;
 mod language;
 mod lens_agents;
 mod lens_recipes;
@@ -26,7 +26,6 @@ mod persistence;
 mod reading_config;
 mod schema;
 mod sidebar_config;
-mod theme;
 mod theme_config;
 mod typography_config;
 mod window_dimension;
@@ -36,11 +35,11 @@ mod zoom_config;
 
 pub use arto_keybindings::{BindingSet, KeyAction};
 pub use arto_markdown::{RawHtml, RenderOptions};
+pub use arto_types::{FileOpenBehavior, Theme};
 pub use atomic_write::*;
 pub use behavior::*;
 pub use color_theme::*;
 pub use directory_config::*;
-pub use file_open_behavior::*;
 pub use language::*;
 pub use lens_agents::*;
 pub use lens_recipes::*;
@@ -49,7 +48,6 @@ pub use persistence::*;
 pub use reading_config::*;
 pub use schema::*;
 pub use sidebar_config::*;
-pub use theme::*;
 pub use theme_config::*;
 pub use typography_config::*;
 pub use window_dimension::*;
@@ -101,14 +99,6 @@ mod tests {
         assert!(set.content.is_empty());
         assert!(set.sidebar.is_empty());
         assert!(set.search.is_empty());
-    }
-
-    #[test]
-    fn the_old_name_for_always_still_parses() {
-        // `hidden_when_full_width` named a choice that is now simply what
-        // happens: a document at full width has no margin for the trace.
-        let parsed: RecentTrace = serde_json::from_str(r#""hidden_when_full_width""#).unwrap();
-        assert_eq!(parsed, RecentTrace::Always);
     }
 
     #[test]

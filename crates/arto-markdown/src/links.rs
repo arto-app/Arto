@@ -9,6 +9,7 @@ use lol_html::{element, Settings};
 use std::path::Path;
 
 use crate::rewrite::rewrite;
+use crate::urls::{file_url_to_path, has_foreign_scheme};
 use crate::{frontmatter, line_endings, RenderOptions, SourceRange};
 
 /// A link to another Markdown document, as a click on it would open it.
@@ -91,45 +92,12 @@ pub(crate) fn local_link(href: &str) -> Option<LocalLink<'_>> {
     // The app resolves the link as a filesystem path, so a `file:` URL is
     // turned into one here rather than being joined onto the base directory
     // as a literal string.
-    let path = file_url_to_path(path).unwrap_or_else(|| path.to_string());
+    let path = file_url_to_path(path).map_or_else(
+        || path.to_string(),
+        |path| path.to_string_lossy().into_owned(),
+    );
     std::path::Path::new(&path).extension()?;
     Some(LocalLink { path, fragment })
-}
-
-/// Whether `href` names a URL scheme that is not `file:`.
-///
-/// `http:`, `mailto:`, `tel:` and the like address something outside the
-/// file system, so they stay anchors instead of being resolved as document
-/// paths. A one-letter prefix is not read as a scheme, which keeps a Windows
-/// path such as `C:\notes\a.md` a path.
-pub(crate) fn has_foreign_scheme(href: &str) -> bool {
-    let Some(colon) = href.find(':') else {
-        return false;
-    };
-    let scheme = &href[..colon];
-    scheme.len() > 1
-        && scheme.starts_with(|c: char| c.is_ascii_alphabetic())
-        && scheme
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.'))
-        && !scheme.eq_ignore_ascii_case("file")
-}
-
-/// A `file:` URL as a filesystem path, or `None` when `href` is not one.
-///
-/// `file://`, `file://localhost/…` and `file:/…` all parse; percent-encoding
-/// and the platform's path shape are handled by `url`.
-pub(crate) fn file_url_to_path(href: &str) -> Option<String> {
-    if !href.starts_with("file:") {
-        return None;
-    }
-    let path = url::Url::parse(href)
-        .ok()
-        .and_then(|url| url.to_file_path().ok());
-    if path.is_none() {
-        tracing::debug!(?href, "file: URL could not be parsed; left as written");
-    }
-    Some(path?.to_string_lossy().into_owned())
 }
 
 /// Whether the file a local link points at exists. The check is what the

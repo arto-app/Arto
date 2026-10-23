@@ -1,4 +1,4 @@
-use arto_config::{FileOpenBehavior, Theme};
+use arto_types::{FileOpenBehavior, Theme};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -121,7 +121,7 @@ pub fn classify_path(path: impl AsRef<Path>) -> Option<PathKind> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use arto_config::Theme;
+    use arto_types::Theme;
 
     #[test]
     fn the_other_windows_of_a_launch_take_the_theme_but_not_the_place() {

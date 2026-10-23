@@ -163,6 +163,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_old_name_for_always_still_parses() {
+        // `hidden_when_full_width` named a choice that is now simply what
+        // happens: a document at full width has no margin for the trace.
+        let parsed: RecentTrace = serde_json::from_str(r#""hidden_when_full_width""#).unwrap();
+        assert_eq!(parsed, RecentTrace::Always);
+    }
+
+    #[test]
     fn open_from_panel_keeps_the_panel_by_default() {
         assert_eq!(OpenFromPanel::default(), OpenFromPanel::KeepOpen);
         assert_eq!(SidebarConfig::default().on_open, OpenFromPanel::KeepOpen);

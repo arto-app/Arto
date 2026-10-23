@@ -202,11 +202,13 @@ mod reading;
 mod remote_media;
 mod rewrite;
 mod sanitize;
+mod urls;
 
 pub use block::*;
 pub use engine::*;
 pub use error::*;
 pub use headings::*;
+pub use images::*;
 pub use links::*;
 pub use options::*;
 pub use reading::*;

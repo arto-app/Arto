@@ -19,6 +19,7 @@
 
 use arto::cli::{parse_position, parse_size, CliInvocation, CliOpenMode};
 use arto_lsp::{WindowExtent, WindowOptions, WindowPoint};
+use arto_page::cli::ThemeArg;
 use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
@@ -35,26 +36,6 @@ enum OpenModeArg {
     Screen,
     /// Always create a new window
     New,
-}
-
-#[derive(Debug, Clone, Copy, ValueEnum)]
-enum ThemeArg {
-    /// Always light, whatever the system is set to
-    Light,
-    /// Always dark, whatever the system is set to
-    Dark,
-    /// Follow the system appearance
-    System,
-}
-
-impl From<ThemeArg> for arto_config::Theme {
-    fn from(arg: ThemeArg) -> Self {
-        match arg {
-            ThemeArg::Light => Self::Light,
-            ThemeArg::Dark => Self::Dark,
-            ThemeArg::System => Self::Auto,
-        }
-    }
 }
 
 /// Arto — the Art of Reading Markdown

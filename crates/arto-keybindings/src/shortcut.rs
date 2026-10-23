@@ -21,26 +21,17 @@ pub struct ShortcutSequence {
     pub chords: Vec<KeyChord>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ShortcutParseError {
+    #[error("empty shortcut string")]
     Empty,
+    #[error("modifier(s) without a key")]
     MissingKey,
+    #[error("unknown key: {0:?}")]
     UnknownKey(String),
+    #[error("unknown modifier: {0:?}")]
     UnknownModifier(String),
 }
-
-impl fmt::Display for ShortcutParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Empty => write!(f, "empty shortcut string"),
-            Self::MissingKey => write!(f, "modifier(s) without a key"),
-            Self::UnknownKey(k) => write!(f, "unknown key: {k:?}"),
-            Self::UnknownModifier(m) => write!(f, "unknown modifier: {m:?}"),
-        }
-    }
-}
-
-impl std::error::Error for ShortcutParseError {}
 
 impl KeyChord {
     /// Normalize: uppercase Character → SHIFT + lowercase.
@@ -295,6 +286,16 @@ fn parse_chord(token: &str) -> Result<KeyChord, ShortcutParseError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_shortcut_error_says_what_was_wrong() {
+        let message = |s: &str| ShortcutSequence::from_str(s).unwrap_err().to_string();
+
+        assert_eq!(message(""), "empty shortcut string");
+        assert_eq!(message("Ctrl+"), "modifier(s) without a key");
+        assert_eq!(message("no_such_key"), r#"unknown key: "no_such_key""#);
+        assert_eq!(message("g+foomod"), r#"unknown modifier: "foomod""#);
+    }
 
     /// Modifier a parsed `Cmd`/`Meta` chord resolves to on the host platform:
     /// `META` on macOS, `CONTROL` elsewhere (see `normalize_primary_modifier`).

@@ -42,6 +42,7 @@ arto-lsp = { path = "crates/arto-lsp", version = "0.0.0" }
 arto-keybindings = { path = "crates/arto-keybindings", version = "0.0.0" }
 arto-markdown = { path = "crates/arto-markdown", version = "0.0.0" }
 arto-page = { path = "crates/arto-page", version = "0.0.0" }
+arto-types = { path = "crates/arto-types", version = "0.0.0" }
 
 anyhow = "1.0.104"
 base64 = "0.23.1"

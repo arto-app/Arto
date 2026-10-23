@@ -263,6 +263,7 @@ version = "0.0.0"
 dependencies = [
  "arto-keybindings",
  "arto-markdown",
+ "arto-types",
  "dirs 7.0.0",
  "indoc",
  "schemars",
@@ -291,7 +292,7 @@ dependencies = [
 name = "arto-lsp"
 version = "0.0.0"
 dependencies = [
- "arto-config",
+ "arto-types",
  "dirs 7.0.0",
  "interprocess",
  "libc",
@@ -337,6 +338,16 @@ dependencies = [
  "clap",
  "sha2 0.11.1",
  "tempfile",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "arto-types"
+version = "0.0.0"
+dependencies = [
+ "schemars",
+ "serde",
+ "serde_json",
  "thiserror 2.0.21",
 ]
 

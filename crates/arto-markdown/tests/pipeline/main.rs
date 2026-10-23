@@ -20,6 +20,7 @@ mod line_endings;
 mod options;
 mod reading_profile;
 mod rebased_links;
+mod remote_media;
 mod source_ranges;
 mod tables;
 mod toc;
