@@ -10,11 +10,13 @@ mod source_ops;
 
 pub use data::*;
 
+use crate::components::popover::Popover;
 use dioxus::document;
 use dioxus::prelude::*;
 use rust_i18n::t;
-use std::path::PathBuf;
+use std::path::Path;
 
+use super::context_menu_state::ContentContextMenuState;
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSeparator};
 use crate::components::icon::IconName;
 use crate::keybindings::dispatcher::dispatch_action;
@@ -31,24 +33,28 @@ use lens_ops::LensItems;
 use source_ops::LinkContextItems;
 
 #[component]
-pub fn ContentContextMenu(
-    position: (i32, i32),
-    context: ContentContext,
-    has_selection: bool,
-    selected_text: String,
-    current_file: Option<PathBuf>,
-    base_dir: PathBuf,
-    source_line: Option<u32>,
-    source_line_end: Option<u32>,
-    table_csv: Option<String>,
-    table_tsv: Option<String>,
-    table_markdown: Option<String>,
-    table_source_line: Option<u32>,
-    table_source_line_end: Option<u32>,
-    highlight_ids: Vec<String>,
-    highlight_under_pointer: Option<String>,
-    on_close: EventHandler<()>,
-) -> Element {
+pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<()>) -> Element {
+    let ContentContextMenuState {
+        data:
+            ContextMenuData {
+                context,
+                x,
+                y,
+                has_selection,
+                selected_text,
+                source_line,
+                source_line_end,
+                table_csv,
+                table_tsv,
+                table_markdown,
+                table_source_line,
+                table_source_line_end,
+                highlight_ids,
+                highlight_under_pointer,
+            },
+        current_file,
+        base_dir: _,
+    } = menu;
     let shortcut = |action| shortcut_hint_for_context_action(KeyContext::Content, action);
     let state = use_context::<crate::state::AppState>();
 
@@ -103,49 +109,17 @@ pub fn ContentContextMenu(
         || is_image
         || is_special_block;
 
-    // Determine smart default for Copy Path label and value
-    let (copy_path_label, copy_path_value) =
-        match (current_file.as_ref(), source_line, source_line_end) {
-            (Some(f), Some(start), Some(end)) if start != end => (
-                t!(
-                    "context_menu.copy_path_with_range",
-                    start = start,
-                    end = end
-                )
-                .to_string(),
-                Some(format_location(f, start, end)),
-            ),
-            (Some(f), Some(line), _) => (
-                t!("context_menu.copy_path_with_line", line = line).to_string(),
-                Some(format_location(f, line, line)),
-            ),
-            (Some(f), None, _) => {
-                let path_str = f.display().to_string();
-                (t!("context_menu.copy_path").to_string(), Some(path_str))
-            }
-            (None, _, _) => (t!("context_menu.copy_path").to_string(), None),
-        };
+    let copy_path = copy_path_row(current_file.as_deref(), source_line, source_line_end);
 
     rsx! {
-        // Backdrop to close menu on outside click
-        div {
-            class: "context-menu-backdrop",
-            // Prevent mousedown from clearing text selection
-            onmousedown: move |evt| evt.prevent_default(),
-            onclick: move |_| {
-                on_close.call(());
-            },
-        }
-
-        // Context menu
-        div {
+        Popover {
+            backdrop_class: "context-menu-backdrop",
             class: "context-menu content-context-menu",
-            style: "left: {position.0}px; top: {position.1}px;",
-            // Prevent mousedown from clearing text selection
-            onmousedown: move |evt| evt.prevent_default(),
-            onclick: move |evt| evt.stop_propagation(),
+            style: format!("left: {x}px; top: {y}px;"),
+            keep_selection: true,
+            contain_clicks: true,
+            on_close,
 
-            // === Section 1: Smart default copy operations ===
             if has_selection {
                 ContextMenuItem {
                     label: t!("context_menu.copy").to_string(),
@@ -162,35 +136,21 @@ pub fn ContentContextMenu(
             }
 
             if let Some(code_content) = copy_code_source.clone() {
-                ContextMenuItem {
+                CopyItem {
                     label: t!("context_menu.copy_code").to_string(),
                     shortcut: shortcut("clipboard.copy_code"),
-                    icon: Some(IconName::Copy),
-                    on_click: {
-                        let on_close = on_close;
-                        move |_| {
-                            crate::utils::clipboard::copy_text(&code_content);
-                            crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
-                            on_close.call(());
-                        }
-                    },
+                    text: code_content,
+                    on_close,
                 }
             }
 
             // Copy Table (smart default: TSV)
             if let Some(tsv) = table_tsv.clone() {
-                ContextMenuItem {
+                CopyItem {
                     label: t!("context_menu.copy_table").to_string(),
                     shortcut: shortcut("clipboard.copy_table_as_tsv"),
-                    icon: Some(IconName::Copy),
-                    on_click: {
-                        let on_close = on_close;
-                        move |_| {
-                            crate::utils::clipboard::copy_text(&tsv);
-                            crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
-                            on_close.call(());
-                        }
-                    },
+                    text: tsv,
+                    on_close,
                 }
             }
 
@@ -231,23 +191,15 @@ pub fn ContentContextMenu(
             }
 
             // Copy Path (smart default: path / path:line / path:start-end)
-            if let Some(value) = copy_path_value.clone() {
-                ContextMenuItem {
-                    label: copy_path_label.clone(),
-                    shortcut: shortcut(copy_path_shortcut_action_str(source_line, source_line_end)),
-                    icon: Some(IconName::Copy),
-                    on_click: {
-                        let on_close = on_close;
-                        move |_| {
-                            crate::utils::clipboard::copy_text(&value);
-                            crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
-                            on_close.call(());
-                        }
-                    },
+            if let Some(row) = copy_path {
+                CopyItem {
+                    label: row.label,
+                    shortcut: shortcut(row.action),
+                    text: row.value,
+                    on_close,
                 }
             }
 
-            // === Section 2: Selection and search ===
             ContextMenuSeparator {}
 
             ContextMenuItem {
@@ -262,20 +214,13 @@ pub fn ContentContextMenu(
                 },
             }
 
-            ContextMenuItem {
+            ActionItem {
                 label: t!("context_menu.find_in_page").to_string(),
-                shortcut: shortcut("search.open"),
-                icon: Some(IconName::Search),
-                on_click: {
-                    let on_close = on_close;
-                    move |_| {
-                        dispatch_action(&Action::SearchOpen, state);
-                        on_close.call(());
-                    }
-                },
+                icon: IconName::Search,
+                action: Action::SearchOpen,
+                on_close,
             }
 
-            // === The reader's highlights ===
             if has_selection || !highlight_ids.is_empty() || highlight_under_pointer.is_some() {
                 ContextMenuSeparator {}
                 HighlightItems {
@@ -286,8 +231,6 @@ pub fn ContentContextMenu(
                 }
             }
 
-            // === The document itself ===
-            //
             // A right-click that lands in the margin, or on the band above the
             // page, is about the document rather than about anything in it —
             // and so is one that lands on a paragraph, once the paragraph's own
@@ -296,47 +239,28 @@ pub fn ContentContextMenu(
             if state.current_file().is_some() {
                 ContextMenuSeparator {}
 
-                ContextMenuItem {
+                ActionItem {
                     label: t!("context_menu.copy_file_path").to_string(),
-                    shortcut: shortcut("clipboard.copy_file_path"),
-                    icon: Some(IconName::Copy),
-                    on_click: {
-                        let on_close = on_close;
-                        move |_| {
-                            dispatch_action(&Action::CopyFilePath, state);
-                            on_close.call(());
-                        }
-                    },
+                    icon: IconName::Copy,
+                    action: Action::CopyFilePath,
+                    on_close,
                 }
 
-                ContextMenuItem {
+                ActionItem {
                     label: t!("context_menu.reveal_in_finder").to_string(),
-                    shortcut: shortcut("file.reveal_in_finder"),
-                    icon: Some(IconName::Folder),
-                    on_click: {
-                        let on_close = on_close;
-                        move |_| {
-                            dispatch_action(&Action::FileRevealInFinder, state);
-                            on_close.call(());
-                        }
-                    },
+                    icon: IconName::Folder,
+                    action: Action::FileRevealInFinder,
+                    on_close,
                 }
 
-                ContextMenuItem {
+                ActionItem {
                     label: t!("context_menu.reload").to_string(),
-                    shortcut: shortcut("window.reload"),
-                    icon: Some(IconName::Refresh),
-                    on_click: {
-                        let on_close = on_close;
-                        move |_| {
-                            dispatch_action(&Action::WindowReload, state);
-                            on_close.call(());
-                        }
-                    },
+                    icon: IconName::Refresh,
+                    action: Action::WindowReload,
+                    on_close,
                 }
             }
 
-            // === Section 3: Copy As... submenus ===
             if has_any_submenu {
                 ContextMenuSeparator {}
             }
@@ -403,7 +327,6 @@ pub fn ContentContextMenu(
                 }
             }
 
-            // === Section 4: Context-specific items (link, image) ===
             if has_context_specific {
                 ContextMenuSeparator {}
             }
@@ -415,42 +338,67 @@ pub fn ContentContextMenu(
                         on_close: on_close,
                     }
                 },
-                ContentContext::Image { .. } => rsx! {
-                    ContextMenuItem {
+                ContentContext::Image { .. }
+                | ContentContext::Mermaid { .. }
+                | ContentContext::MathBlock { .. } => rsx! {
+                    ActionItem {
                         label: t!("context_menu.save_image_as").to_string(),
-                        icon: Some(IconName::Download),
-                        shortcut: shortcut("file.save_image_as"),
-                        on_click: {
-                            let on_close = on_close;
-                            move |_| {
-                                dispatch_action(&Action::FileSaveImageAs, state);
-                                on_close.call(());
-                            }
-                        },
-                    }
-                },
-                ContentContext::Mermaid { .. } | ContentContext::MathBlock { .. } => rsx! {
-                    ContextMenuItem {
-                        label: t!("context_menu.save_image_as").to_string(),
-                        icon: Some(IconName::Download),
-                        shortcut: shortcut("file.save_image_as"),
-                        on_click: {
-                            let on_close = on_close;
-                            move |_| {
-                                dispatch_action(&Action::FileSaveImageAs, state);
-                                on_close.call(());
-                            }
-                        },
+                        icon: IconName::Download,
+                        action: Action::FileSaveImageAs,
+                        on_close,
                     }
                 },
                 _ => rsx! {},
             }
 
-            // === Section 5: Lenses ===
             if has_lenses {
                 ContextMenuSeparator {}
                 LensItems { on_close: on_close }
             }
+        }
+    }
+}
+
+/// A row that runs `action` as its key binding would, showing that binding.
+#[component]
+fn ActionItem(
+    #[props(into)] label: String,
+    icon: IconName,
+    action: Action,
+    on_close: EventHandler<()>,
+) -> Element {
+    let state = use_context::<crate::state::AppState>();
+    rsx! {
+        ContextMenuItem {
+            label,
+            shortcut: shortcut_hint_for_context_action(KeyContext::Content, &action.to_string()),
+            icon: Some(icon),
+            on_click: move |_| {
+                dispatch_action(&action, state);
+                on_close.call(());
+            },
+        }
+    }
+}
+
+/// A row that puts `text` on the clipboard and says so.
+#[component]
+fn CopyItem(
+    #[props(into)] label: String,
+    shortcut: Option<String>,
+    text: String,
+    on_close: EventHandler<()>,
+) -> Element {
+    rsx! {
+        ContextMenuItem {
+            label,
+            shortcut,
+            icon: Some(IconName::Copy),
+            on_click: move |_| {
+                crate::utils::clipboard::copy_text(&text);
+                crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
+                on_close.call(());
+            },
         }
     }
 }
@@ -479,21 +427,11 @@ fn copy_markdown_source_direct(
     selected_text: String,
 ) {
     spawn_detached(async move {
-        let handle = std::thread::spawn(move || {
-            let source = crate::utils::source_lines::extract_source_lines(
-                &file,
-                source_line,
-                source_line_end,
-            )?;
-            if selected_text.trim().is_empty() {
-                return Some(source);
-            }
-            Some(
-                crate::markdown::extract_source_selection(&source, &selected_text)
-                    .unwrap_or(source),
-            )
-        });
-        match handle.join() {
+        let extracted = tokio::task::spawn_blocking(move || {
+            markdown_to_copy(&file, source_line, source_line_end, &selected_text)
+        })
+        .await;
+        match extracted {
             Ok(Some(md)) => {
                 crate::utils::clipboard::copy_text(&md);
                 crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
@@ -501,20 +439,60 @@ fn copy_markdown_source_direct(
             Ok(None) => {
                 tracing::debug!(%source_line, %source_line_end, "No source lines extracted")
             }
-            Err(_) => tracing::debug!("Source extraction thread panicked"),
+            Err(error) => tracing::debug!(%error, "Source extraction task failed"),
         }
     });
 }
 
-fn copy_path_shortcut_action_str(
+/// The Markdown behind `selected_text` within lines `start..=end` of
+/// `file`, or the lines whole when nothing is selected.
+fn markdown_to_copy(file: &Path, start: u32, end: u32, selected_text: &str) -> Option<String> {
+    let source = crate::utils::source_lines::extract_source_lines(file, start, end)?;
+    if selected_text.trim().is_empty() {
+        return Some(source);
+    }
+    Some(crate::markdown::extract_source_selection(&source, selected_text).unwrap_or(source))
+}
+
+/// The Copy Path row: the narrowest of path, path with line and path with
+/// range that what was clicked on allows.
+#[derive(Debug, PartialEq)]
+struct CopyPathRow {
+    label: String,
+    value: String,
+    /// The action whose shortcut the row shows.
+    action: &'static str,
+}
+
+fn copy_path_row(
+    file: Option<&Path>,
     source_line: Option<u32>,
     source_line_end: Option<u32>,
-) -> &'static str {
-    match (source_line, source_line_end) {
-        (Some(start), Some(end)) if start != end => "clipboard.copy_file_path_with_range",
-        (Some(_), _) => "clipboard.copy_file_path_with_line",
-        _ => "clipboard.copy_file_path",
-    }
+) -> Option<CopyPathRow> {
+    let file = file?;
+    let row = match (source_line, source_line_end) {
+        (Some(start), Some(end)) if start != end => CopyPathRow {
+            label: t!(
+                "context_menu.copy_path_with_range",
+                start = start,
+                end = end
+            )
+            .into_owned(),
+            value: format_location(file, start, end),
+            action: "clipboard.copy_file_path_with_range",
+        },
+        (Some(line), _) => CopyPathRow {
+            label: t!("context_menu.copy_path_with_line", line = line).into_owned(),
+            value: format_location(file, line, line),
+            action: "clipboard.copy_file_path_with_line",
+        },
+        (None, _) => CopyPathRow {
+            label: t!("context_menu.copy_path").into_owned(),
+            value: file.display().to_string(),
+            action: "clipboard.copy_file_path",
+        },
+    };
+    Some(row)
 }
 
 fn exec_edit_command(command: &'static str) {
@@ -522,4 +500,98 @@ fn exec_edit_command(command: &'static str) {
         let js = format!("document.execCommand('{command}');");
         let _ = document::eval(&js).await;
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(label: &str, value: &str, action: &'static str) -> Option<CopyPathRow> {
+        Some(CopyPathRow {
+            label: label.to_string(),
+            value: value.to_string(),
+            action,
+        })
+    }
+
+    #[test]
+    fn without_a_selection_the_whole_lines_are_copied() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("doc.md");
+        std::fs::write(
+            &file,
+            indoc::indoc! {"
+            # Title
+
+            First paragraph.
+            Second line.
+        "},
+        )
+        .unwrap();
+
+        assert_eq!(
+            markdown_to_copy(&file, 3, 4, "  "),
+            Some("First paragraph.\nSecond line.".to_string())
+        );
+    }
+
+    #[test]
+    fn lines_the_file_does_not_have_copy_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("doc.md");
+        std::fs::write(&file, "one line\n").unwrap();
+
+        assert_eq!(markdown_to_copy(&file, 5, 6, ""), None);
+        assert_eq!(
+            markdown_to_copy(&dir.path().join("gone.md"), 1, 1, ""),
+            None
+        );
+    }
+
+    #[test]
+    fn without_a_file_there_is_no_path_to_copy() {
+        assert_eq!(copy_path_row(None, Some(3), Some(5)), None);
+    }
+
+    #[test]
+    fn a_range_of_lines_is_copied_with_the_path() {
+        assert_eq!(
+            copy_path_row(Some(Path::new("/a/b.md")), Some(3), Some(5)),
+            row(
+                "Copy Path with Range (3-5)",
+                "/a/b.md:3-5",
+                "clipboard.copy_file_path_with_range"
+            )
+        );
+    }
+
+    #[test]
+    fn a_single_line_is_copied_with_the_path() {
+        let expected = row(
+            "Copy Path with Line (3)",
+            "/a/b.md:3",
+            "clipboard.copy_file_path_with_line",
+        );
+        assert_eq!(
+            copy_path_row(Some(Path::new("/a/b.md")), Some(3), Some(3)),
+            expected
+        );
+        assert_eq!(
+            copy_path_row(Some(Path::new("/a/b.md")), Some(3), None),
+            expected
+        );
+    }
+
+    #[test]
+    fn without_a_line_the_path_alone_is_copied() {
+        let expected = row("Copy Path", "/a/b.md", "clipboard.copy_file_path");
+        assert_eq!(
+            copy_path_row(Some(Path::new("/a/b.md")), None, None),
+            expected
+        );
+        assert_eq!(
+            copy_path_row(Some(Path::new("/a/b.md")), None, Some(5)),
+            expected
+        );
+    }
 }

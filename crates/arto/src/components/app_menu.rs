@@ -1,5 +1,6 @@
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSeparator, ContextMenuSubmenu};
 use crate::components::icon::IconName;
+use crate::components::popover::Popover;
 use crate::state::AppState;
 use crate::utils::task::spawn_detached;
 use dioxus::prelude::*;
@@ -26,18 +27,12 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
     let close = move || on_close.call(());
 
     rsx! {
-        // Transparent background to close when clicking outside menu
-        div {
-            class: "context-menu-backdrop",
-            style: "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 998;",
-            onclick: move |_| close(),
-        }
-
-        // Menu body
-        div {
+        Popover {
+            backdrop_class: "context-menu-backdrop",
             class: "context-menu",
-            style: "position: absolute; left: 12px; top: var(--header-height); z-index: 999;",
-            onclick: move |evt| evt.stop_propagation(),
+            style: "position: absolute; left: 12px; top: var(--header-height);".to_string(),
+            contain_clicks: true,
+            on_close: move |_| close(),
 
             // === Arto (App) ===
             ContextMenuItem { label: t!("app_menu.about").to_string(), shortcut: shortcut("app.about"), icon: Some(IconName::InfoCircle), on_click: move |_| {

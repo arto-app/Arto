@@ -47,17 +47,17 @@ fn build_viewer_window_index(title: &str, body_class: &str, theme: Theme) -> Str
 pub(crate) fn build_mermaid_window_index(theme: Theme) -> String {
     build_viewer_window_index(
         &t!("app.viewer_window.mermaid"),
-        "mermaid-window-body",
+        "viewer-window-body",
         theme,
     )
 }
 
 pub(crate) fn build_math_window_index(theme: Theme) -> String {
-    build_viewer_window_index(&t!("app.viewer_window.math"), "math-window-body", theme)
+    build_viewer_window_index(&t!("app.viewer_window.math"), "viewer-window-body", theme)
 }
 
 pub(crate) fn build_image_window_index(theme: Theme) -> String {
-    build_viewer_window_index(&t!("app.viewer_window.image"), "image-window-body", theme)
+    build_viewer_window_index(&t!("app.viewer_window.image"), "viewer-window-body", theme)
 }
 
 pub(crate) fn build_preferences_window_index(theme: Theme) -> String {

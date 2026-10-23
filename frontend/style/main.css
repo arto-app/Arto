@@ -43,6 +43,7 @@
 @import url("./components/content/changes.css");
 
 /* Special windows */
+@import url("./components/viewer-window.css");
 @import url("./components/preferences/layout.css");
 @import url("./components/preferences/shared.css");
 @import url("./components/preferences/focus.css");

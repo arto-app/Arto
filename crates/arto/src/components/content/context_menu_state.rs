@@ -13,7 +13,7 @@ use std::sync::LazyLock;
 use super::context_menu::ContextMenuData;
 
 /// Complete state for rendering the content context menu
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ContentContextMenuState {
     pub data: ContextMenuData,
     pub current_file: Option<PathBuf>,

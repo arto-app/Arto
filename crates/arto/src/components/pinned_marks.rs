@@ -5,6 +5,7 @@
 //! of them heads the contents, and everything done to one — its colour,
 //! whether it is showing, taking it away — is done there.
 
+use crate::components::popover::Popover;
 use dioxus::prelude::*;
 use rust_i18n::t;
 
@@ -125,17 +126,11 @@ fn ColorPalettePopover(
     on_close: EventHandler<()>,
 ) -> Element {
     rsx! {
-        // Backdrop to close on outside click
-        div {
-            class: "color-palette-backdrop",
-            onclick: move |e| {
-                e.stop_propagation();
-                on_close.call(());
-            },
-        }
-
-        div {
+        Popover {
+            backdrop_class: "color-palette-backdrop",
             class: "color-palette-popover",
+            contain_dismiss: true,
+            on_close,
 
             // All controls in a single row: colors + toggle + remove
             SwatchRow { selected: current_color, on_pick: on_select }

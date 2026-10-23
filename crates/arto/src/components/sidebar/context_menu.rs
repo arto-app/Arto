@@ -1,13 +1,15 @@
 use std::path::{Path, PathBuf};
 
+use crate::components::popover::Popover;
 use dioxus::prelude::*;
 use rust_i18n::t;
 
 use crate::bookmarks::BOOKMARKS;
 use crate::components::context_menu::{clamp_menu_position, ContextMenuItem, ContextMenuSeparator};
-use crate::components::icon::{Icon, IconName};
+use crate::components::icon::IconName;
 use crate::keybindings::{shortcut_hint_for_context_action, KeyContext};
 use crate::state::AppState;
+use crate::utils::file_operations;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SidebarItemKind {
@@ -64,7 +66,7 @@ const VIEWPORT_MARGIN: i32 = 8;
 ///
 /// This lives in [`crate::state::AppState`] as a single `Option` and is rendered
 /// exactly once at the `app-container` root by
-/// [`crate::components::sidebar::file_explorer::SidebarContextMenuHost`].
+/// [`SidebarContextMenuHost`].
 /// Keeping it out of the file-tree subtree means watcher-driven remounts (keyed
 /// on `sidebar_refresh_counter`) can no longer unmount an open menu.
 #[derive(Debug, Clone, PartialEq)]
@@ -180,19 +182,12 @@ pub fn SidebarContextMenu(
     };
 
     rsx! {
-        // Backdrop to close menu on outside click
-        div {
-            class: "context-menu-backdrop",
-            onclick: move |_| on_close.call(()),
-        }
-
-        // Context menu
-        div {
+        Popover {
+            backdrop_class: "context-menu-backdrop",
             class: "context-menu",
-            style: "left: {position.0}px; top: {position.1}px;",
-            onclick: move |evt| evt.stop_propagation(),
-
-            // === Section 1: Open operations ===
+            style: format!("left: {}px; top: {}px;", position.0, position.1),
+            contain_clicks: true,
+            on_close,
 
             // A root is already open — it is the thing being looked at — so
             // what it is missing is the way out of the top of it. The folder
@@ -239,30 +234,19 @@ pub fn SidebarContextMenu(
                 on_click: move |_| on_open_in_new_window.call(()),
             }
 
-            // === Section 2: Starred ===
             ContextMenuSeparator {}
 
             // A folder that is kept is one of the places; a document that is
             // kept is one of the stars. One list, two names, and the row says
             // which of them it is about.
-            div {
-                class: "context-menu-item",
-                onclick: move |_| on_toggle_bookmark.call(()),
-
-                Icon {
-                    name: if is_file {
-                        if is_bookmarked { IconName::StarFilled } else { IconName::Star }
-                    } else {
-                        IconName::Bookmark
-                    },
-                    size: 14,
-                    class: "context-menu-icon",
-                }
-
-                span {
-                    class: "context-menu-label",
-                    "{bookmark_label}"
-                }
+            ContextMenuItem {
+                label: bookmark_label,
+                icon: Some(if is_file {
+                    if is_bookmarked { IconName::StarFilled } else { IconName::Star }
+                } else {
+                    IconName::Bookmark
+                }),
+                on_click: move |_| on_toggle_bookmark.call(()),
             }
 
             ContextMenuSeparator {}
@@ -281,9 +265,7 @@ pub fn SidebarContextMenu(
                 on_click: move |_| on_reveal_in_finder.call(()),
             }
 
-            // === Section 4: Reload ===
             ContextMenuSeparator {}
-
 
             ContextMenuItem {
                 label: t!("sidebar.context_menu.reload").to_string(),
@@ -292,6 +274,131 @@ pub fn SidebarContextMenu(
                 on_click: move |_| on_reload.call(()),
             }
         }
+    }
+}
+
+/// Renders the left-sidebar file-tree context menu once, at the app-container
+/// root, driven by `AppState::sidebar_context_menu`.
+///
+/// # Why hoisted here
+///
+/// The file tree is keyed on `AppState::sidebar_refresh_counter`, which the
+/// directory watcher bumps on every filesystem event. Rendering the menu inside
+/// a tree node meant a watcher-driven remount destroyed the node — and the open
+/// menu with it. Hosting the menu here, outside every keyed subtree, makes it
+/// independent of those remounts: tree nodes only *set* the menu state, and this
+/// host owns every action handler.
+#[component]
+pub fn SidebarContextMenuHost() -> Element {
+    let mut state = use_context::<AppState>();
+
+    // Subscribe to the menu state; render nothing while the menu is closed.
+    let Some(data) = state.sidebar_context_menu.read().clone() else {
+        return rsx! {};
+    };
+
+    let path = data.path.clone();
+    let is_dir = data.kind.is_dir();
+    let role = data.role;
+
+    // The snapshotted target may have been deleted or renamed while the menu
+    // stayed open; an action that reads the filesystem closes as a no-op
+    // rather than acting on a stale path.
+    let handle_open = guarded(state, path.clone(), move |mut state, path| {
+        if is_dir {
+            state.add_root(path);
+        } else {
+            state.open_from_panel(path);
+        }
+    });
+
+    // Unguarded by existence, unlike the actions that read the filesystem:
+    // a root whose folder was deleted while the menu was open is exactly the
+    // root that has to be got out of. The same arrow on the row itself has
+    // never asked either.
+    let handle_go_to_parent = {
+        let path = path.clone();
+        move |_| {
+            state.move_root_up(&path, role == SidebarRowRole::PlaceRoot);
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    let handle_change_root_directory =
+        guarded(state, path.clone(), |mut state, path| state.add_root(path));
+
+    let handle_open_in_new_window = guarded(state, path.clone(), move |_, path| {
+        let (document, directory) = if is_dir {
+            (crate::state::Document::default(), Some(path.to_path_buf()))
+        } else {
+            (
+                crate::state::Document::new(path),
+                path.parent().map(|p| p.to_path_buf()),
+            )
+        };
+        let params = crate::window::main::CreateMainWindowConfigParams {
+            directory,
+            ..Default::default()
+        };
+        crate::window::create_main_window_sync(&dioxus::desktop::window(), document, params);
+    });
+
+    let handle_copy_path = {
+        let path = path.clone();
+        move |_| {
+            crate::utils::clipboard::copy_text(path.to_string_lossy());
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    let handle_reveal_in_finder = guarded(state, path.clone(), |_, path| {
+        file_operations::reveal_in_finder(path)
+    });
+
+    let handle_reload = move |_| {
+        state.bump_sidebar_refresh();
+        state.close_sidebar_context_menu();
+    };
+
+    let handle_toggle_bookmark = {
+        let path = path.clone();
+        move |_| {
+            crate::bookmarks::toggle_bookmark(&path);
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    rsx! {
+        SidebarContextMenu {
+            position: data.position,
+            path: path.clone(),
+            kind: data.kind,
+            role,
+            on_close: move |_| state.close_sidebar_context_menu(),
+            on_open: handle_open,
+            on_open_in_new_window: handle_open_in_new_window,
+            on_go_to_parent: handle_go_to_parent,
+            on_change_root_directory: handle_change_root_directory,
+            on_toggle_bookmark: handle_toggle_bookmark,
+            on_copy_path: handle_copy_path,
+            on_reveal_in_finder: handle_reveal_in_finder,
+            on_reload: handle_reload,
+        }
+    }
+}
+
+/// A menu action on `path` that runs only while `path` still exists, and
+/// closes the menu either way.
+fn guarded(
+    mut state: AppState,
+    path: PathBuf,
+    action: impl Fn(AppState, &Path) + 'static,
+) -> impl FnMut(()) + 'static {
+    move |_| {
+        if context_action_should_proceed(&path) {
+            action(state, &path);
+        }
+        state.close_sidebar_context_menu();
     }
 }
 

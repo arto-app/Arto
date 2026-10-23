@@ -5,6 +5,7 @@ use dioxus::prelude::*;
 
 use crate::components::icon::{Icon, IconName};
 use crate::config::{BindingSet, Config, KeyAction};
+use crate::hooks::use_dismiss_on_outside;
 use crate::keybindings::{
     accelerator_for_key, action_group_name, action_title, context_name, presets, resolve_bindings,
     Action, KeyContext, ResolvedBinding, ACTION_GROUPS, MENU_ACTIONS,
@@ -36,41 +37,7 @@ pub fn KeybindingsTab(config: Signal<Config>) -> Element {
 
             // Preset cards
             h3 { class: "preference-section-title", {t!("preferences.keybindings.presets.title").to_string()} }
-            div {
-                class: "preset-cards",
-                button {
-                    class: "preset-card",
-                    onclick: move |_| {
-                        config.write().keybindings = presets::default::bindings();
-                    },
-                    span { class: "preset-card-name", {t!("preferences.keybindings.presets.default.name").to_string()} }
-                    span { class: "preset-card-desc", {t!("preferences.keybindings.presets.default.description").to_string()} }
-                }
-                button {
-                    class: "preset-card",
-                    onclick: move |_| {
-                        config.write().keybindings = presets::vim::bindings();
-                    },
-                    span { class: "preset-card-name", "Vim" }
-                    span { class: "preset-card-desc", {t!("preferences.keybindings.presets.vim.description").to_string()} }
-                }
-                button {
-                    class: "preset-card",
-                    onclick: move |_| {
-                        config.write().keybindings = presets::emacs::bindings();
-                    },
-                    span { class: "preset-card-name", "Emacs" }
-                    span { class: "preset-card-desc", {t!("preferences.keybindings.presets.emacs.description").to_string()} }
-                }
-                button {
-                    class: "preset-card",
-                    onclick: move |_| {
-                        config.write().keybindings = BindingSet::default();
-                    },
-                    span { class: "preset-card-name", {t!("preferences.keybindings.presets.clear.name").to_string()} }
-                    span { class: "preset-card-desc", {t!("preferences.keybindings.presets.clear.description").to_string()} }
-                }
-            }
+            PresetCards { on_choose: move |bindings| config.write().keybindings = bindings }
 
             // Binding sections grouped by context
             h3 { class: "preference-section-title", {t!("preferences.keybindings.bindings.title").to_string()} }
@@ -111,6 +78,53 @@ pub fn KeybindingsTab(config: Signal<Config>) -> Element {
                     bindings: keybindings.of(context).clone(),
                     filter_query: filter_text(),
                     config,
+                }
+            }
+        }
+    }
+}
+
+/// A set of bindings the reader can start from, replacing every binding.
+struct Preset {
+    name: fn() -> String,
+    description: fn() -> String,
+    bindings: fn() -> BindingSet,
+}
+
+const PRESETS: &[Preset] = &[
+    Preset {
+        name: || t!("preferences.keybindings.presets.default.name").into_owned(),
+        description: || t!("preferences.keybindings.presets.default.description").into_owned(),
+        bindings: presets::default::bindings,
+    },
+    Preset {
+        name: || "Vim".to_string(),
+        description: || t!("preferences.keybindings.presets.vim.description").into_owned(),
+        bindings: presets::vim::bindings,
+    },
+    Preset {
+        name: || "Emacs".to_string(),
+        description: || t!("preferences.keybindings.presets.emacs.description").into_owned(),
+        bindings: presets::emacs::bindings,
+    },
+    Preset {
+        name: || t!("preferences.keybindings.presets.clear.name").into_owned(),
+        description: || t!("preferences.keybindings.presets.clear.description").into_owned(),
+        bindings: BindingSet::default,
+    },
+];
+
+#[component]
+fn PresetCards(on_choose: EventHandler<BindingSet>) -> Element {
+    rsx! {
+        div {
+            class: "preset-cards",
+            for preset in PRESETS.iter() {
+                button {
+                    class: "preset-card",
+                    onclick: move |_| on_choose.call((preset.bindings)()),
+                    span { class: "preset-card-name", {(preset.name)()} }
+                    span { class: "preset-card-desc", {(preset.description)()} }
                 }
             }
         }
@@ -321,7 +335,7 @@ fn BindingForm(
     let orig_key = initial_key.clone().unwrap_or_default();
     let orig_action = initial_action.clone().unwrap_or_default();
 
-    let mut key_input = use_signal({
+    let key_input = use_signal({
         let k = initial_key.unwrap_or_default();
         move || k
     });
@@ -330,141 +344,11 @@ fn BindingForm(
         move || a
     });
     let mut recording = use_signal(|| false);
-    let mut recorded_chords: Signal<Vec<KeyChord>> = use_signal(Vec::new);
-    // Increments on each recorded key input; used to detect idle timeout.
-    let mut recording_input_epoch = use_signal(|| 0_u64);
-    // Snapshot key_input before recording starts, so Cancel can revert.
-    let mut pre_record_value = use_signal(String::new);
 
-    // Focus key input on mount so outside click can be detected via focusout.
-    use_hook(|| {
-        spawn(async move {
-            let _ = document::eval(
-                "document.querySelector('.binding-form .key-recorder-text')?.focus()",
-            )
-            .await;
-        });
-    });
-
-    // Close form when clicking outside `.binding-form`.
-    // This uses pointer events (not focus/timer based) so button clicks inside
-    // the form don't accidentally close it on platforms where buttons don't take focus.
-    use_hook(move || {
-        spawn(async move {
-            let mut eval = document::eval(
-                r#"
-                (() => {
-                    const prev = window.__artoBindingFormOutsideClickHandler;
-                    if (prev) {
-                        document.removeEventListener('pointerdown', prev, true);
-                    }
-                    const handler = (e) => {
-                        const inside = e.target instanceof Element
-                            && e.target.closest('.binding-form');
-                        if (!inside) {
-                            dioxus.send(true);
-                        }
-                    };
-                    window.__artoBindingFormOutsideClickHandler = handler;
-                    document.addEventListener('pointerdown', handler, true);
-                })();
-                "#,
-            );
-            while let Ok(outside) = eval.recv::<bool>().await {
-                if outside && !*recording.read() {
-                    on_close.call(());
-                    break;
-                }
-            }
-        });
-    });
-
-    // Close form on Escape regardless of focused element.
-    use_hook(move || {
-        spawn(async move {
-            let mut eval = document::eval(
-                r#"
-                (() => {
-                    const prev = window.__artoBindingFormEscapeHandler;
-                    if (prev) {
-                        document.removeEventListener('keydown', prev, true);
-                    }
-                    const handler = (e) => {
-                        if (e.key === 'Escape') {
-                            dioxus.send(true);
-                        }
-                    };
-                    window.__artoBindingFormEscapeHandler = handler;
-                    document.addEventListener('keydown', handler, true);
-                })();
-                "#,
-            );
-            while let Ok(pressed) = eval.recv::<bool>().await {
-                if pressed && !*recording.read() {
-                    on_close.call(());
-                    break;
-                }
-            }
-        });
-    });
-
-    // Pause/resume keyboard interceptor when recording state changes.
-    use_effect(move || {
-        if *recording.read() {
-            spawn(async move {
-                let _ = document::eval("window.Arto?.keyboard?.pause?.()").await;
-                let _ =
-                    document::eval("document.querySelector('.key-recorder-text')?.focus()").await;
-            });
-        } else {
-            spawn(async move {
-                let _ = document::eval("window.Arto?.keyboard?.resume?.()").await;
-            });
+    use_dismiss_on_outside(".binding-form", move || {
+        if !*recording.peek() {
+            on_close.call(());
         }
-    });
-
-    // Auto-complete recording when idle for 2 seconds after the last key input.
-    use_effect(move || {
-        let is_recording = *recording.read();
-        let epoch = *recording_input_epoch.read();
-        if !is_recording || epoch == 0 {
-            return;
-        }
-        spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-            if *recording.read() && *recording_input_epoch.read() == epoch {
-                recording.set(false);
-            }
-        });
-    });
-
-    // Resume interceptor unconditionally on unmount.
-    // Calling resume when not paused is a safe no-op, and this avoids
-    // depending on Signal state during teardown.
-    use_drop(move || {
-        let _ = document::eval("window.Arto?.keyboard?.resume?.()");
-        let _ = document::eval(
-            r#"
-            (() => {
-                const handler = window.__artoBindingFormOutsideClickHandler;
-                if (handler) {
-                    document.removeEventListener('pointerdown', handler, true);
-                    delete window.__artoBindingFormOutsideClickHandler;
-                }
-            })();
-            "#,
-        );
-        let _ = document::eval(
-            r#"
-            (() => {
-                const handler = window.__artoBindingFormEscapeHandler;
-                if (handler) {
-                    document.removeEventListener('keydown', handler, true);
-                    delete window.__artoBindingFormEscapeHandler;
-                }
-            })();
-            "#,
-        );
     });
 
     // Memoize resolved bindings: only recompute when config changes,
@@ -474,48 +358,18 @@ fn BindingForm(
         resolve_bindings(&keybindings)
     });
 
-    // Conflict / overwrite detection
     let notice = {
-        let key_str = key_input.read().clone();
-        if key_str.is_empty() {
-            None
-        } else {
-            match scope {
-                BindingScope::Engine(context) => {
-                    let same_scope = {
-                        let resolved = resolved.read();
-                        if is_edit {
-                            check_conflict_excluding(
-                                &resolved,
-                                &key_str,
-                                context,
-                                &orig_key,
-                                &orig_action,
-                            )
-                        } else {
-                            check_conflict(&resolved, &key_str, context)
-                        }
-                    };
-                    // A chord owned by a native menu accelerator is consumed
-                    // before the engine, so also warn on menu-scope overlap.
-                    same_scope.or_else(|| {
-                        let menu_shortcuts = config.read().keybindings.menu_shortcuts.clone();
-                        cross_scope_conflict(&menu_shortcuts, &key_str, &menu_shortcuts_title())
-                    })
-                }
-                BindingScope::Menu => {
-                    let keybindings = config.read().keybindings.clone();
-                    check_menu_conflict(&keybindings.menu_shortcuts, &key_str, is_edit, &orig_key)
-                        .or_else(|| {
-                            cross_scope_conflict(
-                                &keybindings.global,
-                                &key_str,
-                                &context_label(None),
-                            )
-                        })
-                }
-            }
-        }
+        let original = is_edit.then(|| KeyAction {
+            key: orig_key.clone(),
+            action: orig_action.clone(),
+        });
+        binding_notice(
+            scope,
+            &key_input.read(),
+            original.as_ref(),
+            &config.read().keybindings,
+            &resolved.read(),
+        )
     };
 
     // Menu shortcuts must be a single chord representable as a native accelerator;
@@ -545,132 +399,12 @@ fn BindingForm(
             class: "binding-form",
             div {
                 class: "binding-form-row",
-                // Key input with recorder
-                div {
-                    class: "key-recorder-input",
-                    input {
-                        r#type: "text",
-                        class: if *recording.read() { "key-recorder-text recording" } else { "key-recorder-text" },
-                        placeholder: if *recording.read() { t!("preferences.keybindings.form.recording_placeholder").to_string() } else { t!("preferences.keybindings.form.key_placeholder").to_string() },
-                        value: "{key_input}",
-                        readonly: *recording.read(),
-                        oninput: move |evt| {
-                            if !*recording.read() {
-                                key_input.set(evt.value());
-                            }
-                        },
-                        onkeydown: move |evt: KeyboardEvent| {
-                            if !*recording.read() {
-                                return;
-                            }
-                            evt.prevent_default();
-                            evt.stop_propagation();
-                            let chord = crate::keybindings::chord_from_event(&evt);
-                            if chord.is_modifier_only() {
-                                return;
-                            }
-                            // Backspace removes last chord from sequence
-                            if chord.to_string() == "Backspace" {
-                                let mut chords = recorded_chords.write();
-                                chords.pop();
-                                let display: Vec<String> = chords.iter().map(|c| c.to_string()).collect();
-                                key_input.set(display.join(" "));
-                                let next = *recording_input_epoch.read() + 1;
-                                recording_input_epoch.set(next);
-                                return;
-                            }
-                            recorded_chords.write().push(chord);
-                            let display: Vec<String> = recorded_chords.read().iter().map(|c| c.to_string()).collect();
-                            key_input.set(display.join(" "));
-                            let next = *recording_input_epoch.read() + 1;
-                            recording_input_epoch.set(next);
-                        },
-                    }
-                    if *recording.read() {
-                        button {
-                            class: "key-record-btn recording",
-                            onclick: move |_| {
-                                // Done: keep recorded value, stop recording
-                                recording.set(false);
-                            },
-                            {t!("preferences.keybindings.form.done").to_string()}
-                        }
-                        button {
-                            class: "key-record-btn",
-                            onclick: move |_| {
-                                // Cancel: revert to pre-record value
-                                key_input.set(pre_record_value.read().clone());
-                                recorded_chords.write().clear();
-                                recording_input_epoch.set(0);
-                                recording.set(false);
-                            },
-                            {t!("preferences.keybindings.form.cancel").to_string()}
-                        }
-                    } else {
-                        button {
-                            class: "key-record-btn",
-                            onclick: move |_| {
-                                // Start recording: snapshot current value, clear chords
-                                pre_record_value.set(key_input.read().clone());
-                                recorded_chords.write().clear();
-                                key_input.set(String::new());
-                                recording_input_epoch.set(0);
-                                recording.set(true);
-                            },
-                            {t!("preferences.keybindings.form.record").to_string()}
-                        }
-                    }
-                }
+                KeyRecorder { value: key_input, recording }
 
-                // Action dropdown (grouped by category)
-                select {
-                    class: "action-select",
-                    value: "{selected_action_value}",
-                    onchange: move |evt: FormEvent| selected_action.set(evt.value()),
-                    option {
-                        value: "",
-                        disabled: true,
-                        selected: selected_action_value.is_empty(),
-                        {t!("preferences.keybindings.form.select_action").to_string()}
-                    }
-                    // Menu shortcuts may only target menu-backed actions; engine
-                    // bindings can target any action (grouped by category).
-                    if scope == BindingScope::Menu {
-                        for action in MENU_ACTIONS {
-                            {
-                                let action_value = action.to_string();
-                                let is_selected = selected_action_value == action_value;
-                                rsx! {
-                                    option {
-                                        key: "{action_value}",
-                                        value: "{action_value}",
-                                        selected: is_selected,
-                                        "{action_label(&action_value)}"
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        for (group_label, actions) in ACTION_GROUPS {
-                            optgroup {
-                                label: action_group_name(group_label),
-                                for action in *actions {
-                                    {
-                                        let action_value = action.to_string();
-                                        let is_selected = selected_action_value == action_value;
-                                        rsx! {
-                                    option {
-                                                key: "{action_value}",
-                                                value: "{action_value}",
-                                                selected: is_selected,
-                                                "{action_label(&action_value)}"
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                ActionSelect {
+                    scope,
+                    selected: selected_action_value,
+                    on_change: move |action| selected_action.set(action),
                 }
             }
 
@@ -743,9 +477,190 @@ fn BindingForm(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+/// The key a binding answers to, typed or recorded as it is pressed.
+///
+/// While `recording`, the keyboard interceptor is paused so the keys reach
+/// the field instead of running their bindings, and recording ends by itself
+/// two seconds after the last key.
+#[component]
+fn KeyRecorder(value: Signal<String>, recording: Signal<bool>) -> Element {
+    let mut chords: Signal<Vec<KeyChord>> = use_signal(Vec::new);
+    // Bumped on every recorded key, so a pending idle timeout can tell that
+    // another key came after the one that started it.
+    let mut epoch = use_signal(|| 0_u64);
+    let mut before_recording = use_signal(String::new);
+    let mut field = use_signal(|| None::<std::rc::Rc<MountedData>>);
+
+    use_effect(move || {
+        if *recording.read() {
+            spawn(async move {
+                let _ = document::eval("window.Arto?.keyboard?.pause?.()").await;
+                let field = field.peek().clone();
+                if let Some(field) = field {
+                    let _ = field.set_focus(true).await;
+                }
+            });
+        } else {
+            spawn(async move {
+                let _ = document::eval("window.Arto?.keyboard?.resume?.()").await;
+            });
+        }
+    });
+
+    use_effect(move || {
+        let is_recording = *recording.read();
+        let started = *epoch.read();
+        if !is_recording || started == 0 {
+            return;
+        }
+        spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            if *recording.read() && *epoch.read() == started {
+                recording.set(false);
+            }
+        });
+    });
+
+    // Resumed unconditionally rather than by reading `recording`: resuming
+    // when not paused is a no-op, and a signal may already be gone here.
+    use_drop(move || {
+        let _ = document::eval("window.Arto?.keyboard?.resume?.()");
+    });
+
+    let is_recording = *recording.read();
+    rsx! {
+        div {
+            class: "key-recorder-input",
+            input {
+                r#type: "text",
+                class: if is_recording { "key-recorder-text recording" } else { "key-recorder-text" },
+                placeholder: if is_recording { t!("preferences.keybindings.form.recording_placeholder").to_string() } else { t!("preferences.keybindings.form.key_placeholder").to_string() },
+                value: "{value}",
+                readonly: is_recording,
+                onmounted: move |evt: MountedEvent| async move {
+                    let mounted = evt.data();
+                    field.set(Some(mounted.clone()));
+                    let _ = mounted.set_focus(true).await;
+                },
+                oninput: move |evt| {
+                    if !*recording.read() {
+                        value.set(evt.value());
+                    }
+                },
+                onkeydown: move |evt: KeyboardEvent| {
+                    if !*recording.read() {
+                        return;
+                    }
+                    evt.prevent_default();
+                    evt.stop_propagation();
+                    let chord = crate::keybindings::chord_from_event(&evt);
+                    if let Some(sequence) = record_chord(&mut chords.write(), chord) {
+                        value.set(sequence);
+                        let next = *epoch.read() + 1;
+                        epoch.set(next);
+                    }
+                },
+            }
+            if is_recording {
+                button {
+                    class: "key-record-btn recording",
+                    onclick: move |_| recording.set(false),
+                    {t!("preferences.keybindings.form.done").to_string()}
+                }
+                button {
+                    class: "key-record-btn",
+                    onclick: move |_| {
+                        value.set(before_recording.read().clone());
+                        chords.write().clear();
+                        epoch.set(0);
+                        recording.set(false);
+                    },
+                    {t!("preferences.keybindings.form.cancel").to_string()}
+                }
+            } else {
+                button {
+                    class: "key-record-btn",
+                    onclick: move |_| {
+                        before_recording.set(value.read().clone());
+                        chords.write().clear();
+                        value.set(String::new());
+                        epoch.set(0);
+                        recording.set(true);
+                    },
+                    {t!("preferences.keybindings.form.record").to_string()}
+                }
+            }
+        }
+    }
+}
+
+/// Add a pressed chord to the sequence being recorded and return the
+/// sequence as it now reads, or `None` when the chord is a modifier on its
+/// own. Backspace takes the last chord back instead of being recorded.
+fn record_chord(chords: &mut Vec<KeyChord>, chord: KeyChord) -> Option<String> {
+    if chord.is_modifier_only() {
+        return None;
+    }
+    if chord.to_string() == "Backspace" {
+        chords.pop();
+    } else {
+        chords.push(chord);
+    }
+    Some(
+        chords
+            .iter()
+            .map(|chord| chord.to_string())
+            .collect::<Vec<_>>()
+            .join(" "),
+    )
+}
+
+/// The action a binding runs.
+///
+/// Menu shortcuts may only target menu-backed actions; engine bindings can
+/// target any action, grouped by category.
+#[component]
+fn ActionSelect(scope: BindingScope, selected: String, on_change: EventHandler<String>) -> Element {
+    rsx! {
+        select {
+            class: "action-select",
+            value: "{selected}",
+            onchange: move |evt: FormEvent| on_change.call(evt.value()),
+            option {
+                value: "",
+                disabled: true,
+                selected: selected.is_empty(),
+                {t!("preferences.keybindings.form.select_action").to_string()}
+            }
+            if scope == BindingScope::Menu {
+                for action in MENU_ACTIONS {
+                    ActionOption { key: "{action}", action: *action, selected: selected.clone() }
+                }
+            } else {
+                for (group_label, actions) in ACTION_GROUPS {
+                    optgroup {
+                        label: action_group_name(group_label),
+                        for action in *actions {
+                            ActionOption { key: "{action}", action: *action, selected: selected.clone() }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn ActionOption(action: Action, selected: String) -> Element {
+    let value = action.to_string();
+    rsx! {
+        option {
+            value: "{value}",
+            selected: selected == value,
+            "{action_label(&value)}"
+        }
+    }
+}
 
 /// Get mutable reference to the bindings for a given scope.
 fn bindings_mut(set: &mut crate::config::BindingSet, scope: BindingScope) -> &mut Vec<KeyAction> {
@@ -753,6 +668,49 @@ fn bindings_mut(set: &mut crate::config::BindingSet, scope: BindingScope) -> &mu
         BindingScope::Menu => &mut set.menu_shortcuts,
         BindingScope::Engine(None) => &mut set.global,
         BindingScope::Engine(Some(context)) => set.of_mut(context),
+    }
+}
+
+/// What the form says about `key` before it is saved into `scope`.
+///
+/// `original` is the binding being edited, which `key` may keep without
+/// conflicting with itself. A clash inside the scope is reported before an
+/// overlap with the other scope.
+fn binding_notice(
+    scope: BindingScope,
+    key: &str,
+    original: Option<&KeyAction>,
+    bindings: &BindingSet,
+    resolved: &[ResolvedBinding],
+) -> Option<BindingNotice> {
+    if key.is_empty() {
+        return None;
+    }
+    match scope {
+        BindingScope::Engine(context) => {
+            let same_scope = match original {
+                Some(original) => check_conflict_excluding(
+                    resolved,
+                    key,
+                    context,
+                    &original.key,
+                    &original.action,
+                ),
+                None => check_conflict(resolved, key, context),
+            };
+            // A chord owned by a native menu accelerator is consumed before
+            // the engine, so an engine binding can collide with the menu too.
+            same_scope.or_else(|| {
+                cross_scope_conflict(&bindings.menu_shortcuts, key, &menu_shortcuts_title())
+            })
+        }
+        BindingScope::Menu => check_menu_conflict(
+            &bindings.menu_shortcuts,
+            key,
+            original.is_some(),
+            original.map_or("", |original| &original.key),
+        )
+        .or_else(|| cross_scope_conflict(&bindings.global, key, &context_label(None))),
     }
 }
 
@@ -1130,6 +1088,266 @@ mod tests {
         }];
         // Editing the same entry (orig_key = "Cmd+o") should not self-conflict.
         assert!(check_menu_conflict(&existing, "Cmd+o", true, "Cmd+o").is_none());
+    }
+
+    #[test]
+    fn the_preset_cards_are_drawn_in_order_with_their_descriptions() {
+        let mut dom = VirtualDom::new(|| rsx! { PresetCards { on_choose: |_| {} } });
+        dom.rebuild_in_place();
+        let html = dioxus_ssr::render(&dom);
+
+        assert_eq!(
+            html,
+            concat!(
+                r#"<div class="preset-cards">"#,
+                r#"<button class="preset-card">"#,
+                r#"<span class="preset-card-name">Default</span>"#,
+                r#"<span class="preset-card-desc">Arrow keys, Cmd+Key, Ctrl+Tab</span>"#,
+                r#"</button>"#,
+                r#"<button class="preset-card">"#,
+                r#"<span class="preset-card-name">Vim</span>"#,
+                r#"<span class="preset-card-desc">j/k scroll, g g, chord sequences</span>"#,
+                r#"</button>"#,
+                r#"<button class="preset-card">"#,
+                r#"<span class="preset-card-name">Emacs</span>"#,
+                r#"<span class="preset-card-desc">Ctrl+n/p, Ctrl+x combos</span>"#,
+                r#"</button>"#,
+                r#"<button class="preset-card">"#,
+                r#"<span class="preset-card-name">Clear</span>"#,
+                r#"<span class="preset-card-desc">Remove all keybindings</span>"#,
+                r#"</button>"#,
+                r#"</div>"#,
+            )
+        );
+    }
+
+    #[test]
+    fn each_preset_applies_its_own_bindings() {
+        let applied: Vec<BindingSet> = PRESETS.iter().map(|preset| (preset.bindings)()).collect();
+        assert_eq!(
+            applied,
+            vec![
+                presets::default::bindings(),
+                presets::vim::bindings(),
+                presets::emacs::bindings(),
+                BindingSet::default(),
+            ]
+        );
+    }
+
+    #[test]
+    fn recording_a_chord_appends_it_to_the_sequence() {
+        let mut chords = Vec::new();
+        assert_eq!(
+            record_chord(&mut chords, KeyChord::from_js_event("g", 0)).as_deref(),
+            Some("g")
+        );
+        assert_eq!(
+            record_chord(&mut chords, KeyChord::from_js_event("G", 0)).as_deref(),
+            Some("g Shift+g")
+        );
+    }
+
+    #[test]
+    fn recording_backspace_takes_the_last_chord_back() {
+        let mut chords = vec![
+            KeyChord::from_js_event("g", 0),
+            KeyChord::from_js_event("g", 0),
+        ];
+        assert_eq!(
+            record_chord(&mut chords, KeyChord::from_js_event("Backspace", 0)).as_deref(),
+            Some("g")
+        );
+        assert_eq!(
+            record_chord(&mut chords, KeyChord::from_js_event("Backspace", 0)).as_deref(),
+            Some("")
+        );
+    }
+
+    #[test]
+    fn recording_ignores_a_modifier_pressed_on_its_own() {
+        let mut chords = vec![KeyChord::from_js_event("g", 0)];
+        assert_eq!(
+            record_chord(&mut chords, KeyChord::from_js_event("Shift", 8)),
+            None
+        );
+        assert_eq!(chords.len(), 1);
+    }
+
+    #[test]
+    fn the_key_recorder_offers_to_record_while_idle() {
+        let html = render(|| {
+            let value = use_signal(|| "Cmd+o".to_string());
+            let recording = use_signal(|| false);
+            rsx! { KeyRecorder { value, recording } }
+        });
+
+        assert_eq!(
+            html,
+            concat!(
+                r#"<div class="key-recorder-input">"#,
+                r#"<input type="text" class="key-recorder-text" placeholder="e.g. Cmd+k, g g" value="Cmd+o"/>"#,
+                r#"<button class="key-record-btn">Record</button>"#,
+                r#"</div>"#,
+            )
+        );
+    }
+
+    fn render(app: fn() -> Element) -> String {
+        let mut dom = VirtualDom::new(app);
+        dom.rebuild_in_place();
+        dioxus_ssr::render(&dom)
+    }
+
+    #[test]
+    fn a_menu_shortcut_chooses_among_menu_actions_only() {
+        let html = render(|| {
+            rsx! {
+                ActionSelect {
+                    scope: BindingScope::Menu,
+                    selected: KbAction::FileOpen.to_string(),
+                    on_change: |_| {},
+                }
+            }
+        });
+
+        assert!(!html.contains("<optgroup"), "{html}");
+        assert_eq!(html.matches("<option ").count(), MENU_ACTIONS.len() + 1);
+        assert!(
+            html.contains(&format!(
+                r#"<option value="file.open" selected=true>{}</option>"#,
+                action_label("file.open")
+            )),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn an_engine_binding_chooses_among_every_action_by_group() {
+        let html = render(|| {
+            rsx! {
+                ActionSelect {
+                    scope: BindingScope::Engine(None),
+                    selected: String::new(),
+                    on_change: |_| {},
+                }
+            }
+        });
+
+        let every_action: usize = ACTION_GROUPS.iter().map(|(_, actions)| actions.len()).sum();
+        assert_eq!(html.matches("<optgroup").count(), ACTION_GROUPS.len());
+        assert_eq!(html.matches("<option ").count(), every_action + 1);
+        assert!(
+            html.contains(r#"<option value="" disabled=true selected=true>"#),
+            "the placeholder is chosen until an action is: {html}"
+        );
+    }
+
+    fn binding(key: &str, action: &str) -> KeyAction {
+        KeyAction {
+            key: key.to_string(),
+            action: action.to_string(),
+        }
+    }
+
+    fn notice_for(
+        scope: BindingScope,
+        key: &str,
+        original: Option<&KeyAction>,
+        bindings: &BindingSet,
+    ) -> Option<BindingNotice> {
+        binding_notice(scope, key, original, bindings, &resolve_bindings(bindings))
+    }
+
+    #[test]
+    fn an_empty_key_has_no_notice() {
+        let bindings = BindingSet {
+            global: vec![binding("j", "scroll.down")],
+            ..BindingSet::default()
+        };
+        assert!(notice_for(BindingScope::Engine(None), "", None, &bindings).is_none());
+        assert!(notice_for(BindingScope::Menu, "", None, &bindings).is_none());
+    }
+
+    #[test]
+    fn an_engine_binding_being_edited_does_not_conflict_with_itself() {
+        let bindings = BindingSet {
+            global: vec![binding("j", "scroll.down")],
+            ..BindingSet::default()
+        };
+        let original = binding("j", "scroll.down");
+        assert!(matches!(
+            notice_for(BindingScope::Engine(None), "j", None, &bindings),
+            Some(BindingNotice::Conflict(_))
+        ));
+        assert!(notice_for(BindingScope::Engine(None), "j", Some(&original), &bindings).is_none());
+    }
+
+    #[test]
+    fn an_engine_binding_on_a_menu_chord_conflicts() {
+        let bindings = BindingSet {
+            menu_shortcuts: vec![binding("Cmd+o", "file.open")],
+            ..BindingSet::default()
+        };
+        let notice = notice_for(
+            BindingScope::Engine(Some(KeyContext::Content)),
+            "Cmd+o",
+            None,
+            &bindings,
+        );
+        // On macOS the OS dispatches menu shortcuts, so the engine binding
+        // would never see the chord. Elsewhere the engine owns them as global
+        // bindings, which a context binding overrides.
+        match notice {
+            #[cfg(target_os = "macos")]
+            Some(BindingNotice::Conflict(msg)) => {
+                assert!(msg.contains("Menu Shortcuts"), "names the menu: {msg}")
+            }
+            #[cfg(not(target_os = "macos"))]
+            Some(BindingNotice::Overwrite(msg)) => {
+                assert!(msg.contains("File Open"), "names the menu action: {msg}")
+            }
+            other => panic!("Expected this platform's notice, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_same_scope_conflict_wins_over_a_menu_overlap() {
+        let bindings = BindingSet {
+            menu_shortcuts: vec![binding("Cmd+o", "file.open")],
+            global: vec![binding("Cmd+o", "scroll.down")],
+            ..BindingSet::default()
+        };
+        match notice_for(BindingScope::Engine(None), "Cmd+o", None, &bindings) {
+            Some(BindingNotice::Conflict(msg)) => {
+                assert!(msg.contains("Global"), "names the global binding: {msg}")
+            }
+            other => panic!("Expected Conflict, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_menu_shortcut_on_a_global_chord_conflicts() {
+        let bindings = BindingSet {
+            global: vec![binding("Cmd+r", "window.reload")],
+            ..BindingSet::default()
+        };
+        match notice_for(BindingScope::Menu, "Cmd+r", None, &bindings) {
+            Some(BindingNotice::Conflict(msg)) => {
+                assert!(msg.contains("Global"), "names the global binding: {msg}")
+            }
+            other => panic!("Expected Conflict, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_menu_shortcut_being_edited_does_not_conflict_with_itself() {
+        let bindings = BindingSet {
+            menu_shortcuts: vec![binding("Cmd+o", "file.open")],
+            ..BindingSet::default()
+        };
+        let original = binding("Cmd+o", "file.open");
+        assert!(notice_for(BindingScope::Menu, "Cmd+o", Some(&original), &bindings).is_none());
     }
 
     #[test]

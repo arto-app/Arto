@@ -16,6 +16,7 @@ use crate::markdown::render_to_html_with_toc;
 use crate::scroll_anchor::ScrollAnchor;
 use crate::state::{AppState, DocumentContent};
 use crate::utils::file::is_markdown_file;
+use crate::utils::page_runtime::once_arto_has;
 use crate::watcher::FILE_WATCHER;
 use viewer_window_bridge::use_viewer_window_bridge;
 
@@ -582,16 +583,10 @@ fn use_link_click_handler(file: ReadSignal<PathBuf>, state: AppState) {
 fn use_link_preview_handler(file: ReadSignal<PathBuf>) {
     use_effect(move || {
         let file = file();
-        let mut eval_provider = document::eval(indoc::indoc! {r#"
-            (async () => {
-                while (!window.Arto?.linkPreview?.onRequest) {
-                    await new Promise(resolve => setTimeout(resolve, 10));
-                }
-                window.Arto.linkPreview.onRequest((request) => {
-                    dioxus.send(request);
-                });
-            })();
-        "#});
+        let mut eval_provider = document::eval(&once_arto_has(
+            "linkPreview.onRequest",
+            "window.Arto.linkPreview.onRequest((request) => dioxus.send(request));",
+        ));
 
         spawn(async move {
             while let Ok(LinkPreviewRequest { seq, link }) =
@@ -694,17 +689,10 @@ fn use_context_menu_handler(file: ReadSignal<PathBuf>) {
         let base_dir = base_dir_of(&file);
 
         // Setup JS context menu handler using the exported function
-        // Wait for window.Arto to be available (init() is async)
-        let mut eval_provider = document::eval(indoc::indoc! {r#"
-            (async () => {
-                while (!window.Arto?.contextMenu?.setup) {
-                    await new Promise(resolve => setTimeout(resolve, 10));
-                }
-                window.Arto.contextMenu.setup((data) => {
-                    dioxus.send(data);
-                });
-            })();
-        "#});
+        let mut eval_provider = document::eval(&once_arto_has(
+            "contextMenu.setup",
+            "window.Arto.contextMenu.setup((data) => dioxus.send(data));",
+        ));
 
         spawn(async move {
             while let Ok(data) = eval_provider.recv::<ContextMenuData>().await {

@@ -1,4 +1,3 @@
-use dioxus::document;
 use dioxus::prelude::*;
 use rust_i18n::t;
 
@@ -90,6 +89,28 @@ impl Row {
             Self::Command(_) => None,
             Self::Document(visit) => Some(&visit.path),
             Self::Starred(path) | Self::Place(path) | Self::File(path) => Some(path),
+        }
+    }
+
+    fn icon(&self) -> IconName {
+        match self {
+            Self::Command(_) => IconName::Command,
+            Self::Document(_) => IconName::File,
+            Self::Starred(_) => IconName::StarFilled,
+            Self::Place(_) => IconName::Bookmark,
+            Self::File(_) => IconName::FileSearch,
+        }
+    }
+
+    /// What tells this row apart from every other in the list: a document
+    /// can be in the history and starred at once, and is two rows then.
+    fn key(&self) -> String {
+        match self {
+            Self::Command(action) => format!("command:{action}"),
+            Self::Document(visit) => format!("document:{}", visit.path.display()),
+            Self::Starred(path) => format!("starred:{}", path.display()),
+            Self::Place(path) => format!("place:{}", path.display()),
+            Self::File(path) => format!("file:{}", path.display()),
         }
     }
 }
@@ -363,14 +384,6 @@ pub fn Palette() -> Element {
         }
     });
 
-    // Focus the input as it appears: the palette is a keyboard gesture, and
-    // one that asked for a click first would not be worth the keystroke.
-    use_effect(move || {
-        spawn(async {
-            let _ = document::eval("document.querySelector('.palette-input')?.focus()").await;
-        });
-    });
-
     // The list, worked out again only when something it is made of has
     // changed. A memo rather than a line in the draw, because a draw is not
     // the same thing as a change: writing how many rows there are draws
@@ -491,6 +504,11 @@ pub fn PaletteField(query: Signal<String>, placeholder: String) -> Element {
             autocorrect: "off",
             autocapitalize: "off",
             spellcheck: "false",
+            // Focused as it appears: the palette is a keyboard gesture, and
+            // one that asked for a click first would not be worth the keystroke.
+            onmounted: move |evt: MountedEvent| async move {
+                let _ = evt.set_focus(true).await;
+            },
             oninput: move |evt| {
                 query.set(evt.value());
                 // A narrowed list is a new list, so the keys start at the top
@@ -527,6 +545,97 @@ pub fn kept() -> (Vec<PathBuf>, Vec<PathBuf>) {
     )
 }
 
+/// Drawn here rather than in each screen that offers them, so that the list
+/// the welcome page expands in place and the list `Cmd+K` floats over are the same
+/// list — the same order, the same rows, the same cursor.
+///
+/// `query` is passed down rather than matched again from the row: what a
+/// fuzzy match answers with is not always visible in the name it found, so
+/// each row marks the characters that put it there.
+#[component]
+pub fn PaletteRows(
+    rows: Vec<Row>,
+    current: usize,
+    #[props(default)] query: String,
+    on_pick: EventHandler<usize>,
+) -> Element {
+    // A word above the first row of each kind. It is what makes a long list
+    // read as several short ones, and it costs one row each.
+    let headings: Vec<Option<String>> = rows
+        .iter()
+        .enumerate()
+        .map(|(index, row)| {
+            let first = index == 0 || rows[index - 1].group() != row.group();
+            first.then(|| row.heading())
+        })
+        .collect();
+
+    rsx! {
+        div {
+            class: "palette-rows",
+            for (index, row) in rows.iter().enumerate() {
+                if let Some(heading) = &headings[index] {
+                    div { class: "palette-group", "{heading}" }
+                }
+                if let Row::Command(action) = row {
+                    div {
+                        key: "{row.key()}",
+                        class: "palette-row",
+                        class: if index == current { "keyboard-focused" },
+                        onclick: move |_| on_pick.call(index),
+                        Icon { name: row.icon(), size: 14 }
+                        span {
+                            class: "palette-row-name",
+                            Matched {
+                                text: command_name(*action).unwrap_or_default(),
+                                query: query.clone(),
+                            }
+                        }
+                        span {
+                            class: "palette-row-hint",
+                            {shortcut_hint(*action).unwrap_or_default()}
+                        }
+                    }
+                } else if let Some(path) = row.path() {
+                    PalettePath {
+                        key: "{row.key()}",
+                        path: path.to_path_buf(),
+                        icon: row.icon(),
+                        current: index == current,
+                        query: query.clone(),
+                        on_pick: move |_| on_pick.call(index),
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// A row that offers somewhere to go: its name, and the folder it is in.
+#[component]
+fn PalettePath(
+    path: PathBuf,
+    icon: IconName,
+    current: bool,
+    #[props(default)] query: String,
+    on_pick: EventHandler<()>,
+) -> Element {
+    rsx! {
+        div {
+            class: "palette-row",
+            class: if current { "keyboard-focused" },
+            title: "{path.display()}",
+            onclick: move |_| on_pick.call(()),
+            Icon { name: icon, size: 14 }
+            span {
+                class: "palette-row-name",
+                DocumentName { path: path.clone(), query: query.clone() }
+            }
+            span { class: "palette-row-path", "{parent_label(&path)}" }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -535,6 +644,56 @@ mod tests {
 
     fn visit(path: &str) -> Visit {
         Visit::new(PathBuf::from(path), Local::now())
+    }
+
+    #[test]
+    fn each_kind_of_row_is_keyed_apart_from_the_others() {
+        let path = "/a/b.md";
+        let keys: Vec<String> = [
+            Row::Command(Action::SearchOpen),
+            Row::Document(visit(path)),
+            Row::Starred(PathBuf::from(path)),
+            Row::Place(PathBuf::from(path)),
+            Row::File(PathBuf::from(path)),
+        ]
+        .iter()
+        .map(Row::key)
+        .collect();
+        assert_eq!(
+            keys,
+            [
+                "command:search.open",
+                "document:/a/b.md",
+                "starred:/a/b.md",
+                "place:/a/b.md",
+                "file:/a/b.md",
+            ]
+        );
+    }
+
+    #[test]
+    fn each_kind_of_row_has_its_own_icon() {
+        let path = "/a/b.md";
+        let icons: Vec<IconName> = [
+            Row::Command(Action::SearchOpen),
+            Row::Document(visit(path)),
+            Row::Starred(PathBuf::from(path)),
+            Row::Place(PathBuf::from(path)),
+            Row::File(PathBuf::from(path)),
+        ]
+        .iter()
+        .map(Row::icon)
+        .collect();
+        assert_eq!(
+            icons,
+            [
+                IconName::Command,
+                IconName::File,
+                IconName::StarFilled,
+                IconName::Bookmark,
+                IconName::FileSearch,
+            ]
+        );
     }
 
     #[test]
@@ -836,132 +995,5 @@ mod tests {
             .filter(|action| found.contains(action))
             .collect();
         assert_eq!(found, listed);
-    }
-}
-
-/// The palette's rows: the commands a query names, then the documents it
-/// finds.
-///
-/// Drawn here rather than in each screen that offers them, so that the list
-/// the welcome page expands in place and the list `Cmd+K` floats over are the same
-/// list — the same order, the same rows, the same cursor.
-///
-/// `query` is passed down rather than matched again from the row: what a
-/// fuzzy match answers with is not always visible in the name it found, so
-/// each row marks the characters that put it there.
-#[component]
-pub fn PaletteRows(
-    rows: Vec<Row>,
-    current: usize,
-    #[props(default)] query: String,
-    on_pick: EventHandler<usize>,
-) -> Element {
-    // A word above the first row of each kind. It is what makes a long list
-    // read as several short ones, and it costs one row each.
-    let headings: Vec<Option<String>> = rows
-        .iter()
-        .enumerate()
-        .map(|(index, row)| {
-            let first = index == 0 || rows[index - 1].group() != row.group();
-            first.then(|| row.heading())
-        })
-        .collect();
-
-    rsx! {
-        div {
-            class: "palette-rows",
-            for (index, row) in rows.iter().enumerate() {
-                if let Some(heading) = &headings[index] {
-                    div { class: "palette-group", "{heading}" }
-                }
-                match row {
-                    Row::Command(action) => rsx! {
-                        div {
-                            key: "command:{action}",
-                            class: "palette-row",
-                            class: if index == current { "keyboard-focused" },
-                            onclick: move |_| on_pick.call(index),
-                            Icon { name: IconName::Command, size: 14 }
-                            span {
-                                class: "palette-row-name",
-                                Matched {
-                                    text: command_name(*action).unwrap_or_default(),
-                                    query: query.clone(),
-                                }
-                            }
-                            span {
-                                class: "palette-row-hint",
-                                {shortcut_hint(*action).unwrap_or_default()}
-                            }
-                        }
-                    },
-                    Row::Document(visit) => rsx! {
-                        PalettePath {
-                            key: "document:{visit.path.display()}",
-                            path: visit.path.clone(),
-                            icon: IconName::File,
-                            current: index == current,
-                            query: query.clone(),
-                            on_pick: move |_| on_pick.call(index),
-                        }
-                    },
-                    Row::Starred(path) => rsx! {
-                        PalettePath {
-                            key: "starred:{path.display()}",
-                            path: path.clone(),
-                            icon: IconName::StarFilled,
-                            current: index == current,
-                            query: query.clone(),
-                            on_pick: move |_| on_pick.call(index),
-                        }
-                    },
-                    Row::Place(path) => rsx! {
-                        PalettePath {
-                            key: "place:{path.display()}",
-                            path: path.clone(),
-                            icon: IconName::Bookmark,
-                            current: index == current,
-                            query: query.clone(),
-                            on_pick: move |_| on_pick.call(index),
-                        }
-                    },
-                    Row::File(path) => rsx! {
-                        PalettePath {
-                            key: "file:{path.display()}",
-                            path: path.clone(),
-                            icon: IconName::FileSearch,
-                            current: index == current,
-                            query: query.clone(),
-                            on_pick: move |_| on_pick.call(index),
-                        }
-                    },
-                }
-            }
-        }
-    }
-}
-
-/// A row that offers somewhere to go: its name, and the folder it is in.
-#[component]
-fn PalettePath(
-    path: PathBuf,
-    icon: IconName,
-    current: bool,
-    #[props(default)] query: String,
-    on_pick: EventHandler<()>,
-) -> Element {
-    rsx! {
-        div {
-            class: "palette-row",
-            class: if current { "keyboard-focused" },
-            title: "{path.display()}",
-            onclick: move |_| on_pick.call(()),
-            Icon { name: icon, size: 14 }
-            span {
-                class: "palette-row-name",
-                DocumentName { path: path.clone(), query: query.clone() }
-            }
-            span { class: "palette-row-path", "{parent_label(&path)}" }
-        }
     }
 }

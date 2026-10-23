@@ -223,9 +223,59 @@ pub fn use_theme_dispatch(current_theme: Signal<crate::theme::Theme>) {
     });
 }
 
+/// Load the frontend's entry for a viewer window and hand it what to show.
+///
+/// `kind` names the window in the logs; `args` are JavaScript expressions,
+/// JSON as a rule.
+pub fn spawn_viewer_init(kind: &'static str, function: &'static str, args: Vec<String>) {
+    let script = viewer_init_script(&main_script_url(), kind, function, &args);
+    spawn(async move {
+        if let Err(e) = document::eval(&script).await {
+            tracing::error!("Failed to initialize {kind} window: {e}");
+        }
+    });
+}
+
+fn viewer_init_script(main_script: &str, kind: &str, function: &str, args: &[String]) -> String {
+    let args = args.join(", ");
+    indoc::formatdoc! {r#"
+        (async () => {{
+            try {{
+                const {{ {function} }} = await import("{main_script}");
+                await {function}({args});
+            }} catch (error) {{
+                console.error("Failed to load {kind} window module:", error);
+            }}
+        }})();
+    "#}
+}
+
 #[cfg(test)]
 mod tests {
-    use super::is_close_shortcut;
+    use super::{is_close_shortcut, viewer_init_script};
+
+    #[test]
+    fn the_init_script_imports_the_window_s_entry_and_calls_it_with_its_arguments() {
+        let script = viewer_init_script(
+            "/main.js",
+            "math",
+            "initMathWindow",
+            &[r#""E = mc^2""#.to_string(), r#""dark""#.to_string()],
+        );
+        assert_eq!(
+            script,
+            indoc::indoc! {r#"
+                (async () => {
+                    try {
+                        const { initMathWindow } = await import("/main.js");
+                        await initMathWindow("E = mc^2", "dark");
+                    } catch (error) {
+                        console.error("Failed to load math window module:", error);
+                    }
+                })();
+            "#}
+        );
+    }
 
     #[test]
     fn matches_cmd_w() {

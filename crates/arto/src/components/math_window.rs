@@ -1,11 +1,11 @@
 use dioxus::prelude::*;
 use rust_i18n::t;
 
-use crate::assets::main_script_url;
 use crate::components::theme_selector::ThemeSelector;
+use crate::components::viewer_window_shell::ViewerWindowShell;
 use crate::hooks::{
-    use_clipboard_image_handler, use_theme_dispatch, use_window_close_handler, use_zoom_sync,
-    CopyImageButton,
+    spawn_viewer_init, use_clipboard_image_handler, use_theme_dispatch, use_window_close_handler,
+    use_zoom_sync, CopyImageButton,
 };
 use crate::theme::Theme;
 
@@ -43,73 +43,37 @@ pub fn MathWindow(props: MathWindowProps) -> Element {
     use_clipboard_image_handler();
     use_theme_dispatch(current_theme);
 
-    // Load viewer script on mount
     use_effect(move || {
-        let source_json = serde_json::to_string(&props.source).unwrap_or_default();
-        let math_id_json = serde_json::to_string(&props.math_id).unwrap_or_default();
         // Resolve "auto" and the configured choice before passing to JS
-        let theme_str = crate::theme::resolve_color_theme(*current_theme.read()).as_str();
-
-        let main_script = main_script_url();
-        spawn(async move {
-            let eval_result = document::eval(&indoc::formatdoc! {r#"
-                (async () => {{
-                    try {{
-                        const {{ initMathWindow }} = await import("{main_script}");
-                        await initMathWindow({source_json}, {math_id_json}, "{theme_str}");
-                    }} catch (error) {{
-                        console.error("Failed to load math window module:", error);
-                    }}
-                }})();
-            "#});
-
-            if let Err(e) = eval_result.await {
-                tracing::error!("Failed to initialize math window: {}", e);
-            }
-        });
+        let theme = crate::theme::resolve_color_theme(*current_theme.read()).as_str();
+        spawn_viewer_init(
+            "math",
+            "initMathWindow",
+            vec![
+                serde_json::to_string(&props.source).unwrap_or_default(),
+                serde_json::to_string(&props.math_id).unwrap_or_default(),
+                serde_json::to_string(theme).unwrap_or_default(),
+            ],
+        );
     });
 
     rsx! {
-        div {
-            class: "math-window-container",
-
-            // Header with controls
-            div {
-                class: "math-window-header",
-                div { class: "math-window-title", "{title}" }
-                div {
-                    class: "math-window-controls",
-                    CopyImageButton {
-                        js_function: "copyMathAsImage",
-                        label: t!("viewer_window.math.copy").to_string(),
-                    }
-                    ThemeSelector { current_theme }
+        ViewerWindowShell {
+            kind: "math",
+            title,
+            controls: rsx! {
+                CopyImageButton {
+                    js_function: "copyMathAsImage",
+                    label: t!("viewer_window.math.copy").to_string(),
                 }
-            }
-
-            // Canvas container for math
+                ThemeSelector { current_theme }
+            },
+            status: t!("viewer_window.zoom_status.pan_fit", zoom = zoom_level()).to_string(),
+            // The wrapper is translated to pan, the container inside it zoomed.
             div {
-                id: "math-window-canvas",
-                class: "math-window-canvas",
-
-                // Wrapper for positioning (translate)
-                div {
-                    id: "math-wrapper",
-                    class: "math-wrapper",
-
-                    // Inner container for zoom
-                    div {
-                        id: "math-container",
-                        class: "math-container",
-                        // Placeholder for Math content
-                    }
-                }
-            }
-
-            // Status bar
-            div {
-                class: "math-window-status",
-                {t!("viewer_window.zoom_status.pan_fit", zoom = zoom_level()).to_string()}
+                id: "math-wrapper",
+                class: "math-wrapper",
+                div { id: "math-container", class: "math-container" }
             }
         }
     }

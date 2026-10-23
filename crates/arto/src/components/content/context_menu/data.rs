@@ -28,7 +28,7 @@ pub enum ContentContext {
 }
 
 /// Context menu data from JavaScript
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ContextMenuData {
     pub context: ContentContext,
     pub x: i32,

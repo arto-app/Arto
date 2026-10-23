@@ -1,10 +1,12 @@
 use dioxus::prelude::*;
 use rust_i18n::t;
 
-use crate::assets::main_script_url;
 use crate::components::icon::{Icon, IconName};
 use crate::components::theme_selector::ThemeSelector;
-use crate::hooks::{use_theme_dispatch, use_window_close_handler, use_zoom_sync, CopyStatus};
+use crate::components::viewer_window_shell::ViewerWindowShell;
+use crate::hooks::{
+    spawn_viewer_init, use_theme_dispatch, use_window_close_handler, use_zoom_sync, CopyStatus,
+};
 use crate::theme::Theme;
 
 /// Props for MermaidWindow component
@@ -29,73 +31,31 @@ pub fn MermaidWindow(props: MermaidWindowProps) -> Element {
     use_zoom_sync(zoom_level);
     use_theme_dispatch(current_theme);
 
-    // Load viewer script on mount
     use_effect(move || {
-        let source_json = serde_json::to_string(&props.source).unwrap_or_default();
-        let diagram_id_json = serde_json::to_string(&props.diagram_id).unwrap_or_default();
-
-        let main_script = main_script_url();
-        spawn(async move {
-            let eval_result = document::eval(&indoc::formatdoc! {r#"
-                (async () => {{
-                    try {{
-                        const {{ initMermaidWindow }} = await import("{main_script}");
-                        await initMermaidWindow({source_json}, {diagram_id_json});
-                    }} catch (error) {{
-                        console.error("Failed to load mermaid window module:", error);
-                    }}
-                }})();
-            "#});
-
-            if let Err(e) = eval_result.await {
-                tracing::error!("Failed to initialize mermaid window: {}", e);
-            }
-        });
+        spawn_viewer_init(
+            "mermaid",
+            "initMermaidWindow",
+            vec![
+                serde_json::to_string(&props.source).unwrap_or_default(),
+                serde_json::to_string(&props.diagram_id).unwrap_or_default(),
+            ],
+        );
     });
 
     rsx! {
-        div {
-            class: "mermaid-window-container",
-
-            // Header with controls
+        ViewerWindowShell {
+            kind: "mermaid",
+            title: String::new(),
+            controls: rsx! {
+                MermaidCopyImageButton {}
+                ThemeSelector { current_theme }
+            },
+            status: t!("viewer_window.zoom_status.pan_fit", zoom = zoom_level()).to_string(),
+            // The wrapper is translated to pan, the container inside it zoomed.
             div {
-                class: "mermaid-window-header",
-
-                // Empty spacer on left
-                div {
-                    class: "mermaid-window-title",
-                }
-
-                div {
-                    class: "mermaid-window-controls",
-                    MermaidCopyImageButton {}
-                    ThemeSelector { current_theme }
-                }
-            }
-
-            // Canvas container for diagram
-            div {
-                id: "mermaid-window-canvas",
-                class: "mermaid-window-canvas",
-
-                // Wrapper for positioning (translate)
-                div {
-                    id: "mermaid-diagram-wrapper",
-                    class: "mermaid-diagram-wrapper",
-
-                    // Inner container for zoom
-                    div {
-                        id: "mermaid-diagram-container",
-                        class: "mermaid-diagram-container",
-                        // Placeholder for Mermaid SVG
-                    }
-                }
-            }
-
-            // Status bar
-            div {
-                class: "mermaid-window-status",
-                {t!("viewer_window.zoom_status.pan_fit", zoom = zoom_level()).to_string()}
+                id: "mermaid-diagram-wrapper",
+                class: "mermaid-diagram-wrapper",
+                div { id: "mermaid-diagram-container", class: "mermaid-diagram-container" }
             }
         }
     }
