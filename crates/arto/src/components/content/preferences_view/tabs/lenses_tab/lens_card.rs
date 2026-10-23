@@ -320,12 +320,7 @@ fn LensForm(config: Signal<Config>, index: usize, lens: Lens) -> Element {
                     label: t!("preferences.lenses.form.context_length.label"),
                     hint: t!("preferences.lenses.form.context_length.hint"),
                     value: lens.context_length.map(|length| length.to_string()).unwrap_or_default(),
-                    on_input: move |text: String| {
-                        let length = text.trim().parse::<u32>().ok();
-                        if text.trim().is_empty() || length.is_some() {
-                            edit(config, index, |lens| lens.context_length = length);
-                        }
-                    },
+                    on_input: move |text: String| set_optional_number(config, index, &text, |lens, n| lens.context_length = n),
                 }
             }
 
@@ -379,7 +374,53 @@ fn set_number<N: FromStr>(
     text: &str,
     change: impl FnOnce(&mut Lens, N),
 ) {
-    if let Ok(number) = text.trim().parse::<N>() {
+    if let Some(number) = typed_number(text) {
         edit(config, index, |lens| change(lens, number));
+    }
+}
+
+/// [`set_number`] for a setting that may be left unset, which a blank
+/// `text` does.
+fn set_optional_number<N: FromStr>(
+    config: Signal<Config>,
+    index: usize,
+    text: &str,
+    change: impl FnOnce(&mut Lens, Option<N>),
+) {
+    if let Some(number) = typed_optional_number(text) {
+        edit(config, index, |lens| change(lens, number));
+    }
+}
+
+fn typed_number<N: FromStr>(text: &str) -> Option<N> {
+    text.trim().parse().ok()
+}
+
+/// `Some(None)` for a blank `text`, and `None` while it is neither blank
+/// nor a number.
+fn typed_optional_number<N: FromStr>(text: &str) -> Option<Option<N>> {
+    if text.trim().is_empty() {
+        Some(None)
+    } else {
+        typed_number(text).map(Some)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_number_is_read_once_it_is_one() {
+        assert_eq!(typed_number::<u32>(" 30 "), Some(30));
+        assert_eq!(typed_number::<u32>(""), None);
+        assert_eq!(typed_number::<u32>("3x"), None);
+    }
+
+    #[test]
+    fn an_optional_number_is_cleared_by_a_blank() {
+        assert_eq!(typed_optional_number::<u32>(" 8192 "), Some(Some(8192)));
+        assert_eq!(typed_optional_number::<u32>("  "), Some(None));
+        assert_eq!(typed_optional_number::<u32>("8k"), None);
     }
 }
