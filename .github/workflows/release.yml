@@ -260,7 +260,7 @@ jobs:
   # differs from main's even for the same commit, so it is built and cached
   # here, and the run fails unless the packages carry the release's version.
   nix:
-    uses: lambdalisue/nix-github-release/.github/workflows/build.yml@v0.1.0
+    uses: lambdalisue/nix-github-release/.github/workflows/build.yml@v0.1.1
     with:
       ref: ${{ github.event.release.tag_name }}
       packages: arto arto-page
