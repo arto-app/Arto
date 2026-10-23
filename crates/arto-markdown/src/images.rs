@@ -7,7 +7,9 @@ use std::cell::RefCell;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use crate::links::has_foreign_scheme;
+use crate::urls::{
+    file_url_to_path, has_foreign_scheme, needs_no_resolution, parse_srcset, SrcsetCandidate,
+};
 use crate::{DeferredImage, ImageResolution};
 
 /// Maximum byte size of a local image that will be inlined as a data URL.
@@ -94,23 +96,14 @@ fn inline_local_image(src: &str, canonical_base: &Path) -> Option<String> {
 /// The file a local image reference names, or `None` when the reference
 /// addresses something that needs no resolution or nothing that exists.
 fn resolve_local_image(src: &str, canonical_base: &Path) -> Option<PathBuf> {
-    if src.starts_with("http://") || src.starts_with("https://") || src.starts_with("data:") {
+    if needs_no_resolution(src) {
         return None;
     }
 
     let absolute_path = if src.starts_with("file:") {
-        // Slightly-nonconforming inputs (e.g. unencoded spaces) do not parse
-        // as a URL, so the scheme is stripped and the rest read as a path.
-        let parsed = url::Url::parse(src)
-            .ok()
-            .and_then(|u| u.to_file_path().ok());
-        if parsed.is_none() {
-            tracing::debug!(
-                ?src,
-                "file: URL could not be parsed; falling back to plain path"
-            );
-        }
-        parsed.unwrap_or_else(|| {
+        // A URL that names no file here (another host, or one that does not
+        // parse) has its scheme stripped and the rest read as a path.
+        file_url_to_path(src).unwrap_or_else(|| {
             let raw = src
                 .strip_prefix("file://")
                 .or_else(|| src.strip_prefix("file:/"))
@@ -249,49 +242,6 @@ pub(crate) fn resolved_image_src(
     }
 }
 
-/// One entry of a `srcset` attribute: a URL and the descriptor that follows it.
-struct SrcsetCandidate {
-    url: String,
-    descriptor: String,
-}
-
-/// Split a `srcset` attribute into its candidates.
-///
-/// A candidate is a run of non-whitespace characters followed by an optional
-/// width or density descriptor, and candidates are separated by commas. The
-/// URL is taken up to the first whitespace rather than up to the first comma,
-/// as HTML specifies, so the commas inside a `data:` URL stay part of it; a
-/// URL that ends in a comma ends its candidate and carries no descriptor.
-/// Only ASCII whitespace separates, again as HTML specifies, so a file name
-/// holding an ideographic or non-breaking space stays one URL.
-fn parse_srcset(value: &str) -> Vec<SrcsetCandidate> {
-    let mut candidates = Vec::new();
-    let mut rest = value;
-    loop {
-        rest = rest.trim_start_matches(|c: char| c.is_ascii_whitespace() || c == ',');
-        if rest.is_empty() {
-            return candidates;
-        }
-        let url_end = rest
-            .find(|c: char| c.is_ascii_whitespace())
-            .unwrap_or(rest.len());
-        let (url, tail) = rest.split_at(url_end);
-        let (url, descriptor, tail) = if url.ends_with(',') {
-            (url.trim_end_matches(','), "", tail)
-        } else {
-            let (descriptor, tail) = tail.split_at(tail.find(',').unwrap_or(tail.len()));
-            (url, descriptor.trim(), tail)
-        };
-        if !url.is_empty() {
-            candidates.push(SrcsetCandidate {
-                url: url.to_string(),
-                descriptor: descriptor.to_string(),
-            });
-        }
-        rest = tail;
-    }
-}
-
 /// A `srcset` value with every local candidate inlined as a `data:` URL, or
 /// `None` when the value needs no change. An empty string means no candidate
 /// survived and the attribute should go.
@@ -379,66 +329,5 @@ mod tests {
 
         let data = read_image_bounded(&path, 1024).expect("exactly-limit file must be accepted");
         assert_eq!(data.len(), 1024);
-    }
-
-    #[test]
-    fn parse_srcset_reads_urls_and_descriptors() {
-        let candidates = parse_srcset("./a.png 1x,  ./a@2x.png 2x ,./b.png");
-        let pairs: Vec<(&str, &str)> = candidates
-            .iter()
-            .map(|c| (c.url.as_str(), c.descriptor.as_str()))
-            .collect();
-
-        assert_eq!(
-            pairs,
-            vec![("./a.png", "1x"), ("./a@2x.png", "2x"), ("./b.png", "")]
-        );
-    }
-
-    #[test]
-    fn parse_srcset_keeps_the_commas_inside_a_data_url() {
-        let candidates = parse_srcset("data:image/png;base64,AAA= 2x, data:image/gif;base64,BBB=,");
-        let pairs: Vec<(&str, &str)> = candidates
-            .iter()
-            .map(|c| (c.url.as_str(), c.descriptor.as_str()))
-            .collect();
-
-        assert_eq!(
-            pairs,
-            vec![
-                ("data:image/png;base64,AAA=", "2x"),
-                ("data:image/gif;base64,BBB=", ""),
-            ]
-        );
-    }
-
-    /// A comma with no whitespace after it does NOT start a new candidate:
-    /// HTML collects the URL as a run of non-whitespace, so `a.png,b.png 2x`
-    /// is the single URL `a.png,b.png`. Verified against Chromium, which
-    /// resolves that value to one request for `a.png,b.png`. Splitting on the
-    /// comma instead would inline an image the browser would never have
-    /// chosen, so this pins the spec reading rather than the tempting one.
-    #[test]
-    fn parse_srcset_does_not_split_a_candidate_on_a_comma_without_whitespace() {
-        let candidates = parse_srcset("a.png,b.png 2x");
-        let pairs: Vec<(&str, &str)> = candidates
-            .iter()
-            .map(|c| (c.url.as_str(), c.descriptor.as_str()))
-            .collect();
-
-        assert_eq!(pairs, vec![("a.png,b.png", "2x")]);
-    }
-
-    /// HTML separates candidates on ASCII whitespace only, so a file name
-    /// holding an ideographic space is one URL, not a URL and a descriptor.
-    #[test]
-    fn parse_srcset_keeps_non_ascii_whitespace_inside_a_url() {
-        let candidates = parse_srcset("./図\u{3000}1.png 2x");
-        let pairs: Vec<(&str, &str)> = candidates
-            .iter()
-            .map(|c| (c.url.as_str(), c.descriptor.as_str()))
-            .collect();
-
-        assert_eq!(pairs, vec![("./図\u{3000}1.png", "2x")]);
     }
 }

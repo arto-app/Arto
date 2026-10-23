@@ -4,38 +4,7 @@ use lol_html::html_content::{ContentType, Element};
 use lol_html::{element, Settings};
 
 use crate::rewrite::rewrite;
-
-/// Whether `url` makes the page fetch something from another host: an
-/// absolute or protocol-relative address that is neither inline data nor
-/// under `local`, where the app serves images from.
-///
-/// Read the way a browser's URL parser reads it on a page served over
-/// http: tabs and newlines dropped, a backslash taken for a slash — so
-/// `\\host/x` is as protocol-relative as `//host/x`.
-fn is_remote(url: &str, local: Option<&str>) -> bool {
-    let url: String = url
-        .chars()
-        .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
-        .map(|c| if c == '\\' { '/' } else { c })
-        .collect();
-    let url = url.trim_matches(|c: char| c <= ' ');
-    if local.is_some_and(|local| url.starts_with(local)) {
-        return false;
-    }
-    if url.starts_with("//") {
-        return true;
-    }
-    match url.split_once(':') {
-        Some((scheme, _)) => {
-            let is_scheme = !scheme.is_empty()
-                && scheme
-                    .chars()
-                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'));
-            is_scheme && !scheme.eq_ignore_ascii_case("data")
-        }
-        None => false,
-    }
-}
+use crate::urls::fetches_from_elsewhere;
 
 /// `html` with every image, video or other media that would be fetched from
 /// another host taken out, for a page that is not allowed to load it.
@@ -67,7 +36,7 @@ fn strip_remote_media(html: &str, local: Option<&str>, strip_ranges: bool) -> St
                     .filter_map(|candidate| candidate.split_whitespace().next())
                     .map(str::to_string),
             )
-            .any(|url| is_remote(&url, local))
+            .any(|url| fetches_from_elsewhere(&url, local))
     };
     let mut settings = Settings::new();
     if strip_ranges {

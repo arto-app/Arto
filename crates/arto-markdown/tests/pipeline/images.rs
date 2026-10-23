@@ -129,3 +129,81 @@ fn an_inlined_image_leaves_nothing_for_the_host_to_serve() {
     assert!(rendered.html.contains("data:image/png;base64,"));
     assert!(rendered.images.is_empty(), "{:?}", rendered.images);
 }
+
+#[test]
+fn an_image_named_by_a_file_url_is_inlined() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let image = dir.path().join("hero.png");
+    std::fs::write(&image, [0x89, 0x50, 0x4E, 0x47]).unwrap();
+    let url = url::Url::from_file_path(image.canonicalize().unwrap()).unwrap();
+
+    let html = render_to_html(
+        format!("![hero]({url})"),
+        dir.path().join("doc.md"),
+        &RenderOptions::default(),
+    )
+    .expect("renders")
+    .html;
+
+    assert!(html.contains("data:image/png;base64,"), "{html}");
+}
+
+#[cfg(unix)]
+#[test]
+fn an_image_named_by_a_localhost_file_url_is_inlined() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let image = dir.path().join("hero.png");
+    std::fs::write(&image, [0x89, 0x50, 0x4E, 0x47]).unwrap();
+
+    let html = render_to_html(
+        format!(
+            "![hero](file://localhost{})",
+            image.canonicalize().unwrap().display()
+        ),
+        dir.path().join("doc.md"),
+        &RenderOptions::default(),
+    )
+    .expect("renders")
+    .html;
+
+    assert!(html.contains("data:image/png;base64,"), "{html}");
+}
+
+/// A `file:` URL that names another host is no file on this machine, and
+/// the image falls back to reading what follows the scheme as a path. On
+/// Windows the same URL is a UNC share, which is why this is Unix only.
+#[cfg(unix)]
+#[test]
+fn an_image_named_by_a_file_url_with_a_host_is_read_as_a_path_under_the_document() {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::create_dir(dir.path().join("img")).unwrap();
+    std::fs::write(dir.path().join("img/hero.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+
+    let html = render_to_html(
+        "![hero](file://img/hero.png)",
+        dir.path().join("doc.md"),
+        &RenderOptions::default(),
+    )
+    .expect("renders")
+    .html;
+
+    assert!(html.contains("data:image/png;base64,"), "{html}");
+}
+
+#[test]
+fn an_image_whose_name_holds_a_colon_is_inlined() {
+    // Unlike a link, an image reference is a path unless it is http(s) or
+    // data, so a file name that reads like `scheme:rest` is still a file.
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("shot:1.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+
+    let html = render_to_html(
+        "![shot](<shot:1.png>)",
+        dir.path().join("doc.md"),
+        &RenderOptions::default(),
+    )
+    .expect("renders")
+    .html;
+
+    assert!(html.contains("data:image/png;base64,"), "{html}");
+}
