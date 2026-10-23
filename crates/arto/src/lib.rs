@@ -59,11 +59,12 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
     // handoff is where a launch can fail: a secondary that reports nothing
     // is a secondary whose only diagnostics went to a subscriber that had
     // not been installed yet. `.env` stays ahead of tracing so it can still
-    // set `RUST_LOG`.
-    if let Ok(dotenv) = dotenvy::dotenv() {
-        println!("Loaded .env file from: {}", dotenv.display());
-    }
+    // set `RUST_LOG`; what it found is logged once tracing can carry it.
+    let dotenv = dotenvy::dotenv();
     init_tracing();
+    if let Ok(path) = dotenv {
+        tracing::info!(path = %path.display(), "Loaded .env file");
+    }
 
     // Try to hand the request to an existing instance. Only "nothing is
     // listening" and "the connection failed before anything was written"
@@ -128,61 +129,8 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
     }
     .with_window_options(&invocation.window);
 
-    let config = window::create_main_window_config(&params).with_custom_event_handler(
-        move |event, _target| {
-            match event {
-                Event::Opened { urls, .. } => {
-                    // Handle file/directory open events from Finder
-                    tracing::debug!(url_count = urls.len(), "Event::Opened received");
-                    for url in urls {
-                        match url.to_file_path() {
-                            Ok(path) => {
-                                if let Some(event) = ipc::validate_path(path) {
-                                    ipc::push_event(event);
-                                }
-                            }
-                            Err(_) => {
-                                tracing::info!(
-                                    ?url,
-                                    "Non file/directory path URL is specified. Skip."
-                                );
-                            }
-                        }
-                    }
-                    // Process immediately (we're on the main thread)
-                    ipc::process_main_thread_tasks();
-                }
-                Event::Reopen { .. } => {
-                    // Handle dock click / app activation
-                    tracing::debug!("Event::Reopen received (dock click or app activation)");
-                    ipc::push_event(ipc::OpenEvent::Reopen {
-                        behavior: None,
-                        behind: false,
-                        window: Default::default(),
-                    });
-                    ipc::process_main_thread_tasks();
-                }
-                Event::WindowEvent {
-                    event: WindowEvent::Focused(true),
-                    window_id,
-                    ..
-                } => {
-                    window::update_last_focused_window(*window_id);
-                }
-                Event::LoopDestroyed => relaunch::on_loop_destroyed(),
-                Event::MainEventsCleared => {
-                    // Defense in depth: drain the IPC queue once per event-loop cycle.
-                    //
-                    // On macOS, GCD wake (dispatch_async_f) reliably delivers IPC events,
-                    // so this branch is effectively redundant. It exists as a fallback for
-                    // future cross-platform support where wake_main_thread() may not have
-                    // a fully reliable platform-specific implementation (e.g., Linux/Windows).
-                    ipc::process_main_thread_tasks();
-                }
-                _ => {}
-            }
-        },
-    );
+    let config = window::create_main_window_config(&params)
+        .with_custom_event_handler(|event, _target| handle_app_event(event));
     // Only macOS gets a native menu, because only there does it live outside
     // the window. On Windows and Linux the same items hang off one glyph in
     // the header instead, so nothing takes a strip of the window to say what
@@ -217,6 +165,59 @@ pub fn run(invocation: cli::CliInvocation) -> RunResult {
     // Clean up IPC socket on normal exit
     ipc::cleanup_socket();
     RunResult::Launched
+}
+
+/// What the event loop tells the app beyond its windows' own events: files
+/// handed over by Finder, a click on the dock, focus, and the loop's end.
+fn handle_app_event<T>(event: &Event<'_, T>) {
+    match event {
+        Event::Opened { urls, .. } => {
+            // Handle file/directory open events from Finder
+            tracing::debug!(url_count = urls.len(), "Event::Opened received");
+            for url in urls {
+                match url.to_file_path() {
+                    Ok(path) => {
+                        if let Some(event) = ipc::validate_path(path) {
+                            ipc::push_event(event);
+                        }
+                    }
+                    Err(_) => {
+                        tracing::info!(?url, "Non file/directory path URL is specified. Skip.");
+                    }
+                }
+            }
+            // Process immediately (we're on the main thread)
+            ipc::process_main_thread_tasks();
+        }
+        Event::Reopen { .. } => {
+            // Handle dock click / app activation
+            tracing::debug!("Event::Reopen received (dock click or app activation)");
+            ipc::push_event(ipc::OpenEvent::Reopen {
+                behavior: None,
+                behind: false,
+                window: Default::default(),
+            });
+            ipc::process_main_thread_tasks();
+        }
+        Event::WindowEvent {
+            event: WindowEvent::Focused(true),
+            window_id,
+            ..
+        } => {
+            window::update_last_focused_window(*window_id);
+        }
+        Event::LoopDestroyed => relaunch::on_loop_destroyed(),
+        Event::MainEventsCleared => {
+            // Defense in depth: drain the IPC queue once per event-loop cycle.
+            //
+            // On macOS, GCD wake (dispatch_async_f) reliably delivers IPC events,
+            // so this branch is effectively redundant. It exists as a fallback for
+            // future cross-platform support where wake_main_thread() may not have
+            // a fully reliable platform-specific implementation (e.g., Linux/Windows).
+            ipc::process_main_thread_tasks();
+        }
+        _ => {}
+    }
 }
 
 fn init_tracing() {
