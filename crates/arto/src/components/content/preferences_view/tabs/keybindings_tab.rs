@@ -334,7 +334,7 @@ fn BindingForm(
     let orig_key = initial_key.clone().unwrap_or_default();
     let orig_action = initial_action.clone().unwrap_or_default();
 
-    let mut key_input = use_signal({
+    let key_input = use_signal({
         let k = initial_key.unwrap_or_default();
         move || k
     });
@@ -343,11 +343,6 @@ fn BindingForm(
         move || a
     });
     let mut recording = use_signal(|| false);
-    let mut recorded_chords: Signal<Vec<KeyChord>> = use_signal(Vec::new);
-    // Increments on each recorded key input; used to detect idle timeout.
-    let mut recording_input_epoch = use_signal(|| 0_u64);
-    // Snapshot key_input before recording starts, so Cancel can revert.
-    let mut pre_record_value = use_signal(String::new);
 
     // Focus key input on mount so outside click can be detected via focusout.
     use_hook(|| {
@@ -421,41 +416,7 @@ fn BindingForm(
         });
     });
 
-    // Pause/resume keyboard interceptor when recording state changes.
-    use_effect(move || {
-        if *recording.read() {
-            spawn(async move {
-                let _ = document::eval("window.Arto?.keyboard?.pause?.()").await;
-                let _ =
-                    document::eval("document.querySelector('.key-recorder-text')?.focus()").await;
-            });
-        } else {
-            spawn(async move {
-                let _ = document::eval("window.Arto?.keyboard?.resume?.()").await;
-            });
-        }
-    });
-
-    // Auto-complete recording when idle for 2 seconds after the last key input.
-    use_effect(move || {
-        let is_recording = *recording.read();
-        let epoch = *recording_input_epoch.read();
-        if !is_recording || epoch == 0 {
-            return;
-        }
-        spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-            if *recording.read() && *recording_input_epoch.read() == epoch {
-                recording.set(false);
-            }
-        });
-    });
-
-    // Resume interceptor unconditionally on unmount.
-    // Calling resume when not paused is a safe no-op, and this avoids
-    // depending on Signal state during teardown.
     use_drop(move || {
-        let _ = document::eval("window.Arto?.keyboard?.resume?.()");
         let _ = document::eval(
             r#"
             (() => {
@@ -528,82 +489,7 @@ fn BindingForm(
             class: "binding-form",
             div {
                 class: "binding-form-row",
-                // Key input with recorder
-                div {
-                    class: "key-recorder-input",
-                    input {
-                        r#type: "text",
-                        class: if *recording.read() { "key-recorder-text recording" } else { "key-recorder-text" },
-                        placeholder: if *recording.read() { t!("preferences.keybindings.form.recording_placeholder").to_string() } else { t!("preferences.keybindings.form.key_placeholder").to_string() },
-                        value: "{key_input}",
-                        readonly: *recording.read(),
-                        oninput: move |evt| {
-                            if !*recording.read() {
-                                key_input.set(evt.value());
-                            }
-                        },
-                        onkeydown: move |evt: KeyboardEvent| {
-                            if !*recording.read() {
-                                return;
-                            }
-                            evt.prevent_default();
-                            evt.stop_propagation();
-                            let chord = crate::keybindings::chord_from_event(&evt);
-                            if chord.is_modifier_only() {
-                                return;
-                            }
-                            // Backspace removes last chord from sequence
-                            if chord.to_string() == "Backspace" {
-                                let mut chords = recorded_chords.write();
-                                chords.pop();
-                                let display: Vec<String> = chords.iter().map(|c| c.to_string()).collect();
-                                key_input.set(display.join(" "));
-                                let next = *recording_input_epoch.read() + 1;
-                                recording_input_epoch.set(next);
-                                return;
-                            }
-                            recorded_chords.write().push(chord);
-                            let display: Vec<String> = recorded_chords.read().iter().map(|c| c.to_string()).collect();
-                            key_input.set(display.join(" "));
-                            let next = *recording_input_epoch.read() + 1;
-                            recording_input_epoch.set(next);
-                        },
-                    }
-                    if *recording.read() {
-                        button {
-                            class: "key-record-btn recording",
-                            onclick: move |_| {
-                                // Done: keep recorded value, stop recording
-                                recording.set(false);
-                            },
-                            {t!("preferences.keybindings.form.done").to_string()}
-                        }
-                        button {
-                            class: "key-record-btn",
-                            onclick: move |_| {
-                                // Cancel: revert to pre-record value
-                                key_input.set(pre_record_value.read().clone());
-                                recorded_chords.write().clear();
-                                recording_input_epoch.set(0);
-                                recording.set(false);
-                            },
-                            {t!("preferences.keybindings.form.cancel").to_string()}
-                        }
-                    } else {
-                        button {
-                            class: "key-record-btn",
-                            onclick: move |_| {
-                                // Start recording: snapshot current value, clear chords
-                                pre_record_value.set(key_input.read().clone());
-                                recorded_chords.write().clear();
-                                key_input.set(String::new());
-                                recording_input_epoch.set(0);
-                                recording.set(true);
-                            },
-                            {t!("preferences.keybindings.form.record").to_string()}
-                        }
-                    }
-                }
+                KeyRecorder { value: key_input, recording }
 
                 ActionSelect {
                     scope,
@@ -679,6 +565,136 @@ fn BindingForm(
             }
         }
     }
+}
+
+/// The key a binding answers to, typed or recorded as it is pressed.
+///
+/// While `recording`, the keyboard interceptor is paused so the keys reach
+/// the field instead of running their bindings, and recording ends by itself
+/// two seconds after the last key.
+#[component]
+fn KeyRecorder(value: Signal<String>, recording: Signal<bool>) -> Element {
+    let mut chords: Signal<Vec<KeyChord>> = use_signal(Vec::new);
+    // Bumped on every recorded key, so a pending idle timeout can tell that
+    // another key came after the one that started it.
+    let mut epoch = use_signal(|| 0_u64);
+    let mut before_recording = use_signal(String::new);
+
+    use_effect(move || {
+        if *recording.read() {
+            spawn(async move {
+                let _ = document::eval("window.Arto?.keyboard?.pause?.()").await;
+                let _ =
+                    document::eval("document.querySelector('.key-recorder-text')?.focus()").await;
+            });
+        } else {
+            spawn(async move {
+                let _ = document::eval("window.Arto?.keyboard?.resume?.()").await;
+            });
+        }
+    });
+
+    use_effect(move || {
+        let is_recording = *recording.read();
+        let started = *epoch.read();
+        if !is_recording || started == 0 {
+            return;
+        }
+        spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            if *recording.read() && *epoch.read() == started {
+                recording.set(false);
+            }
+        });
+    });
+
+    // Resumed unconditionally rather than by reading `recording`: resuming
+    // when not paused is a no-op, and a signal may already be gone here.
+    use_drop(move || {
+        let _ = document::eval("window.Arto?.keyboard?.resume?.()");
+    });
+
+    let is_recording = *recording.read();
+    rsx! {
+        div {
+            class: "key-recorder-input",
+            input {
+                r#type: "text",
+                class: if is_recording { "key-recorder-text recording" } else { "key-recorder-text" },
+                placeholder: if is_recording { t!("preferences.keybindings.form.recording_placeholder").to_string() } else { t!("preferences.keybindings.form.key_placeholder").to_string() },
+                value: "{value}",
+                readonly: is_recording,
+                oninput: move |evt| {
+                    if !*recording.read() {
+                        value.set(evt.value());
+                    }
+                },
+                onkeydown: move |evt: KeyboardEvent| {
+                    if !*recording.read() {
+                        return;
+                    }
+                    evt.prevent_default();
+                    evt.stop_propagation();
+                    let chord = crate::keybindings::chord_from_event(&evt);
+                    if let Some(sequence) = record_chord(&mut chords.write(), chord) {
+                        value.set(sequence);
+                        let next = *epoch.read() + 1;
+                        epoch.set(next);
+                    }
+                },
+            }
+            if is_recording {
+                button {
+                    class: "key-record-btn recording",
+                    onclick: move |_| recording.set(false),
+                    {t!("preferences.keybindings.form.done").to_string()}
+                }
+                button {
+                    class: "key-record-btn",
+                    onclick: move |_| {
+                        value.set(before_recording.read().clone());
+                        chords.write().clear();
+                        epoch.set(0);
+                        recording.set(false);
+                    },
+                    {t!("preferences.keybindings.form.cancel").to_string()}
+                }
+            } else {
+                button {
+                    class: "key-record-btn",
+                    onclick: move |_| {
+                        before_recording.set(value.read().clone());
+                        chords.write().clear();
+                        value.set(String::new());
+                        epoch.set(0);
+                        recording.set(true);
+                    },
+                    {t!("preferences.keybindings.form.record").to_string()}
+                }
+            }
+        }
+    }
+}
+
+/// Add a pressed chord to the sequence being recorded and return the
+/// sequence as it now reads, or `None` when the chord is a modifier on its
+/// own. Backspace takes the last chord back instead of being recorded.
+fn record_chord(chords: &mut Vec<KeyChord>, chord: KeyChord) -> Option<String> {
+    if chord.is_modifier_only() {
+        return None;
+    }
+    if chord.to_string() == "Backspace" {
+        chords.pop();
+    } else {
+        chords.push(chord);
+    }
+    Some(
+        chords
+            .iter()
+            .map(|chord| chord.to_string())
+            .collect::<Vec<_>>()
+            .join(" "),
+    )
 }
 
 /// The action a binding runs.
@@ -1198,6 +1214,64 @@ mod tests {
                 presets::emacs::bindings(),
                 BindingSet::default(),
             ]
+        );
+    }
+
+    #[test]
+    fn recording_a_chord_appends_it_to_the_sequence() {
+        let mut chords = Vec::new();
+        assert_eq!(
+            record_chord(&mut chords, KeyChord::from_js_event("g", 0)).as_deref(),
+            Some("g")
+        );
+        assert_eq!(
+            record_chord(&mut chords, KeyChord::from_js_event("G", 0)).as_deref(),
+            Some("g Shift+g")
+        );
+    }
+
+    #[test]
+    fn recording_backspace_takes_the_last_chord_back() {
+        let mut chords = vec![
+            KeyChord::from_js_event("g", 0),
+            KeyChord::from_js_event("g", 0),
+        ];
+        assert_eq!(
+            record_chord(&mut chords, KeyChord::from_js_event("Backspace", 0)).as_deref(),
+            Some("g")
+        );
+        assert_eq!(
+            record_chord(&mut chords, KeyChord::from_js_event("Backspace", 0)).as_deref(),
+            Some("")
+        );
+    }
+
+    #[test]
+    fn recording_ignores_a_modifier_pressed_on_its_own() {
+        let mut chords = vec![KeyChord::from_js_event("g", 0)];
+        assert_eq!(
+            record_chord(&mut chords, KeyChord::from_js_event("Shift", 8)),
+            None
+        );
+        assert_eq!(chords.len(), 1);
+    }
+
+    #[test]
+    fn the_key_recorder_offers_to_record_while_idle() {
+        let html = render(|| {
+            let value = use_signal(|| "Cmd+o".to_string());
+            let recording = use_signal(|| false);
+            rsx! { KeyRecorder { value, recording } }
+        });
+
+        assert_eq!(
+            html,
+            concat!(
+                r#"<div class="key-recorder-input">"#,
+                r#"<input type="text" class="key-recorder-text" placeholder="e.g. Cmd+k, g g" value="Cmd+o"/>"#,
+                r#"<button class="key-record-btn">Record</button>"#,
+                r#"</div>"#,
+            )
         );
     }
 
