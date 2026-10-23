@@ -16,6 +16,7 @@ use crate::markdown;
 use crate::state::AppState;
 use crate::utils::task::spawn_detached_task;
 use arto_config::{says_nothing, usable_lenses, Lens, LensDisplay, LensUnit};
+use dioxus::core::Task;
 use dioxus::prelude::*;
 use page::*;
 use parking_lot::Mutex;
@@ -193,31 +194,56 @@ fn remember(state: AppState, token: u64) {
 
 /// Start `lens_id` over `scope`, `shown` or opened hidden. A hidden run asks
 /// nothing and shows nothing until it is shown.
-fn start_with(mut state: AppState, lens_id: &str, scope: Scope, policy: Policy, shown: bool) {
+fn start_with(state: AppState, lens_id: &str, scope: Scope, policy: Policy, shown: bool) {
     let Some(lens) = offered_lenses().into_iter().find(|lens| lens.id == lens_id) else {
         tracing::warn!(lens_id, "no usable lens with this id");
         return;
     };
     // A page is a document of its own, so a page lens always looks at the
     // whole of one.
-    let page = lens.display == LensDisplay::Page;
-    let scope = if page { Scope::Document } else { scope };
+    let scope = if lens.display == LensDisplay::Page {
+        Scope::Document
+    } else {
+        scope
+    };
     // What the lens is not on it does not open over — a lens remembered
     // with a document before it was set to a block, say.
     if !is_on(&lens, scope) {
         return;
     }
     let policy = resolved(policy, &lens);
-    for token in replaced_by(&peek_open_runs(&state), &lens) {
-        dismiss(state, token);
-    }
-    if page && shown {
-        shelve_applied(state);
-    }
+    make_room(state, &lens, shown);
     let Some(source) = state.rendered_source.peek().clone() else {
         return;
     };
+    let token = open_run(state, &lens, scope, &source, shown);
+    if !shown {
+        return;
+    }
+    let task = ask(state, lens, source, scope, token, policy);
+    update(state, token, |run| run.task = Some(task));
+}
 
+/// Take out the runs opening `lens` takes the place of, and, for a page lens
+/// `shown`, the answer of the page lens applied now, to be switched back to.
+fn make_room(state: AppState, lens: &Lens, shown: bool) {
+    for token in replaced_by(&peek_open_runs(&state), lens) {
+        dismiss(state, token);
+    }
+    if lens.display == LensDisplay::Page && shown {
+        shelve_applied(state);
+    }
+}
+
+/// Open a run of `lens` over `scope` of `source` in the window, `shown` or
+/// hidden, noted for the next time the document is opened; its token.
+fn open_run(
+    mut state: AppState,
+    lens: &Lens,
+    scope: Scope,
+    source: &RenderedSource,
+    shown: bool,
+) -> u64 {
     let token = next_serial();
     let run = LensRun {
         lens_id: lens.id.clone(),
@@ -237,16 +263,26 @@ fn start_with(mut state: AppState, lens_id: &str, scope: Scope, policy: Policy, 
         error: None,
         applied: shown,
     };
-    if page {
+    if lens.display == LensDisplay::Page {
         state.page_lenses.write().push(run);
     } else {
         state.overlay_lenses.write().push(run);
     }
     remember(state, token);
-    if !shown {
-        return;
-    }
-    let task = spawn_detached_task(async move {
+    token
+}
+
+/// Have the agent of `lens` asked for the run `token`, in the way the lens
+/// shows over `scope`; the task that stops it.
+fn ask(
+    state: AppState,
+    lens: Lens,
+    source: RenderedSource,
+    scope: Scope,
+    token: u64,
+    policy: Policy,
+) -> Task {
+    spawn_detached_task(async move {
         let run = Run {
             state,
             lens: &lens,
@@ -260,8 +296,7 @@ fn start_with(mut state: AppState, lens_id: &str, scope: Scope, policy: Policy, 
             (LensDisplay::Popover | LensDisplay::Page, _) => on_document(run).await,
         }
         update(state, token, |run| run.task = None);
-    });
-    update(state, token, |run| run.task = Some(task));
+    })
 }
 
 /// Close the lenses the configuration no longer offers as they were
@@ -472,6 +507,21 @@ impl Run<'_> {
         .await
         .unwrap_or_else(|error| vec![Err(error.to_string()); count])
     }
+
+    /// [`Run::render_all`] for the answers `kept` from before, each beside
+    /// its job.
+    async fn render_kept(
+        &self,
+        kept: Vec<(Job, String, bool)>,
+    ) -> Vec<(Job, Result<String, String>, bool)> {
+        let rendered = self
+            .render_all(kept.iter().map(|(_, answer, _)| answer.clone()).collect())
+            .await;
+        kept.into_iter()
+            .zip(rendered)
+            .map(|((job, _, stale), html)| (job, html, stale))
+            .collect()
+    }
 }
 
 fn render(markdown: &str, path: &Path) -> Result<String, String> {
@@ -552,6 +602,26 @@ impl Kept {
             Err(error) => tracing::warn!(%error, "a lens's answers were not kept"),
         }
     }
+
+    /// File each of `jobs` at its place `slot` as `policy` finds it in what
+    /// was answered before, and write what is filed.
+    fn sort(&mut self, policy: Policy, jobs: Vec<Job>, slot: impl Fn(&Job) -> String) -> Sorted {
+        let claimed = claimed(&self.before, jobs.iter().map(|job| &job.cache_key));
+        let mut sorted = Sorted::default();
+        for job in jobs {
+            let place = slot(&job);
+            let found = found(&self.before, policy, &place, &job.cache_key, &claimed);
+            file(&mut self.next, &self.before, &place, &job.cache_key, &found);
+            match found {
+                Found::Fresh(answer) => sorted.kept.push((job, answer, false)),
+                Found::Stale(answer) => sorted.kept.push((job, answer, true)),
+                Found::Missing => sorted.missing.push(job),
+                Found::Ask => sorted.pending.push(job),
+            }
+        }
+        self.save();
+        sorted
+    }
 }
 
 /// One run per target block, each answer kept beside its block.
@@ -579,66 +649,88 @@ async fn per_block(run: Run<'_>, scope: Scope) {
         Scope::Document => Kept::load(&run).await,
         Scope::Cursor => Kept::unkept(&run),
     };
-    let claimed = claimed(&kept.before, jobs.iter().map(|job| &job.cache_key));
-    let mut kept_answers: Vec<(String, String, bool)> = Vec::new();
-    let mut missing = 0;
-    let mut pending = Vec::new();
-    for job in jobs {
-        let slot = &slots[&job.id];
-        let found = found(&kept.before, run.policy, slot, &job.cache_key, &claimed);
-        file(&mut kept.next, &kept.before, slot, &job.cache_key, &found);
-        match found {
-            Found::Fresh(answer) => kept_answers.push((job.id.clone(), answer, false)),
-            Found::Stale(answer) => kept_answers.push((job.id.clone(), answer, true)),
-            Found::Missing => missing += 1,
-            Found::Ask => pending.push(job),
-        }
-    }
-    kept.save();
-
-    // What was answered before goes to the page in one call rather than one
-    // per block.
-    let rendered = run
-        .render_all(
-            kept_answers
-                .iter()
-                .map(|(_, answer, _)| answer.clone())
-                .collect(),
-        )
-        .await;
+    let sorted = kept.sort(run.policy, jobs, |job| slots[&job.id].clone());
+    let rendered = run.render_kept(sorted.kept).await;
     if !run.is_current() {
         return;
     }
+    annotate_kept(&run, rendered, sorted.missing.len());
+    annotate_asked(&run, sorted.pending, &slots, &mut kept).await;
+}
+
+/// What a run's places come to from what was answered before, in the order
+/// of its jobs.
+#[derive(Default)]
+struct Sorted {
+    /// Answered before, each marked outdated or not.
+    kept: Vec<(Job, String, bool)>,
+    /// Without an answer, and not asked.
+    missing: Vec<Job>,
+    /// To be asked.
+    pending: Vec<Job>,
+}
+
+/// How many places a step showed an answer in, and in how many the answer
+/// failed to render.
+#[derive(Default)]
+struct Tally {
+    done: usize,
+    outdated: usize,
+    failed: usize,
+}
+
+impl Tally {
+    fn shown(&mut self, stale: bool) {
+        if stale {
+            self.outdated += 1;
+        } else {
+            self.done += 1;
+        }
+    }
+
+    fn add_to(&self, lens_run: &mut LensRun) {
+        lens_run.done += self.done;
+        lens_run.outdated += self.outdated;
+        lens_run.failed += self.failed;
+    }
+}
+
+/// Show what was answered before beside the blocks, in one call to the page
+/// rather than one per block, and count the places left `missing`.
+fn annotate_kept(run: &Run, rendered: Vec<(Job, Result<String, String>, bool)>, missing: usize) {
     let mut shown = Vec::new();
-    let (mut done, mut outdated, mut failed) = (0, 0, 0);
-    for ((id, _, stale), html) in kept_answers.into_iter().zip(rendered) {
+    let mut tally = Tally::default();
+    for (job, html, stale) in rendered {
         match html {
             Ok(html) => {
-                if stale {
-                    outdated += 1;
-                } else {
-                    done += 1;
-                }
-                shown.push((id, html, stale));
+                tally.shown(stale);
+                shown.push((job.id, html, stale));
             }
             Err(reason) => {
-                failed += 1;
-                eval_call("fail", &[json(&run.token), json(&id), json(&reason)]);
+                tally.failed += 1;
+                eval_call("fail", &[json(&run.token), json(&job.id), json(&reason)]);
             }
         }
     }
     eval_call("annotateAll", &[json(&run.token), json(&shown)]);
     run.update(|lens_run| {
-        lens_run.done += done;
-        lens_run.outdated += outdated;
-        lens_run.failed += failed;
+        tally.add_to(lens_run);
         lens_run.unanswered += missing;
     });
+}
 
+/// Ask about the blocks of `pending`, marked so on the page, and show and
+/// keep each answer at its place among `slots` as it comes.
+async fn annotate_asked(
+    run: &Run<'_>,
+    pending: Vec<Job>,
+    slots: &HashMap<String, String>,
+    kept: &mut Kept,
+) {
     let ids: Vec<&str> = pending.iter().map(|job| job.id.as_str()).collect();
     eval_call("markPending", &[json(&run.token), json(&ids)]);
     session::run_jobs(pending, run.runner(), |job, answer| {
-        if let Some(answer) = annotate(&run, &job, answer) {
+        if let Some(answer) = annotate(run, &job, answer) {
             kept.next.put(&slots[&job.id], &job.cache_key, &answer);
             kept.save();
         }
@@ -754,37 +846,47 @@ async fn on_document(run: Run<'_>) {
         &job.cache_key,
         &found,
     );
-    let kept_answer = match found {
-        Found::Fresh(answer) => Some((answer, false)),
-        Found::Stale(answer) => Some((answer, true)),
-        Found::Missing => {
-            run.update(|lens_run| lens_run.unanswered = total);
-            return;
-        }
-        Found::Ask => None,
-    };
-    if let Some((answer, stale)) = kept_answer {
-        kept.save();
-        let html = run.render_all(vec![answer]).await.remove(0);
-        if !run.is_current() {
-            return;
-        }
-        match html {
-            Ok(html) => {
-                show_html(&run, page, html, stale);
-                run.update(|lens_run| {
-                    if stale {
-                        lens_run.outdated = total;
-                    } else {
-                        lens_run.done = total;
-                    }
-                });
-            }
-            Err(reason) => run.update(|lens_run| lens_run.error = Some(reason)),
-        }
+    match found {
+        Found::Fresh(answer) => show_kept_document(&run, page, total, kept, answer, false).await,
+        Found::Stale(answer) => show_kept_document(&run, page, total, kept, answer, true).await,
+        Found::Missing => run.update(|lens_run| lens_run.unanswered = total),
+        Found::Ask => show_asked_document(&run, page, total, &job, kept).await,
+    }
+}
+
+/// Show `answer`, what was answered about the document before, over the
+/// `total` places it takes — marked outdated when it is `stale`.
+async fn show_kept_document(
+    run: &Run<'_>,
+    page: bool,
+    total: usize,
+    mut kept: Kept,
+    answer: String,
+    stale: bool,
+) {
+    kept.save();
+    let html = run.render_all(vec![answer]).await.remove(0);
+    if !run.is_current() {
         return;
     }
+    match html {
+        Ok(html) => {
+            show_html(run, page, html, stale);
+            run.update(|lens_run| {
+                if stale {
+                    lens_run.outdated = total;
+                } else {
+                    lens_run.done = total;
+                }
+            });
+        }
+        Err(reason) => run.update(|lens_run| lens_run.error = Some(reason)),
+    }
+}
 
+/// Ask about the whole document, showing the answer over the `total` places
+/// it takes as it arrives, and keep it once it is complete.
+async fn show_asked_document(run: &Run<'_>, page: bool, total: usize, job: &Job, mut kept: Kept) {
     let mut last_render: Option<Instant> = None;
     let mut shown = 0;
     let answer = run
@@ -796,7 +898,7 @@ async fn on_document(run: Run<'_>) {
                 shown = finished.len();
                 last_render = Some(Instant::now());
                 if let Ok(html) = run.render(finished) {
-                    show_html(&run, page, html, false);
+                    show_html(run, page, html, false);
                 }
             }
         })
@@ -806,7 +908,7 @@ async fn on_document(run: Run<'_>) {
     }
     match answer.and_then(|answer| run.render(&answer).map(|html| (answer, html))) {
         Ok((answer, html)) => {
-            show_html(&run, page, html, false);
+            show_html(run, page, html, false);
             run.update(|lens_run| lens_run.done = total);
             kept.next.put(DOCUMENT, &job.cache_key, &answer);
             kept.save();
@@ -825,7 +927,39 @@ type Reveal = (Job, Option<Result<String, String>>, bool);
 /// A block without an answer — code, a diagram, a run that failed — keeps
 /// its place as written.
 async fn by_block(run: Run<'_>, blocks: &[PageBlock]) {
-    let jobs: Vec<Job> = blocks
+    let jobs = page_block_jobs(&run, blocks);
+    run.update(|lens_run| lens_run.total = jobs.len());
+
+    // A place is the block's position among the document's top-level
+    // blocks, which is its id.
+    let slot = |job: &Job| format!("block:{}", job.id);
+    let mut in_order = InOrder::new(&jobs);
+    let mut kept = Kept::load(&run).await;
+    let sorted = kept.sort(run.policy, jobs, slot);
+    run.update(|lens_run| lens_run.unanswered += sorted.missing.len());
+    for job in sorted.missing {
+        in_order.ready(job, None, false);
+    }
+    for (job, html, stale) in run.render_kept(sorted.kept).await {
+        in_order.ready(job, Some(html), stale);
+    }
+    in_order.reveal(&run);
+    session::run_jobs(sorted.pending, run.runner(), |job, answer| {
+        if let Ok(answer) = &answer {
+            kept.next.put(&slot(&job), &job.cache_key, answer);
+            kept.save();
+        }
+        let html = answer.and_then(|answer| run.render(&answer));
+        in_order.ready(job, Some(html), false);
+        in_order.reveal(&run);
+    })
+    .await;
+}
+
+/// One job for each of `blocks` there is prose to hand over in, named after
+/// the block's position among them.
+fn page_block_jobs(run: &Run, blocks: &[PageBlock]) -> Vec<Job> {
+    blocks
         .iter()
         .enumerate()
         .filter(|(_, block)| block.translatable)
@@ -840,34 +974,49 @@ async fn by_block(run: Run<'_>, blocks: &[PageBlock]) {
                 &index.to_string(),
             ))
         })
-        .collect();
-    run.update(|lens_run| lens_run.total = jobs.len());
+        .collect()
+}
 
-    // A place is the block's position among the document's top-level
-    // blocks, which is its id.
-    let slot = |job: &Job| format!("block:{}", job.id);
-    let order: Vec<String> = jobs.iter().map(|job| job.id.clone()).collect();
-    let mut ready: HashMap<String, Reveal> = HashMap::new();
-    let mut next = 0;
-    // Shows every block whose turn has come, in one call to the page.
-    let reveal = |ready: &mut HashMap<String, Reveal>, next: &mut usize| {
+/// The blocks of a page lens that are ready to show, held until every block
+/// above them is.
+struct InOrder {
+    order: Vec<String>,
+    ready: HashMap<String, Reveal>,
+    next: usize,
+}
+
+impl InOrder {
+    fn new(jobs: &[Job]) -> Self {
+        Self {
+            order: jobs.iter().map(|job| job.id.clone()).collect(),
+            ready: HashMap::new(),
+            next: 0,
+        }
+    }
+
+    fn ready(&mut self, job: Job, html: Option<Result<String, String>>, stale: bool) {
+        self.ready.insert(job.id.clone(), (job, html, stale));
+    }
+
+    /// Show every block whose turn has come, in one call to the page.
+    fn reveal(&mut self, run: &Run) {
         let mut shown = Vec::new();
-        let (mut done, mut outdated, mut failed) = (0, 0, 0);
-        while let Some((job, html, stale)) = order.get(*next).and_then(|id| ready.remove(id)) {
-            *next += 1;
+        let mut tally = Tally::default();
+        while let Some((job, html, stale)) = self
+            .order
+            .get(self.next)
+            .and_then(|id| self.ready.remove(id))
+        {
+            self.next += 1;
             match html {
                 None => {}
                 Some(Ok(html)) => {
-                    if stale {
-                        outdated += 1;
-                    } else {
-                        done += 1;
-                    }
+                    tally.shown(stale);
                     shown.push((job.id, html, stale));
                 }
                 Some(Err(reason)) => {
                     tracing::debug!(%reason, block = %job.id, "a block of a page lens kept its place");
-                    failed += 1;
+                    tally.failed += 1;
                 }
             }
         }
@@ -877,54 +1026,6 @@ async fn by_block(run: Run<'_>, blocks: &[PageBlock]) {
         if !shown.is_empty() {
             eval_call("showAnswers", &[json(&run.token), json(&shown)]);
         }
-        run.update(|lens_run| {
-            lens_run.done += done;
-            lens_run.outdated += outdated;
-            lens_run.failed += failed;
-        });
-    };
-
-    let mut kept = Kept::load(&run).await;
-    let claimed = claimed(&kept.before, jobs.iter().map(|job| &job.cache_key));
-    let mut kept_answers: Vec<(Job, String, bool)> = Vec::new();
-    let mut missing = Vec::new();
-    let mut pending = Vec::new();
-    for job in jobs {
-        let place = slot(&job);
-        let found = found(&kept.before, run.policy, &place, &job.cache_key, &claimed);
-        file(&mut kept.next, &kept.before, &place, &job.cache_key, &found);
-        match found {
-            Found::Fresh(answer) => kept_answers.push((job, answer, false)),
-            Found::Stale(answer) => kept_answers.push((job, answer, true)),
-            Found::Missing => missing.push(job),
-            Found::Ask => pending.push(job),
-        }
+        run.update(|lens_run| tally.add_to(lens_run));
     }
-    kept.save();
-    run.update(|lens_run| lens_run.unanswered += missing.len());
-    for job in missing {
-        ready.insert(job.id.clone(), (job, None, false));
-    }
-    let rendered = run
-        .render_all(
-            kept_answers
-                .iter()
-                .map(|(_, answer, _)| answer.clone())
-                .collect(),
-        )
-        .await;
-    for ((job, _, stale), html) in kept_answers.into_iter().zip(rendered) {
-        ready.insert(job.id.clone(), (job, Some(html), stale));
-    }
-    reveal(&mut ready, &mut next);
-    session::run_jobs(pending, run.runner(), |job, answer| {
-        if let Ok(answer) = &answer {
-            kept.next.put(&slot(&job), &job.cache_key, answer);
-            kept.save();
-        }
-        let html = answer.and_then(|answer| run.render(&answer));
-        ready.insert(job.id.clone(), (job, Some(html), false));
-        reveal(&mut ready, &mut next);
-    })
-    .await;
 }
