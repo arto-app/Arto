@@ -15,7 +15,7 @@ fmt: setup
 fmt-check: setup
   pnpm run fmt:check
 
-check: setup assets
+check: setup
   pnpm run check
 
 test: setup
