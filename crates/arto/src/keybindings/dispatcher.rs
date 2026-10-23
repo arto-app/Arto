@@ -32,6 +32,7 @@ use window::*;
 // What the rest of the app reaches for by name, which is what the menus and
 // the content's own context menu need.
 pub(crate) use clipboard::{copy_image_from_src, copy_rasterized_image};
+#[cfg(target_os = "macos")]
 pub(crate) use file::{pick_directory, pick_markdown_file};
 pub(crate) use highlight::highlight_selection;
 pub(crate) use palette::activate_palette_row;
