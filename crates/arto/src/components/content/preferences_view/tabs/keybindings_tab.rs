@@ -605,55 +605,10 @@ fn BindingForm(
                     }
                 }
 
-                // Action dropdown (grouped by category)
-                select {
-                    class: "action-select",
-                    value: "{selected_action_value}",
-                    onchange: move |evt: FormEvent| selected_action.set(evt.value()),
-                    option {
-                        value: "",
-                        disabled: true,
-                        selected: selected_action_value.is_empty(),
-                        {t!("preferences.keybindings.form.select_action").to_string()}
-                    }
-                    // Menu shortcuts may only target menu-backed actions; engine
-                    // bindings can target any action (grouped by category).
-                    if scope == BindingScope::Menu {
-                        for action in MENU_ACTIONS {
-                            {
-                                let action_value = action.to_string();
-                                let is_selected = selected_action_value == action_value;
-                                rsx! {
-                                    option {
-                                        key: "{action_value}",
-                                        value: "{action_value}",
-                                        selected: is_selected,
-                                        "{action_label(&action_value)}"
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        for (group_label, actions) in ACTION_GROUPS {
-                            optgroup {
-                                label: action_group_name(group_label),
-                                for action in *actions {
-                                    {
-                                        let action_value = action.to_string();
-                                        let is_selected = selected_action_value == action_value;
-                                        rsx! {
-                                    option {
-                                                key: "{action_value}",
-                                                value: "{action_value}",
-                                                selected: is_selected,
-                                                "{action_label(&action_value)}"
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                ActionSelect {
+                    scope,
+                    selected: selected_action_value,
+                    on_change: move |action| selected_action.set(action),
                 }
             }
 
@@ -726,9 +681,52 @@ fn BindingForm(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+/// The action a binding runs.
+///
+/// Menu shortcuts may only target menu-backed actions; engine bindings can
+/// target any action, grouped by category.
+#[component]
+fn ActionSelect(scope: BindingScope, selected: String, on_change: EventHandler<String>) -> Element {
+    rsx! {
+        select {
+            class: "action-select",
+            value: "{selected}",
+            onchange: move |evt: FormEvent| on_change.call(evt.value()),
+            option {
+                value: "",
+                disabled: true,
+                selected: selected.is_empty(),
+                {t!("preferences.keybindings.form.select_action").to_string()}
+            }
+            if scope == BindingScope::Menu {
+                for action in MENU_ACTIONS {
+                    ActionOption { key: "{action}", action: *action, selected: selected.clone() }
+                }
+            } else {
+                for (group_label, actions) in ACTION_GROUPS {
+                    optgroup {
+                        label: action_group_name(group_label),
+                        for action in *actions {
+                            ActionOption { key: "{action}", action: *action, selected: selected.clone() }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn ActionOption(action: Action, selected: String) -> Element {
+    let value = action.to_string();
+    rsx! {
+        option {
+            value: "{value}",
+            selected: selected == value,
+            "{action_label(&value)}"
+        }
+    }
+}
 
 /// Get mutable reference to the bindings for a given scope.
 fn bindings_mut(set: &mut crate::config::BindingSet, scope: BindingScope) -> &mut Vec<KeyAction> {
@@ -1200,6 +1198,56 @@ mod tests {
                 presets::emacs::bindings(),
                 BindingSet::default(),
             ]
+        );
+    }
+
+    fn render(app: fn() -> Element) -> String {
+        let mut dom = VirtualDom::new(app);
+        dom.rebuild_in_place();
+        dioxus_ssr::render(&dom)
+    }
+
+    #[test]
+    fn a_menu_shortcut_chooses_among_menu_actions_only() {
+        let html = render(|| {
+            rsx! {
+                ActionSelect {
+                    scope: BindingScope::Menu,
+                    selected: KbAction::FileOpen.to_string(),
+                    on_change: |_| {},
+                }
+            }
+        });
+
+        assert!(!html.contains("<optgroup"), "{html}");
+        assert_eq!(html.matches("<option ").count(), MENU_ACTIONS.len() + 1);
+        assert!(
+            html.contains(&format!(
+                r#"<option value="file.open" selected=true>{}</option>"#,
+                action_label("file.open")
+            )),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn an_engine_binding_chooses_among_every_action_by_group() {
+        let html = render(|| {
+            rsx! {
+                ActionSelect {
+                    scope: BindingScope::Engine(None),
+                    selected: String::new(),
+                    on_change: |_| {},
+                }
+            }
+        });
+
+        let every_action: usize = ACTION_GROUPS.iter().map(|(_, actions)| actions.len()).sum();
+        assert_eq!(html.matches("<optgroup").count(), ACTION_GROUPS.len());
+        assert_eq!(html.matches("<option ").count(), every_action + 1);
+        assert!(
+            html.contains(r#"<option value="" disabled=true selected=true>"#),
+            "the placeholder is chosen until an action is: {html}"
         );
     }
 
