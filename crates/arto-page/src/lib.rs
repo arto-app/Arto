@@ -263,7 +263,7 @@ pub enum PageError {
     },
     /// The Markdown pipeline failed.
     #[error("failed to render Markdown")]
-    Render(#[source] anyhow::Error),
+    Render(#[source] arto_markdown::RenderError),
     /// The page could not be written to the requested file.
     #[error("cannot write {path}: {source}")]
     Write {

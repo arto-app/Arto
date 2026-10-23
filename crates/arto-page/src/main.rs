@@ -24,9 +24,36 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
     if let Err(err) = arto_page::cli::run(&cli.args) {
-        // Same shape as `arto page`: `{:#}` on an anyhow error prints the
-        // whole cause chain on one line.
-        eprintln!("arto-page: {:#}", anyhow::Error::from(err));
+        eprintln!("arto-page: {}", cause_chain(&err));
         std::process::exit(1);
+    }
+}
+
+/// The error and every cause under it on one line, the shape `arto page`
+/// prints with anyhow's `{:#}`.
+fn cause_chain(err: &dyn std::error::Error) -> String {
+    let mut line = err.to_string();
+    let mut source = err.source();
+    while let Some(cause) = source {
+        line.push_str(": ");
+        line.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    line
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_cause_follows_the_error_on_one_line() {
+        let parse = std::io::Error::other("nesting too deep");
+        let err = arto_page::PageError::Render(arto_markdown::RenderError::Parse(Box::new(parse)));
+
+        assert_eq!(
+            cause_chain(&err),
+            "failed to render Markdown: failed to parse Markdown: nesting too deep"
+        );
     }
 }

@@ -12,7 +12,6 @@ keywords = ["markdown", "html", "github", "renderer", "commonmark"]
 categories = ["text-processing"]
 
 [dependencies]
-anyhow.workspace = true
 base64.workspace = true
 html-escape.workspace = true
 lol_html.workspace = true

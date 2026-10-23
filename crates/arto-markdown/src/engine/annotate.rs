@@ -23,8 +23,9 @@
 //! footnote definition.
 
 use super::lines::{LineTable, SourceRange};
+use crate::rewrite::rewrite;
 use lol_html::html_content::ContentType;
-use lol_html::{element, EndTagHandler, HtmlRewriter, Settings};
+use lol_html::{element, EndTagHandler, Settings};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -128,10 +129,9 @@ fn reference_counts(html: &str) -> HashMap<String, usize> {
             Ok(())
         }
     ));
-    let mut rewriter = HtmlRewriter::new(settings, |_: &[u8]| {});
     // A pass that fails part way leaves the counts short, which only costs
     // a short note the height its links back would have taken.
-    let _ = rewriter.write(html.as_bytes()).and(rewriter.end());
+    let _ = rewrite(html, settings);
     counts
 }
 
@@ -154,8 +154,6 @@ pub(super) fn annotate(
         references: reference_counts(html),
         ..State::default()
     }));
-    let mut output = Vec::new();
-
     // The span handler is registered first so that the class and `dir` the
     // callout handler adds afterwards land around the range in the order
     // the contract documents.
@@ -358,30 +356,27 @@ pub(super) fn annotate(
             Ok(())
         }));
 
-    let mut rewriter = HtmlRewriter::new(settings, |chunk: &[u8]| {
-        output.extend_from_slice(chunk);
-    });
-    let written = rewriter.write(html.as_bytes());
-    let ended = rewriter.end();
-
-    if let Err(error) = written.and(ended) {
-        // A rewrite that stopped part way through leaves `output` holding
-        // the document up to that point, and the ids of only the headings
-        // it reached. Showing the whole document with the engine's own
-        // attributes still on it loses the source lines and the alert
-        // styling, but it loses no content — and an empty outline is better
-        // than one whose entries point at the wrong headings.
-        tracing::debug!(%error, "annotation failed; rendering the unannotated HTML");
-        return Annotated {
-            html: html.to_string(),
-            heading_ids: Vec::new(),
-        };
-    }
-
-    let heading_ids = std::mem::take(&mut state.borrow_mut().heading_ids);
-    Annotated {
-        html: String::from_utf8(output).unwrap_or_else(|_| html.to_string()),
-        heading_ids,
+    match rewrite(html, settings) {
+        Ok(annotated) => Annotated {
+            html: annotated,
+            heading_ids: std::mem::take(&mut state.borrow_mut().heading_ids),
+        },
+        // A rewrite that stopped part way through has written the document up
+        // to that point, and the ids of only the headings it reached. Showing
+        // the whole document with the engine's own attributes still on it
+        // loses the source lines and the alert styling, but it loses no
+        // content — and an empty outline is better than one whose entries
+        // point at the wrong headings.
+        Err(interrupted) => {
+            tracing::debug!(
+                error = %interrupted.error,
+                "annotation failed; rendering the unannotated HTML"
+            );
+            Annotated {
+                html: html.to_string(),
+                heading_ids: Vec::new(),
+            }
+        }
     }
 }
 

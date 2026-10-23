@@ -306,7 +306,6 @@ dependencies = [
 name = "arto-markdown"
 version = "0.0.0"
 dependencies = [
- "anyhow",
  "base64 0.23.1",
  "html-escape",
  "indoc",
@@ -331,7 +330,6 @@ dependencies = [
 name = "arto-page"
 version = "0.0.0"
 dependencies = [
- "anyhow",
  "arto-config",
  "arto-frontend",
  "arto-markdown",

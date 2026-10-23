@@ -65,7 +65,8 @@ Rules of thumb:
   `crates/arto-markdown/tests/samples.rs` (HTML and heading outline);
   review diffs with `cargo insta review`, and never accept a diff you did
   not intend.
-- Behaviour tests go through the public API (`tests/pipeline.rs`); only
+- Behaviour tests go through the public API (`tests/pipeline/`, one
+  module per subject); only
   pure functions get unit tests next to the code. Nothing outside
   `src/engine/` may name a parser type.
 - Keep `RenderOptions` engine-neutral: it is also the `markdown` section of

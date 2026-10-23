@@ -39,6 +39,11 @@ pub enum RawHtml {
     /// GFM's tagfilter: neutralize the tags that restyle or script the page
     /// (`<style>`, `<script>`, `<iframe>` and friends) by escaping their
     /// leading `<`, and leave all other markup working.
+    ///
+    /// A document whose markup the filter cannot read unambiguously (a
+    /// `<noscript>` inside a `<select>`, say) has all of its raw HTML
+    /// escaped instead, since what the filter did not read it cannot vouch
+    /// for.
     #[default]
     Filter,
     /// Escape every raw HTML node, so the document shows its own markup.

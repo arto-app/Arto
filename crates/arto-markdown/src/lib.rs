@@ -190,25 +190,31 @@
 
 mod block;
 mod engine;
+mod error;
 mod frontmatter;
 mod headings;
+mod images;
 mod line_endings;
 mod links;
 mod options;
 mod post_process;
 mod reading;
+mod remote_media;
+mod rewrite;
 mod sanitize;
 
 pub use block::*;
 pub use engine::*;
+pub use error::*;
 pub use headings::*;
 pub use links::*;
 pub use options::*;
 pub use reading::*;
+pub use remote_media::*;
 
-use anyhow::Result;
 use frontmatter::extract_and_render_frontmatter;
 use post_process::post_process_html_tags;
+use remote_media::detach;
 use std::path::{Path, PathBuf};
 
 /// Everything the render functions need after the document was rendered.
@@ -231,7 +237,7 @@ fn run_pipeline(
     base_path: &Path,
     options: &RenderOptions,
     with_toc: bool,
-) -> Result<PipelineResult> {
+) -> Result<PipelineResult, RenderError> {
     let base_dir = base_path
         .parent()
         .map(|p| p.to_path_buf())
@@ -296,7 +302,7 @@ pub fn render_to_html(
     markdown: impl AsRef<str>,
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
-) -> Result<RenderResult> {
+) -> Result<RenderResult, RenderError> {
     render(markdown.as_ref(), base_path.as_ref(), options, false)
 }
 
@@ -306,7 +312,7 @@ pub fn render_to_html_with_toc(
     markdown: impl AsRef<str>,
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
-) -> Result<RenderResult> {
+) -> Result<RenderResult, RenderError> {
     render(markdown.as_ref(), base_path.as_ref(), options, true)
 }
 
@@ -329,7 +335,7 @@ pub fn render_detached(
     markdown: impl AsRef<str>,
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
-) -> Result<RenderResult> {
+) -> Result<RenderResult, RenderError> {
     let mut rendered = render(markdown.as_ref(), base_path.as_ref(), options, false)?;
     let local = match &options.images {
         ImageResolution::Deferred { base_url } => Some(base_url.as_str()),
@@ -361,7 +367,7 @@ pub fn render_preview(
     markdown: impl AsRef<str>,
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
-) -> Result<RenderResult> {
+) -> Result<RenderResult, RenderError> {
     let base_path = base_path.as_ref();
     let options = RenderOptions {
         raw_html: RawHtml::Escape,
@@ -387,109 +393,7 @@ pub fn render_preview(
 /// the page it is shown on, becomes a document link to `document_path`
 /// itself. Links with a scheme of their own are left alone.
 pub fn rebase_document_links(html: &str, document_path: impl AsRef<Path>) -> String {
-    post_process::rebase_document_links(html, document_path.as_ref())
-}
-
-/// Whether `url` makes the page fetch something from another host: an
-/// absolute or protocol-relative address that is neither inline data nor
-/// under `local`, where the app serves images from.
-///
-/// Read the way a browser's URL parser reads it on a page served over
-/// http: tabs and newlines dropped, a backslash taken for a slash — so
-/// `\\host/x` is as protocol-relative as `//host/x`.
-fn is_remote(url: &str, local: Option<&str>) -> bool {
-    let url: String = url
-        .chars()
-        .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
-        .map(|c| if c == '\\' { '/' } else { c })
-        .collect();
-    let url = url.trim_matches(|c: char| c <= ' ');
-    if local.is_some_and(|local| url.starts_with(local)) {
-        return false;
-    }
-    if url.starts_with("//") {
-        return true;
-    }
-    match url.split_once(':') {
-        Some((scheme, _)) => {
-            let is_scheme = !scheme.is_empty()
-                && scheme
-                    .chars()
-                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'));
-            is_scheme && !scheme.eq_ignore_ascii_case("data")
-        }
-        None => false,
-    }
-}
-
-/// `html` with every image, video or other media that would be fetched from
-/// another host taken out, for a page that is not allowed to load it.
-///
-/// An image leaves its alt text; a video or an audio player leaves the
-/// fallback content inside it, which for a GitHub video is the link to it.
-/// Inline `data:` media is kept.
-pub fn without_remote_media(html: impl AsRef<str>) -> String {
-    strip_remote_media(html.as_ref(), None, false)
-}
-
-/// `html` without its `data-source-range` attributes, and without media
-/// fetched from anywhere but `local` (see [`render_detached`]).
-fn detach(html: &str, local: Option<&str>) -> String {
-    strip_remote_media(html, local, true)
-}
-
-/// `html` without media fetched from anywhere but `local`, and without its
-/// `data-source-range` attributes when `strip_ranges` is set.
-fn strip_remote_media(html: &str, local: Option<&str>, strip_ranges: bool) -> String {
-    let fetches_elsewhere = |el: &lol_html::html_content::Element| {
-        let srcset = el.get_attribute("srcset").unwrap_or_default();
-        ["src", "poster", "data"]
-            .iter()
-            .filter_map(|name| el.get_attribute(name))
-            .chain(
-                srcset
-                    .split(',')
-                    .filter_map(|candidate| candidate.split_whitespace().next())
-                    .map(str::to_string),
-            )
-            .any(|url| is_remote(&url, local))
-    };
-    let mut settings = lol_html::Settings::new();
-    if strip_ranges {
-        settings = settings.append_element_content_handler(lol_html::element!(
-            "[data-source-range]",
-            |el| {
-                el.remove_attribute("data-source-range");
-                Ok(())
-            }
-        ));
-    }
-    let settings = settings.append_element_content_handler(lol_html::element!(
-        "img, video, audio, source, track, picture, object, embed, input",
-        move |el| {
-            if fetches_elsewhere(el) {
-                // What a player holds is shown only where it cannot play, so
-                // it is the stand-in; the media nested in it is matched by
-                // this handler as well.
-                if matches!(el.tag_name().as_str(), "video" | "audio") {
-                    el.remove_and_keep_content();
-                } else {
-                    let alt = el.get_attribute("alt").unwrap_or_default();
-                    el.replace(&alt, lol_html::html_content::ContentType::Text);
-                }
-            }
-            Ok(())
-        }
-    ));
-    let mut output = Vec::new();
-    let mut rewriter = lol_html::HtmlRewriter::new(settings, |chunk: &[u8]| {
-        output.extend_from_slice(chunk);
-    });
-    let rewritten = rewriter.write(html.as_bytes()).and(rewriter.end());
-    match rewritten.map(|_| String::from_utf8(output)) {
-        Ok(Ok(html)) => html,
-        _ => html.to_string(),
-    }
+    links::rebase_document_links(html, document_path.as_ref())
 }
 
 fn render(
@@ -497,15 +401,39 @@ fn render(
     base_path: &Path,
     options: &RenderOptions,
     with_toc: bool,
-) -> Result<RenderResult> {
+) -> Result<RenderResult, RenderError> {
     let pipeline = run_pipeline(markdown, base_path, options, with_toc)?;
 
-    let (html_output, images) = post_process_html_tags(
+    let post_processed = post_process_html_tags(
         &pipeline.raw_html,
         &pipeline.base_dir,
         &options.images,
         options.raw_html,
     );
+    let (html_output, images) = match post_processed {
+        Ok(post_processed) => post_processed,
+        Err(interrupted) => {
+            tracing::debug!(error = %interrupted.error, "post-processing stopped part way");
+            match options.raw_html {
+                // What the filter did not reach would reach the page
+                // unfiltered. Escaped, the raw HTML needs no filter to be
+                // safe, and the document is shown whole.
+                RawHtml::Filter => {
+                    let escaped = RenderOptions {
+                        raw_html: RawHtml::Escape,
+                        ..options.clone()
+                    };
+                    return render(markdown, base_path, &escaped, with_toc);
+                }
+                // Trusted with its raw HTML, the document loses only its
+                // images and link targets by being shown as it came.
+                RawHtml::Allow => (pipeline.raw_html, Vec::new()),
+                // Nothing raw is left to be ambiguous, so this is not
+                // expected; what was written went through the filter.
+                RawHtml::Escape => (interrupted.written, Vec::new()),
+            }
+        }
+    };
 
     Ok(RenderResult {
         html: prepend_frontmatter(&pipeline.frontmatter_html, html_output),
@@ -513,495 +441,4 @@ fn render(
         images,
         reading: pipeline.reading,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use indoc::indoc;
-    use std::fs;
-    use tempfile::TempDir;
-
-    #[test]
-    fn test_render_to_html_basic() {
-        let markdown = "# Hello\n\nThis is a test.";
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(result.contains("<h1 data-source-range="));
-        assert!(result.contains("Hello"));
-        assert!(result.contains("<p data-source-range="));
-        assert!(result.contains("This is a test."));
-    }
-
-    #[test]
-    fn test_code_block_language_classes() {
-        let markdown = indoc! {"
-            # Code Blocks Test
-
-            ```rust
-            fn main() {
-                println!(\"Hello\");
-            }
-            ```
-
-            ```python
-            def hello():
-                print(\"world\")
-            ```
-
-            ```
-            no language specified
-            ```
-        "};
-
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        let has_rust = result.contains("language-rust") || result.contains("class=\"rust\"");
-        let has_python = result.contains("language-python") || result.contains("class=\"python\"");
-
-        assert!(has_rust, "Should have rust language class: {result}");
-        assert!(has_python, "Should have python language class: {result}");
-    }
-
-    #[test]
-    fn test_render_to_html_with_alert() {
-        let markdown = indoc! {"
-            # Title
-
-            > [!NOTE]
-            > This is important
-        "};
-
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(result.contains("markdown-alert-note"));
-        assert!(result.contains("This is important"));
-    }
-
-    #[test]
-    fn test_render_to_html_with_mermaid() {
-        let markdown = indoc! {"
-            ```mermaid
-            graph LR
-                A-->B
-            ```
-        "};
-
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(result.contains(r#"class="preprocessed-mermaid""#));
-        assert!(result.contains("graph LR"));
-    }
-
-    #[test]
-    fn test_render_to_html_with_math() {
-        let markdown = indoc! {"
-            # Math Test
-
-            Inline math: $E = mc^2$
-
-            Display math:
-            $$
-            \\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}
-            $$
-        "};
-
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains(r#"class="preprocessed-math-inline""#),
-            "Should render inline math"
-        );
-        assert!(
-            result.contains(r#"class="preprocessed-math-display""#),
-            "Should render display math"
-        );
-        assert!(
-            result.contains("data-original-content"),
-            "Should include data attributes"
-        );
-    }
-
-    #[test]
-    fn test_render_to_html_integrated() {
-        let temp_dir = TempDir::new().unwrap();
-
-        // Create test image
-        let image_path = temp_dir.path().join("image.png");
-        let png_data = vec![0x89, 0x50, 0x4E, 0x47];
-        fs::write(&image_path, png_data).unwrap();
-        fs::write(temp_dir.path().join("other.md"), "# Other").unwrap();
-
-        let markdown = indoc! {"
-            # Test Document
-
-            > [!WARNING]
-            > Be careful
-
-            ![Test Image](image.png)
-
-            [Link to other doc](other.md)
-
-            ```mermaid
-            graph TD
-                A-->B
-            ```
-        "};
-
-        let md_path = temp_dir.path().join("test.md");
-
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains("<h1 data-source-range="),
-            "Should render heading"
-        );
-        assert!(
-            result.contains("markdown-alert-warning"),
-            "Should render alert"
-        );
-        assert!(
-            result.contains("data:image/png"),
-            "Should convert image to data URL"
-        );
-        assert!(
-            result.contains(r#"class="md-link""#),
-            "Should convert md link"
-        );
-        assert!(
-            result.contains(r#"class="preprocessed-mermaid""#),
-            "Should render mermaid"
-        );
-    }
-
-    #[test]
-    fn test_render_to_html_with_frontmatter() {
-        let markdown = indoc! {"
-            ---
-            title: My Document
-            draft: false
-            ---
-
-            # Content Here
-        "};
-
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(result.contains(r#"<details class="frontmatter""#));
-        assert!(result.contains("<th>title</th>"));
-        assert!(result.contains("<td>My Document</td>"));
-        assert!(result.contains(r#"<span class="yaml-bool">false</span>"#));
-        assert!(result.contains("Content Here</h1>"));
-
-        let frontmatter_pos = result.find("frontmatter-table").unwrap();
-        let heading_pos = result.find("<h1 ").unwrap();
-        assert!(
-            frontmatter_pos < heading_pos,
-            "Frontmatter should appear before content"
-        );
-    }
-
-    #[test]
-    fn test_render_to_html_with_toc() {
-        let markdown = indoc! {"
-            # Title
-
-            Some content
-
-            ## Section 1
-
-            More content
-        "};
-
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-
-        let rendered =
-            render_to_html_with_toc(markdown, &md_path, &RenderOptions::default()).unwrap();
-        let (html, headings) = (rendered.html, rendered.headings);
-
-        assert_eq!(headings.len(), 2);
-        assert_eq!(headings[0].text, "Title");
-        assert_eq!(headings[1].text, "Section 1");
-
-        assert!(
-            html.contains(r#"id="title""#),
-            "H1 should have id attribute"
-        );
-        assert!(
-            html.contains(r#"id="section-1""#),
-            "H2 should have id attribute"
-        );
-        assert!(
-            html.contains("data-source-range="),
-            "Headings should have source ranges"
-        );
-    }
-
-    // ========================================================================
-    // Output equivalence characterization tests (Phase 0-2)
-    // ========================================================================
-
-    /// Characterization: render_to_html and render_to_html_with_toc produce
-    /// equivalent HTML output except for heading IDs.
-    /// This guarantees safety for Phase 3-1 common pipeline extraction.
-    #[test]
-    fn test_render_to_html_and_with_toc_produce_equivalent_output() {
-        let temp = TempDir::new().unwrap();
-        let md_path = temp.path().join("test.md");
-        let markdown = indoc! {"
-            # Heading 1
-
-            Some paragraph with **bold** and `code`.
-
-            ## Heading 2
-
-            - list item 1
-            - list item 2
-
-            ```mermaid
-            graph TD
-                A --> B
-            ```
-
-            > [!NOTE]
-            > This is a note
-        "};
-
-        let html_basic = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-        let rendered =
-            render_to_html_with_toc(markdown, &md_path, &RenderOptions::default()).unwrap();
-        let (html_toc, headings) = (rendered.html, rendered.headings);
-
-        // Strip heading IDs for comparison (without regex dependency)
-        fn strip_heading_ids(s: &str) -> String {
-            let mut result = s.to_string();
-            while let Some(start) = result.find(" id=\"") {
-                if let Some(end) = result[start + 5..].find('"') {
-                    result.replace_range(start..start + 5 + end + 1, "");
-                } else {
-                    break;
-                }
-            }
-            result
-        }
-        let stripped_basic = strip_heading_ids(&html_basic);
-        let stripped_toc = strip_heading_ids(&html_toc);
-
-        assert_eq!(
-            stripped_basic, stripped_toc,
-            "Both functions should produce identical HTML except for heading IDs"
-        );
-
-        // Verify TOC headings were extracted
-        assert_eq!(headings.len(), 2);
-        assert_eq!(headings[0].text, "Heading 1");
-        assert_eq!(headings[1].text, "Heading 2");
-    }
-
-    // ========================================================================
-    // Autolink integration tests
-    // ========================================================================
-
-    fn render_with_autolink(markdown: &str, base_path: &Path, auto_link_urls: bool) -> String {
-        render_to_html(
-            markdown,
-            base_path,
-            &RenderOptions {
-                auto_link_urls,
-                ..Default::default()
-            },
-        )
-        .unwrap()
-        .html
-    }
-
-    #[test]
-    fn test_bare_url_becomes_link() {
-        let markdown = "Visit https://example.com for info";
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_with_autolink(markdown, &md_path, true);
-
-        assert!(
-            result.contains(r#"<a href="https://example.com">https://example.com</a>"#),
-            "Bare URL should become a link: {result}"
-        );
-    }
-
-    #[test]
-    fn test_bare_url_not_linked_when_disabled() {
-        let markdown = "Visit https://example.com for info";
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_with_autolink(markdown, &md_path, false);
-
-        assert!(
-            !result.contains(r#"<a href"#),
-            "Bare URL should NOT become a link when disabled: {result}"
-        );
-        assert!(
-            result.contains("https://example.com"),
-            "URL text should still be present: {result}"
-        );
-    }
-
-    #[test]
-    fn test_bare_url_in_code_block_not_linked() {
-        let markdown = indoc! {"
-            ```
-            https://example.com
-            ```
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_with_autolink(markdown, &md_path, true);
-
-        assert!(
-            !result.contains(r#"<a href"#),
-            "URL inside code block should NOT become a link: {result}"
-        );
-    }
-
-    #[test]
-    fn test_bare_url_source_lines_preserved() {
-        let markdown = indoc! {"
-            # Title
-
-            https://example.com
-
-            After URL
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_with_autolink(markdown, &md_path, true);
-
-        assert!(
-            result.contains(r#"<h1 data-source-range="1:1-1:7">"#),
-            "Heading should be on line 1: {result}"
-        );
-        assert!(
-            result.contains(r#"<p data-source-range="3:1-3:19">"#),
-            "URL paragraph should be on line 3: {result}"
-        );
-        assert!(
-            result.contains(r#"<p data-source-range="5:1-5:9">"#),
-            "After paragraph should be on line 5: {result}"
-        );
-    }
-
-    // ========================================================================
-    // Edge case tests
-    // ========================================================================
-
-    #[test]
-    fn test_render_to_html_empty_input() {
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html("", &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.is_empty() || result.trim().is_empty(),
-            "Empty input should produce empty or whitespace-only output: '{result}'"
-        );
-    }
-
-    #[test]
-    fn test_render_to_html_frontmatter_only() {
-        let markdown = "---\ntitle: Test\n---\n";
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains("frontmatter"),
-            "Should render frontmatter table: {result}"
-        );
-        // Should not contain any markdown body elements
-        assert!(!result.contains("<h1"), "Should have no heading: {result}");
-    }
-
-    #[test]
-    fn test_render_to_html_consecutive_alerts() {
-        let markdown = indoc! {"
-            > [!NOTE]
-            > First note
-
-            > [!WARNING]
-            > A warning
-
-            > [!TIP]
-            > A tip
-        "};
-        let temp_dir = TempDir::new().unwrap();
-        let md_path = temp_dir.path().join("test.md");
-        let result = render_to_html(markdown, &md_path, &RenderOptions::default())
-            .unwrap()
-            .html;
-
-        assert!(
-            result.contains("markdown-alert-note"),
-            "Should contain note alert: {result}"
-        );
-        assert!(
-            result.contains("markdown-alert-warning"),
-            "Should contain warning alert: {result}"
-        );
-        assert!(
-            result.contains("markdown-alert-tip"),
-            "Should contain tip alert: {result}"
-        );
-
-        // Verify correct source lines for each alert
-        assert!(
-            result.contains(r#"data-source-range="1:1-"#),
-            "First alert should be on line 1: {result}"
-        );
-        assert!(
-            result.contains(r#"data-source-range="4:1-"#),
-            "Second alert should be on line 4: {result}"
-        );
-        assert!(
-            result.contains(r#"data-source-range="7:1-"#),
-            "Third alert should be on line 7: {result}"
-        );
-    }
 }
