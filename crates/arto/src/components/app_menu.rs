@@ -29,14 +29,13 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
         // Transparent background to close when clicking outside menu
         div {
             class: "context-menu-backdrop",
-            style: "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 998;",
             onclick: move |_| close(),
         }
 
         // Menu body
         div {
             class: "context-menu",
-            style: "position: absolute; left: 12px; top: var(--header-height); z-index: 999;",
+            style: "position: absolute; left: 12px; top: var(--header-height);",
             onclick: move |evt| evt.stop_propagation(),
 
             // === Arto (App) ===
