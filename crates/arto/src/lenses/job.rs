@@ -4,7 +4,6 @@
 
 use arto_config::{Lens, LensDisplay};
 use arto_markdown::{BlockKind, SourcePosition, SourceRange};
-use rust_i18n::t;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fmt::Write;
@@ -130,12 +129,37 @@ fn section(message: &mut String, name: &str, body: &str) {
     let _ = write!(message, "\n<{name}>\n{}\n</{name}>\n", body.trim_end());
 }
 
+/// The text a placeholder in [`message_shape`] stands for. Its `Display` is
+/// English; the preferences show it in the interface's language.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Placeholder {
+    Block,
+    Before,
+    After,
+    Whole,
+}
+
+impl std::fmt::Display for Placeholder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Block => "the block",
+            Self::Before => "the blocks before it",
+            Self::After => "the blocks after it",
+            Self::Whole => "the document, or the block asked about",
+        })
+    }
+}
+
 /// What an agent of a lens shown as `display` is sent for `prompt`, with
-/// placeholders for the text: built by the same code that builds the real
-/// message, so that what the preferences show a reader cannot drift from
-/// what the agent gets.
-pub(crate) fn message_shape(display: LensDisplay, prompt: Option<&str>) -> String {
-    let placeholder = |what: &str| format!("…{what}…");
+/// placeholders for the text, each worded by `name`: built by the same code
+/// that builds the real message, so that what the preferences show a reader
+/// cannot drift from what the agent gets.
+pub(crate) fn message_shape(
+    display: LensDisplay,
+    prompt: Option<&str>,
+    name: impl Fn(Placeholder) -> String,
+) -> String {
+    let placeholder = |what: Placeholder| format!("…{}…", name(what));
     let range = SourceRange {
         start: SourcePosition { line: 1, column: 1 },
         end: SourcePosition { line: 1, column: 1 },
@@ -146,10 +170,10 @@ pub(crate) fn message_shape(display: LensDisplay, prompt: Option<&str>) -> Strin
             version: INPUT_VERSION,
             lens: String::new(),
             kind: BlockKind::Paragraph,
-            markdown: placeholder(&t!("lenses.message_shape.block")),
+            markdown: placeholder(Placeholder::Block),
             range,
-            before: vec![placeholder(&t!("lenses.message_shape.before"))],
-            after: vec![placeholder(&t!("lenses.message_shape.after"))],
+            before: vec![placeholder(Placeholder::Before)],
+            after: vec![placeholder(Placeholder::After)],
             document,
         })
     } else {
@@ -157,7 +181,7 @@ pub(crate) fn message_shape(display: LensDisplay, prompt: Option<&str>) -> Strin
             version: INPUT_VERSION,
             lens: String::new(),
             range: None,
-            markdown: placeholder(&t!("lenses.message_shape.whole")),
+            markdown: placeholder(Placeholder::Whole),
             document,
         })
     };
@@ -522,9 +546,13 @@ mod tests {
         assert!(block.target);
     }
 
+    fn english(placeholder: Placeholder) -> String {
+        placeholder.to_string()
+    }
+
     #[test]
     fn a_block_lens_shows_its_prompt_above_the_block_and_its_neighbours() {
-        let shape = message_shape(LensDisplay::Annotate, Some("Explain <text>."));
+        let shape = message_shape(LensDisplay::Annotate, Some("Explain <text>."), english);
 
         assert!(shape.starts_with("Explain <text>.\n\n"), "{shape}");
         let before = shape.find("<before>").unwrap();
@@ -536,7 +564,7 @@ mod tests {
     #[test]
     fn a_lens_over_a_whole_hands_the_text_over_bare_after_its_prompt() {
         for display in [LensDisplay::Page, LensDisplay::Popover] {
-            let shape = message_shape(display, Some("Summarize."));
+            let shape = message_shape(display, Some("Summarize."), english);
 
             assert_eq!(
                 shape,
@@ -547,6 +575,9 @@ mod tests {
 
     #[test]
     fn without_a_prompt_the_text_is_all_that_is_sent() {
-        assert_eq!(message_shape(LensDisplay::Annotate, None), "…the block…\n");
+        assert_eq!(
+            message_shape(LensDisplay::Annotate, None, english),
+            "…the block…\n"
+        );
     }
 }

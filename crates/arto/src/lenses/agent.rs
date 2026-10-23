@@ -37,6 +37,11 @@ pub(crate) const SYSTEM_PROMPT: &str = "You transform Markdown for a reader. The
     instruction and the text to work on. Follow the instruction exactly and write only what \
     it asks for: no preamble, no explanation, no code fence around the answer.";
 
+/// What an agent said instead of answering, in its own words.
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+#[error("{0}")]
+pub(crate) struct AgentError(pub(crate) String);
+
 /// Reads the answer out of what an agent writes, one event at a time.
 pub(crate) trait Reader: Sync {
     /// The JSON in `line`, for an agent that wraps its events.
@@ -49,7 +54,7 @@ pub(crate) trait Reader: Sync {
 
     /// The models `listing` names, which the agent wrote when asked what it
     /// offers.
-    fn models(&self, listing: &str) -> Result<Vec<String>, String>;
+    fn models(&self, listing: &str) -> Result<Vec<String>, serde_json::Error>;
 }
 
 /// A command-line agent Arto runs.
@@ -400,9 +405,9 @@ impl Answer {
         self.error = Some(error.into());
     }
 
-    fn finish(self) -> Result<String, String> {
+    fn finish(self) -> Result<String, AgentError> {
         match self.error {
-            Some(error) => Err(error),
+            Some(error) => Err(AgentError(error)),
             None => Ok(self.reported.unwrap_or(self.text)),
         }
     }
@@ -443,7 +448,7 @@ impl Decoder {
 
     /// The whole answer, given everything the command wrote; or why the
     /// agent says it has none.
-    pub(crate) fn finish(mut self, output: &str) -> Result<String, String> {
+    pub(crate) fn finish(mut self, output: &str) -> Result<String, AgentError> {
         let Some(reader) = self.reader else {
             return Ok(output.to_string());
         };
@@ -516,7 +521,9 @@ pub(crate) mod testing {
 
     /// The answer in `output`, all of what `agent` wrote.
     pub(crate) fn answer(agent: LensAgent, output: &str) -> Result<String, String> {
-        Decoder::new(Some(agent)).finish(output)
+        Decoder::new(Some(agent))
+            .finish(output)
+            .map_err(|error| error.to_string())
     }
 }
 
@@ -687,6 +694,6 @@ mod tests {
         let mut answer = Answer::default();
         answer.report("reported");
         answer.fail("no");
-        assert_eq!(answer.finish(), Err("no".to_string()));
+        assert_eq!(answer.finish(), Err(AgentError("no".to_string())));
     }
 }

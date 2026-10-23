@@ -12,12 +12,25 @@
 //! here replaces what was kept.
 
 use parking_lot::Mutex;
-use rust_i18n::t;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
 /// The service the keys are filed under in the credential store.
 const SERVICE: &str = "Arto lens API key";
+
+/// Why the credential store would not answer.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum SecretsError {
+    /// There is no store to ask.
+    #[error("the system's credential store is not available: {0}")]
+    Unavailable(#[source] keyring::Error),
+    /// The store was asked and refused.
+    #[error(transparent)]
+    Store(keyring::Error),
+    /// The thread asking it was lost.
+    #[error(transparent)]
+    Interrupted(tokio::task::JoinError),
+}
 
 static KEPT: LazyLock<Mutex<HashMap<String, Option<String>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -29,34 +42,34 @@ pub(crate) fn account(endpoint: &str) -> String {
 }
 
 /// The key filed under `account`, or `None` when there is none.
-pub(crate) fn read(account: &str) -> Result<Option<String>, String> {
+pub(crate) fn read(account: &str) -> Result<Option<String>, SecretsError> {
     if let Some(kept) = KEPT.lock().get(account) {
         return Ok(kept.clone());
     }
     let key = match entry(account)?.get_password() {
         Ok(key) => Some(key),
         Err(keyring::Error::NoEntry) => None,
-        Err(error) => return Err(error.to_string()),
+        Err(error) => return Err(SecretsError::Store(error)),
     };
     KEPT.lock().insert(account.to_string(), key.clone());
     Ok(key)
 }
 
 /// File `key` under `account`, replacing any key filed there.
-pub(crate) fn store(account: &str, key: &str) -> Result<(), String> {
+pub(crate) fn store(account: &str, key: &str) -> Result<(), SecretsError> {
     entry(account)?
         .set_password(key)
-        .map_err(|error| error.to_string())?;
+        .map_err(SecretsError::Store)?;
     KEPT.lock()
         .insert(account.to_string(), Some(key.to_string()));
     Ok(())
 }
 
 /// Remove the key filed under `account`, if there is one.
-pub(crate) fn forget(account: &str) -> Result<(), String> {
+pub(crate) fn forget(account: &str) -> Result<(), SecretsError> {
     match entry(account)?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => {}
-        Err(error) => return Err(error.to_string()),
+        Err(error) => return Err(SecretsError::Store(error)),
     }
     KEPT.lock().insert(account.to_string(), None);
     Ok(())
@@ -64,31 +77,30 @@ pub(crate) fn forget(account: &str) -> Result<(), String> {
 
 /// Whether a key is filed under `account`, asked off the calling thread:
 /// the store may block while it asks the reader to unlock it.
-pub(crate) async fn is_stored(account: String) -> Result<bool, String> {
+pub(crate) async fn is_stored(account: String) -> Result<bool, SecretsError> {
     blocking(move || read(&account).map(|key| key.is_some())).await
 }
 
 /// [`store`], off the calling thread.
-pub(crate) async fn store_key(account: String, key: String) -> Result<(), String> {
+pub(crate) async fn store_key(account: String, key: String) -> Result<(), SecretsError> {
     blocking(move || store(&account, &key)).await
 }
 
 /// [`forget`], off the calling thread.
-pub(crate) async fn forget_key(account: String) -> Result<(), String> {
+pub(crate) async fn forget_key(account: String) -> Result<(), SecretsError> {
     blocking(move || forget(&account)).await
 }
 
 async fn blocking<T: Send + 'static>(
-    work: impl FnOnce() -> Result<T, String> + Send + 'static,
-) -> Result<T, String> {
+    work: impl FnOnce() -> Result<T, SecretsError> + Send + 'static,
+) -> Result<T, SecretsError> {
     tokio::task::spawn_blocking(work)
         .await
-        .map_err(|error| error.to_string())?
+        .map_err(SecretsError::Interrupted)?
 }
 
-fn entry(account: &str) -> Result<keyring::Entry, String> {
-    keyring::Entry::new(SERVICE, account)
-        .map_err(|error| t!("lenses.errors.credential_store", reason = error).into_owned())
+fn entry(account: &str) -> Result<keyring::Entry, SecretsError> {
+    keyring::Entry::new(SERVICE, account).map_err(SecretsError::Unavailable)
 }
 
 #[cfg(test)]

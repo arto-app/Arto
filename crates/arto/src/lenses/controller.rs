@@ -7,6 +7,7 @@ mod policy;
 use super::agent;
 use super::cache::ResultCache;
 use super::job::{self, Block, Job};
+use super::messages::Translated;
 use super::session::{self, Runner};
 use super::store::{Record, STORE};
 use super::stream::finished_blocks;
@@ -730,7 +731,7 @@ async fn annotate_asked(
     let ids: Vec<&str> = pending.iter().map(|job| job.id.as_str()).collect();
     eval_call("markPending", &[json(&run.token), json(&ids)]);
     session::run_jobs(pending, run.runner(), |job, answer| {
-        if let Some(answer) = annotate(run, &job, answer) {
+        if let Some(answer) = annotate(run, &job, answer.map_err(|error| error.translated())) {
             kept.next.put(&slots[&job.id], &job.cache_key, &answer);
             kept.save();
         }
@@ -806,7 +807,11 @@ async fn on_block(run: Run<'_>) {
     };
     let answer = match cached {
         Some(answer) => Ok(answer),
-        None => run.runner().run(&job.request, |_| {}).await,
+        None => run
+            .runner()
+            .run(&job.request, |_| {})
+            .await
+            .map_err(|error| error.translated()),
     };
     if let Some(answer) = annotate(&run, &job, answer) {
         CACHE.lock().insert(job.cache_key, answer);
@@ -902,7 +907,8 @@ async fn show_asked_document(run: &Run<'_>, page: bool, total: usize, job: &Job,
                 }
             }
         })
-        .await;
+        .await
+        .map_err(|error| error.translated());
     if !run.is_current() {
         return;
     }
@@ -949,7 +955,9 @@ async fn by_block(run: Run<'_>, blocks: &[PageBlock]) {
             kept.next.put(&slot(&job), &job.cache_key, answer);
             kept.save();
         }
-        let html = answer.and_then(|answer| run.render(&answer));
+        let html = answer
+            .map_err(|error| error.translated())
+            .and_then(|answer| run.render(&answer));
         in_order.ready(job, Some(html), false);
         in_order.reveal(&run);
     })

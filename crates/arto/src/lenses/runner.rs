@@ -2,7 +2,7 @@
 //! answer comes back on stdout — as it is written, for a lens that shows it
 //! while it arrives.
 
-use rust_i18n::t;
+use super::session::KeyError;
 use std::ffi::OsStr;
 use std::path::Path;
 use std::process::Stdio;
@@ -22,75 +22,42 @@ pub(crate) const STDERR_LINES: usize = 5;
 
 /// Why a run of the command produced no answer.
 ///
-/// Its message is what the reader is shown for a failed run, so it is
-/// written in the interface's language rather than derived by `thiserror`.
-#[derive(Debug)]
+/// Its `Display` is English, for the log; what the reader is shown for a
+/// failed run is the same value in the interface's language, which is the
+/// app's to write (`lenses/messages.rs`).
+#[derive(Debug, thiserror::Error)]
 pub(crate) enum RunError {
+    #[error("the lens has no command")]
     NoCommand,
+    #[error("cannot start {program}: {source}")]
     Spawn {
         program: String,
         source: std::io::Error,
     },
-    Io(std::io::Error),
+    #[error("cannot talk to the command: {0}")]
+    Io(#[source] std::io::Error),
+    #[error("the command took longer than {} seconds", .0.as_secs())]
     Timeout(Duration),
+    #[error("the command wrote more than {} MiB", MAX_OUTPUT / 1024 / 1024)]
     TooLarge,
-    Failed {
-        status: Option<i32>,
-        stderr: String,
-    },
+    #[error(
+        "the command failed{}{}",
+        status.map(|code| format!(" with status {code}")).unwrap_or_default(),
+        stderr_suffix(stderr)
+    )]
+    Failed { status: Option<i32>, stderr: String },
+    #[error("the command wrote something that is not UTF-8")]
     NotUtf8,
+    #[error("cannot reach the server: {0}")]
     Unreachable(String),
-    Status {
-        status: u16,
-        message: String,
-    },
-    ApiKey(String),
+    #[error("the server answered {status}{}", stderr_suffix(message))]
+    Status { status: u16, message: String },
+    #[error("cannot get the API key: {0}")]
+    ApiKey(#[source] KeyError),
 }
 
-impl std::fmt::Display for RunError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let message = match self {
-            Self::NoCommand => t!("lenses.errors.no_command"),
-            Self::Spawn { program, source } => {
-                t!("lenses.errors.spawn", program = program, reason = source)
-            }
-            Self::Io(source) => t!("lenses.errors.io", reason = source),
-            Self::Timeout(timeout) => t!("lenses.errors.timeout", seconds = timeout.as_secs()),
-            Self::TooLarge => t!("lenses.errors.too_large", mib = MAX_OUTPUT / 1024 / 1024),
-            Self::Failed { status, stderr } => t!(
-                "lenses.errors.failed",
-                status = status_suffix(*status),
-                stderr = stderr_suffix(stderr)
-            ),
-            Self::NotUtf8 => t!("lenses.errors.not_utf8"),
-            Self::Unreachable(reason) => t!("lenses.errors.unreachable", reason = reason),
-            Self::Status { status, message } => t!(
-                "lenses.errors.status",
-                status = status,
-                message = stderr_suffix(message)
-            ),
-            Self::ApiKey(reason) => t!("lenses.errors.api_key", reason = reason),
-        };
-        f.write_str(&message)
-    }
-}
-
-impl std::error::Error for RunError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Spawn { source, .. } | Self::Io(source) => Some(source),
-            _ => None,
-        }
-    }
-}
-
-fn status_suffix(status: Option<i32>) -> String {
-    status.map_or_else(String::new, |code| {
-        t!("lenses.errors.with_status", code = code).into_owned()
-    })
-}
-
-fn stderr_suffix(stderr: &str) -> String {
+/// `stderr` as the tail of a message: `": …"`, or nothing when it is empty.
+pub(crate) fn stderr_suffix(stderr: &str) -> String {
     if stderr.is_empty() {
         String::new()
     } else {

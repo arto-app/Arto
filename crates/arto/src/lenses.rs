@@ -18,6 +18,7 @@ mod cache;
 mod controller;
 mod http;
 mod job;
+mod messages;
 mod models;
 mod runner;
 mod secrets;
@@ -30,9 +31,8 @@ pub(crate) use controller::{
     close_unoffered, follow_rerender, forget, hide, hide_run, offered_lenses, regenerate,
     regenerate_all, show, start, stop, stop_run, toggle,
 };
-pub(crate) use job::message_shape;
-pub(crate) use models::{available_models, forget_offered_models, ModelSource};
-pub(crate) use secrets::{forget_key, is_stored, store_key};
+pub(crate) use messages::{available_models, forget_key, is_stored, message_shape, store_key};
+pub(crate) use models::{forget_offered_models, ModelSource};
 
 use crate::state::AppState;
 use arto_config::LensDisplay;

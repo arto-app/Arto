@@ -35,8 +35,8 @@ impl Reader for OpenAi {
     }
 
     /// The models the server lists at `/models`, in name order.
-    fn models(&self, list: &str) -> Result<Vec<String>, String> {
-        let list: Value = serde_json::from_str(list).map_err(|error| error.to_string())?;
+    fn models(&self, list: &str) -> Result<Vec<String>, serde_json::Error> {
+        let list: Value = serde_json::from_str(list)?;
         let mut models: Vec<String> = list["data"]
             .as_array()
             .into_iter()
