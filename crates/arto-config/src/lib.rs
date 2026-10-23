@@ -17,6 +17,7 @@ mod atomic_write;
 mod behavior;
 mod color_theme;
 mod directory_config;
+mod font_stack;
 mod language;
 mod lens_agents;
 mod lens_recipes;
@@ -98,14 +99,6 @@ mod tests {
         assert!(set.content.is_empty());
         assert!(set.sidebar.is_empty());
         assert!(set.search.is_empty());
-    }
-
-    #[test]
-    fn the_old_name_for_always_still_parses() {
-        // `hidden_when_full_width` named a choice that is now simply what
-        // happens: a document at full width has no margin for the trace.
-        let parsed: RecentTrace = serde_json::from_str(r#""hidden_when_full_width""#).unwrap();
-        assert_eq!(parsed, RecentTrace::Always);
     }
 
     #[test]
