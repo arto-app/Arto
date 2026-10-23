@@ -1295,11 +1295,19 @@ mod tests {
             None,
             &bindings,
         );
+        // On macOS the OS dispatches menu shortcuts, so the engine binding
+        // would never see the chord. Elsewhere the engine owns them as global
+        // bindings, which a context binding overrides.
         match notice {
+            #[cfg(target_os = "macos")]
             Some(BindingNotice::Conflict(msg)) => {
                 assert!(msg.contains("Menu Shortcuts"), "names the menu: {msg}")
             }
-            other => panic!("Expected Conflict, got {other:?}"),
+            #[cfg(not(target_os = "macos"))]
+            Some(BindingNotice::Overwrite(msg)) => {
+                assert!(msg.contains("File Open"), "names the menu action: {msg}")
+            }
+            other => panic!("Expected this platform's notice, got {other:?}"),
         }
     }
 
