@@ -257,8 +257,11 @@ jobs:
           min-severity: low
           config: .github/zizmor.yml
 
+  # Not after rust: the legs build the frontend and the app themselves, so
+  # waiting for rust would only add its minutes to every run. A rust failure
+  # still fails `ci` below.
   bundle:
-    needs: [changes, rust]
+    needs: changes
     if: needs.changes.outputs.code == 'true'
     uses: ./.github/workflows/bundle.yml
     with:

@@ -101,8 +101,9 @@ minutes: the frontend job (lint, type-check, tests, production bundle), one
 Rust job per OS (format, clippy, tests via nextest; the Linux leg adds
 rustdoc, feature combinations, `cargo deny` and `cargo machete`), flake
 evaluation, documentation checks, workflow lint, and one bundle per OS —
-macOS, Linux and Windows. Only the `ci` job needs to be a required status
-check; it fails if anything it depends on failed.
+macOS, Linux and Windows — which runs alongside the Rust jobs rather than
+after them. Only the `ci` job needs to be a required status check; it fails if
+anything it depends on failed.
 
 Each bundle leg uploads its installers (and, off macOS and outside pull
 requests, the standalone executable) as a run artifact named `arto-<leg>`,
