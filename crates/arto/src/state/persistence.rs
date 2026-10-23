@@ -1,11 +1,11 @@
 use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::path::PathBuf;
 
 use crate::state::AppState;
 use crate::theme::Theme;
+use crate::utils::data_store::{app_data_file, JsonFile};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -124,47 +124,23 @@ impl PersistedState {
         self.directory.iter().cloned().collect()
     }
 
-    /// Get the state file path (state.json in local data directory)
-    pub fn path() -> PathBuf {
-        const FILENAME: &str = "state.json";
-        if let Some(mut path) = dirs::data_local_dir() {
-            path.push("arto");
-            path.push(FILENAME);
-            return path;
-        }
-
-        // Fallback to home directory
-        if let Some(mut path) = dirs::home_dir() {
-            path.push(".arto");
-            path.push(FILENAME);
-            return path;
-        }
-
-        PathBuf::from(FILENAME)
+    fn file() -> JsonFile<Self> {
+        JsonFile::at(app_data_file("state.json"))
     }
 
     /// Load persisted state from file or return default
     pub fn load() -> Self {
-        let path = Self::path();
-
-        if !path.exists() {
-            return Self::default();
-        }
-
-        match fs::read_to_string(&path) {
-            Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-            Err(_) => Self::default(),
-        }
+        Self::file().load_or_default()
     }
 
     /// Save persisted state to file
     ///
     /// This function should be called when a window is closing to persist its state.
     pub fn save(&self) {
-        let path = Self::path();
+        let file = Self::file();
 
         tracing::debug!(
-            path = %path.display(),
+            path = %file.path().display(),
             theme = ?self.theme,
             content_full_width = self.content_full_width,
             sidebar_pinned = self.sidebar_pinned,
@@ -175,23 +151,8 @@ impl PersistedState {
             "Saving persisted state"
         );
 
-        // Save to file synchronously
-        if let Some(parent) = path.parent() {
-            if let Err(e) = std::fs::create_dir_all(parent) {
-                tracing::error!(?e, "Failed to create session directory");
-                return;
-            }
-        }
-
-        match serde_json::to_string_pretty(self) {
-            Ok(content) => {
-                if let Err(e) = std::fs::write(&path, content) {
-                    tracing::error!(?e, "Failed to save persisted state");
-                }
-            }
-            Err(e) => {
-                tracing::error!(?e, "Failed to serialize persisted state");
-            }
+        if let Err(e) = file.save(self) {
+            tracing::error!(?e, "Failed to save persisted state");
         }
     }
 }

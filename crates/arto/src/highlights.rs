@@ -25,6 +25,7 @@ use tokio::sync::broadcast;
 use uuid::Uuid;
 
 use crate::utils::data_store::{record_file_name, write_atomically};
+use crate::utils::paths::storage_key;
 
 pub use crate::highlight_color::HighlightColor;
 
@@ -169,7 +170,7 @@ impl Store {
         }
         let record = Record {
             version: VERSION,
-            path: document_name(document),
+            path: storage_key(document),
             highlights: highlights.to_vec(),
         };
         write_atomically(&path, &serde_json::to_vec_pretty(&record)?)
@@ -193,25 +194,13 @@ impl Store {
 
     fn record_path(&self, document: &Path) -> PathBuf {
         self.root
-            .join(record_file_name(&[&document_name(document)], "json"))
+            .join(record_file_name(&[&storage_key(document)], "json"))
     }
-}
-
-/// What a document is filed under: the file its path leads to, spelled as
-/// the filesystem spells it, so a document reached through a link or by
-/// another spelling has one record.
-fn document_name(document: &Path) -> String {
-    let real = document
-        .canonicalize()
-        .unwrap_or_else(|_| document.to_path_buf());
-    crate::utils::paths::true_spelling(&real)
-        .to_string_lossy()
-        .into_owned()
 }
 
 /// Whether two paths name the same document's highlights.
 pub fn same_document(a: &Path, b: &Path) -> bool {
-    a == b || document_name(a) == document_name(b)
+    a == b || storage_key(a) == storage_key(b)
 }
 
 /// Take away the highlights `ids` names. Returns whether any was there.
@@ -498,7 +487,7 @@ mod tests {
         let written = fs::read_to_string(store.record_path(&doc)).unwrap();
         let record: serde_json::Value = serde_json::from_str(&written).unwrap();
         assert_eq!(record["version"], 1);
-        assert_eq!(record["path"], document_name(&doc));
+        assert_eq!(record["path"], storage_key(&doc));
         assert_eq!(record["highlights"][0]["anchor"]["exact"], "x");
         assert_eq!(record["highlights"][0]["color"], "blue");
         assert!(record["highlights"][0].get("note").is_none());

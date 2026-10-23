@@ -15,7 +15,7 @@
 //! comparing are the same gesture. What changes is only *whether* a root is
 //! added, which is the whole of [`Roots::decide`].
 
-use crate::utils::paths::true_spelling;
+use crate::utils::paths::{canonical_key, true_spelling};
 use std::path::{Path, PathBuf};
 
 /// How many roots of its own one window keeps.
@@ -219,50 +219,6 @@ impl Roots {
 /// that repository is bookmarked, at a folder already drawn a few rows above.
 fn folder_of(file: &Path) -> PathBuf {
     file.parent().unwrap_or(file).to_path_buf()
-}
-
-/// One spelling per directory, so containment and equality can be trusted.
-///
-/// For comparison only — never for storage. The lowercasing below would put
-/// `Arto` on screen as `arto`, so a root keeps the path it arrived with and
-/// this is applied to both sides of a comparison instead.
-///
-/// Symlinks are resolved and `..` folded away where the path exists; where it
-/// does not, the lexical form is the best available. On macOS the default
-/// filesystem ignores case, so two spellings of one directory would otherwise
-/// each get a root of their own.
-pub fn canonical_key(path: &Path) -> PathBuf {
-    let resolved = path
-        .canonicalize()
-        .unwrap_or_else(|_| lexically_normal(path));
-
-    #[cfg(target_os = "macos")]
-    {
-        PathBuf::from(resolved.to_string_lossy().to_lowercase())
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        resolved
-    }
-}
-
-/// Fold `.` and `..` away without touching the filesystem.
-fn lexically_normal(path: &Path) -> PathBuf {
-    use std::path::Component;
-
-    let mut out = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                if !out.pop() {
-                    out.push("..");
-                }
-            }
-            other => out.push(other.as_os_str()),
-        }
-    }
-    out
 }
 
 /// The deepest of `roots` that holds `target`.
@@ -479,37 +435,6 @@ mod tests {
         roots.apply(&opened);
 
         assert_eq!(roots.temps(), [p("/elsewhere/notes")]);
-    }
-
-    // === canonical_key() ===
-
-    #[test]
-    fn canonical_key_folds_parent_components() {
-        let key = canonical_key(&p("/w/arto/docs/../crates"));
-        assert_eq!(key, canonical_key(&p("/w/arto/crates")));
-    }
-
-    // Windows needs a privilege to create a symlink that CI does not grant,
-    // so the check runs where symlinks are ordinary.
-    #[cfg(unix)]
-    #[test]
-    fn canonical_key_resolves_a_symlink_to_its_target() {
-        use std::fs;
-        use tempfile::TempDir;
-
-        let temp = TempDir::new().unwrap();
-        let real = temp.path().join("real");
-        fs::create_dir(&real).unwrap();
-        let link = temp.path().join("link");
-        std::os::unix::fs::symlink(&real, &link).unwrap();
-
-        assert_eq!(canonical_key(&link), canonical_key(&real));
-    }
-
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn canonical_key_ignores_case_on_macos() {
-        assert_eq!(canonical_key(&p("/W/Arto")), canonical_key(&p("/w/arto")));
     }
 
     // === the specification's worked example, step by step ===

@@ -3,7 +3,7 @@ use dioxus::document;
 use dioxus::prelude::*;
 
 use crate::events::{SET_CONTENT_ZOOM_IN_WINDOW, SET_SIDEBAR_ZOOM_IN_WINDOW};
-use crate::pinned_search::{PinnedSearch, PINNED_SEARCHES, PINNED_SEARCHES_CHANGED};
+use crate::pinned_search::{PinnedSearch, PINNED_SEARCHES};
 use crate::state::AppState;
 
 /// Subscribe this window to what other windows change about it.
@@ -92,7 +92,7 @@ fn setup_pinned_highlights() {
         let marks = PINNED_SEARCHES.read().pinned_searches.clone();
         paint(marks).await;
 
-        let mut rx = PINNED_SEARCHES_CHANGED.subscribe();
+        let mut rx = PINNED_SEARCHES.subscribe();
         while rx.recv().await.is_ok() {
             let marks = PINNED_SEARCHES.read().pinned_searches.clone();
             paint(marks).await;

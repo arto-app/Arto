@@ -92,7 +92,7 @@ pub fn FileExplorer() -> Element {
     // Bookmarking a folder is what makes it a place, so the two lists are one
     // list seen twice; this is where the tree picks the change up.
     use_future(move || async move {
-        let mut rx = crate::bookmarks::BOOKMARKS_CHANGED.subscribe();
+        let mut rx = crate::bookmarks::BOOKMARKS.subscribe();
         while rx.recv().await.is_ok() {
             state.sync_places();
         }

@@ -9,7 +9,7 @@ use crate::components::sidebar::context_menu::{
 };
 use crate::components::sidebar::row_actions::RowActions;
 use crate::state::{AppState, FocusedPanel, Group};
-use crate::visits::{Bucket, Visit, VISITS, VISITS_CHANGED};
+use crate::visits::{Bucket, Visit, VISITS};
 
 /// The whole reading history, newest first.
 ///
@@ -45,7 +45,7 @@ pub fn RecentFace() -> Element {
     });
 
     use_future(move || async move {
-        let mut rx = VISITS_CHANGED.subscribe();
+        let mut rx = VISITS.subscribe();
         while rx.recv().await.is_ok() {
             *revision.write() += 1;
         }

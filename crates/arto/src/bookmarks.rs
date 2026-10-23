@@ -11,15 +11,14 @@
 //! list — is it bookmarked, remove it, move it beside that one — compares
 //! paths, and a caller that spelled one differently gets "no" to all of them.
 //!
-//! `BOOKMARKS_CHANGED` announces every change; every window listens, because
-//! the list is the app's, not a window's.
+//! [`BOOKMARKS`] announces every change; every window listens, because the
+//! list is the app's, not a window's.
 
-use parking_lot::RwLock;
+use crate::utils::data_store::{app_data_file, JsonFile, Shared};
+use crate::utils::paths::true_spelling;
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
-use tokio::sync::broadcast;
 
 /// A single bookmark: a file starred, or a folder kept as a place.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,7 +42,7 @@ impl Bookmark {
     /// on a render path has to touch the filesystem.
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self {
-            path: crate::utils::paths::true_spelling(&path.into()),
+            path: true_spelling(&path.into()),
             name: None,
         }
     }
@@ -67,34 +66,7 @@ pub struct Bookmarks {
     pub items: Vec<Bookmark>,
 }
 
-/// `<platform data dir>/arto/<name>`, or `~/.arto/<name>` when the platform
-/// has no data directory, or just `<name>` as a last resort.
-///
-/// This is for what the app writes about itself — bookmarks, the visit
-/// history — as opposed to `config.json`, which a reader edits by hand and
-/// which lives in the configuration directory instead.
-pub(crate) fn data_file(name: &str) -> PathBuf {
-    if let Some(mut path) = dirs::data_local_dir() {
-        path.push("arto");
-        path.push(name);
-        return path;
-    }
-
-    if let Some(mut path) = dirs::home_dir() {
-        path.push(".arto");
-        path.push(name);
-        return path;
-    }
-
-    PathBuf::from(name)
-}
-
 impl Bookmarks {
-    /// Get the bookmarks file path
-    fn path() -> PathBuf {
-        data_file("bookmarks.json")
-    }
-
     /// The bookmarked directories, in the order they were arranged.
     ///
     /// These are the tree's permanent roots. Bookmarking a folder and giving
@@ -111,22 +83,6 @@ impl Bookmarks {
             .collect()
     }
 
-    /// Load bookmarks from file or return empty
-    pub fn load() -> Self {
-        let path = Self::path();
-
-        if !path.exists() {
-            return Self::default();
-        }
-
-        match fs::read_to_string(&path) {
-            Ok(content) => serde_json::from_str::<Self>(&content)
-                .map(Self::folded)
-                .unwrap_or_default(),
-            Err(_) => Self::default(),
-        }
-    }
-
     /// One entry per path, however the file spells them.
     ///
     /// A file written before the spellings were repaired holds paths as they
@@ -141,36 +97,11 @@ impl Bookmarks {
                 .items
                 .into_iter()
                 .map(|item| Bookmark {
-                    path: crate::utils::paths::true_spelling(&item.path),
+                    path: true_spelling(&item.path),
                     ..item
                 })
                 .filter(|item| seen.insert(item.path.clone()))
                 .collect(),
-        }
-    }
-
-    /// Save bookmarks to file
-    pub fn save(&self) {
-        let path = Self::path();
-
-        tracing::debug!(path = %path.display(), count = self.items.len(), "Saving bookmarks");
-
-        if let Some(parent) = path.parent() {
-            if let Err(e) = fs::create_dir_all(parent) {
-                tracing::error!(?e, "Failed to create bookmarks directory");
-                return;
-            }
-        }
-
-        match serde_json::to_string_pretty(self) {
-            Ok(content) => {
-                if let Err(e) = fs::write(&path, content) {
-                    tracing::error!(?e, "Failed to save bookmarks");
-                }
-            }
-            Err(e) => {
-                tracing::error!(?e, "Failed to serialize bookmarks");
-            }
         }
     }
 
@@ -183,7 +114,7 @@ impl Bookmarks {
     ///
     /// Returns `true` if the path is now bookmarked, `false` if removed.
     pub fn toggle(&mut self, path: impl Into<PathBuf>) -> bool {
-        let path = crate::utils::paths::true_spelling(&path.into());
+        let path = true_spelling(&path.into());
         if self.contains(&path) {
             self.remove(&path);
             false
@@ -264,68 +195,38 @@ impl Bookmarks {
     }
 }
 
-/// Global bookmarks instance
-pub static BOOKMARKS: LazyLock<RwLock<Bookmarks>> =
-    LazyLock::new(|| RwLock::new(Bookmarks::load()));
-
-/// Broadcast channel for bookmark changes
+/// The bookmarks, shared by every window and announced when they change.
 ///
-/// All windows subscribe to this to update their UI when bookmarks change.
-/// The payload is empty since subscribers should read from BOOKMARKS directly.
-pub static BOOKMARKS_CHANGED: LazyLock<broadcast::Sender<()>> =
-    LazyLock::new(|| broadcast::channel(10).0);
+/// Every window subscribes, because the list is the app's, not a window's.
+pub static BOOKMARKS: LazyLock<Shared<Bookmarks>> = LazyLock::new(|| {
+    let file = JsonFile::<Bookmarks>::at(app_data_file("bookmarks.json"));
+    let bookmarks = file.load_or_default().folded();
+    Shared::new(file, bookmarks)
+});
 
-/// Toggle a bookmark and broadcast the change
-///
-/// This is a convenience function that handles the common pattern of:
-/// 1. Toggle the bookmark in BOOKMARKS
-/// 2. Save to disk
-/// 3. Broadcast the change to all windows
+/// Toggle a bookmark and broadcast the change.
 ///
 /// Returns `true` if the path is now bookmarked, `false` if removed.
 pub fn toggle_bookmark(path: impl AsRef<Path>) -> bool {
-    let result = {
-        let mut bookmarks = BOOKMARKS.write();
-        let result = bookmarks.toggle(path.as_ref().to_path_buf());
-        bookmarks.save();
-        result
-    };
-    BOOKMARKS_CHANGED.send(()).ok();
-    result
+    BOOKMARKS.update(|bookmarks| (bookmarks.toggle(path.as_ref().to_path_buf()), true))
 }
 
 /// Replace a bookmark with another path and broadcast the change.
 pub fn replace_bookmark(old: &Path, new: impl AsRef<Path>) -> bool {
-    let result = {
-        let mut bookmarks = BOOKMARKS.write();
-        let result = bookmarks.replace(old, new.as_ref().to_path_buf());
-        if result {
-            bookmarks.save();
-        }
-        result
-    };
-    if result {
-        BOOKMARKS_CHANGED.send(()).ok();
-    }
-    result
+    BOOKMARKS.update(|bookmarks| {
+        let replaced = bookmarks.replace(old, new.as_ref().to_path_buf());
+        (replaced, replaced)
+    })
 }
 
 /// Move a bookmark beside another and broadcast the change.
 ///
 /// Returns `true` if the list changed.
 pub fn move_bookmark(moved: &Path, target: &Path, after: bool) -> bool {
-    let result = {
-        let mut bookmarks = BOOKMARKS.write();
-        let result = bookmarks.move_to(moved, target, after);
-        if result {
-            bookmarks.save();
-        }
-        result
-    };
-    if result {
-        BOOKMARKS_CHANGED.send(()).ok();
-    }
-    result
+    BOOKMARKS.update(|bookmarks| {
+        let moved = bookmarks.move_to(moved, target, after);
+        (moved, moved)
+    })
 }
 
 #[cfg(test)]

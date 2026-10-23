@@ -21,6 +21,7 @@
 
 use crate::files::Listing;
 use crate::markdown::RenderOptions;
+use crate::utils::paths::canonical_key;
 use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
 use std::ops::Range;
@@ -62,7 +63,7 @@ impl Excerpt {
 /// One link a source makes, resolved to the file it opens.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedLink {
-    /// The file the link opens, as [`crate::roots::canonical_key`] spells it.
+    /// The file the link opens, as [`canonical_key`] spells it.
     pub target: PathBuf,
     /// The 1-based line of the source the link was written on.
     pub line: u32,
@@ -100,11 +101,11 @@ pub fn links_of(source: &Path, content: &str, options: &RenderOptions) -> Vec<Re
 
 /// The file a link opens from `folder`, or `None` when there is none — by
 /// the rule a click follows ([`crate::document_link::resolve_link_path`]),
-/// spelled for comparison by [`crate::roots::canonical_key`].
+/// spelled for comparison by [`canonical_key`].
 pub fn resolve(folder: &Path, path: &str) -> Option<PathBuf> {
     crate::document_link::resolve_link_path(folder, path)
         .filter(|path| path.is_file())
-        .map(|path| crate::roots::canonical_key(&path))
+        .map(|path| canonical_key(&path))
 }
 
 /// Whether a source could name the document whose file stem is `stem`.
@@ -493,7 +494,7 @@ fn scan(
     deadline: Instant,
     abandon: &(dyn Fn() -> bool + Sync),
 ) -> Scan {
-    let target_key = crate::roots::canonical_key(target);
+    let target_key = canonical_key(target);
     let Some(stem) = target.file_stem().map(|stem| stem.to_string_lossy()) else {
         return Scan::default();
     };
@@ -523,7 +524,7 @@ fn scan(
                     // The target itself is never one of its own sources, so
                     // not reading it leaves nothing out.
                     Read::Skipped => {
-                        if crate::roots::canonical_key(file) != target_key {
+                        if canonical_key(file) != target_key {
                             partial.store(true, Ordering::Relaxed);
                         }
                         continue;
@@ -535,7 +536,7 @@ fn scan(
                     .cloned()
                     .collect();
                 to_target.dedup_by_key(|link| link.line);
-                if to_target.is_empty() || crate::roots::canonical_key(file) == target_key {
+                if to_target.is_empty() || canonical_key(file) == target_key {
                     continue;
                 }
                 found.lock().push(Source {
@@ -651,7 +652,7 @@ mod tests {
     use tempfile::TempDir;
 
     fn key(path: &Path) -> PathBuf {
-        crate::roots::canonical_key(path)
+        canonical_key(path)
     }
 
     /// `docs/guide.md`, `docs/api/auth.md`, `my notes.md` and `README.md`.

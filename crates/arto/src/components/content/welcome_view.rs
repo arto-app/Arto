@@ -3,11 +3,11 @@ use dioxus::prelude::*;
 use rust_i18n::t;
 use std::path::PathBuf;
 
-use crate::bookmarks::{BOOKMARKS, BOOKMARKS_CHANGED};
+use crate::bookmarks::BOOKMARKS;
 use crate::components::document_name::DocumentName;
 use crate::components::icon::{Icon, IconName};
 use crate::state::{AppState, Face};
-use crate::visits::{Visit, VISITS, VISITS_CHANGED};
+use crate::visits::{Visit, VISITS};
 
 /// How many documents the welcome page offers before deferring to the Recent face.
 ///
@@ -30,8 +30,8 @@ pub fn WelcomeView() -> Element {
     // Anything this page lists, changing anywhere: a document read in another
     // window, a folder starred in this one.
     use_future(move || async move {
-        let mut visited = VISITS_CHANGED.subscribe();
-        let mut bookmarked = BOOKMARKS_CHANGED.subscribe();
+        let mut visited = VISITS.subscribe();
+        let mut bookmarked = BOOKMARKS.subscribe();
         loop {
             let changed = tokio::select! {
                 result = visited.recv() => result.is_ok(),

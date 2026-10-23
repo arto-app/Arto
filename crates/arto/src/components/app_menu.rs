@@ -68,7 +68,7 @@ pub fn AppMenu(on_close: EventHandler<()>) -> Element {
                 } }
                 ContextMenuSeparator {}
                 ContextMenuItem { label: t!("app_menu.file.open_file").to_string(), shortcut: shortcut("file.open"), icon: Some(IconName::File), on_click: move |_| {
-                    if let Some(file) = rfd::FileDialog::new().add_filter("Markdown", &["md", "markdown"]).pick_file() {
+                    if let Some(file) = rfd::FileDialog::new().add_filter("Markdown", crate::utils::file::MARKDOWN_EXTENSIONS).pick_file() {
                         state.open_file(file);
                     }
                     close();
