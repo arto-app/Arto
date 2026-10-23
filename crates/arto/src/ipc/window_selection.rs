@@ -134,83 +134,66 @@ fn get_window_number(_window: &dioxus::desktop::tao::window::Window) -> Option<i
 #[cfg(target_os = "macos")]
 fn get_on_screen_window_bounds() -> std::collections::HashMap<i64, WindowBounds> {
     use core_foundation::base::TCFType;
-    use core_foundation::number::CFNumber;
+    use core_foundation::dictionary::CFDictionaryRef;
     use core_foundation::string::CFString;
     use core_graphics::window::{
         copy_window_info, kCGNullWindowID, kCGWindowBounds, kCGWindowListOptionOnScreenOnly,
         kCGWindowNumber,
     };
 
-    let mut result = std::collections::HashMap::new();
-
     let Some(info) = copy_window_info(kCGWindowListOptionOnScreenOnly, kCGNullWindowID) else {
-        return result;
+        return std::collections::HashMap::new();
     };
 
     let wn_key = unsafe { CFString::wrap_under_get_rule(kCGWindowNumber) };
     let bounds_key = unsafe { CFString::wrap_under_get_rule(kCGWindowBounds) };
 
-    for i in 0..info.len() {
-        let dict_ptr = unsafe {
-            core_foundation::array::CFArrayGetValueAtIndex(info.as_concrete_TypeRef(), i)
-        };
-        if dict_ptr.is_null() {
-            continue;
-        }
+    (0..info.len())
+        .filter_map(|i| {
+            let dict = unsafe {
+                core_foundation::array::CFArrayGetValueAtIndex(info.as_concrete_TypeRef(), i)
+            } as CFDictionaryRef;
+            if dict.is_null() {
+                return None;
+            }
+            let window_number = unsafe { cf_dict_get_number(dict, &wn_key) }?.to_i64()?;
+            let rect = unsafe { cf_dict_get_value(dict, &bounds_key) }? as CFDictionaryRef;
+            Some((window_number, unsafe { window_bounds_from_rect(rect) }))
+        })
+        .collect()
+}
 
-        // Get window number
-        let wn_cfnum = unsafe {
-            cf_dict_get_value(
-                dict_ptr as core_foundation::dictionary::CFDictionaryRef,
-                &wn_key,
-            )
-        };
-        let Some(wn_cfnum) = wn_cfnum else {
-            continue;
-        };
-        let wn_cfnum = unsafe {
-            CFNumber::wrap_under_get_rule(wn_cfnum as core_foundation::number::CFNumberRef)
-        };
-        let Some(window_number) = wn_cfnum.to_i64() else {
-            continue;
-        };
-
-        // Get window bounds (CGRect stored as CFDictionary with X, Y, Width, Height)
-        let bounds_ptr = unsafe {
-            cf_dict_get_value(
-                dict_ptr as core_foundation::dictionary::CFDictionaryRef,
-                &bounds_key,
-            )
-        };
-        let Some(bounds_ptr) = bounds_ptr else {
-            continue;
-        };
-        let bounds_dict = bounds_ptr as core_foundation::dictionary::CFDictionaryRef;
-
-        let get_f64 = |key: &str| -> f64 {
-            let cf_key = CFString::new(key);
-            let val = unsafe { cf_dict_get_value(bounds_dict, &cf_key) };
-            val.and_then(|v| {
-                let num = unsafe {
-                    CFNumber::wrap_under_get_rule(v as core_foundation::number::CFNumberRef)
-                };
-                num.to_f64()
-            })
+/// Read a `CGRect` the way the window list stores it: a dictionary of `X`,
+/// `Y`, `Width` and `Height`, where a missing field reads as zero.
+#[cfg(target_os = "macos")]
+unsafe fn window_bounds_from_rect(
+    rect: core_foundation::dictionary::CFDictionaryRef,
+) -> WindowBounds {
+    let field = |key: &str| -> f64 {
+        let key = core_foundation::string::CFString::new(key);
+        unsafe { cf_dict_get_number(rect, &key) }
+            .and_then(|number| number.to_f64())
             .unwrap_or(0.0)
-        };
-
-        result.insert(
-            window_number,
-            WindowBounds {
-                x: get_f64("X") as i32,
-                y: get_f64("Y") as i32,
-                width: get_f64("Width") as u32,
-                height: get_f64("Height") as u32,
-            },
-        );
+    };
+    WindowBounds {
+        x: field("X") as i32,
+        y: field("Y") as i32,
+        width: field("Width") as u32,
+        height: field("Height") as u32,
     }
+}
 
-    result
+#[cfg(target_os = "macos")]
+unsafe fn cf_dict_get_number(
+    dict: core_foundation::dictionary::CFDictionaryRef,
+    key: &core_foundation::string::CFString,
+) -> Option<core_foundation::number::CFNumber> {
+    use core_foundation::base::TCFType;
+
+    let value = cf_dict_get_value(dict, key)?;
+    Some(core_foundation::number::CFNumber::wrap_under_get_rule(
+        value as core_foundation::number::CFNumberRef,
+    ))
 }
 
 #[cfg(target_os = "macos")]
@@ -284,4 +267,160 @@ pub(super) fn is_window_on_display(
     }
 
     overlap_area / window_area >= MIN_OVERLAP_RATIO
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::FileOpenBehavior;
+
+    #[test]
+    fn test_choose_open_target_new_window_always_creates_new_window() {
+        let windows = vec![WindowSelectionInput {
+            window_id: 1_u8,
+            is_on_current_screen: true,
+        }];
+
+        let target = choose_open_target(FileOpenBehavior::NewWindow, &windows, Some(1));
+        assert_eq!(target, OpenTarget::NewWindow);
+    }
+
+    #[test]
+    fn test_choose_open_target_last_focused_uses_visible_window() {
+        let windows = vec![
+            WindowSelectionInput {
+                window_id: 1_u8,
+                is_on_current_screen: false,
+            },
+            WindowSelectionInput {
+                window_id: 2_u8,
+                is_on_current_screen: true,
+            },
+        ];
+
+        let target = choose_open_target(FileOpenBehavior::LastFocused, &windows, Some(2));
+        assert_eq!(target, OpenTarget::ExistingWindow(2));
+    }
+
+    #[test]
+    fn test_choose_open_target_last_focused_falls_back_to_new_window() {
+        let windows = vec![WindowSelectionInput {
+            window_id: 1_u8,
+            is_on_current_screen: true,
+        }];
+
+        let target = choose_open_target(FileOpenBehavior::LastFocused, &windows, Some(2));
+        assert_eq!(target, OpenTarget::NewWindow);
+    }
+
+    #[test]
+    fn test_choose_open_target_current_screen_prefers_last_focused() {
+        let windows = vec![
+            WindowSelectionInput {
+                window_id: 1_u8,
+                is_on_current_screen: true,
+            },
+            WindowSelectionInput {
+                window_id: 2_u8,
+                is_on_current_screen: true,
+            },
+        ];
+
+        let target = choose_open_target(FileOpenBehavior::CurrentScreen, &windows, Some(2));
+        assert_eq!(target, OpenTarget::ExistingWindow(2));
+    }
+
+    #[test]
+    fn test_choose_open_target_current_screen_uses_first_candidate_without_last_focus() {
+        let windows = vec![
+            WindowSelectionInput {
+                window_id: 4_u8,
+                is_on_current_screen: true,
+            },
+            WindowSelectionInput {
+                window_id: 5_u8,
+                is_on_current_screen: true,
+            },
+        ];
+
+        let target = choose_open_target(FileOpenBehavior::CurrentScreen, &windows, None);
+        assert_eq!(target, OpenTarget::ExistingWindow(4));
+    }
+
+    #[test]
+    fn test_choose_open_target_current_screen_falls_back_to_new_window() {
+        let windows = vec![WindowSelectionInput {
+            window_id: 1_u8,
+            is_on_current_screen: false,
+        }];
+
+        let target = choose_open_target(FileOpenBehavior::CurrentScreen, &windows, Some(1));
+        assert_eq!(target, OpenTarget::NewWindow);
+    }
+
+    #[test]
+    fn test_is_window_on_display_fully_inside() {
+        let display = (LogicalPosition::new(0, 0), LogicalSize::new(1920, 1080));
+        let bounds = WindowBounds {
+            x: 300,
+            y: 250,
+            width: 400,
+            height: 300,
+        };
+        assert!(is_window_on_display(display, bounds));
+    }
+
+    #[test]
+    fn test_is_window_on_display_spanning_two_monitors() {
+        let display = (LogicalPosition::new(0, 0), LogicalSize::new(1920, 1080));
+        // Window straddles the right edge: 50% on left monitor
+        let bounds = WindowBounds {
+            x: 1720,
+            y: 200,
+            width: 400,
+            height: 300,
+        };
+        // overlap = 200*300 = 60000, window = 400*300 = 120000 → 50% > 10%
+        assert!(is_window_on_display(display, bounds));
+    }
+
+    #[test]
+    fn test_is_window_on_display_minor_overlap_rejected() {
+        let display = (LogicalPosition::new(0, 0), LogicalSize::new(1920, 1080));
+        // Only 20px overlap on a 400px-wide window → 5% < 10%
+        let bounds = WindowBounds {
+            x: 1900,
+            y: 200,
+            width: 400,
+            height: 300,
+        };
+        // overlap = 20*300 = 6000, window = 400*300 = 120000 → 5% < 10%
+        assert!(!is_window_on_display(display, bounds));
+    }
+
+    #[test]
+    fn test_is_window_on_display_completely_outside() {
+        let display = (LogicalPosition::new(0, 0), LogicalSize::new(1920, 1080));
+        let bounds = WindowBounds {
+            x: 1921,
+            y: 0,
+            width: 400,
+            height: 300,
+        };
+        assert!(!is_window_on_display(display, bounds));
+    }
+
+    #[test]
+    fn test_is_window_on_display_hidden_in_corner() {
+        let display = (LogicalPosition::new(0, 0), LogicalSize::new(1920, 1080));
+        // Simulates Aerospace hideInCorner: window at bottom-right with 1px overlap
+        // overlap = 1*1 = 1, window = 1265*2109 → ~0.00004% < 10%
+        let bounds = WindowBounds {
+            x: 5119,
+            y: 2132,
+            width: 1265,
+            height: 2109,
+        };
+        assert!(!is_window_on_display(display, bounds));
+    }
 }
