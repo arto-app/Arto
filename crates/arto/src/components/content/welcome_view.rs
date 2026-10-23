@@ -92,7 +92,7 @@ pub fn WelcomeView() -> Element {
                         src: crate::assets::welcome_mark_data_url(true),
                         alt: "Arto",
                     }
-                    p { class: "welcome-tagline", "The Art of Reading Markdown" }
+                    p { class: "welcome-tagline", "The Art of Reading Markdown." }
                 }
 
                 // The way in is a keystroke, said once. A field here would be
