@@ -1,17 +1,22 @@
 //! Files the app keeps as data rather than as cache: one record per file in
 //! a directory of its own, written whole or not at all, and trimmed to a
-//! size by dropping the records used longest ago.
+//! size by dropping the records used longest ago — or one value in one JSON
+//! file ([`JsonFile`]), shared by every window ([`Shared`]).
 //!
 //! Data because a new build clears the caches, and what is kept here is the
 //! reader's own — answers that took minutes to write, the version of a
 //! document they last read.
 
+use parking_lot::{RwLock, RwLockReadGuard};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
+use tokio::sync::broadcast;
 
 /// Write `bytes` to `path` whole or not at all: a reader never sees half a
 /// record, even when the app stops half-way through writing one.
@@ -120,6 +125,145 @@ pub(crate) fn touch(path: &Path) {
     }
 }
 
+/// `<platform data dir>/arto/<name>`, or `~/.arto/<name>` when the platform
+/// has no data directory, or just `<name>` as a last resort.
+///
+/// This is for what the app writes about itself — bookmarks, the visit
+/// history, the last window's state — as opposed to `config.json`, which a
+/// reader edits by hand and which lives in the configuration directory
+/// instead.
+pub(crate) fn app_data_file(name: &str) -> PathBuf {
+    if let Some(mut path) = dirs::data_local_dir() {
+        path.push("arto");
+        path.push(name);
+        return path;
+    }
+
+    if let Some(mut path) = dirs::home_dir() {
+        path.push(".arto");
+        path.push(name);
+        return path;
+    }
+
+    PathBuf::from(name)
+}
+
+/// One value kept as one JSON file.
+///
+/// What is kept this way is a convenience — a list the reader built up, the
+/// size of the last window — so a file that is missing or cannot be read
+/// starts the value over rather than stopping anything.
+pub(crate) struct JsonFile<T> {
+    path: PathBuf,
+    discard_when: Option<fn(&T) -> bool>,
+}
+
+impl<T: Serialize + DeserializeOwned + Default> JsonFile<T> {
+    pub fn at(path: impl Into<PathBuf>) -> Self {
+        Self {
+            path: path.into(),
+            discard_when: None,
+        }
+    }
+
+    /// Remove the file instead of writing a value `empty` calls empty.
+    pub fn discarded_when(self, empty: fn(&T) -> bool) -> Self {
+        Self {
+            discard_when: Some(empty),
+            ..self
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// The value the file holds, or the default when there is none to read.
+    pub fn load_or_default(&self) -> T {
+        let content = match fs::read_to_string(&self.path) {
+            Ok(content) => content,
+            Err(err) if err.kind() == io::ErrorKind::NotFound => return T::default(),
+            Err(err) => {
+                tracing::warn!(path = %self.path.display(), %err, "Ignoring an unreadable file");
+                return T::default();
+            }
+        };
+        serde_json::from_str(&content).unwrap_or_else(|err| {
+            tracing::warn!(path = %self.path.display(), %err, "Ignoring a file that does not parse");
+            T::default()
+        })
+    }
+
+    pub fn save(&self, value: &T) -> io::Result<()> {
+        if self.discard_when.is_some_and(|empty| empty(value)) {
+            return match fs::remove_file(&self.path) {
+                Err(err) if err.kind() != io::ErrorKind::NotFound => Err(err),
+                _ => Ok(()),
+            };
+        }
+        write_atomically(&self.path, &serde_json::to_vec_pretty(value)?)
+    }
+}
+
+/// A value every window shares, kept on disk, with word sent out whenever it
+/// changes so that open windows draw it again.
+pub(crate) struct Shared<T> {
+    value: RwLock<T>,
+    file: JsonFile<T>,
+    changed: broadcast::Sender<()>,
+}
+
+impl<T: Serialize + DeserializeOwned + Default> Shared<T> {
+    /// What `file` holds, or the default.
+    pub fn load(file: JsonFile<T>) -> Self {
+        let value = file.load_or_default();
+        Self::new(file, value)
+    }
+
+    /// `value`, kept in `file` from the next change on.
+    pub fn new(file: JsonFile<T>, value: T) -> Self {
+        Self {
+            value: RwLock::new(value),
+            file,
+            changed: broadcast::channel(16).0,
+        }
+    }
+
+    pub fn read(&self) -> RwLockReadGuard<'_, T> {
+        self.value.read()
+    }
+
+    /// Told after every change [`Shared::update`] keeps.
+    pub fn subscribe(&self) -> broadcast::Receiver<()> {
+        self.changed.subscribe()
+    }
+
+    /// Change the value with `change`, which says whether it changed
+    /// anything. Only a change is written out and announced: a request that
+    /// leaves the value as it was neither rewrites the file nor makes every
+    /// window draw again.
+    pub fn update<R>(&self, change: impl FnOnce(&mut T) -> (R, bool)) -> R {
+        let (result, changed) = {
+            let mut value = self.value.write();
+            let (result, changed) = change(&mut value);
+            if changed {
+                self.save_locked(&value);
+            }
+            (result, changed)
+        };
+        if changed {
+            let _ = self.changed.send(());
+        }
+        result
+    }
+
+    fn save_locked(&self, value: &T) {
+        if let Err(err) = self.file.save(value) {
+            tracing::warn!(path = %self.file.path().display(), %err, "Failed to save");
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,6 +338,134 @@ mod tests {
 
         assert!(dir.path().join("a").exists());
         assert!(!dir.path().join("b").exists());
+    }
+
+    // === JsonFile ===
+
+    #[derive(Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+    struct List {
+        items: Vec<String>,
+    }
+
+    fn list(items: &[&str]) -> List {
+        List {
+            items: items.iter().map(|item| item.to_string()).collect(),
+        }
+    }
+
+    #[test]
+    fn app_data_lives_in_the_platform_data_directory() {
+        let Some(dir) = dirs::data_local_dir() else {
+            return;
+        };
+        assert_eq!(
+            app_data_file("bookmarks.json"),
+            dir.join("arto").join("bookmarks.json")
+        );
+    }
+
+    #[test]
+    fn a_missing_file_reads_as_the_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = JsonFile::<List>::at(dir.path().join("list.json"));
+
+        assert_eq!(file.load_or_default(), List::default());
+    }
+
+    #[test]
+    fn a_file_that_does_not_parse_reads_as_the_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("list.json");
+        fs::write(&path, "{ not json").unwrap();
+
+        assert_eq!(
+            JsonFile::<List>::at(&path).load_or_default(),
+            List::default()
+        );
+    }
+
+    #[test]
+    fn what_is_saved_is_loaded_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = JsonFile::<List>::at(dir.path().join("nested").join("list.json"));
+
+        file.save(&list(&["a", "b"])).unwrap();
+
+        assert_eq!(file.load_or_default(), list(&["a", "b"]));
+    }
+
+    #[test]
+    fn a_saved_file_is_pretty_printed_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = JsonFile::<List>::at(dir.path().join("list.json"));
+
+        file.save(&list(&["a"])).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(file.path()).unwrap(),
+            serde_json::to_string_pretty(&list(&["a"])).unwrap()
+        );
+    }
+
+    #[test]
+    fn a_value_called_empty_removes_the_file_instead() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = JsonFile::<List>::at(dir.path().join("list.json"))
+            .discarded_when(|list| list.items.is_empty());
+        file.save(&list(&["a"])).unwrap();
+
+        file.save(&List::default()).unwrap();
+        assert!(!file.path().exists());
+
+        // Nothing there to remove is not an error.
+        file.save(&List::default()).unwrap();
+    }
+
+    // === Shared ===
+
+    fn shared(dir: &tempfile::TempDir) -> Shared<List> {
+        Shared::load(JsonFile::at(dir.path().join("list.json")))
+    }
+
+    #[test]
+    fn a_shared_value_starts_from_its_file() {
+        let dir = tempfile::tempdir().unwrap();
+        JsonFile::at(dir.path().join("list.json"))
+            .save(&list(&["a"]))
+            .unwrap();
+
+        assert_eq!(*shared(&dir).read(), list(&["a"]));
+    }
+
+    #[test]
+    fn a_change_is_saved_and_announced() {
+        let dir = tempfile::tempdir().unwrap();
+        let shared = shared(&dir);
+        let mut changed = shared.subscribe();
+
+        let answer = shared.update(|list| {
+            list.items.push("a".to_string());
+            (42, true)
+        });
+
+        assert_eq!(answer, 42);
+        assert_eq!(
+            JsonFile::<List>::at(dir.path().join("list.json")).load_or_default(),
+            list(&["a"])
+        );
+        assert!(changed.try_recv().is_ok());
+    }
+
+    #[test]
+    fn what_changed_nothing_is_neither_saved_nor_announced() {
+        let dir = tempfile::tempdir().unwrap();
+        let shared = shared(&dir);
+        let mut changed = shared.subscribe();
+
+        shared.update(|_| ((), false));
+
+        assert!(!dir.path().join("list.json").exists());
+        assert!(changed.try_recv().is_err());
     }
 
     #[test]

@@ -3,17 +3,14 @@
 //! This module provides:
 //! - `PinnedSearch`: A pinned search query with color
 //! - `PinnedSearches`: Collection of pinned searches with persistence
-//! - `PINNED_SEARCHES`: Global static for app-wide access
-//! - `PINNED_SEARCHES_CHANGED`: Broadcast channel for cross-window sync
+//! - `PINNED_SEARCHES`: Global static for app-wide access and cross-window sync
 
 use chrono::{DateTime, Utc};
-use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::PathBuf;
 use std::sync::LazyLock;
-use tokio::sync::broadcast;
 use uuid::Uuid;
+
+use crate::utils::data_store::{app_data_file, JsonFile, Shared};
 
 pub use crate::highlight_color::HighlightColor;
 
@@ -112,74 +109,6 @@ impl Default for PinnedSearches {
 }
 
 impl PinnedSearches {
-    /// Get the pinned searches file path.
-    fn path() -> PathBuf {
-        const FILENAME: &str = "pinned-searches.json";
-        if let Some(mut path) = dirs::data_local_dir() {
-            path.push("arto");
-            path.push(FILENAME);
-            return path;
-        }
-
-        // Fallback to home directory
-        if let Some(mut path) = dirs::home_dir() {
-            path.push(".arto");
-            path.push(FILENAME);
-            return path;
-        }
-
-        PathBuf::from(FILENAME)
-    }
-
-    /// Load pinned searches from file or return empty.
-    pub fn load() -> Self {
-        let path = Self::path();
-
-        if !path.exists() {
-            return Self::default();
-        }
-
-        match fs::read_to_string(&path) {
-            Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-            Err(_) => Self::default(),
-        }
-    }
-
-    /// Save pinned searches to file.
-    pub fn save(&self) {
-        let path = Self::path();
-
-        tracing::debug!(path = %path.display(), count = self.pinned_searches.len(), "Saving pinned searches");
-
-        // If no pinned searches, remove the file
-        if self.pinned_searches.is_empty() {
-            if path.exists() {
-                if let Err(e) = fs::remove_file(&path) {
-                    tracing::error!(?e, "Failed to remove empty pinned searches file");
-                }
-            }
-            return;
-        }
-
-        if let Some(parent) = path.parent() {
-            if let Err(e) = fs::create_dir_all(parent) {
-                tracing::error!(?e, "Failed to create pinned searches directory");
-                return;
-            }
-        }
-
-        match serde_json::to_string_pretty(self) {
-            Ok(content) => {
-                if let Err(e) = fs::write(&path, content) {
-                    tracing::error!(?e, "Failed to save pinned searches");
-                }
-            }
-            Err(e) => {
-                tracing::error!(?e, "Failed to serialize pinned searches");
-            }
-        }
-    }
-
     /// Pin a pattern, case-insensitively.
     ///
     /// A pattern that a case-insensitive pin already marks returns that pin,
@@ -259,85 +188,52 @@ impl PinnedSearches {
     }
 }
 
-/// Global pinned searches instance.
-pub static PINNED_SEARCHES: LazyLock<RwLock<PinnedSearches>> =
-    LazyLock::new(|| RwLock::new(PinnedSearches::load()));
-
-/// Broadcast channel for pinned search changes.
+/// Every pinned search, shared by every window and announced when it changes.
 ///
-/// All windows subscribe to this to update their UI when pinned searches change.
-/// The payload is empty since subscribers should read from PINNED_SEARCHES directly.
-pub static PINNED_SEARCHES_CHANGED: LazyLock<broadcast::Sender<()>> =
-    LazyLock::new(|| broadcast::channel(10).0);
+/// The file is removed rather than written empty, so a reader who never pins
+/// anything has no file for it.
+pub static PINNED_SEARCHES: LazyLock<Shared<PinnedSearches>> = LazyLock::new(|| {
+    Shared::load(
+        JsonFile::at(app_data_file("pinned-searches.json"))
+            .discarded_when(|pinned| pinned.pinned_searches.is_empty()),
+    )
+});
 
 /// Pin a pattern and broadcast the change.
 ///
 /// Returns the ID of the pin that marks the pattern, which is an existing
 /// one when the pattern was already pinned (see [`PinnedSearches::add`]).
 pub fn add_pinned_search(pattern: impl Into<String>) -> PinnedSearchId {
-    let (id, changed) = {
-        let mut pinned = PINNED_SEARCHES.write();
+    PINNED_SEARCHES.update(|pinned| {
         let (search, changed) = pinned.add(pattern);
-        let id = search.id.clone();
-        if changed {
-            pinned.save();
-        }
-        (id, changed)
-    };
-    if changed {
-        PINNED_SEARCHES_CHANGED.send(()).ok();
-    }
-    id
+        (search.id.clone(), changed)
+    })
 }
 
 /// Remove a pinned search and broadcast the change.
 ///
 /// Returns `true` if the pinned search was found and removed.
 pub fn remove_pinned_search(id: &PinnedSearchId) -> bool {
-    let result = {
-        let mut pinned = PINNED_SEARCHES.write();
-        let result = pinned.remove(id);
-        if result {
-            pinned.save();
-        }
-        result
-    };
-    if result {
-        PINNED_SEARCHES_CHANGED.send(()).ok();
-    }
-    result
+    PINNED_SEARCHES.update(|pinned| {
+        let removed = pinned.remove(id);
+        (removed, removed)
+    })
 }
 
 /// Update the color of a pinned search and broadcast the change.
 pub fn set_pinned_search_color(id: &PinnedSearchId, color: HighlightColor) -> bool {
-    let result = {
-        let mut pinned = PINNED_SEARCHES.write();
-        let result = pinned.set_color(id, color);
-        if result {
-            pinned.save();
-        }
-        result
-    };
-    if result {
-        PINNED_SEARCHES_CHANGED.send(()).ok();
-    }
-    result
+    PINNED_SEARCHES.update(|pinned| {
+        let found = pinned.set_color(id, color);
+        (found, found)
+    })
 }
 
 /// Toggle the disabled state of a pinned search and broadcast the change.
 pub fn toggle_pinned_search_disabled(id: &PinnedSearchId) -> bool {
-    let result = {
-        let mut pinned = PINNED_SEARCHES.write();
-        let result = pinned.toggle_disabled(id);
-        if result {
-            pinned.save();
-        }
-        result
-    };
-    if result {
-        PINNED_SEARCHES_CHANGED.send(()).ok();
-    }
-    result
+    PINNED_SEARCHES.update(|pinned| {
+        let found = pinned.toggle_disabled(id);
+        (found, found)
+    })
 }
 
 #[cfg(test)]

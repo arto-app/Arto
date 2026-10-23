@@ -7,7 +7,7 @@ use crate::components::pinned_marks::PinnedMarks;
 use crate::components::user_highlights::UserHighlights;
 use crate::document_link::scroll_to_heading_js;
 use crate::markdown::HeadingInfo;
-use crate::pinned_search::{PinnedSearch, PINNED_SEARCHES, PINNED_SEARCHES_CHANGED};
+use crate::pinned_search::{PinnedSearch, PINNED_SEARCHES};
 use crate::state::AppState;
 
 /// The contents, as a column of ticks beside the document — and the names
@@ -58,7 +58,7 @@ pub fn ContentsGutter(
     let mut pinned = use_signal(|| PINNED_SEARCHES.read().pinned_searches.clone());
 
     use_future(move || async move {
-        let mut rx = PINNED_SEARCHES_CHANGED.subscribe();
+        let mut rx = PINNED_SEARCHES.subscribe();
         while rx.recv().await.is_ok() {
             pinned.set(PINNED_SEARCHES.read().pinned_searches.clone());
         }

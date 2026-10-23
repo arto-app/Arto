@@ -311,7 +311,7 @@ impl Visits {
     }
 
     fn path() -> PathBuf {
-        crate::bookmarks::data_file("visits.json")
+        crate::utils::data_store::app_data_file("visits.json")
     }
 
     /// Load the list, or start an empty one.
