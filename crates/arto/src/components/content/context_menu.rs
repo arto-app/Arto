@@ -120,7 +120,6 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
             contain_clicks: true,
             on_close,
 
-            // === Section 1: Smart default copy operations ===
             if has_selection {
                 ContextMenuItem {
                     label: t!("context_menu.copy").to_string(),
@@ -201,7 +200,6 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
                 }
             }
 
-            // === Section 2: Selection and search ===
             ContextMenuSeparator {}
 
             ContextMenuItem {
@@ -223,7 +221,6 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
                 on_close,
             }
 
-            // === The reader's highlights ===
             if has_selection || !highlight_ids.is_empty() || highlight_under_pointer.is_some() {
                 ContextMenuSeparator {}
                 HighlightItems {
@@ -234,8 +231,6 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
                 }
             }
 
-            // === The document itself ===
-            //
             // A right-click that lands in the margin, or on the band above the
             // page, is about the document rather than about anything in it —
             // and so is one that lands on a paragraph, once the paragraph's own
@@ -266,7 +261,6 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
                 }
             }
 
-            // === Section 3: Copy As... submenus ===
             if has_any_submenu {
                 ContextMenuSeparator {}
             }
@@ -333,7 +327,6 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
                 }
             }
 
-            // === Section 4: Context-specific items (link, image) ===
             if has_context_specific {
                 ContextMenuSeparator {}
             }
@@ -358,7 +351,6 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
                 _ => rsx! {},
             }
 
-            // === Section 5: Lenses ===
             if has_lenses {
                 ContextMenuSeparator {}
                 LensItems { on_close: on_close }

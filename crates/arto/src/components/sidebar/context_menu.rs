@@ -189,8 +189,6 @@ pub fn SidebarContextMenu(
             contain_clicks: true,
             on_close,
 
-            // === Section 1: Open operations ===
-
             // A root is already open — it is the thing being looked at — so
             // what it is missing is the way out of the top of it. The folder
             // above a root is the only one the tree does not already draw.
@@ -236,7 +234,6 @@ pub fn SidebarContextMenu(
                 on_click: move |_| on_open_in_new_window.call(()),
             }
 
-            // === Section 2: Starred ===
             ContextMenuSeparator {}
 
             // A folder that is kept is one of the places; a document that is
@@ -268,9 +265,7 @@ pub fn SidebarContextMenu(
                 on_click: move |_| on_reveal_in_finder.call(()),
             }
 
-            // === Section 4: Reload ===
             ContextMenuSeparator {}
-
 
             ContextMenuItem {
                 label: t!("sidebar.context_menu.reload").to_string(),
@@ -348,7 +343,6 @@ pub fn SidebarContextMenuHost() -> Element {
         crate::window::create_main_window_sync(&dioxus::desktop::window(), document, params);
     });
 
-    // Handler for "Copy File Path" / "Copy Directory Path"
     let handle_copy_path = {
         let path = path.clone();
         move |_| {
@@ -361,13 +355,11 @@ pub fn SidebarContextMenuHost() -> Element {
         file_operations::reveal_in_finder(path)
     });
 
-    // Handler for "Reload"
     let handle_reload = move |_| {
         state.bump_sidebar_refresh();
         state.close_sidebar_context_menu();
     };
 
-    // Handler for "Toggle Bookmark"
     let handle_toggle_bookmark = {
         let path = path.clone();
         move |_| {
