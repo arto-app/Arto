@@ -353,21 +353,22 @@ let root = if path.is_file() {
 
 **Why:** For files, use parent directory as sidebar root.
 
-### Use Thread-Local for File Watcher
+### Watch Through the Shared File Watcher
 
 **✅ Do:**
 ```rust
-thread_local! {
-    pub static FILE_WATCHER: RefCell<Option<FileWatcher>> =
-        RefCell::new(Some(FileWatcher::new()));
+let mut changed = FILE_WATCHER.watch(path.clone()).await?;
+while changed.recv().await.is_some() {
+    // reload
 }
-
-FILE_WATCHER.with(|watcher| {
-    watcher.borrow_mut().as_mut().unwrap().watch(path, tx)
-});
+FILE_WATCHER.unwatch(path).await?;
 ```
 
-**Why:** Avoids Send/Sync issues with Dioxus.
+**Why:** `watcher::FILE_WATCHER` is a `LazyLock` global that owns one
+debouncer on a thread of its own and is driven over a channel, so it is safe
+to reach from any task or thread. A second debouncer for one more path is a
+second thread and a second set of OS watches; register with this one instead
+(`watch_directory_non_recursive_blocking` from a plain thread).
 
 ---
 

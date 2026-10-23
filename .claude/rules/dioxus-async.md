@@ -27,7 +27,8 @@ Files:
 
 - Canonicalize paths before comparing or storing them (macOS symlinks).
 - The directory root of a file is its parent.
-- The file watcher is thread-local; keep it off `Send`/`Sync` paths.
+- Watch files through `watcher::FILE_WATCHER`, a global shared by every
+  window and thread, rather than a debouncer of your own.
 
 Longer discussion and past mistakes: `.claude/TIPS.md` (Dioxus Patterns,
 File Operations).
