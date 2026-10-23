@@ -22,8 +22,7 @@
     "noFallthroughCasesInSwitch": true,
     "types": [
       "node",
-      "vite/client",
-      "vitest/globals"
+      "vite/client"
     ]
   },
   "include": [

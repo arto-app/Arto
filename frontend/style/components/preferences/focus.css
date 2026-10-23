@@ -1,0 +1,12 @@
+/* =================================
+   Where the keyboard is
+   ================================= */
+
+/* The radio behind a card is hidden, so the card wears the ring for it. */
+.preferences-page :focus-visible,
+.option-card:has(input:focus-visible),
+.segment:has(input:focus-visible),
+.theme-card:has(input:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}

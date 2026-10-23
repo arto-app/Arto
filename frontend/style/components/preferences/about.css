@@ -1,0 +1,175 @@
+/* =================================
+   About Arto Section
+   (Styled like Welcome/No-File page)
+   ================================= */
+
+/* About page fills entire settings area without scrolling */
+.preferences-settings:has(.about-page) {
+  overflow: hidden;
+  padding: 0;
+}
+
+.about-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 4rem 2rem;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.about-container {
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  animation: fadeInUp var(--transition-slow) ease-out;
+}
+
+.about-icon {
+  margin-bottom: 0.5rem;
+  user-select: none;
+}
+
+.about-icon img {
+  width: 96px;
+  height: 96px;
+  border-radius: 20px;
+}
+
+.about-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  opacity: 0.9;
+  color: var(--text-color);
+}
+
+.about-version {
+  font-size: 0.9rem;
+  margin: 0;
+  opacity: var(--opacity-muted);
+  color: var(--text-secondary);
+}
+
+.about-tagline {
+  font-size: 1.1rem;
+  font-style: italic;
+  margin: 0;
+  opacity: var(--opacity-hover);
+  color: var(--text-color);
+}
+
+.about-description {
+  font-size: 1rem;
+  margin: 0;
+  opacity: var(--opacity-secondary);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.about-config-dir {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.about-config-dir-label {
+  margin: 0 0 0.5rem;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.about-config-dir-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.about-config-dir-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+}
+
+.about-config-dir-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-color);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast) ease;
+}
+
+.about-config-dir-button:hover {
+  background: var(--hover-bg);
+  border-color: var(--hover-border);
+  color: var(--text-color);
+}
+
+.about-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 1rem;
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color);
+}
+
+.about-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  text-align: left;
+  text-decoration: none;
+  opacity: 0.7;
+  color: var(--text-secondary);
+  transition: opacity var(--transition-fast) ease;
+}
+
+.about-link:hover {
+  opacity: 1;
+}
+
+.about-link-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.about-link-text {
+  flex: 1;
+}
+
+.about-footer {
+  margin-top: 1.5rem;
+  opacity: 0.4;
+}
+
+.about-footer p {
+  margin: 0.25rem 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}

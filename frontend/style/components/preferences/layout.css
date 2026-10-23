@@ -1,0 +1,144 @@
+/* =================================
+   Full-Page Preferences Layout
+   ================================= */
+
+/* Preferences is its own window: the page owns the whole viewport, the way
+   the other standalone windows do. */
+.preferences-window-body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100vh;
+}
+
+.preferences-window {
+  height: 100vh;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
+.preferences-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 600px;
+  background: var(--bg-color);
+  overflow-x: auto;
+
+  /* How wide the settings column is allowed to get. A description is prose,
+     and prose set the full width of a wide window is not read, so the column
+     stops here and centres in what is left rather than leaving all of the
+     slack on one side. One number for every pane, including the binding
+     tables: a column that changed width when you switched sections would
+     move the whole page for no reason. */
+  --preferences-measure: 760px;
+}
+
+.preferences-page-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Navigation sidebar for full-page layout */
+.preferences-nav {
+  width: 180px;
+  flex-shrink: 0;
+  padding: 24px 12px;
+  border-right: 1px solid var(--border-color);
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Its own scroll: eight sections outgrow a short window, and the pane
+     beside it must not be dragged along by the navigation. */
+  overflow-y: auto;
+}
+
+.nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  font-weight: 400;
+  font-family: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast) ease;
+  text-align: left;
+  width: 100%;
+}
+
+.nav-tab:hover {
+  color: var(--text-color);
+  background: var(--hover-bg);
+}
+
+/* The selected section is the one thing on this page that has to be legible
+   from across the window, so it is the one place the navigation takes a
+   surface rather than a shade of grey. */
+.nav-tab.active {
+  color: var(--accent-fg);
+  background: var(--accent-bg);
+  font-weight: 500;
+}
+
+.nav-tab.active:hover {
+  background: var(--accent-bg);
+}
+
+.nav-tab .icon {
+  flex-shrink: 0;
+  opacity: var(--opacity-muted);
+}
+
+.nav-tab:hover .icon {
+  opacity: var(--opacity-hover);
+}
+
+.nav-tab.active .icon {
+  opacity: 1;
+}
+
+.nav-spacer {
+  flex: 1;
+}
+
+/* Settings content area for full-page layout */
+.preferences-settings {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 48px 32px;
+  min-height: 0;
+}
+
+/* The pane's own name, which is all the header carries: an edit is applied as
+   it is made, so there is no button and no status to hold here. It stays put
+   while the pane scrolls under it, so a long pane never leaves the reader
+   without a heading. */
+.preferences-settings-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  padding: 20px 0 12px;
+  margin: 0 auto 4px;
+  background: var(--bg-color);
+  /* Centred on the same measure as the pane below it, or the title would
+     hang off the left of the settings it names. */
+  width: 100%;
+  max-width: var(--preferences-measure);
+}
+
+.preferences-pane-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
