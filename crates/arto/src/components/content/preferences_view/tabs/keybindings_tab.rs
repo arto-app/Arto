@@ -36,41 +36,7 @@ pub fn KeybindingsTab(config: Signal<Config>) -> Element {
 
             // Preset cards
             h3 { class: "preference-section-title", {t!("preferences.keybindings.presets.title").to_string()} }
-            div {
-                class: "preset-cards",
-                button {
-                    class: "preset-card",
-                    onclick: move |_| {
-                        config.write().keybindings = presets::default::bindings();
-                    },
-                    span { class: "preset-card-name", {t!("preferences.keybindings.presets.default.name").to_string()} }
-                    span { class: "preset-card-desc", {t!("preferences.keybindings.presets.default.description").to_string()} }
-                }
-                button {
-                    class: "preset-card",
-                    onclick: move |_| {
-                        config.write().keybindings = presets::vim::bindings();
-                    },
-                    span { class: "preset-card-name", "Vim" }
-                    span { class: "preset-card-desc", {t!("preferences.keybindings.presets.vim.description").to_string()} }
-                }
-                button {
-                    class: "preset-card",
-                    onclick: move |_| {
-                        config.write().keybindings = presets::emacs::bindings();
-                    },
-                    span { class: "preset-card-name", "Emacs" }
-                    span { class: "preset-card-desc", {t!("preferences.keybindings.presets.emacs.description").to_string()} }
-                }
-                button {
-                    class: "preset-card",
-                    onclick: move |_| {
-                        config.write().keybindings = BindingSet::default();
-                    },
-                    span { class: "preset-card-name", {t!("preferences.keybindings.presets.clear.name").to_string()} }
-                    span { class: "preset-card-desc", {t!("preferences.keybindings.presets.clear.description").to_string()} }
-                }
-            }
+            PresetCards { on_choose: move |bindings| config.write().keybindings = bindings }
 
             // Binding sections grouped by context
             h3 { class: "preference-section-title", {t!("preferences.keybindings.bindings.title").to_string()} }
@@ -111,6 +77,53 @@ pub fn KeybindingsTab(config: Signal<Config>) -> Element {
                     bindings: keybindings.of(context).clone(),
                     filter_query: filter_text(),
                     config,
+                }
+            }
+        }
+    }
+}
+
+/// A set of bindings the reader can start from, replacing every binding.
+struct Preset {
+    name: fn() -> String,
+    description: fn() -> String,
+    bindings: fn() -> BindingSet,
+}
+
+const PRESETS: &[Preset] = &[
+    Preset {
+        name: || t!("preferences.keybindings.presets.default.name").into_owned(),
+        description: || t!("preferences.keybindings.presets.default.description").into_owned(),
+        bindings: presets::default::bindings,
+    },
+    Preset {
+        name: || "Vim".to_string(),
+        description: || t!("preferences.keybindings.presets.vim.description").into_owned(),
+        bindings: presets::vim::bindings,
+    },
+    Preset {
+        name: || "Emacs".to_string(),
+        description: || t!("preferences.keybindings.presets.emacs.description").into_owned(),
+        bindings: presets::emacs::bindings,
+    },
+    Preset {
+        name: || t!("preferences.keybindings.presets.clear.name").into_owned(),
+        description: || t!("preferences.keybindings.presets.clear.description").into_owned(),
+        bindings: BindingSet::default,
+    },
+];
+
+#[component]
+fn PresetCards(on_choose: EventHandler<BindingSet>) -> Element {
+    rsx! {
+        div {
+            class: "preset-cards",
+            for preset in PRESETS.iter() {
+                button {
+                    class: "preset-card",
+                    onclick: move |_| on_choose.call((preset.bindings)()),
+                    span { class: "preset-card-name", {(preset.name)()} }
+                    span { class: "preset-card-desc", {(preset.description)()} }
                 }
             }
         }
@@ -1143,6 +1156,51 @@ mod tests {
         }];
         // Editing the same entry (orig_key = "Cmd+o") should not self-conflict.
         assert!(check_menu_conflict(&existing, "Cmd+o", true, "Cmd+o").is_none());
+    }
+
+    #[test]
+    fn the_preset_cards_are_drawn_in_order_with_their_descriptions() {
+        let mut dom = VirtualDom::new(|| rsx! { PresetCards { on_choose: |_| {} } });
+        dom.rebuild_in_place();
+        let html = dioxus_ssr::render(&dom);
+
+        assert_eq!(
+            html,
+            concat!(
+                r#"<div class="preset-cards">"#,
+                r#"<button class="preset-card">"#,
+                r#"<span class="preset-card-name">Default</span>"#,
+                r#"<span class="preset-card-desc">Arrow keys, Cmd+Key, Ctrl+Tab</span>"#,
+                r#"</button>"#,
+                r#"<button class="preset-card">"#,
+                r#"<span class="preset-card-name">Vim</span>"#,
+                r#"<span class="preset-card-desc">j/k scroll, g g, chord sequences</span>"#,
+                r#"</button>"#,
+                r#"<button class="preset-card">"#,
+                r#"<span class="preset-card-name">Emacs</span>"#,
+                r#"<span class="preset-card-desc">Ctrl+n/p, Ctrl+x combos</span>"#,
+                r#"</button>"#,
+                r#"<button class="preset-card">"#,
+                r#"<span class="preset-card-name">Clear</span>"#,
+                r#"<span class="preset-card-desc">Remove all keybindings</span>"#,
+                r#"</button>"#,
+                r#"</div>"#,
+            )
+        );
+    }
+
+    #[test]
+    fn each_preset_applies_its_own_bindings() {
+        let applied: Vec<BindingSet> = PRESETS.iter().map(|preset| (preset.bindings)()).collect();
+        assert_eq!(
+            applied,
+            vec![
+                presets::default::bindings(),
+                presets::vim::bindings(),
+                presets::emacs::bindings(),
+                BindingSet::default(),
+            ]
+        );
     }
 
     fn binding(key: &str, action: &str) -> KeyAction {
