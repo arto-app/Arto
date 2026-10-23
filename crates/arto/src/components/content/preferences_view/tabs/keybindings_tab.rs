@@ -474,48 +474,18 @@ fn BindingForm(
         resolve_bindings(&keybindings)
     });
 
-    // Conflict / overwrite detection
     let notice = {
-        let key_str = key_input.read().clone();
-        if key_str.is_empty() {
-            None
-        } else {
-            match scope {
-                BindingScope::Engine(context) => {
-                    let same_scope = {
-                        let resolved = resolved.read();
-                        if is_edit {
-                            check_conflict_excluding(
-                                &resolved,
-                                &key_str,
-                                context,
-                                &orig_key,
-                                &orig_action,
-                            )
-                        } else {
-                            check_conflict(&resolved, &key_str, context)
-                        }
-                    };
-                    // A chord owned by a native menu accelerator is consumed
-                    // before the engine, so also warn on menu-scope overlap.
-                    same_scope.or_else(|| {
-                        let menu_shortcuts = config.read().keybindings.menu_shortcuts.clone();
-                        cross_scope_conflict(&menu_shortcuts, &key_str, &menu_shortcuts_title())
-                    })
-                }
-                BindingScope::Menu => {
-                    let keybindings = config.read().keybindings.clone();
-                    check_menu_conflict(&keybindings.menu_shortcuts, &key_str, is_edit, &orig_key)
-                        .or_else(|| {
-                            cross_scope_conflict(
-                                &keybindings.global,
-                                &key_str,
-                                &context_label(None),
-                            )
-                        })
-                }
-            }
-        }
+        let original = is_edit.then(|| KeyAction {
+            key: orig_key.clone(),
+            action: orig_action.clone(),
+        });
+        binding_notice(
+            scope,
+            &key_input.read(),
+            original.as_ref(),
+            &config.read().keybindings,
+            &resolved.read(),
+        )
     };
 
     // Menu shortcuts must be a single chord representable as a native accelerator;
@@ -753,6 +723,49 @@ fn bindings_mut(set: &mut crate::config::BindingSet, scope: BindingScope) -> &mu
         BindingScope::Menu => &mut set.menu_shortcuts,
         BindingScope::Engine(None) => &mut set.global,
         BindingScope::Engine(Some(context)) => set.of_mut(context),
+    }
+}
+
+/// What the form says about `key` before it is saved into `scope`.
+///
+/// `original` is the binding being edited, which `key` may keep without
+/// conflicting with itself. A clash inside the scope is reported before an
+/// overlap with the other scope.
+fn binding_notice(
+    scope: BindingScope,
+    key: &str,
+    original: Option<&KeyAction>,
+    bindings: &BindingSet,
+    resolved: &[ResolvedBinding],
+) -> Option<BindingNotice> {
+    if key.is_empty() {
+        return None;
+    }
+    match scope {
+        BindingScope::Engine(context) => {
+            let same_scope = match original {
+                Some(original) => check_conflict_excluding(
+                    resolved,
+                    key,
+                    context,
+                    &original.key,
+                    &original.action,
+                ),
+                None => check_conflict(resolved, key, context),
+            };
+            // A chord owned by a native menu accelerator is consumed before
+            // the engine, so an engine binding can collide with the menu too.
+            same_scope.or_else(|| {
+                cross_scope_conflict(&bindings.menu_shortcuts, key, &menu_shortcuts_title())
+            })
+        }
+        BindingScope::Menu => check_menu_conflict(
+            &bindings.menu_shortcuts,
+            key,
+            original.is_some(),
+            original.map_or("", |original| &original.key),
+        )
+        .or_else(|| cross_scope_conflict(&bindings.global, key, &context_label(None))),
     }
 }
 
@@ -1130,6 +1143,105 @@ mod tests {
         }];
         // Editing the same entry (orig_key = "Cmd+o") should not self-conflict.
         assert!(check_menu_conflict(&existing, "Cmd+o", true, "Cmd+o").is_none());
+    }
+
+    fn binding(key: &str, action: &str) -> KeyAction {
+        KeyAction {
+            key: key.to_string(),
+            action: action.to_string(),
+        }
+    }
+
+    fn notice_for(
+        scope: BindingScope,
+        key: &str,
+        original: Option<&KeyAction>,
+        bindings: &BindingSet,
+    ) -> Option<BindingNotice> {
+        binding_notice(scope, key, original, bindings, &resolve_bindings(bindings))
+    }
+
+    #[test]
+    fn an_empty_key_has_no_notice() {
+        let bindings = BindingSet {
+            global: vec![binding("j", "scroll.down")],
+            ..BindingSet::default()
+        };
+        assert!(notice_for(BindingScope::Engine(None), "", None, &bindings).is_none());
+        assert!(notice_for(BindingScope::Menu, "", None, &bindings).is_none());
+    }
+
+    #[test]
+    fn an_engine_binding_being_edited_does_not_conflict_with_itself() {
+        let bindings = BindingSet {
+            global: vec![binding("j", "scroll.down")],
+            ..BindingSet::default()
+        };
+        let original = binding("j", "scroll.down");
+        assert!(matches!(
+            notice_for(BindingScope::Engine(None), "j", None, &bindings),
+            Some(BindingNotice::Conflict(_))
+        ));
+        assert!(notice_for(BindingScope::Engine(None), "j", Some(&original), &bindings).is_none());
+    }
+
+    #[test]
+    fn an_engine_binding_on_a_menu_chord_conflicts() {
+        let bindings = BindingSet {
+            menu_shortcuts: vec![binding("Cmd+o", "file.open")],
+            ..BindingSet::default()
+        };
+        let notice = notice_for(
+            BindingScope::Engine(Some(KeyContext::Content)),
+            "Cmd+o",
+            None,
+            &bindings,
+        );
+        match notice {
+            Some(BindingNotice::Conflict(msg)) => {
+                assert!(msg.contains("Menu Shortcuts"), "names the menu: {msg}")
+            }
+            other => panic!("Expected Conflict, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_same_scope_conflict_wins_over_a_menu_overlap() {
+        let bindings = BindingSet {
+            menu_shortcuts: vec![binding("Cmd+o", "file.open")],
+            global: vec![binding("Cmd+o", "scroll.down")],
+            ..BindingSet::default()
+        };
+        match notice_for(BindingScope::Engine(None), "Cmd+o", None, &bindings) {
+            Some(BindingNotice::Conflict(msg)) => {
+                assert!(msg.contains("Global"), "names the global binding: {msg}")
+            }
+            other => panic!("Expected Conflict, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_menu_shortcut_on_a_global_chord_conflicts() {
+        let bindings = BindingSet {
+            global: vec![binding("Cmd+r", "window.reload")],
+            ..BindingSet::default()
+        };
+        match notice_for(BindingScope::Menu, "Cmd+r", None, &bindings) {
+            Some(BindingNotice::Conflict(msg)) => {
+                assert!(msg.contains("Global"), "names the global binding: {msg}")
+            }
+            other => panic!("Expected Conflict, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_menu_shortcut_being_edited_does_not_conflict_with_itself() {
+        let bindings = BindingSet {
+            menu_shortcuts: vec![binding("Cmd+o", "file.open")],
+            ..BindingSet::default()
+        };
+        let original = binding("Cmd+o", "file.open");
+        assert!(notice_for(BindingScope::Menu, "Cmd+o", Some(&original), &bindings).is_none());
     }
 
     #[test]
