@@ -104,8 +104,9 @@ evaluation, documentation checks, workflow lint, and one bundle per OS —
 macOS, Linux and Windows. Only the `ci` job needs to be a required status
 check; it fails if anything it depends on failed.
 
-Each bundle leg uploads its installers (and, off macOS, the standalone
-executable) as a run artifact named `arto-<leg>`, downloadable from the run
+Each bundle leg uploads its installers (and, off macOS and outside pull
+requests, the standalone executable) as a run artifact named `arto-<leg>`,
+downloadable from the run
 summary page for three days — long enough to try a pull request on the
 machine it matters on. Release bundles are kept for ninety days instead.
 

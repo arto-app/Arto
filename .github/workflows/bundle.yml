@@ -48,6 +48,9 @@ jobs:
       - id: plan
         env:
           TARGETS: ${{ inputs.targets }}
+          # The caller's event: a reusable workflow sees the github context of
+          # the run that called it.
+          EVENT: ${{ github.event_name }}
         run: |
           # macOS produces a .dmg, Linux a .deb plus an .AppImage (the .deb
           # installs only on Debian/Ubuntu, so the AppImage is what every
@@ -58,14 +61,27 @@ jobs:
           # is empty where none is. macOS has none deliberately: what makes
           # Arto worth installing there — the Finder associations and the
           # Quick Look extension — lives in the bundle, not in the binary.
+          #
+          # A pull request builds no standalone binary. Its bundle exists for a
+          # reviewer to install and try, which the installer already serves,
+          # while the standalone costs a second release build of the app
+          # (minutes on every leg, most on Windows). Pushes to main, releases
+          # and manual runs still build it, so a break in it surfaces before a
+          # release depends on it. The upload list is derived from `standalone`
+          # so it always names exactly what the leg built.
           legs='[
-            {"target":"macos","os":"macos-latest","standalone":"","artifacts":"./target/dx/arto/bundle/**/*.dmg"},
-            {"target":"ubuntu","os":"ubuntu-latest","standalone":"arto-linux-x86_64","artifacts":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage\n./dist/arto-linux-x86_64"},
-            {"target":"ubuntu-arm64","os":"ubuntu-24.04-arm","standalone":"arto-linux-aarch64","artifacts":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage\n./dist/arto-linux-aarch64"},
-            {"target":"windows","os":"windows-latest","standalone":"arto-windows-x86_64.exe","triple":"x86_64-pc-windows-msvc","artifacts":"./target/dx/arto/bundle/**/*-setup.exe\n./dist/arto-windows-x86_64.exe"},
-            {"target":"windows-arm64","os":"windows-11-arm","standalone":"arto-windows-aarch64.exe","triple":"aarch64-pc-windows-msvc","artifacts":"./target/dx/arto/bundle/**/*-setup.exe\n./dist/arto-windows-aarch64.exe"}
+            {"target":"macos","os":"macos-latest","standalone":"","bundles":"./target/dx/arto/bundle/**/*.dmg"},
+            {"target":"ubuntu","os":"ubuntu-latest","standalone":"arto-linux-x86_64","bundles":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage"},
+            {"target":"ubuntu-arm64","os":"ubuntu-24.04-arm","standalone":"arto-linux-aarch64","bundles":"./target/dx/arto/bundle/**/*.deb\n./target/dx/arto/bundle/**/*.AppImage"},
+            {"target":"windows","os":"windows-latest","standalone":"arto-windows-x86_64.exe","triple":"x86_64-pc-windows-msvc","bundles":"./target/dx/arto/bundle/**/*-setup.exe"},
+            {"target":"windows-arm64","os":"windows-11-arm","standalone":"arto-windows-aarch64.exe","triple":"aarch64-pc-windows-msvc","bundles":"./target/dx/arto/bundle/**/*-setup.exe"}
           ]'
-          matrix="$(jq -c --argjson want "$TARGETS" '[.[] | select(.target as $t | $want | index($t))]' <<<"$legs")"
+          matrix="$(jq -c --argjson want "$TARGETS" --arg event "$EVENT" '
+            [.[] | select(.target as $t | $want | index($t))
+              | if $event == "pull_request" then .standalone = "" else . end
+              | .artifacts = .bundles + (if .standalone == "" then "" else "\n./dist/" + .standalone end)
+              | del(.bundles)]
+          ' <<<"$legs")"
           if [ "$(jq length <<<"$matrix")" = "0" ]; then
             echo "no known legs in $TARGETS" >&2
             exit 1
