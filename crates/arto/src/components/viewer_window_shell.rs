@@ -4,8 +4,8 @@ use dioxus::prelude::*;
 /// and the controls, the canvas the content is panned and zoomed on, and a
 /// status line under it.
 ///
-/// `kind` prefixes every class and the canvas's id, which the frontend's
-/// controller looks the canvas up by.
+/// `kind` names the canvas, which the frontend's controller looks up by
+/// its id.
 #[component]
 pub fn ViewerWindowShell(
     kind: &'static str,
@@ -16,18 +16,18 @@ pub fn ViewerWindowShell(
 ) -> Element {
     rsx! {
         div {
-            class: "{kind}-window-container",
+            class: "viewer-window-container",
             div {
-                class: "{kind}-window-header",
-                div { class: "{kind}-window-title", "{title}" }
-                div { class: "{kind}-window-controls", {controls} }
+                class: "viewer-window-header",
+                div { class: "viewer-window-title", "{title}" }
+                div { class: "viewer-window-controls", {controls} }
             }
             div {
                 id: "{kind}-window-canvas",
-                class: "{kind}-window-canvas",
+                class: "viewer-window-canvas",
                 {children}
             }
-            div { class: "{kind}-window-status", "{status}" }
+            div { class: "viewer-window-status", "{status}" }
         }
     }
 }
@@ -59,15 +59,15 @@ mod tests {
         assert_eq!(
             html,
             concat!(
-                r#"<div class="math-window-container">"#,
-                r#"<div class="math-window-header">"#,
-                r#"<div class="math-window-title">E = mc^2</div>"#,
-                r#"<div class="math-window-controls"><button>copy</button></div>"#,
+                r#"<div class="viewer-window-container">"#,
+                r#"<div class="viewer-window-header">"#,
+                r#"<div class="viewer-window-title">E = mc^2</div>"#,
+                r#"<div class="viewer-window-controls"><button>copy</button></div>"#,
                 r#"</div>"#,
-                r#"<div id="math-window-canvas" class="math-window-canvas">"#,
+                r#"<div id="math-window-canvas" class="viewer-window-canvas">"#,
                 r#"<div class="math-wrapper"></div>"#,
                 r#"</div>"#,
-                r#"<div class="math-window-status">100%</div>"#,
+                r#"<div class="viewer-window-status">100%</div>"#,
                 r#"</div>"#,
             )
         );

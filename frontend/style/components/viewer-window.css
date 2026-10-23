@@ -1,0 +1,102 @@
+/* The frame every viewer window (Mermaid, math, image) draws its content in */
+
+.viewer-window-body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100vh;
+}
+
+.viewer-window-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
+.viewer-window-header {
+  flex-shrink: 0;
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 20px;
+}
+
+.viewer-window-title {
+  color: var(--text-color);
+  flex: 1;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+}
+
+.viewer-window-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* The canvas the content is panned and zoomed on */
+.viewer-window-canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  background: var(--bg-color);
+  user-select: none;
+}
+
+.viewer-window-canvas:active {
+  cursor: grabbing;
+}
+
+.viewer-window-status {
+  padding: 4px 20px;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  text-align: center;
+  flex-shrink: 0;
+  user-select: none;
+  opacity: var(--opacity-muted);
+}
+
+/* A control in the header, matching the main window's header buttons */
+.viewer-control-btn {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  transition: all var(--transition-normal);
+  width: 28px;
+  height: 28px;
+}
+
+.viewer-control-btn:hover {
+  border-color: var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.viewer-control-btn .icon {
+  color: var(--text-color);
+  opacity: var(--opacity-muted);
+}
+
+.viewer-control-btn:hover .icon {
+  opacity: 1;
+}
+
+.viewer-control-btn.copied .icon {
+  color: var(--success-color);
+  opacity: 1;
+}
+
+.viewer-control-btn.error .icon {
+  color: var(--error-color);
+  opacity: 1;
+}
