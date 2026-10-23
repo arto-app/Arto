@@ -203,6 +203,7 @@ jobs:
       - name: Unused dependencies
         if: matrix.target == 'ubuntu'
         run: just arto::machete
+      - uses: ./.github/actions/age-proof-cargo-cache
 
   # Evaluate every flake output without building. Catches a source fileset
   # that names a moved file, a missing attribute, or a broken devShell in a

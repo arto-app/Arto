@@ -17,7 +17,6 @@ fmt-check:
   cargo fmt --all --check
 
 check:
-  cargo check --workspace --all-targets --all-features
   cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 test:
@@ -225,8 +224,15 @@ build:
     "{{target}}/dx/arto/bundle/linux/appimage/arto_${version}_${arch}.AppImage"
 
 # Not `dx build`: there is nothing left for it to collect. The frontend is
-# compiled into the binary, so a plain cargo build is the whole story, and it
-# is the same compilation the bundle recipes above already drive.
+# compiled into the binary, so a plain cargo build is the whole story.
+#
+# It is not the compilation the bundle recipes above drive, though, and reuses
+# none of it: `dx` names the host triple (so it builds under
+# `target/<triple>/`), overrides `profile.release.strip`, and wraps rustc for
+# the workspace crates, each of which gives its units hashes of their own.
+# Nor is dx's binary copied instead: dx bakes the product name and app title
+# into its build for the bundle's runtime to find, so it is the bundle's
+# binary rather than this one.
 [unix]
 standalone:
   cargo build --release --package arto
