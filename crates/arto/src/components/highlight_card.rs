@@ -13,8 +13,8 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::components::icon::{Icon, IconName};
+use crate::components::swatch_row::SwatchRow;
 use crate::highlights::card::{place, OpenCard, Placement};
-use crate::highlights::HighlightColor;
 use crate::state::AppState;
 
 /// The card of the highlight [`AppState::highlight_card`] names, if any.
@@ -158,20 +158,13 @@ fn HighlightCard(card: OpenCard) -> Element {
 
             div {
                 class: "highlight-card-bar",
-                for choice in HighlightColor::ALL {
-                    button {
-                        key: "{choice.to_js_name()}",
-                        class: if Some(choice) == color {
-                            format!("color-palette-swatch selected {}", choice.css_class())
-                        } else {
-                            format!("color-palette-swatch {}", choice.css_class())
-                        },
-                        onclick: {
-                            let document = document.clone();
-                            let id = id.clone();
-                            move |_| crate::highlights::recolor(&document, &id, choice)
-                        },
-                    }
+                SwatchRow {
+                    selected: color,
+                    on_pick: {
+                        let document = document.clone();
+                        let id = id.clone();
+                        move |choice| crate::highlights::recolor(&document, &id, choice)
+                    },
                 }
 
                 div { class: "highlight-card-spacer" }

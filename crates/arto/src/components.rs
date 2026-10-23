@@ -20,5 +20,6 @@ pub mod preferences_window;
 pub mod reading_time;
 pub mod reorder;
 pub mod sidebar;
+pub mod swatch_row;
 pub mod theme_selector;
 pub mod user_highlights;

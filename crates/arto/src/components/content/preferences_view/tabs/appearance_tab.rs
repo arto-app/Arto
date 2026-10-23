@@ -1,5 +1,5 @@
 use super::super::form_controls::{
-    OptionCardItem, OptionCards, PreferenceItem, ResetLine, ThemePicker,
+    ChoiceItem, OptionCardItem, OptionCards, PreferenceItem, SelectRow, ThemePicker,
 };
 use crate::components::icon::IconName;
 use crate::config::{Config, Language};
@@ -113,38 +113,23 @@ fn LanguageRow(selected: Language, on_change: EventHandler<Language>) -> Element
         Some(name) => name.to_string(),
         None => t!("preferences.appearance.language.auto").to_string(),
     };
-    let shipped = Config::default().language;
+    let options = crate::i18n::CHOICES
+        .iter()
+        .map(|&language| ChoiceItem {
+            value: language,
+            label: label(language),
+        })
+        .collect::<Vec<_>>();
     let needs_restart = crate::i18n::locale_at_launch(selected) != crate::i18n::locale();
 
     rsx! {
-        div {
-            class: "preference-item",
-            div {
-                class: "preference-row",
-                div {
-                    class: "preference-row-text",
-                    span { class: "preference-row-label", {t!("preferences.appearance.language.label").to_string()} }
-                    span { class: "preference-description", {t!("preferences.appearance.language.description").to_string()} }
-                }
-                select {
-                    class: "preference-select",
-                    aria_label: t!("preferences.appearance.language.label").to_string(),
-                    onchange: move |evt: FormEvent| {
-                        let chosen = evt.value().parse::<usize>().ok();
-                        if let Some(&language) = chosen.and_then(|index| crate::i18n::CHOICES.get(index)) {
-                            on_change.call(language);
-                        }
-                    },
-                    for (index, &language) in crate::i18n::CHOICES.iter().enumerate() {
-                        option {
-                            key: "{index}",
-                            value: "{index}",
-                            selected: language == selected,
-                            {label(language)}
-                        }
-                    }
-                }
-            }
+        SelectRow {
+            label: t!("preferences.appearance.language.label").to_string(),
+            description: t!("preferences.appearance.language.description").to_string(),
+            options,
+            selected,
+            on_change,
+            shipped: Config::default().language,
             if needs_restart {
                 div {
                     class: "preference-restart",
@@ -155,10 +140,6 @@ fn LanguageRow(selected: Language, on_change: EventHandler<Language>) -> Element
                         {t!("preferences.appearance.language.restart").to_string()}
                     }
                 }
-            }
-            ResetLine {
-                shipped: (selected != shipped).then(|| label(shipped)),
-                on_reset: move |_| on_change.call(shipped),
             }
         }
     }
