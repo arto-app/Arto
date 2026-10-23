@@ -6,6 +6,7 @@ use crate::components::context_menu::ContextMenuItem;
 use crate::components::icon::IconName;
 use crate::keybindings::dispatcher::dispatch_action;
 use crate::keybindings::{shortcut_hint_for_context_action, Action, KeyContext};
+use crate::utils::source_lines::format_location;
 
 /// Build a "path:start-end" or "path:line" string from file path and line range.
 /// Returns `None` if file or either line number is unavailable.
@@ -14,16 +15,8 @@ pub(super) fn build_path_with_range(
     start: Option<u32>,
     end: Option<u32>,
 ) -> Option<(String, u32, u32)> {
-    let f = file?;
-    let start = start?;
-    let end = end?;
-    let path_str = f.display().to_string();
-    let formatted = if start != end {
-        format!("{path_str}:{start}-{end}")
-    } else {
-        format!("{path_str}:{start}")
-    };
-    Some((formatted, start, end))
+    let (file, start, end) = (file?, start?, end?);
+    Some((format_location(file, start, end), start, end))
 }
 
 #[component]

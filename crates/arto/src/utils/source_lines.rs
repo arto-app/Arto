@@ -2,6 +2,17 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
+/// A place in a source file as editors and terminals write it: `path:line`
+/// for one line, `path:start-end` for several.
+pub fn format_location(path: impl AsRef<Path>, start: u32, end: u32) -> String {
+    let path = path.as_ref().display();
+    if start == end {
+        format!("{path}:{start}")
+    } else {
+        format!("{path}:{start}-{end}")
+    }
+}
+
 /// Read a source file and extract lines in the range `start..=end` (1-based, inclusive).
 ///
 /// The rendered HTML carries `data-source-range` attributes (see arto-markdown); this is
@@ -43,6 +54,16 @@ mod tests {
     use indoc::indoc;
     use std::fs;
     use tempfile::TempDir;
+
+    #[test]
+    fn a_single_line_is_written_after_a_colon() {
+        assert_eq!(format_location("/docs/a.md", 7, 7), "/docs/a.md:7");
+    }
+
+    #[test]
+    fn a_range_is_written_as_start_dash_end() {
+        assert_eq!(format_location("/docs/a.md", 3, 9), "/docs/a.md:3-9");
+    }
 
     #[test]
     fn test_extract_single_line() {
