@@ -320,31 +320,21 @@ pub fn SidebarContextMenuHost() -> Element {
     let is_dir = data.kind.is_dir();
     let role = data.role;
 
-    // Handler for "Open File" / "Open Directory"
-    let handle_open = {
-        let path = path.clone();
-        move |_| {
-            // The snapshotted target may have been deleted/renamed while the menu
-            // stayed open; close as a no-op instead of acting on a stale path.
-            if !context_action_should_proceed(&path) {
-                state.close_sidebar_context_menu();
-                return;
-            }
-            if is_dir {
-                state.add_root(&path);
-            } else {
-                state.open_from_panel(&path);
-            }
-            state.close_sidebar_context_menu();
+    // The snapshotted target may have been deleted or renamed while the menu
+    // stayed open; an action that reads the filesystem closes as a no-op
+    // rather than acting on a stale path.
+    let handle_open = guarded(state, path.clone(), move |mut state, path| {
+        if is_dir {
+            state.add_root(path);
+        } else {
+            state.open_from_panel(path);
         }
-    };
+    });
 
-    // Handler for "Go to Parent Directory" / "Move Place Up a Directory"
-    //
-    // Unguarded by existence, unlike every other action here: this one reads
-    // nothing off the filesystem, and a root whose folder was deleted while
-    // the menu was open is exactly the root that has to be got out of. The
-    // same arrow on the row itself has never asked either.
+    // Unguarded by existence, unlike the actions that read the filesystem:
+    // a root whose folder was deleted while the menu was open is exactly the
+    // root that has to be got out of. The same arrow on the row itself has
+    // never asked either.
     let handle_go_to_parent = {
         let path = path.clone();
         move |_| {
@@ -353,44 +343,24 @@ pub fn SidebarContextMenuHost() -> Element {
         }
     };
 
-    // Handler for "Change Root Directory"
-    let handle_change_root_directory = {
-        let path = path.clone();
-        move |_| {
-            if !context_action_should_proceed(&path) {
-                state.close_sidebar_context_menu();
-                return;
-            }
-            state.add_root(&path);
-            state.close_sidebar_context_menu();
-        }
-    };
+    let handle_change_root_directory =
+        guarded(state, path.clone(), |mut state, path| state.add_root(path));
 
-    // Handler for "Open in New Window"
-    let handle_open_in_new_window = {
-        let path = path.clone();
-        move |_| {
-            if !context_action_should_proceed(&path) {
-                state.close_sidebar_context_menu();
-                return;
-            }
-            let path = path.clone();
-            let (document, directory) = if is_dir {
-                (crate::state::Document::default(), Some(path))
-            } else {
-                (
-                    crate::state::Document::new(&path),
-                    path.parent().map(|p| p.to_path_buf()),
-                )
-            };
-            let params = crate::window::main::CreateMainWindowConfigParams {
-                directory,
-                ..Default::default()
-            };
-            crate::window::create_main_window_sync(&dioxus::desktop::window(), document, params);
-            state.close_sidebar_context_menu();
-        }
-    };
+    let handle_open_in_new_window = guarded(state, path.clone(), move |_, path| {
+        let (document, directory) = if is_dir {
+            (crate::state::Document::default(), Some(path.to_path_buf()))
+        } else {
+            (
+                crate::state::Document::new(path),
+                path.parent().map(|p| p.to_path_buf()),
+            )
+        };
+        let params = crate::window::main::CreateMainWindowConfigParams {
+            directory,
+            ..Default::default()
+        };
+        crate::window::create_main_window_sync(&dioxus::desktop::window(), document, params);
+    });
 
     // Handler for "Copy File Path" / "Copy Directory Path"
     let handle_copy_path = {
@@ -401,18 +371,9 @@ pub fn SidebarContextMenuHost() -> Element {
         }
     };
 
-    // Handler for "Reveal in Finder"
-    let handle_reveal_in_finder = {
-        let path = path.clone();
-        move |_| {
-            if !context_action_should_proceed(&path) {
-                state.close_sidebar_context_menu();
-                return;
-            }
-            file_operations::reveal_in_finder(&path);
-            state.close_sidebar_context_menu();
-        }
-    };
+    let handle_reveal_in_finder = guarded(state, path.clone(), |_, path| {
+        file_operations::reveal_in_finder(path)
+    });
 
     // Handler for "Reload"
     let handle_reload = move |_| {
@@ -445,6 +406,21 @@ pub fn SidebarContextMenuHost() -> Element {
             on_reveal_in_finder: handle_reveal_in_finder,
             on_reload: handle_reload,
         }
+    }
+}
+
+/// A menu action on `path` that runs only while `path` still exists, and
+/// closes the menu either way.
+fn guarded(
+    mut state: AppState,
+    path: PathBuf,
+    action: impl Fn(AppState, &Path) + 'static,
+) -> impl FnMut(()) + 'static {
+    move |_| {
+        if context_action_should_proceed(&path) {
+            action(state, &path);
+        }
+        state.close_sidebar_context_menu();
     }
 }
 
