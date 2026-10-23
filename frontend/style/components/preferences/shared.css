@@ -1,0 +1,395 @@
+/* =================================
+   Shared Preferences Components
+   ================================= */
+
+.preferences-pane {
+  width: 100%;
+  max-width: var(--preferences-measure);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* A sentence introducing a section, where the rows below it answer one
+   question between them and the label of each is too short to say so. */
+.preference-lede {
+  margin: 0;
+  padding-top: 12px;
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Section Titles */
+.preference-section-title {
+  margin: 0;
+  padding: 0 0 12px 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.preference-section-title:not(:first-child) {
+  margin-top: 24px;
+}
+
+/* Preference Items */
+.preference-item {
+  padding: 20px 0;
+}
+
+.preference-item + .preference-item {
+  border-top: 1px solid var(--border-color);
+}
+
+.preference-item-header {
+  margin-bottom: 16px;
+}
+
+.preference-item-header label {
+  display: block;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 6px;
+}
+
+.preference-description {
+  display: block;
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* A setting stated on one line: what it is on the left, the control on the
+   right. Used where the options need no explaining of their own — an on/off
+   switch, or a choice of two words. */
+.preference-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  cursor: pointer;
+}
+
+.preference-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.preference-row-label {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+/* The way back to the value Arto ships with, hanging under the control it
+   belongs to. It exists only while the setting is off that value, so it is
+   never a disabled thing taking up a line — and it names the value, which is
+   the only place the reader can find out what it was. */
+.preference-reset-line {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.preference-reset {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--link-color);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.preference-reset:hover {
+  text-decoration: underline;
+}
+
+/* Toggle switch */
+.toggle-switch {
+  flex-shrink: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  box-sizing: border-box;
+  width: 40px;
+  height: 24px;
+  margin: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast) ease,
+    border-color var(--transition-fast) ease;
+}
+
+.toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--text-secondary);
+  transition:
+    transform var(--transition-fast) ease,
+    background var(--transition-fast) ease;
+}
+
+.toggle-switch:checked {
+  background: var(--accent-bg);
+  border-color: var(--accent-bg);
+}
+
+.toggle-switch:checked::after {
+  background: var(--accent-fg);
+  transform: translateX(16px);
+}
+
+/* Segmented choice */
+.segmented {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.segment {
+  padding: 5px 12px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast) ease;
+}
+
+.segment:hover {
+  color: var(--text-color);
+}
+
+.segment input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segment.selected {
+  background: var(--accent-bg);
+  color: var(--accent-fg);
+}
+
+/* Dimension Inputs */
+.dimension-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.dimension-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.dimension-row .dimension-grid {
+  flex: 1;
+}
+
+.spacing-top-sm {
+  margin-top: 12px;
+}
+
+.dimension-field label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dimension-input {
+  display: flex;
+  gap: 8px;
+}
+
+.dimension-input input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-size: var(--font-size-base);
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+
+.dimension-input input::-webkit-outer-spin-button,
+.dimension-input input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.dimension-input input:focus,
+.dimension-input select:focus {
+  outline: none;
+  border-color: var(--accent-bg);
+}
+
+.dimension-input .dimension-select {
+  width: 70px;
+  padding: 10px 26px 10px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-size: var(--font-size-base);
+  font-family: inherit;
+  line-height: 1;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%238c8c8c' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px 6px;
+}
+
+.dimension-unit {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-color);
+  color: var(--text-secondary);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+}
+
+/* Directory picker: a path to type in, a button to browse with, and one to
+   take the folder the window is already in. The field is the dimension
+   field's twin, so the two sit at one height on a pane that shows both. */
+.directory-input {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.directory-input input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-size: var(--font-size-base);
+  font-family: inherit;
+}
+
+.directory-input input::placeholder {
+  color: var(--text-secondary);
+  opacity: var(--opacity-muted);
+}
+
+.directory-input input:focus {
+  outline: none;
+  border-color: var(--accent-bg);
+}
+
+/* Square, so the glyph is centred rather than sitting in a button shaped for
+   words it does not have. */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast) ease;
+}
+
+.icon-button:hover {
+  background: var(--hover-bg);
+  border-color: var(--hover-border);
+  color: var(--text-color);
+}
+
+/* Option Cards (for radio button groups) */
+.option-cards {
+  display: flex;
+  gap: 12px;
+}
+
+.option-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 18px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast) ease;
+  text-align: center;
+}
+
+.option-card:hover {
+  border-color: var(--hover-border);
+  background: var(--hover-bg);
+}
+
+.option-card.selected {
+  border-color: var(--accent-bg);
+  background: color-mix(in srgb, var(--accent-bg) 8%, transparent);
+}
+
+.option-card input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.option-card-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.option-card-desc {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.option-card.selected .option-card-title {
+  color: var(--accent-color);
+}

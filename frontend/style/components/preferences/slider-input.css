@@ -1,0 +1,106 @@
+/* Slider Input */
+.slider-input {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.slider-input input[type="range"] {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-color);
+  appearance: none;
+  cursor: pointer;
+}
+
+.slider-input input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--accent-bg);
+  cursor: pointer;
+  transition:
+    transform var(--transition-fast) ease,
+    box-shadow var(--transition-fast) ease;
+}
+
+.slider-input input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.slider-input input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--accent-bg);
+  cursor: pointer;
+}
+
+.slider-value {
+  min-width: 60px;
+  text-align: right;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--text-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.slider-value-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.slider-value-input input {
+  width: 70px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  -moz-appearance: textfield;
+}
+
+.slider-value-input input::-webkit-outer-spin-button,
+.slider-value-input input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.slider-value-input input:focus {
+  outline: none;
+  border-color: var(--accent-bg);
+}
+
+.slider-value-input span {
+  font-size: var(--font-size-base);
+  color: var(--text-secondary);
+}
+
+.use-current-button {
+  padding: 10px 18px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast) ease;
+}
+
+.use-current-button:hover {
+  background: var(--hover-bg);
+  border-color: var(--hover-border);
+}

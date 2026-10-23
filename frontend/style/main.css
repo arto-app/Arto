@@ -43,7 +43,15 @@
 @import url("./components/content/changes.css");
 
 /* Special windows */
-@import url("./components/preferences.css");
+@import url("./components/preferences/layout.css");
+@import url("./components/preferences/shared.css");
+@import url("./components/preferences/focus.css");
+@import url("./components/preferences/theme-cards.css");
+@import url("./components/preferences/slider-input.css");
+@import url("./components/preferences/about.css");
+@import url("./components/preferences/keybindings.css");
+@import url("./components/preferences/lenses.css");
+@import url("./components/preferences/typography.css");
 @import url("./components/mermaid-window.css");
 @import url("./components/math-window.css");
 @import url("./components/image-window.css");
