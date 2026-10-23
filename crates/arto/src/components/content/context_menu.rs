@@ -13,8 +13,8 @@ pub use data::*;
 use dioxus::document;
 use dioxus::prelude::*;
 use rust_i18n::t;
-use std::path::PathBuf;
 
+use super::context_menu_state::ContentContextMenuState;
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSeparator};
 use crate::components::icon::IconName;
 use crate::keybindings::dispatcher::dispatch_action;
@@ -31,24 +31,28 @@ use lens_ops::LensItems;
 use source_ops::LinkContextItems;
 
 #[component]
-pub fn ContentContextMenu(
-    position: (i32, i32),
-    context: ContentContext,
-    has_selection: bool,
-    selected_text: String,
-    current_file: Option<PathBuf>,
-    base_dir: PathBuf,
-    source_line: Option<u32>,
-    source_line_end: Option<u32>,
-    table_csv: Option<String>,
-    table_tsv: Option<String>,
-    table_markdown: Option<String>,
-    table_source_line: Option<u32>,
-    table_source_line_end: Option<u32>,
-    highlight_ids: Vec<String>,
-    highlight_under_pointer: Option<String>,
-    on_close: EventHandler<()>,
-) -> Element {
+pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<()>) -> Element {
+    let ContentContextMenuState {
+        data:
+            ContextMenuData {
+                context,
+                x,
+                y,
+                has_selection,
+                selected_text,
+                source_line,
+                source_line_end,
+                table_csv,
+                table_tsv,
+                table_markdown,
+                table_source_line,
+                table_source_line_end,
+                highlight_ids,
+                highlight_under_pointer,
+            },
+        current_file,
+        base_dir: _,
+    } = menu;
     let shortcut = |action| shortcut_hint_for_context_action(KeyContext::Content, action);
     let state = use_context::<crate::state::AppState>();
 
@@ -140,7 +144,7 @@ pub fn ContentContextMenu(
         // Context menu
         div {
             class: "context-menu content-context-menu",
-            style: "left: {position.0}px; top: {position.1}px;",
+            style: "left: {x}px; top: {y}px;",
             // Prevent mousedown from clearing text selection
             onmousedown: move |evt| evt.prevent_default(),
             onclick: move |evt| evt.stop_propagation(),

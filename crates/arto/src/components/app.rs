@@ -462,21 +462,7 @@ pub fn App(
             // Content context menu (rendered at App level to prevent FileViewer re-renders)
             if let Some(menu_state) = CONTENT_CONTEXT_MENU.read().as_ref() {
                 ContentContextMenu {
-                    position: (menu_state.data.x, menu_state.data.y),
-                    context: menu_state.data.context.clone(),
-                    has_selection: menu_state.data.has_selection,
-                    selected_text: menu_state.data.selected_text.clone(),
-                    current_file: menu_state.current_file.clone(),
-                    base_dir: menu_state.base_dir.clone(),
-                    source_line: menu_state.data.source_line,
-                    source_line_end: menu_state.data.source_line_end,
-                    table_csv: menu_state.data.table_csv.clone(),
-                    table_tsv: menu_state.data.table_tsv.clone(),
-                    table_markdown: menu_state.data.table_markdown.clone(),
-                    table_source_line: menu_state.data.table_source_line,
-                    table_source_line_end: menu_state.data.table_source_line_end,
-                    highlight_ids: menu_state.data.highlight_ids.clone(),
-                    highlight_under_pointer: menu_state.data.highlight_under_pointer.clone(),
+                    menu: menu_state.clone(),
                     on_close: move |_| {
                         close_context_menu();
                         crate::keybindings::dispatcher::content_cursor_eval("clearCursorDeferred");
