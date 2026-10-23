@@ -25,8 +25,11 @@ const NEVER = "(min-width: 999999px)";
 
 const ORIGINAL_MEDIA = "artoMedia";
 
-export function applyPictureTheme(root: ParentNode = document): void {
-  const dark = isDarkTheme(currentTheme());
+export function applyPictureTheme(
+  root: ParentNode = document,
+  theme: string = currentTheme(),
+): void {
+  const dark = isDarkTheme(theme);
 
   for (const source of root.querySelectorAll("picture source[media]")) {
     if (!(source instanceof HTMLSourceElement)) {

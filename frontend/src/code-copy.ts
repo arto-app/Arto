@@ -226,7 +226,7 @@ async function copyMathAsImage(pre: HTMLPreElement, button: HTMLButtonElement): 
       throw new Error("No rasterizer to draw the formula with");
     }
 
-    const bgColor = getComputedStyle(document.body).getPropertyValue("--bg-color").trim();
+    const bgColor = getComputedStyle(pre).getPropertyValue("--bg-color").trim();
 
     // Ensure fonts are loaded before rasterization so KaTeX renders correctly.
     // This must happen before html2canvas because onclone is not awaited.
@@ -265,7 +265,7 @@ async function copyMermaidAsImage(pre: HTMLPreElement, button: HTMLButtonElement
   try {
     const svg = findSvgElement(pre);
     const dimensions = getSvgDimensions(svg);
-    const canvas = createCanvasFromSvg(dimensions);
+    const canvas = createCanvasFromSvg(dimensions, pre);
     const svgDataUrl = convertSvgToDataUrl(svg, dimensions);
 
     // Rasterize SVG to PNG via canvas
@@ -313,10 +313,14 @@ export function getSvgDimensions(svg: SVGGraphicsElement): { width: number; heig
 }
 
 /** Create a high-resolution canvas sized for rasterizing an SVG */
-export function createCanvasFromSvg(dimensions: {
-  width: number;
-  height: number;
-}): HTMLCanvasElement {
+export function createCanvasFromSvg(
+  dimensions: {
+    width: number;
+    height: number;
+  },
+  // Where the diagram is drawn, for the background it is drawn on.
+  block: Element = document.body,
+): HTMLCanvasElement {
   const scale = 2; // High resolution
   const canvas = document.createElement("canvas");
   canvas.width = dimensions.width * scale;
@@ -330,7 +334,7 @@ export function createCanvasFromSvg(dimensions: {
   ctx.scale(scale, scale);
 
   // Get background color from the current theme
-  const bgColor = getComputedStyle(document.body).getPropertyValue("--bg-color").trim();
+  const bgColor = getComputedStyle(block).getPropertyValue("--bg-color").trim();
   ctx.fillStyle = bgColor || "#ffffff";
   ctx.fillRect(0, 0, dimensions.width, dimensions.height);
 

@@ -7,7 +7,7 @@
  * making: a page's code blocks are nearly always JavaScript, a shell, a
  * config format, or one of the other few dozen in here.
  *
- * The manifest beside it (`page-hljs-common.txt`) is what tells `arto-page`
+ * The manifest beside it (`page-hljs-common.txt`) is what tells `arto-frontend`
  * which names these are, so that the two cannot drift apart across a
  * highlight.js upgrade.
  */

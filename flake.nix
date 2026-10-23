@@ -114,7 +114,7 @@
               # 2. Run: nix build .#frontend-assets
               # 3. Copy the expected hash from error message
               # 4. Update hash value below
-              hash = "sha256-hh7zOScPD8XMd8W53pTllNgDbQvfrSc2AOPpLgH/xWM=";
+              hash = "sha256-jYxNGIf6tRxZCTvUqp/6nOIikg4LPFnoGJtrfzCZJo8=";
               fetcherVersion = 3;
             };
 
@@ -238,12 +238,16 @@
                   ];
 
                 postPatch = ''
-                  mkdir -p crates/arto/assets/frontend crates/arto-page/assets/frontend
+                  mkdir -p crates/arto/assets/frontend crates/arto-page/assets/frontend \
+                    crates/arto-frontend/assets/frontend
                   cp -r ${frontend-assets}/* crates/arto/assets/frontend/
-                  # The page crate embeds the stylesheet, the page runtime and the
-                  # library bundles a document may call for.
-                  cp ${frontend-assets}/main.css ${frontend-assets}/page* \
+                  # The page crate embeds the stylesheet and the page runtime;
+                  # the frontend crate carries the runtime and stylesheet it
+                  # hands to other apps, and the library bundles both use.
+                  cp ${frontend-assets}/main.css ${frontend-assets}/page.iife.js \
                     crates/arto-page/assets/frontend/
+                  cp ${frontend-assets}/embed* ${frontend-assets}/page-* \
+                    crates/arto-frontend/assets/frontend/
                 '';
 
                 # Use buildPhaseCargoCommand instead of cargoBuildCommand because crane's
@@ -326,9 +330,14 @@
                 doCheck = false;
 
                 postPatch = ''
-                  mkdir -p crates/arto-page/assets/frontend
-                  cp ${frontend-assets}/main.css ${frontend-assets}/page* \
+                  mkdir -p crates/arto-page/assets/frontend crates/arto-frontend/assets/frontend
+                  # The page crate embeds the stylesheet and the page runtime;
+                  # the frontend crate carries the runtime and stylesheet it
+                  # hands to other apps, and the library bundles both use.
+                  cp ${frontend-assets}/main.css ${frontend-assets}/page.iife.js \
                     crates/arto-page/assets/frontend/
+                  cp ${frontend-assets}/embed* ${frontend-assets}/page-* \
+                    crates/arto-frontend/assets/frontend/
                 '';
 
                 cargoExtraArgs = "-p arto-page --bin arto-page";

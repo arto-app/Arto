@@ -273,6 +273,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "arto-frontend"
+version = "0.0.0"
+
+[[package]]
 name = "arto-keybindings"
 version = "0.0.0"
 dependencies = [
@@ -328,6 +332,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "arto-config",
+ "arto-frontend",
  "arto-markdown",
  "base64 0.23.1",
  "clap",

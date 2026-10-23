@@ -10,19 +10,14 @@ homepage.workspace = true
 readme.workspace = true
 keywords = ["markdown", "html", "github", "renderer", "cli"]
 categories = ["text-processing", "command-line-utilities"]
-# The frontend bundle under assets/ is build output copied in by the frontend
-# build (see frontend/vite.config.ts); list it so a package cannot be
-# published without it.
+# The stylesheet and the page runtime under assets/ are build output copied in
+# by the frontend build (see frontend/vite.config.ts); list them so a package
+# cannot be published without them. The library bundles come from
+# arto-frontend.
 include = [
   "src/**",
   "assets/frontend/main.css",
   "assets/frontend/page.iife.js",
-  "assets/frontend/page-mermaid.iife.js",
-  "assets/frontend/page-math.iife.js",
-  "assets/frontend/page-hljs-common.iife.js",
-  "assets/frontend/page-hljs-common.txt",
-  "assets/frontend/page-hljs-all.iife.js",
-  "assets/frontend/page-hljs-all.txt",
 ]
 
 [lib]
@@ -51,6 +46,7 @@ anyhow.workspace = true
 # The page honours the user's config.json (rendering options, default theme)
 # so `arto page` and Quick Look look like the app does.
 arto-config.workspace = true
+arto-frontend.workspace = true
 arto-markdown.workspace = true
 base64.workspace = true
 clap = { workspace = true, optional = true }

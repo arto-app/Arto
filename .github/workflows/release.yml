@@ -66,8 +66,8 @@ jobs:
           VERSION="${VERSION#v}"
           perl -i -pe 's/= "0\.0\.0"/= "'"${VERSION}"'"/g' Cargo.toml
           echo "${VERSION}" > crates/arto/VERSION
-      # `arto` and `arto-page` name the frontend bundle in their `include`
-      # lists, and git does not track it — it is build output.
+      # `arto`, `arto-page` and `arto-frontend` name the frontend bundle in
+      # their `include` lists, and git does not track it — it is build output.
       - run: just frontend::assets
       # `--workspace` orders the members by their dependencies and waits for
       # each to reach the index before the next one asks for it. The
