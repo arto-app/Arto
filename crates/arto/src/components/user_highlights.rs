@@ -7,6 +7,7 @@
 //! and going to a highlight opens its card, where the note is written. A highlight whose words the page cannot find any more stays
 //! listed at the end, faint, so the reader can see it was lost and let it go.
 
+use crate::components::popover::Popover;
 use dioxus::prelude::*;
 use rust_i18n::t;
 use std::collections::HashMap;
@@ -172,16 +173,11 @@ fn UserHighlightRow(
             }
 
             if *show_popover.read() {
-                div {
-                    class: "color-palette-backdrop",
-                    onclick: move |evt| {
-                        evt.stop_propagation();
-                        show_popover.set(false);
-                    },
-                }
-
-                div {
+                Popover {
+                    backdrop_class: "color-palette-backdrop",
                     class: "color-palette-popover",
+                    contain_dismiss: true,
+                    on_close: move |_| show_popover.set(false),
 
                     if lost {
                         span { class: "color-palette-note", {t!("contents.highlights.not_found").to_string()} }

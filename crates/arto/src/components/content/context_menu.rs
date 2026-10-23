@@ -10,6 +10,7 @@ mod source_ops;
 
 pub use data::*;
 
+use crate::components::popover::Popover;
 use dioxus::document;
 use dioxus::prelude::*;
 use rust_i18n::t;
@@ -111,23 +112,13 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
     let copy_path = copy_path_row(current_file.as_deref(), source_line, source_line_end);
 
     rsx! {
-        // Backdrop to close menu on outside click
-        div {
-            class: "context-menu-backdrop",
-            // Prevent mousedown from clearing text selection
-            onmousedown: move |evt| evt.prevent_default(),
-            onclick: move |_| {
-                on_close.call(());
-            },
-        }
-
-        // Context menu
-        div {
+        Popover {
+            backdrop_class: "context-menu-backdrop",
             class: "context-menu content-context-menu",
-            style: "left: {x}px; top: {y}px;",
-            // Prevent mousedown from clearing text selection
-            onmousedown: move |evt| evt.prevent_default(),
-            onclick: move |evt| evt.stop_propagation(),
+            style: format!("left: {x}px; top: {y}px;"),
+            keep_selection: true,
+            contain_clicks: true,
+            on_close,
 
             // === Section 1: Smart default copy operations ===
             if has_selection {

@@ -7,6 +7,7 @@
 //! read a note must not write back over one edited meanwhile in another
 //! window.
 
+use crate::components::popover::Popover;
 use dioxus::prelude::*;
 use rust_i18n::t;
 use std::cell::{Cell, RefCell};
@@ -146,15 +147,12 @@ fn HighlightCard(card: OpenCard) -> Element {
     let initial = draft.borrow().was.clone();
 
     rsx! {
-        div {
-            class: "highlight-card-backdrop",
-            onclick: move |_| close(),
-        }
-
-        div {
+        Popover {
+            backdrop_class: "highlight-card-backdrop",
             class: "highlight-card",
-            style: "{position}",
-            onclick: move |evt| evt.stop_propagation(),
+            style: position,
+            contain_clicks: true,
+            on_close: move |_| close(),
 
             div {
                 class: "highlight-card-bar",

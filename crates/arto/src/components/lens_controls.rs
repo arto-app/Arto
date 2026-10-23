@@ -1,3 +1,4 @@
+use crate::components::popover::Popover;
 use dioxus::prelude::*;
 
 use crate::components::icon::{Icon, IconName};
@@ -146,13 +147,11 @@ fn WorkingLenses(runs: Vec<LensRun>) -> Element {
                 Icon { name: IconName::Hourglass, class: "lens-hourglass" }
             }
             if open() {
-                div {
-                    class: "lens-answer-backdrop",
-                    onclick: move |_| open.set(false),
-                }
-                div {
+                Popover {
+                    backdrop_class: "lens-answer-backdrop",
                     class: "lens-switch-menu",
                     role: "menu",
+                    on_close: move |_| open.set(false),
                     div { class: "lens-switch-heading", {t!("lenses.controls.heading.working").to_string()} }
                     for run in runs {
                         div {
@@ -219,14 +218,11 @@ fn LensMenu(runs: Vec<LensRun>) -> Element {
                 Icon { name: IconName::Aperture }
             }
             if open() {
-                // A click anywhere else puts the menu away.
-                div {
-                    class: "lens-answer-backdrop",
-                    onclick: move |_| open.set(false),
-                }
-                div {
+                Popover {
+                    backdrop_class: "lens-answer-backdrop",
                     class: "lens-switch-menu",
                     role: "menu",
+                    on_close: move |_| open.set(false),
                     if !pages.is_empty() {
                         div { class: "lens-switch-heading", {t!("lenses.controls.heading.page").to_string()} }
                         MenuRow {
@@ -368,15 +364,11 @@ fn SummaryAnswers(runs: Vec<LensRun>) -> Element {
                 Icon { name: IconName::Book }
             }
             if open() {
-                // A click anywhere else puts the answers away, as it does
-                // for a menu.
-                div {
-                    class: "lens-answer-backdrop",
-                    onclick: move |_| open.set(false),
-                }
-                div {
+                Popover {
+                    backdrop_class: "lens-answer-backdrop",
                     class: "lens-answer",
-                    style: "--lens-zoom: {zoom};",
+                    style: format!("--lens-zoom: {zoom};"),
+                    on_close: move |_| open.set(false),
                     for run in runs {
                         div {
                             key: "{run.token}",

@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use crate::components::popover::Popover;
 use dioxus::prelude::*;
 use rust_i18n::t;
 
@@ -82,15 +83,12 @@ pub fn Breadcrumb(label: String) -> Element {
             }
 
             if is_open() {
-                // Catches the click that closes the menu, so the rows below
-                // do not have to guess where the pointer went.
-                div {
-                    class: "breadcrumb-backdrop",
-                    onclick: move |_| is_open.set(false),
-                }
-
-                div {
+                // The backdrop catches the click that closes the menu, so the
+                // rows below do not have to guess where the pointer went.
+                Popover {
+                    backdrop_class: "breadcrumb-backdrop",
                     class: "breadcrumb-menu",
+                    on_close: move |_| is_open.set(false),
 
                     if rows.is_empty() {
                         div { class: "breadcrumb-empty", {t!("breadcrumb.empty").to_string()} }

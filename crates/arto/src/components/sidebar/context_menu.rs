@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use crate::components::popover::Popover;
 use dioxus::prelude::*;
 use rust_i18n::t;
 
@@ -181,17 +182,12 @@ pub fn SidebarContextMenu(
     };
 
     rsx! {
-        // Backdrop to close menu on outside click
-        div {
-            class: "context-menu-backdrop",
-            onclick: move |_| on_close.call(()),
-        }
-
-        // Context menu
-        div {
+        Popover {
+            backdrop_class: "context-menu-backdrop",
             class: "context-menu",
-            style: "left: {position.0}px; top: {position.1}px;",
-            onclick: move |evt| evt.stop_propagation(),
+            style: format!("left: {}px; top: {}px;", position.0, position.1),
+            contain_clicks: true,
+            on_close,
 
             // === Section 1: Open operations ===
 
