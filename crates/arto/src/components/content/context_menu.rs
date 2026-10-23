@@ -166,35 +166,21 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
             }
 
             if let Some(code_content) = copy_code_source.clone() {
-                ContextMenuItem {
+                CopyItem {
                     label: t!("context_menu.copy_code").to_string(),
                     shortcut: shortcut("clipboard.copy_code"),
-                    icon: Some(IconName::Copy),
-                    on_click: {
-                        let on_close = on_close;
-                        move |_| {
-                            crate::utils::clipboard::copy_text(&code_content);
-                            crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
-                            on_close.call(());
-                        }
-                    },
+                    text: code_content,
+                    on_close,
                 }
             }
 
             // Copy Table (smart default: TSV)
             if let Some(tsv) = table_tsv.clone() {
-                ContextMenuItem {
+                CopyItem {
                     label: t!("context_menu.copy_table").to_string(),
                     shortcut: shortcut("clipboard.copy_table_as_tsv"),
-                    icon: Some(IconName::Copy),
-                    on_click: {
-                        let on_close = on_close;
-                        move |_| {
-                            crate::utils::clipboard::copy_text(&tsv);
-                            crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
-                            on_close.call(());
-                        }
-                    },
+                    text: tsv,
+                    on_close,
                 }
             }
 
@@ -236,18 +222,11 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
 
             // Copy Path (smart default: path / path:line / path:start-end)
             if let Some(value) = copy_path_value.clone() {
-                ContextMenuItem {
+                CopyItem {
                     label: copy_path_label.clone(),
                     shortcut: shortcut(copy_path_shortcut_action_str(source_line, source_line_end)),
-                    icon: Some(IconName::Copy),
-                    on_click: {
-                        let on_close = on_close;
-                        move |_| {
-                            crate::utils::clipboard::copy_text(&value);
-                            crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
-                            on_close.call(());
-                        }
-                    },
+                    text: value,
+                    on_close,
                 }
             }
 
@@ -266,17 +245,11 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
                 },
             }
 
-            ContextMenuItem {
+            ActionItem {
                 label: t!("context_menu.find_in_page").to_string(),
-                shortcut: shortcut("search.open"),
-                icon: Some(IconName::Search),
-                on_click: {
-                    let on_close = on_close;
-                    move |_| {
-                        dispatch_action(&Action::SearchOpen, state);
-                        on_close.call(());
-                    }
-                },
+                icon: IconName::Search,
+                action: Action::SearchOpen,
+                on_close,
             }
 
             // === The reader's highlights ===
@@ -300,43 +273,25 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
             if state.current_file().is_some() {
                 ContextMenuSeparator {}
 
-                ContextMenuItem {
+                ActionItem {
                     label: t!("context_menu.copy_file_path").to_string(),
-                    shortcut: shortcut("clipboard.copy_file_path"),
-                    icon: Some(IconName::Copy),
-                    on_click: {
-                        let on_close = on_close;
-                        move |_| {
-                            dispatch_action(&Action::CopyFilePath, state);
-                            on_close.call(());
-                        }
-                    },
+                    icon: IconName::Copy,
+                    action: Action::CopyFilePath,
+                    on_close,
                 }
 
-                ContextMenuItem {
+                ActionItem {
                     label: t!("context_menu.reveal_in_finder").to_string(),
-                    shortcut: shortcut("file.reveal_in_finder"),
-                    icon: Some(IconName::Folder),
-                    on_click: {
-                        let on_close = on_close;
-                        move |_| {
-                            dispatch_action(&Action::FileRevealInFinder, state);
-                            on_close.call(());
-                        }
-                    },
+                    icon: IconName::Folder,
+                    action: Action::FileRevealInFinder,
+                    on_close,
                 }
 
-                ContextMenuItem {
+                ActionItem {
                     label: t!("context_menu.reload").to_string(),
-                    shortcut: shortcut("window.reload"),
-                    icon: Some(IconName::Refresh),
-                    on_click: {
-                        let on_close = on_close;
-                        move |_| {
-                            dispatch_action(&Action::WindowReload, state);
-                            on_close.call(());
-                        }
-                    },
+                    icon: IconName::Refresh,
+                    action: Action::WindowReload,
+                    on_close,
                 }
             }
 
@@ -419,32 +374,14 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
                         on_close: on_close,
                     }
                 },
-                ContentContext::Image { .. } => rsx! {
-                    ContextMenuItem {
+                ContentContext::Image { .. }
+                | ContentContext::Mermaid { .. }
+                | ContentContext::MathBlock { .. } => rsx! {
+                    ActionItem {
                         label: t!("context_menu.save_image_as").to_string(),
-                        icon: Some(IconName::Download),
-                        shortcut: shortcut("file.save_image_as"),
-                        on_click: {
-                            let on_close = on_close;
-                            move |_| {
-                                dispatch_action(&Action::FileSaveImageAs, state);
-                                on_close.call(());
-                            }
-                        },
-                    }
-                },
-                ContentContext::Mermaid { .. } | ContentContext::MathBlock { .. } => rsx! {
-                    ContextMenuItem {
-                        label: t!("context_menu.save_image_as").to_string(),
-                        icon: Some(IconName::Download),
-                        shortcut: shortcut("file.save_image_as"),
-                        on_click: {
-                            let on_close = on_close;
-                            move |_| {
-                                dispatch_action(&Action::FileSaveImageAs, state);
-                                on_close.call(());
-                            }
-                        },
+                        icon: IconName::Download,
+                        action: Action::FileSaveImageAs,
+                        on_close,
                     }
                 },
                 _ => rsx! {},
@@ -455,6 +392,50 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
                 ContextMenuSeparator {}
                 LensItems { on_close: on_close }
             }
+        }
+    }
+}
+
+/// A row that runs `action` as its key binding would, showing that binding.
+#[component]
+fn ActionItem(
+    #[props(into)] label: String,
+    icon: IconName,
+    action: Action,
+    on_close: EventHandler<()>,
+) -> Element {
+    let state = use_context::<crate::state::AppState>();
+    rsx! {
+        ContextMenuItem {
+            label,
+            shortcut: shortcut_hint_for_context_action(KeyContext::Content, &action.to_string()),
+            icon: Some(icon),
+            on_click: move |_| {
+                dispatch_action(&action, state);
+                on_close.call(());
+            },
+        }
+    }
+}
+
+/// A row that puts `text` on the clipboard and says so.
+#[component]
+fn CopyItem(
+    #[props(into)] label: String,
+    shortcut: Option<String>,
+    text: String,
+    on_close: EventHandler<()>,
+) -> Element {
+    rsx! {
+        ContextMenuItem {
+            label,
+            shortcut,
+            icon: Some(IconName::Copy),
+            on_click: move |_| {
+                crate::utils::clipboard::copy_text(&text);
+                crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
+                on_close.call(());
+            },
         }
     }
 }
