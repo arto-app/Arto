@@ -1,0 +1,121 @@
+//! The file a link to another Markdown document names, as written in the
+//! source (`./other.md#section`). Opening it is `document_link`'s.
+
+use std::path::{Path, PathBuf};
+
+/// Split a link as written in the document into its path and fragment.
+///
+/// The fragment is percent-decoded so that `#%E8%A6%8B%E5%87%BA%E3%81%97`
+/// finds the heading id it names; an empty fragment counts as none.
+pub fn split_link_fragment(link: &str) -> (&str, Option<String>) {
+    match link.split_once('#') {
+        Some((path, fragment)) if !fragment.is_empty() => (
+            path,
+            Some(
+                percent_encoding::percent_decode_str(fragment)
+                    .decode_utf8_lossy()
+                    .into_owned(),
+            ),
+        ),
+        Some((path, _)) => (path, None),
+        None => (link, None),
+    }
+}
+
+/// The file a link's `path` (its fragment already split off) names, read
+/// relative to the directory of `current_file`, canonicalized; `None` when
+/// there is no such file.
+pub fn resolve_document_link(current_file: &Path, path: &str) -> Option<PathBuf> {
+    let base_dir = current_file
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
+    resolve_link_path(&base_dir, path)
+}
+
+/// The file a link's path opens from `base_dir`, canonicalized, or `None`
+/// when nothing is there.
+///
+/// The path is tried as it was written, then percent-decoded: the renderer
+/// writes a space in a link target as `%20`, and Markdown asks for one to be
+/// written that way, so `my%20notes.md` names `my notes.md`. A file whose
+/// name really holds `%20` is still found by the first try.
+pub fn resolve_link_path(base_dir: &Path, path: &str) -> Option<PathBuf> {
+    base_dir.join(path).canonicalize().ok().or_else(|| {
+        let decoded = percent_encoding::percent_decode_str(path)
+            .decode_utf8()
+            .ok()?;
+        if decoded == path {
+            return None;
+        }
+        base_dir.join(decoded.as_ref()).canonicalize().ok()
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn a_link_path_is_found_as_written_or_percent_decoded() {
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join("my notes.md"), "").unwrap();
+        fs::write(dir.path().join("100%20.md"), "").unwrap();
+        let notes = dir.path().join("my notes.md").canonicalize().unwrap();
+
+        assert_eq!(
+            resolve_link_path(dir.path(), "my%20notes.md"),
+            Some(notes.clone())
+        );
+        assert_eq!(resolve_link_path(dir.path(), "my notes.md"), Some(notes));
+        assert_eq!(
+            resolve_link_path(dir.path(), "100%20.md"),
+            Some(dir.path().join("100%20.md").canonicalize().unwrap())
+        );
+        assert_eq!(resolve_link_path(dir.path(), "missing.md"), None);
+    }
+
+    #[test]
+    fn a_link_resolves_against_the_directory_of_the_document_it_is_in() {
+        let dir = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+        std::fs::write(dir.path().join("other.md"), "").unwrap();
+        let current = dir.path().join("sub").join("doc.md");
+
+        let resolved = resolve_document_link(&current, "../other.md");
+
+        assert_eq!(
+            resolved,
+            Some(dir.path().join("other.md").canonicalize().unwrap())
+        );
+        assert_eq!(resolve_document_link(&current, "missing.md"), None);
+    }
+
+    #[test]
+    fn an_absolute_link_resolves_to_itself() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let target = dir.path().join("other.md");
+        std::fs::write(&target, "").unwrap();
+
+        let resolved =
+            resolve_document_link(Path::new("/elsewhere/doc.md"), target.to_str().unwrap());
+
+        assert_eq!(resolved, Some(target.canonicalize().unwrap()));
+    }
+
+    #[test]
+    fn fragments_are_split_off_and_decoded() {
+        assert_eq!(split_link_fragment("./doc.md"), ("./doc.md", None));
+        assert_eq!(
+            split_link_fragment("./doc.md#tables"),
+            ("./doc.md", Some("tables".to_string()))
+        );
+        assert_eq!(split_link_fragment("./doc.md#"), ("./doc.md", None));
+        assert_eq!(
+            split_link_fragment("doc.md#%E8%A6%8B%E5%87%BA%E3%81%97"),
+            ("doc.md", Some("見出し".to_string()))
+        );
+    }
+}

@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::SystemTime;
 
-use crate::document_link::{resolve_document_link, split_link_fragment};
+use crate::link_target::{resolve_document_link, split_link_fragment};
 use crate::markdown::{self, RenderOptions};
 use crate::utils::file::is_markdown_file;
 
