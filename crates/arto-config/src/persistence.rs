@@ -4,7 +4,7 @@
 //! Both sit in the platform configuration directory under `arto/`, falling
 //! back to `~/.arto/` when the platform directory is unknown.
 
-use crate::Config;
+use crate::{write_atomically, Access, Config};
 use arto_keybindings::BindingSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -160,15 +160,11 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, ConfigErr
 }
 
 fn write_json<T: serde::Serialize>(path: &Path, value: &T) -> Result<(), ConfigError> {
-    let write_error = |source| ConfigError::Write {
+    let content = serde_json::to_string_pretty(value).map_err(ConfigError::Serialize)?;
+    write_atomically(path, content.as_bytes(), Access::Kept).map_err(|source| ConfigError::Write {
         path: path.to_path_buf(),
         source,
-    };
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(write_error)?;
-    }
-    let content = serde_json::to_string_pretty(value).map_err(ConfigError::Serialize)?;
-    fs::write(path, content).map_err(write_error)
+    })
 }
 
 fn load_mappings(path: &Path) -> Result<Option<BindingSet>, ConfigError> {
@@ -291,6 +287,25 @@ mod tests {
 
         write_json(&path, &BindingSet::default()).unwrap();
         let back: BindingSet = read_json(&path).unwrap();
+        assert_eq!(back, BindingSet::default());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_linked_config_is_saved_where_it_is_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        let kept = dir.path().join("dotfiles.json");
+        fs::write(&kept, "{}").unwrap();
+        let link = dir.path().join("config.json");
+        std::os::unix::fs::symlink(&kept, &link).unwrap();
+
+        write_json(&link, &BindingSet::default()).unwrap();
+
+        assert!(fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        let back: BindingSet = read_json(&kept).unwrap();
         assert_eq!(back, BindingSet::default());
     }
 }

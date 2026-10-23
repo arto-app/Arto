@@ -13,6 +13,11 @@ well: Arto reads it again when it is saved, so a change takes effect without
 a restart. Keybindings are kept apart, in `mappings.json` next to it — see
 [Keybindings](./keybindings.md).
 
+A save never leaves half a file behind. When `config.json` or
+`mappings.json` is a symlink — kept in a dotfiles repository and linked into
+place — the file it points to is the one written, its permissions are kept,
+and the link stays a link.
+
 ## Typography
 
 How a document's text is set lives in `typography`, and the Reading pane of
