@@ -14,6 +14,7 @@
 //! `BOOKMARKS_CHANGED` announces every change; every window listens, because
 //! the list is the app's, not a window's.
 
+use crate::utils::paths::true_spelling;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -43,7 +44,7 @@ impl Bookmark {
     /// on a render path has to touch the filesystem.
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self {
-            path: crate::utils::paths::true_spelling(&path.into()),
+            path: true_spelling(&path.into()),
             name: None,
         }
     }
@@ -141,7 +142,7 @@ impl Bookmarks {
                 .items
                 .into_iter()
                 .map(|item| Bookmark {
-                    path: crate::utils::paths::true_spelling(&item.path),
+                    path: true_spelling(&item.path),
                     ..item
                 })
                 .filter(|item| seen.insert(item.path.clone()))
@@ -183,7 +184,7 @@ impl Bookmarks {
     ///
     /// Returns `true` if the path is now bookmarked, `false` if removed.
     pub fn toggle(&mut self, path: impl Into<PathBuf>) -> bool {
-        let path = crate::utils::paths::true_spelling(&path.into());
+        let path = true_spelling(&path.into());
         if self.contains(&path) {
             self.remove(&path);
             false

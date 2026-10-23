@@ -1,6 +1,18 @@
-//! Paths written the way a reader would say them.
+//! Paths written the way a reader would say them, and the ways one path is
+//! told apart from another.
+//!
+//! One file can arrive spelled several ways — in another case on macOS,
+//! through a symlink, with a `..` in it — and what to do about that depends
+//! on what the path is for:
+//!
+//! - **Shown or kept in a list**: [`true_spelling`]. The path as its own
+//!   folders spell it, still the path the reader asked for.
+//! - **Compared**: [`canonical_key`]. Every spelling of one directory folds
+//!   to one key, which is no longer fit to show.
+//! - **Filed under**: [`storage_key`]. The file a document's path leads to,
+//!   so a record kept about it is found again however it is reached.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// The folder a document sits in, shortened to its home-relative form.
 ///
@@ -65,6 +77,63 @@ pub fn true_spelling(path: &Path) -> std::path::PathBuf {
 #[cfg(not(target_os = "macos"))]
 pub fn true_spelling(path: &Path) -> std::path::PathBuf {
     path.to_path_buf()
+}
+
+/// One spelling per directory, so containment and equality can be trusted.
+///
+/// For comparison only — never for storage. The lowercasing below would put
+/// `Arto` on screen as `arto`, so a path keeps the spelling it arrived with
+/// and this is applied to both sides of a comparison instead.
+///
+/// Symlinks are resolved and `..` folded away where the path exists; where it
+/// does not, the lexical form is the best available. On macOS the default
+/// filesystem ignores case, so two spellings of one directory would otherwise
+/// compare unequal.
+pub fn canonical_key(path: &Path) -> PathBuf {
+    let resolved = path
+        .canonicalize()
+        .unwrap_or_else(|_| lexically_normal(path));
+
+    #[cfg(target_os = "macos")]
+    {
+        PathBuf::from(resolved.to_string_lossy().to_lowercase())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        resolved
+    }
+}
+
+/// Fold `.` and `..` away without touching the filesystem.
+fn lexically_normal(path: &Path) -> PathBuf {
+    use std::path::Component;
+
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !out.pop() {
+                    out.push("..");
+                }
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}
+
+/// What a record about a document is filed under: the file its path leads
+/// to, spelled as the filesystem spells it, so a document reached through a
+/// link or by another spelling has one record.
+///
+/// Unlike [`canonical_key`] the case is kept, because the key is written into
+/// the record and read back as a path.
+pub fn storage_key(document: &Path) -> String {
+    let real = document
+        .canonicalize()
+        .unwrap_or_else(|_| document.to_path_buf());
+    true_spelling(&real).to_string_lossy().into_owned()
 }
 
 /// A document as the lists name it: the folder it sits in, then its own name.
@@ -135,6 +204,68 @@ mod tests {
         let asked = dir.path().join("nowhere/at/all");
 
         assert_eq!(true_spelling(&asked), asked);
+    }
+
+    fn p(s: &str) -> PathBuf {
+        PathBuf::from(s)
+    }
+
+    #[test]
+    fn canonical_key_folds_parent_components() {
+        let key = canonical_key(&p("/w/arto/docs/../crates"));
+        assert_eq!(key, canonical_key(&p("/w/arto/crates")));
+    }
+
+    // Windows needs a privilege to create a symlink that CI does not grant,
+    // so the check runs where symlinks are ordinary.
+    #[cfg(unix)]
+    #[test]
+    fn canonical_key_resolves_a_symlink_to_its_target() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let real = temp.path().join("real");
+        std::fs::create_dir(&real).unwrap();
+        let link = temp.path().join("link");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        assert_eq!(canonical_key(&link), canonical_key(&real));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn canonical_key_ignores_case_on_macos() {
+        assert_eq!(canonical_key(&p("/W/Arto")), canonical_key(&p("/w/arto")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn storage_key_is_the_file_a_link_leads_to() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        std::fs::write(root.join("notes.md"), "").unwrap();
+        std::os::unix::fs::symlink(root.join("notes.md"), root.join("link.md")).unwrap();
+
+        assert_eq!(
+            storage_key(&root.join("link.md")),
+            root.join("notes.md").to_string_lossy()
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn storage_key_keeps_the_spelling_the_file_has() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        std::fs::write(root.join("Notes.md"), "").unwrap();
+
+        assert_eq!(
+            storage_key(&root.join("notes.md")),
+            root.join("Notes.md").to_string_lossy()
+        );
+    }
+
+    #[test]
+    fn storage_key_of_a_missing_file_is_its_path() {
+        assert_eq!(storage_key(&p("/nowhere/at/all.md")), "/nowhere/at/all.md");
     }
 
     #[test]
