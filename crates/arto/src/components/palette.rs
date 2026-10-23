@@ -1,4 +1,3 @@
-use dioxus::document;
 use dioxus::prelude::*;
 use rust_i18n::t;
 
@@ -385,14 +384,6 @@ pub fn Palette() -> Element {
         }
     });
 
-    // Focus the input as it appears: the palette is a keyboard gesture, and
-    // one that asked for a click first would not be worth the keystroke.
-    use_effect(move || {
-        spawn(async {
-            let _ = document::eval("document.querySelector('.palette-input')?.focus()").await;
-        });
-    });
-
     // The list, worked out again only when something it is made of has
     // changed. A memo rather than a line in the draw, because a draw is not
     // the same thing as a change: writing how many rows there are draws
@@ -513,6 +504,11 @@ pub fn PaletteField(query: Signal<String>, placeholder: String) -> Element {
             autocorrect: "off",
             autocapitalize: "off",
             spellcheck: "false",
+            // Focused as it appears: the palette is a keyboard gesture, and
+            // one that asked for a click first would not be worth the keystroke.
+            onmounted: move |evt: MountedEvent| async move {
+                let _ = evt.set_focus(true).await;
+            },
             oninput: move |evt| {
                 query.set(evt.value());
                 // A narrowed list is a new list, so the keys start at the top

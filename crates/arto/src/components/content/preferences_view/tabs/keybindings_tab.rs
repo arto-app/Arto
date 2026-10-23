@@ -345,16 +345,6 @@ fn BindingForm(
     });
     let mut recording = use_signal(|| false);
 
-    // Focus key input on mount so outside click can be detected via focusout.
-    use_hook(|| {
-        spawn(async move {
-            let _ = document::eval(
-                "document.querySelector('.binding-form .key-recorder-text')?.focus()",
-            )
-            .await;
-        });
-    });
-
     use_dismiss_on_outside(".binding-form", move || {
         if !*recording.peek() {
             on_close.call(());
@@ -499,13 +489,16 @@ fn KeyRecorder(value: Signal<String>, recording: Signal<bool>) -> Element {
     // another key came after the one that started it.
     let mut epoch = use_signal(|| 0_u64);
     let mut before_recording = use_signal(String::new);
+    let mut field = use_signal(|| None::<std::rc::Rc<MountedData>>);
 
     use_effect(move || {
         if *recording.read() {
             spawn(async move {
                 let _ = document::eval("window.Arto?.keyboard?.pause?.()").await;
-                let _ =
-                    document::eval("document.querySelector('.key-recorder-text')?.focus()").await;
+                let field = field.peek().clone();
+                if let Some(field) = field {
+                    let _ = field.set_focus(true).await;
+                }
             });
         } else {
             spawn(async move {
@@ -544,6 +537,11 @@ fn KeyRecorder(value: Signal<String>, recording: Signal<bool>) -> Element {
                 placeholder: if is_recording { t!("preferences.keybindings.form.recording_placeholder").to_string() } else { t!("preferences.keybindings.form.key_placeholder").to_string() },
                 value: "{value}",
                 readonly: is_recording,
+                onmounted: move |evt: MountedEvent| async move {
+                    let mounted = evt.data();
+                    field.set(Some(mounted.clone()));
+                    let _ = mounted.set_focus(true).await;
+                },
                 oninput: move |evt| {
                     if !*recording.read() {
                         value.set(evt.value());
