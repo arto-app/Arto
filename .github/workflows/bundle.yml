@@ -119,10 +119,14 @@ jobs:
           toolchain: native
       # Release builds start cold: a cache written by a pull request must not
       # be able to reach a published installer.
+      # Saved from main only: a leg's cache is over a gigabyte, and one per
+      # pull request on top of main's fills the repository's 10 GB, evicting
+      # the rust jobs' caches. A pull request restores main's.
       - uses: Swatinem/rust-cache@v2
         if: inputs.version == ''
         with:
           key: bundle-${{ matrix.target }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       # Cache only the cargo-installed `dx` binary, not all of ~/.cargo/bin:
       # restoring the whole directory could clobber the rustup/cargo shims
       # installed earlier in the job.
@@ -241,7 +245,7 @@ jobs:
           & $binary --version
           Pop-Location
       - uses: ./.github/actions/age-proof-cargo-cache
-        if: inputs.version == ''
+        if: inputs.version == '' && github.ref == 'refs/heads/main'
       - uses: actions/upload-artifact@v7
         with:
           name: arto-${{ matrix.target }}
