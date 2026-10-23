@@ -490,13 +490,6 @@ pub fn App(
     }
 }
 
-/// Keep the reader's place while focus mode changes the layout around the
-/// page, and have the page mark the block being read again.
-///
-/// Putting a pinned panel away widens the page, which reflows every block
-/// under the reader; the anchor taken before the change is where they were.
-/// A search pausing focus mode only moves the header, which the scroll offset
-/// already survives, so that asks for the mark alone.
 /// Whether the page has text selected.
 ///
 /// A drag that selects text ends in a click like any other; that reader is
