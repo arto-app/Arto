@@ -12,6 +12,7 @@
 //! boundaries can be tested against a fixed clock.
 
 use crate::scroll_anchor::ScrollAnchor;
+use crate::utils::paths::true_spelling;
 use chrono::{DateTime, Datelike, Days, Local, NaiveDate, Weekday};
 use parking_lot::RwLock;
 use rust_i18n::t;
@@ -261,8 +262,10 @@ impl Visits {
     /// from now would.
     pub fn record(&mut self, path: impl Into<PathBuf>, at: DateTime<Local>) {
         let day = at.date_naive();
-        let mut visit = Visit::new(path, at);
-        visit.anchor = self.position(&visit.path).unwrap_or(ScrollAnchor::TOP);
+        // Two spellings of one document would be two rows in every list that
+        // reads this, and the reader would have opened the same file twice.
+        let mut visit = Visit::new(true_spelling(&path.into()), at);
+        visit.anchor = self.position_of(&visit.path).unwrap_or(ScrollAnchor::TOP);
         self.items
             .retain(|other| other.path != visit.path || other.at.date_naive() != day);
         self.items.insert(0, visit);
@@ -275,6 +278,7 @@ impl Visits {
     /// still going on, and moving the row would make scrolling look like
     /// reading something new.
     pub fn keep_position(&mut self, path: &Path, anchor: ScrollAnchor) {
+        let path = true_spelling(path);
         if let Some(visit) = self.items.iter_mut().find(|visit| visit.path == path) {
             visit.anchor = anchor;
         }
@@ -282,6 +286,10 @@ impl Visits {
 
     /// Where the reader had got to, if this document has been read before.
     pub fn position(&self, path: &Path) -> Option<ScrollAnchor> {
+        self.position_of(&true_spelling(path))
+    }
+
+    fn position_of(&self, path: &Path) -> Option<ScrollAnchor> {
         self.items
             .iter()
             .find(|visit| visit.path == path)
@@ -294,6 +302,7 @@ impl Visits {
     /// for is that the document not be in the history, and leaving yesterday's
     /// row behind would answer a question nobody asked.
     pub fn forget(&mut self, path: &Path) {
+        let path = true_spelling(path);
         self.items.retain(|visit| visit.path != path);
     }
 
@@ -337,7 +346,7 @@ impl Visits {
                 .items
                 .into_iter()
                 .map(|visit| Visit {
-                    path: crate::utils::paths::true_spelling(&visit.path),
+                    path: true_spelling(&visit.path),
                     ..visit
                 })
                 .filter(|visit| seen.insert((visit.path.clone(), visit.at.date_naive())))
@@ -369,14 +378,12 @@ pub static VISITS_CHANGED: LazyLock<broadcast::Sender<()>> =
 /// moment the row stops being the one being read. It goes to disk with the
 /// next save — the visit that follows, or the window closing.
 pub fn keep_position(path: &Path, anchor: ScrollAnchor) {
-    let path = crate::utils::paths::true_spelling(path);
-    VISITS.write().keep_position(&path, anchor);
+    VISITS.write().keep_position(path, anchor);
 }
 
 /// Where the reader had got to in a document they have read before.
 pub fn position(path: &Path) -> Option<ScrollAnchor> {
-    let path = crate::utils::paths::true_spelling(path);
-    VISITS.read().position(&path)
+    VISITS.read().position(path)
 }
 
 /// Write the history out, positions and all.
@@ -389,12 +396,7 @@ pub fn save_visits() {
 /// Record a visit, persist it, and tell the other windows.
 pub fn record_visit(path: impl Into<PathBuf>) {
     let mut visits = VISITS.write();
-    // Two spellings of one document would be two rows in every list that
-    // reads this, and the reader would have opened the same file twice.
-    visits.record(
-        crate::utils::paths::true_spelling(&path.into()),
-        Local::now(),
-    );
+    visits.record(path, Local::now());
     if let Err(err) = visits.save() {
         tracing::warn!(%err, "Failed to save visit history");
     }
@@ -683,6 +685,31 @@ mod tests {
 
         assert_eq!(visits.items.len(), 1);
         assert_eq!(visits.items[0].path, PathBuf::from("/b.md"));
+    }
+
+    // The spelling is repaired against the disk, which only answers on the
+    // platforms whose filesystem is case-insensitive.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn every_question_finds_the_document_however_it_is_spelled() {
+        let dir = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir(dir.path().join("Notes")).unwrap();
+        std::fs::write(dir.path().join("Notes/a.md"), "").unwrap();
+        let typed = dir.path().join("notes/a.md");
+        let place = ScrollAnchor {
+            line: 42,
+            fraction: 0.25,
+        };
+
+        let mut visits = Visits::default();
+        visits.record(&typed, at(2026, 4, 16));
+        assert_eq!(visits.items[0].path, dir.path().join("Notes/a.md"));
+
+        visits.keep_position(&typed, place);
+        assert_eq!(visits.position(&typed), Some(place));
+
+        visits.forget(&typed);
+        assert!(visits.items.is_empty());
     }
 
     #[test]
