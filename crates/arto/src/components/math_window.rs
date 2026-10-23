@@ -1,6 +1,5 @@
 use dioxus::prelude::*;
 use rust_i18n::t;
-use sha2::{Digest, Sha256};
 
 use crate::assets::main_script_url;
 use crate::components::theme_selector::ThemeSelector;
@@ -19,15 +18,6 @@ pub struct MathWindowProps {
     pub math_id: String,
     /// Initial theme
     pub theme: Theme,
-}
-
-/// Generate unique ID from LaTeX source
-pub fn generate_math_id(source: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(source.as_bytes());
-    let result = hasher.finalize();
-    // Use first 16 characters of hex hash
-    result.iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
 
 /// Truncate LaTeX source for window title
@@ -128,26 +118,6 @@ pub fn MathWindow(props: MathWindowProps) -> Element {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_generate_math_id_deterministic() {
-        let id1 = generate_math_id("E = mc^2");
-        let id2 = generate_math_id("E = mc^2");
-        assert_eq!(id1, id2);
-    }
-
-    #[test]
-    fn test_generate_math_id_different_sources() {
-        let id1 = generate_math_id("E = mc^2");
-        let id2 = generate_math_id("a^2 + b^2 = c^2");
-        assert_ne!(id1, id2);
-    }
-
-    #[test]
-    fn test_generate_math_id_length() {
-        let id = generate_math_id("\\int_0^\\infty e^{-x} dx");
-        assert_eq!(id.len(), 16);
-    }
 
     #[test]
     fn test_truncate_latex_short() {

@@ -1,6 +1,5 @@
 use dioxus::prelude::*;
 use rust_i18n::t;
-use sha2::{Digest, Sha256};
 
 use crate::assets::main_script_url;
 use crate::components::theme_selector::ThemeSelector;
@@ -21,40 +20,6 @@ pub struct ImageWindowProps {
     pub image_id: String,
     /// Initial theme
     pub theme: Theme,
-}
-
-/// Generate unique ID from image source
-pub fn generate_image_id(src: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(src.as_bytes());
-    let result = hasher.finalize();
-    // Use first 16 characters of hex hash
-    result.iter().take(8).map(|b| format!("{b:02x}")).collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_generate_image_id_deterministic() {
-        let id1 = generate_image_id("data:image/png;base64,abc123");
-        let id2 = generate_image_id("data:image/png;base64,abc123");
-        assert_eq!(id1, id2);
-    }
-
-    #[test]
-    fn test_generate_image_id_different_sources() {
-        let id1 = generate_image_id("data:image/png;base64,abc123");
-        let id2 = generate_image_id("https://example.com/photo.jpg");
-        assert_ne!(id1, id2);
-    }
-
-    #[test]
-    fn test_generate_image_id_length() {
-        let id = generate_image_id("https://example.com/image.png");
-        assert_eq!(id.len(), 16);
-    }
 }
 
 /// Image Window Component

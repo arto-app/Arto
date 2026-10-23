@@ -2,14 +2,15 @@ use dioxus::desktop::tao::window::WindowId;
 use dioxus::desktop::{window, Config, WeakDesktopContext, WindowBuilder};
 use dioxus::prelude::*;
 use rust_i18n::t;
+use sha2::{Digest, Sha256};
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::assets::{main_head, with_asset_protocol};
-use crate::components::image_window::{generate_image_id, ImageWindow, ImageWindowProps};
-use crate::components::math_window::{generate_math_id, MathWindow, MathWindowProps};
-use crate::components::mermaid_window::{generate_diagram_id, MermaidWindow, MermaidWindowProps};
+use crate::components::image_window::{ImageWindow, ImageWindowProps};
+use crate::components::math_window::{MathWindow, MathWindowProps};
+use crate::components::mermaid_window::{MermaidWindow, MermaidWindowProps};
 use crate::theme::Theme;
 
 use super::index::{build_image_window_index, build_math_window_index, build_mermaid_window_index};
@@ -216,8 +217,18 @@ pub(super) async fn create_and_register_child_window(
     });
 }
 
+/// The key a viewer window is found by: the same source asks for the same
+/// window, so opening it again focuses the one already open.
+fn viewer_window_key(source: &str) -> String {
+    Sha256::digest(source.as_bytes())
+        .iter()
+        .take(8)
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
 pub fn open_or_focus_mermaid_window(source: String, theme: Theme) {
-    let diagram_id = generate_diagram_id(&source);
+    let diagram_id = viewer_window_key(&source);
     let parent_id = window().id();
 
     if try_focus_or_mark_pending(&diagram_id, parent_id) {
@@ -244,7 +255,7 @@ pub fn open_or_focus_mermaid_window(source: String, theme: Theme) {
 }
 
 pub fn open_or_focus_math_window(source: String, theme: Theme) {
-    let math_id = generate_math_id(&source);
+    let math_id = viewer_window_key(&source);
     let parent_id = window().id();
 
     if try_focus_or_mark_pending(&math_id, parent_id) {
@@ -271,7 +282,7 @@ pub fn open_or_focus_math_window(source: String, theme: Theme) {
 }
 
 pub fn open_or_focus_image_window(src: String, alt: Option<String>, theme: Theme) {
-    let image_id = generate_image_id(&src);
+    let image_id = viewer_window_key(&src);
     let parent_id = window().id();
 
     if try_focus_or_mark_pending(&image_id, parent_id) {
@@ -295,5 +306,27 @@ pub fn open_or_focus_image_window(src: String, alt: Option<String>, theme: Theme
         crate::utils::task::spawn_detached(create_and_register_child_window(
             image_id, dom, config, parent_id,
         ));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_key_is_the_head_of_the_sources_sha256() {
+        assert_eq!(viewer_window_key("E = mc^2"), "2820951a377c18ce");
+        assert_eq!(
+            viewer_window_key("https://example.com/photo.jpg"),
+            "5cd76d96bc2f2aec"
+        );
+    }
+
+    #[test]
+    fn different_sources_have_different_keys() {
+        assert_ne!(
+            viewer_window_key("E = mc^2"),
+            viewer_window_key("a^2 + b^2 = c^2")
+        );
     }
 }
