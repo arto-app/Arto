@@ -42,8 +42,8 @@ impl Reader for Ollama {
     }
 
     /// The models the server has pulled, from `/api/tags`.
-    fn models(&self, tags: &str) -> Result<Vec<String>, String> {
-        let tags: Value = serde_json::from_str(tags).map_err(|error| error.to_string())?;
+    fn models(&self, tags: &str) -> Result<Vec<String>, serde_json::Error> {
+        let tags: Value = serde_json::from_str(tags)?;
         Ok(tags["models"]
             .as_array()
             .into_iter()

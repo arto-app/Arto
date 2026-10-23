@@ -101,10 +101,10 @@ pub fn links_of(source: &Path, content: &str, options: &RenderOptions) -> Vec<Re
 }
 
 /// The file a link opens from `folder`, or `None` when there is none — by
-/// the rule a click follows ([`crate::document_link::resolve_link_path`]),
+/// the rule a click follows ([`crate::link_target::resolve_link_path`]),
 /// spelled for comparison by [`canonical_key`].
 pub fn resolve(folder: &Path, path: &str) -> Option<PathBuf> {
-    crate::document_link::resolve_link_path(folder, path)
+    crate::link_target::resolve_link_path(folder, path)
         .filter(|path| path.is_file())
         .map(|path| canonical_key(&path))
 }

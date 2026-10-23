@@ -13,6 +13,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+mod atomic_write;
 mod behavior;
 mod color_theme;
 mod directory_config;
@@ -35,6 +36,7 @@ mod zoom_config;
 
 pub use arto_keybindings::{BindingSet, KeyAction};
 pub use arto_markdown::{RawHtml, RenderOptions};
+pub use atomic_write::*;
 pub use behavior::*;
 pub use color_theme::*;
 pub use directory_config::*;

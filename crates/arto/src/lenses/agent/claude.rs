@@ -94,7 +94,7 @@ impl Reader for Claude {
     /// follows the latest model of its line, while the full name the help
     /// gives beside them is an example that pins one release — and not
     /// necessarily the latest. The ones it is known to take follow.
-    fn models(&self, help: &str) -> Result<Vec<String>, String> {
+    fn models(&self, help: &str) -> Result<Vec<String>, serde_json::Error> {
         let option = help
             .split("--model")
             .nth(1)

@@ -17,6 +17,11 @@ pub(super) fn step_palette(state: &mut AppState, forward: bool) {
     scroll_into_view(".palette-row.keyboard-focused");
 }
 
+pub(super) fn confirm_palette(state: AppState) {
+    let at = crate::components::palette::cursor_row(&state, *state.palette_rows.read());
+    activate_palette_row(state, at);
+}
+
 /// Take the row the palette is on: read the document, work in the folder, or
 /// do the thing.
 ///

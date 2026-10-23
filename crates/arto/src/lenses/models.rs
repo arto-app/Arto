@@ -5,10 +5,10 @@
 //! either says back is the adapter's to read.
 
 use super::agent::{self, Adapter, Invocation, Transport};
-use super::{http, runner, session};
+use super::runner::{self, RunError};
+use super::{http, session};
 use arto_config::{Lens, LensAgent};
 use parking_lot::Mutex;
-use rust_i18n::t;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -16,6 +16,18 @@ use std::time::Duration;
 
 /// How long an agent may take to say what it offers.
 const LOOKUP_TIMEOUT: Duration = Duration::from_secs(20);
+
+/// Why the models on offer could not be told.
+#[derive(Debug, thiserror::Error)]
+pub enum ModelsError {
+    #[error("the agent has no program")]
+    NoProgram,
+    #[error(transparent)]
+    Run(#[from] RunError),
+    /// The agent answered with something its adapter could not read.
+    #[error(transparent)]
+    Listing(#[from] serde_json::Error),
+}
 
 /// What decides the models on offer: the agent, and where and as whom it
 /// is asked. The model itself and the prompt do not.
@@ -61,7 +73,7 @@ pub fn forget_offered_models() {
 }
 
 /// The models `source` offers, or why they could not be told.
-pub async fn available_models(source: &ModelSource) -> Result<Vec<String>, String> {
+pub async fn available_models(source: &ModelSource) -> Result<Vec<String>, ModelsError> {
     if let Some(models) = OFFERED.lock().get(source) {
         return Ok(models.clone());
     }
@@ -70,34 +82,32 @@ pub async fn available_models(source: &ModelSource) -> Result<Vec<String>, Strin
     Ok(models)
 }
 
-async fn look_up(source: &ModelSource) -> Result<Vec<String>, String> {
+async fn look_up(source: &ModelSource) -> Result<Vec<String>, ModelsError> {
     let invocation = agent::invocation(&source.lens());
     let listing = match (&invocation.transport, agent::adapter(source.agent)) {
         (Transport::Process { argv } | Transport::AppServer { argv }, Adapter::Program(agent)) => {
             run(&invocation, argv, agent.models_args()).await?
         }
         (Transport::Server(server), Adapter::Server(_)) => {
-            let key = session::api_key(&server.api_key, invocation.path.as_deref())
-                .await
-                .map_err(|error| error.to_string())?;
+            let key = session::api_key(&server.api_key, invocation.path.as_deref()).await?;
             let headers = key
                 .map(|key| vec![("authorization".to_string(), format!("Bearer {key}"))])
                 .unwrap_or_default();
-            http::get(&server.models_url, headers, LOOKUP_TIMEOUT)
-                .await
-                .map_err(|error| error.to_string())?
+            http::get(&server.models_url, headers, LOOKUP_TIMEOUT).await?
         }
         _ => return Ok(Vec::new()),
     };
-    agent::reader(source.agent).models(&listing)
+    Ok(agent::reader(source.agent).models(&listing)?)
 }
 
 /// Run the agent's program alone with `args` in place of the flags a lens
 /// runs it with.
-async fn run(invocation: &Invocation, argv: &[String], args: &[&str]) -> Result<String, String> {
-    let program = argv
-        .first()
-        .ok_or_else(|| t!("lenses.errors.no_program").into_owned())?;
+async fn run(
+    invocation: &Invocation,
+    argv: &[String],
+    args: &[&str],
+) -> Result<String, ModelsError> {
+    let program = argv.first().ok_or(ModelsError::NoProgram)?;
     let command: Vec<String> = std::iter::once(program.clone())
         .chain(args.iter().map(|arg| arg.to_string()))
         .collect();
@@ -110,7 +120,7 @@ async fn run(invocation: &Invocation, argv: &[String], args: &[&str]) -> Result<
         |_| {},
     )
     .await
-    .map_err(|error| error.to_string())
+    .map_err(ModelsError::from)
 }
 
 #[cfg(test)]

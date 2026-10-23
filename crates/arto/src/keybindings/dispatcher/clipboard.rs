@@ -24,7 +24,7 @@ pub(super) fn copy_content_cursor_text(js_getter: &'static str) {
                 show_action_feedback(&t!("keybindings.feedback.copied"));
             }
             Ok(_) => {}
-            Err(e) => tracing::debug!(js_getter, "Content cursor copy failed: {e}"),
+            Err(error) => tracing::debug!(js_getter, %error, "Content cursor copy failed"),
         }
     });
 }
@@ -108,7 +108,7 @@ pub(crate) async fn copy_rasterized_image(mut eval: document::Eval, subject: &st
             tracing::warn!(%subject, "Rasterizing for clipboard copy produced no image")
         }
         Err(e) => {
-            tracing::warn!(%e, %subject, "Rasterizing for clipboard copy failed")
+            tracing::warn!(error = %e, %subject, "Rasterizing for clipboard copy failed")
         }
     }
 }
@@ -148,11 +148,11 @@ pub(crate) async fn copy_image_from_src(src: String, opaque: bool) {
         match rx.await {
             Ok(Ok(data_url)) => data_url,
             Ok(Err(e)) => {
-                tracing::error!(%e, "Failed to download image for clipboard copy");
+                tracing::warn!(error = %e, "Failed to download image for clipboard copy");
                 return;
             }
             Err(_) => {
-                tracing::error!("Image download thread was cancelled");
+                tracing::warn!("Image download thread was cancelled");
                 return;
             }
         }
@@ -161,7 +161,7 @@ pub(crate) async fn copy_image_from_src(src: String, opaque: bool) {
     };
 
     let Ok(src_json) = serde_json::to_string(&rasterize_src) else {
-        tracing::error!("Failed to serialize image src as JSON");
+        tracing::warn!("Failed to serialize image src as JSON");
         return;
     };
     let opaque_str = if opaque { "true" } else { "false" };
@@ -185,7 +185,7 @@ pub(super) fn copy_image_path_from_cursor() {
                 show_action_feedback(&t!("keybindings.feedback.copied"));
             }
             Ok(_) => {}
-            Err(e) => tracing::debug!("Copy image path failed: {e}"),
+            Err(error) => tracing::debug!(%error, "Copy image path failed"),
         }
     });
 }
@@ -201,12 +201,22 @@ pub(super) fn copy_link_path_from_cursor() {
                 show_action_feedback(&t!("keybindings.feedback.copied"));
             }
             Ok(_) => {}
-            Err(e) => tracing::debug!("Copy link path failed: {e}"),
+            Err(error) => tracing::debug!(%error, "Copy link path failed"),
         }
     });
 }
 
-pub(super) fn copy_file_path_with_line(file: std::path::PathBuf, is_range: bool) {
+pub(super) fn copy_current_file_path(state: &AppState) {
+    if let Some(file) = get_current_file(state) {
+        crate::utils::clipboard::copy_text(file.to_string_lossy());
+        show_action_feedback(&t!("keybindings.feedback.copied"));
+    }
+}
+
+pub(super) fn copy_file_path_with_line(state: &AppState, is_range: bool) {
+    let Some(file) = get_current_file(state) else {
+        return;
+    };
     spawn_detached(async move {
         let js =
             "(() => { dioxus.send(window.Arto?.contentCursor?.getSourceLineRange() ?? null); })()";
@@ -220,7 +230,10 @@ pub(super) fn copy_file_path_with_line(file: std::path::PathBuf, is_range: bool)
     });
 }
 
-pub(super) fn copy_markdown_source(file: std::path::PathBuf) {
+pub(super) fn copy_markdown_source(state: &AppState) {
+    let Some(file) = get_current_file(state) else {
+        return;
+    };
     spawn_detached(async move {
         #[derive(serde::Deserialize)]
         struct MarkdownSourceRequest {
@@ -352,6 +365,6 @@ pub(super) async fn save_special_block_from_cursor(kind: &str) {
             });
         }
         Ok(None) => tracing::warn!(%kind, "Rasterizing for save produced no image"),
-        Err(e) => tracing::warn!(%e, %kind, "Rasterizing for save failed"),
+        Err(e) => tracing::warn!(error = %e, %kind, "Rasterizing for save failed"),
     }
 }

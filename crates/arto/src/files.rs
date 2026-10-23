@@ -203,12 +203,28 @@ fn scan(root: &Path, all_files: bool) -> Listing {
 /// filesystem rather than the work, and bounded, because the tree can always
 /// turn out to be larger than anyone meant.
 fn walk(root: &Path, all_files: bool, budget: Budget) -> Listing {
-    let found = Mutex::new(Vec::new());
-    let count = AtomicUsize::new(0);
-    let visited = AtomicUsize::new(0);
-    let truncated = AtomicBool::new(false);
-    let deadline = Instant::now() + budget.time;
+    let tally = Tally::new(all_files, budget);
+    walker(root).run(|| Box::new(|entry| tally.visit(entry)));
+    let truncated = tally.truncated.load(Ordering::Relaxed);
 
+    let mut files = tally.found.into_inner();
+    // Shallowest first, and alphabetical within a depth. Nothing here decides
+    // what the reader sees — the query's score does — but two candidates that
+    // answer a query equally well should come out in the same order every
+    // time, and the shallower of two identical names is the likelier one.
+    files.sort_by_cached_key(|path| (path.components().count(), path.clone()));
+    files.truncate(budget.files);
+
+    Listing {
+        root: root.to_path_buf(),
+        all_files,
+        files,
+        truncated,
+    }
+}
+
+/// The walk over `root`, skipping what a reader would not open.
+fn walker(root: &Path) -> ignore::WalkParallel {
     WalkBuilder::new(root)
         // What a reader would not have opened by hand. `.git` and the rest of
         // the dotted world are noise in a list of documents, and the ignore
@@ -227,50 +243,63 @@ fn walk(root: &Path, all_files: bool, budget: Budget) -> Listing {
         .follow_links(false)
         .threads(threads())
         .build_parallel()
-        .run(|| {
-            Box::new(|entry| {
-                let Ok(entry) = entry else {
-                    return WalkState::Continue;
-                };
-                if !entry.file_type().is_some_and(|kind| kind.is_file()) {
-                    return WalkState::Continue;
-                }
-                // Counted before anything is decided about the file, because
-                // this is the bound on the walk rather than on the list. The
-                // clock is read once every so often: asking it per file
-                // would cost more than looking at the file.
-                let seen = visited.fetch_add(1, Ordering::Relaxed);
-                let spent = seen.is_multiple_of(1024) && Instant::now() >= deadline;
-                if seen >= budget.visited || spent {
-                    truncated.store(true, Ordering::Relaxed);
-                    return WalkState::Quit;
-                }
-                let path = entry.into_path();
-                if !all_files && !is_markdown_file(&path) {
-                    return WalkState::Continue;
-                }
-                if count.fetch_add(1, Ordering::Relaxed) >= budget.files {
-                    truncated.store(true, Ordering::Relaxed);
-                    return WalkState::Quit;
-                }
-                found.lock().push(path);
-                WalkState::Continue
-            })
-        });
+}
 
-    let mut files = found.into_inner();
-    // Shallowest first, and alphabetical within a depth. Nothing here decides
-    // what the reader sees — the query's score does — but two candidates that
-    // answer a query equally well should come out in the same order every
-    // time, and the shallower of two identical names is the likelier one.
-    files.sort_by_cached_key(|path| (path.components().count(), path.clone()));
-    files.truncate(budget.files);
+/// What the walk's threads share: what was kept, what was looked at, and
+/// whether the budget ran out before the tree did.
+struct Tally {
+    all_files: bool,
+    budget: Budget,
+    deadline: Instant,
+    found: Mutex<Vec<PathBuf>>,
+    count: AtomicUsize,
+    visited: AtomicUsize,
+    truncated: AtomicBool,
+}
 
-    Listing {
-        root: root.to_path_buf(),
-        all_files,
-        files,
-        truncated: truncated.load(Ordering::Relaxed),
+impl Tally {
+    fn new(all_files: bool, budget: Budget) -> Self {
+        Self {
+            all_files,
+            budget,
+            deadline: Instant::now() + budget.time,
+            found: Mutex::new(Vec::new()),
+            count: AtomicUsize::new(0),
+            visited: AtomicUsize::new(0),
+            truncated: AtomicBool::new(false),
+        }
+    }
+
+    fn visit(&self, entry: Result<ignore::DirEntry, ignore::Error>) -> WalkState {
+        let Ok(entry) = entry else {
+            return WalkState::Continue;
+        };
+        if !entry.file_type().is_some_and(|kind| kind.is_file()) {
+            return WalkState::Continue;
+        }
+        // Counted before anything is decided about the file, because this is
+        // the bound on the walk rather than on the list. The clock is read
+        // once every so often: asking it per file would cost more than
+        // looking at the file.
+        let seen = self.visited.fetch_add(1, Ordering::Relaxed);
+        let spent = seen.is_multiple_of(1024) && Instant::now() >= self.deadline;
+        if seen >= self.budget.visited || spent {
+            return self.stop();
+        }
+        let path = entry.into_path();
+        if !self.all_files && !is_markdown_file(&path) {
+            return WalkState::Continue;
+        }
+        if self.count.fetch_add(1, Ordering::Relaxed) >= self.budget.files {
+            return self.stop();
+        }
+        self.found.lock().push(path);
+        WalkState::Continue
+    }
+
+    fn stop(&self) -> WalkState {
+        self.truncated.store(true, Ordering::Relaxed);
+        WalkState::Quit
     }
 }
 

@@ -389,29 +389,20 @@ fn reopen_with_behavior(
     // then raise an existing window instead, which is the opposite of what
     // was asked for.
     if behavior == Some(crate::config::FileOpenBehavior::NewWindow) {
-        let params = crate::window::CreateMainWindowConfigParams {
-            focused: !behind,
-            ..Default::default()
-        }
-        .with_window_options(&window);
-        watch_new_window(ready);
-        crate::window::create_main_window_sync(desktop, crate::state::Document::default(), params);
-        return;
+        return open_blank_window(desktop, !behind, &window, ready);
     }
 
     let target_window = match behavior {
         Some(behavior) => select_target_window_with_behavior(behavior),
         None => select_target_window(),
     };
-
-    // First try to focus an existing visible window
-    if let Some(window_id) = target_window {
-        crate::window::apply_window_options(window_id, &window);
-        if behind || crate::window::main::focus_window(window_id) {
-            watch_existing_window(window_id, ready);
-            return;
-        }
-    }
+    let ready = match target_window {
+        Some(window_id) => match reopen_visible_window(window_id, behind, &window, ready) {
+            Ok(()) => return,
+            Err(ready) => ready,
+        },
+        None => ready,
+    };
 
     // Nothing visible to act on, and `--behind` is the promise not to make
     // something appear: raising the hidden window would put the app in front
@@ -424,20 +415,53 @@ fn reopen_with_behavior(
         return;
     }
 
-    // If no visible windows, try to show and focus a hidden window (e.g., MainApp with WindowHides)
     if crate::window::main::show_and_focus_hidden_window() {
-        // The window that came back is the one the request is for, and it is
-        // the one now focused.
-        if let Some(window_id) = crate::window::main::get_last_focused_window() {
-            crate::window::apply_window_options(window_id, &window);
-            watch_existing_window(window_id, ready);
-        }
-        return;
+        return adopt_reshown_window(&window, ready);
     }
 
-    // If no windows at all, create a new one
-    let params =
-        crate::window::CreateMainWindowConfigParams::default().with_window_options(&window);
+    open_blank_window(desktop, true, &window, ready);
+}
+
+/// Apply `window` to the visible `window_id` and bring it forward, unless the
+/// request is `--behind`. Hands `ready` back when the window would not take
+/// focus, so the caller can try something else.
+fn reopen_visible_window(
+    window_id: WindowId,
+    behind: bool,
+    window: &arto_lsp::WindowOptions,
+    ready: Option<arto_lsp::Responder>,
+) -> Result<(), Option<arto_lsp::Responder>> {
+    crate::window::apply_window_options(window_id, window);
+    if behind || crate::window::main::focus_window(window_id) {
+        watch_existing_window(window_id, ready);
+        Ok(())
+    } else {
+        Err(ready)
+    }
+}
+
+/// Finish a reopen on the hidden window that was just shown again (e.g.,
+/// MainApp with WindowHides): it is the one the request is for, and it is the
+/// one now focused.
+fn adopt_reshown_window(window: &arto_lsp::WindowOptions, ready: Option<arto_lsp::Responder>) {
+    if let Some(window_id) = crate::window::main::get_last_focused_window() {
+        crate::window::apply_window_options(window_id, window);
+        watch_existing_window(window_id, ready);
+    }
+}
+
+/// Open a window on the welcome page, laid out as `window` asks.
+fn open_blank_window(
+    desktop: &std::rc::Rc<dioxus::desktop::DesktopService>,
+    focused: bool,
+    window: &arto_lsp::WindowOptions,
+    ready: Option<arto_lsp::Responder>,
+) {
+    let params = crate::window::CreateMainWindowConfigParams {
+        focused,
+        ..Default::default()
+    }
+    .with_window_options(window);
     watch_new_window(ready);
     crate::window::create_main_window_sync(desktop, crate::state::Document::default(), params);
 }
@@ -445,12 +469,7 @@ fn reopen_with_behavior(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::FileOpenBehavior;
-    use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
     use std::path::{Path, PathBuf};
-    use window_selection::{
-        choose_open_target, is_window_on_display, OpenTarget, WindowBounds, WindowSelectionInput,
-    };
 
     #[test]
     fn test_event_queue_fifo_ordering() {
@@ -505,155 +524,5 @@ mod tests {
         // Queue is empty after drain
         assert!(try_pop_first_event().is_none());
         assert!(drain_events().is_empty());
-    }
-
-    #[test]
-    fn test_choose_open_target_new_window_always_creates_new_window() {
-        let windows = vec![WindowSelectionInput {
-            window_id: 1_u8,
-            is_on_current_screen: true,
-        }];
-
-        let target = choose_open_target(FileOpenBehavior::NewWindow, &windows, Some(1));
-        assert_eq!(target, OpenTarget::NewWindow);
-    }
-
-    #[test]
-    fn test_choose_open_target_last_focused_uses_visible_window() {
-        let windows = vec![
-            WindowSelectionInput {
-                window_id: 1_u8,
-                is_on_current_screen: false,
-            },
-            WindowSelectionInput {
-                window_id: 2_u8,
-                is_on_current_screen: true,
-            },
-        ];
-
-        let target = choose_open_target(FileOpenBehavior::LastFocused, &windows, Some(2));
-        assert_eq!(target, OpenTarget::ExistingWindow(2));
-    }
-
-    #[test]
-    fn test_choose_open_target_last_focused_falls_back_to_new_window() {
-        let windows = vec![WindowSelectionInput {
-            window_id: 1_u8,
-            is_on_current_screen: true,
-        }];
-
-        let target = choose_open_target(FileOpenBehavior::LastFocused, &windows, Some(2));
-        assert_eq!(target, OpenTarget::NewWindow);
-    }
-
-    #[test]
-    fn test_choose_open_target_current_screen_prefers_last_focused() {
-        let windows = vec![
-            WindowSelectionInput {
-                window_id: 1_u8,
-                is_on_current_screen: true,
-            },
-            WindowSelectionInput {
-                window_id: 2_u8,
-                is_on_current_screen: true,
-            },
-        ];
-
-        let target = choose_open_target(FileOpenBehavior::CurrentScreen, &windows, Some(2));
-        assert_eq!(target, OpenTarget::ExistingWindow(2));
-    }
-
-    #[test]
-    fn test_choose_open_target_current_screen_uses_first_candidate_without_last_focus() {
-        let windows = vec![
-            WindowSelectionInput {
-                window_id: 4_u8,
-                is_on_current_screen: true,
-            },
-            WindowSelectionInput {
-                window_id: 5_u8,
-                is_on_current_screen: true,
-            },
-        ];
-
-        let target = choose_open_target(FileOpenBehavior::CurrentScreen, &windows, None);
-        assert_eq!(target, OpenTarget::ExistingWindow(4));
-    }
-
-    #[test]
-    fn test_choose_open_target_current_screen_falls_back_to_new_window() {
-        let windows = vec![WindowSelectionInput {
-            window_id: 1_u8,
-            is_on_current_screen: false,
-        }];
-
-        let target = choose_open_target(FileOpenBehavior::CurrentScreen, &windows, Some(1));
-        assert_eq!(target, OpenTarget::NewWindow);
-    }
-
-    #[test]
-    fn test_is_window_on_display_fully_inside() {
-        let display = (LogicalPosition::new(0, 0), LogicalSize::new(1920, 1080));
-        let bounds = WindowBounds {
-            x: 300,
-            y: 250,
-            width: 400,
-            height: 300,
-        };
-        assert!(is_window_on_display(display, bounds));
-    }
-
-    #[test]
-    fn test_is_window_on_display_spanning_two_monitors() {
-        let display = (LogicalPosition::new(0, 0), LogicalSize::new(1920, 1080));
-        // Window straddles the right edge: 50% on left monitor
-        let bounds = WindowBounds {
-            x: 1720,
-            y: 200,
-            width: 400,
-            height: 300,
-        };
-        // overlap = 200*300 = 60000, window = 400*300 = 120000 → 50% > 10%
-        assert!(is_window_on_display(display, bounds));
-    }
-
-    #[test]
-    fn test_is_window_on_display_minor_overlap_rejected() {
-        let display = (LogicalPosition::new(0, 0), LogicalSize::new(1920, 1080));
-        // Only 20px overlap on a 400px-wide window → 5% < 10%
-        let bounds = WindowBounds {
-            x: 1900,
-            y: 200,
-            width: 400,
-            height: 300,
-        };
-        // overlap = 20*300 = 6000, window = 400*300 = 120000 → 5% < 10%
-        assert!(!is_window_on_display(display, bounds));
-    }
-
-    #[test]
-    fn test_is_window_on_display_completely_outside() {
-        let display = (LogicalPosition::new(0, 0), LogicalSize::new(1920, 1080));
-        let bounds = WindowBounds {
-            x: 1921,
-            y: 0,
-            width: 400,
-            height: 300,
-        };
-        assert!(!is_window_on_display(display, bounds));
-    }
-
-    #[test]
-    fn test_is_window_on_display_hidden_in_corner() {
-        let display = (LogicalPosition::new(0, 0), LogicalSize::new(1920, 1080));
-        // Simulates Aerospace hideInCorner: window at bottom-right with 1px overlap
-        // overlap = 1*1 = 1, window = 1265*2109 → ~0.00004% < 10%
-        let bounds = WindowBounds {
-            x: 5119,
-            y: 2132,
-            width: 1265,
-            height: 2109,
-        };
-        assert!(!is_window_on_display(display, bounds));
     }
 }

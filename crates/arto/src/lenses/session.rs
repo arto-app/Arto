@@ -1,16 +1,38 @@
 //! Running a lens's command on its requests: a bounded number at a time,
 //! each answer handed on the moment it arrives.
 
-use super::agent::{ApiKey, Decoder, Input, Invocation, Transport, SYSTEM_PROMPT};
+use super::agent::{AgentError, ApiKey, Decoder, Input, Invocation, Transport, SYSTEM_PROMPT};
 use super::job::{Job, Request};
-use super::runner;
+use super::runner::{self, RunError};
+use super::secrets::SecretsError;
 use super::{app_server, http};
-use rust_i18n::t;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinSet;
+
+/// Why a run of a lens has no answer: the command did not give one, or the
+/// agent said why it has none.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum AnswerError {
+    #[error(transparent)]
+    Run(#[from] RunError),
+    #[error(transparent)]
+    Agent(#[from] AgentError),
+}
+
+/// Why there is no API key to send.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum KeyError {
+    #[error("it is empty")]
+    Empty,
+    /// The program that prints it did not.
+    #[error(transparent)]
+    Command(Box<RunError>),
+    #[error(transparent)]
+    Store(SecretsError),
+}
 
 /// How the command of a lens is run.
 #[derive(Debug, Clone)]
@@ -31,7 +53,7 @@ impl Runner {
         &self,
         request: &Request,
         mut on_output: impl FnMut(&str),
-    ) -> Result<String, String> {
+    ) -> Result<String, AnswerError> {
         let invocation = &self.invocation;
         let input = match &invocation.input {
             Input::Json => request.to_json(),
@@ -69,7 +91,7 @@ impl Runner {
                 let headers = match api_key(&server.api_key, invocation.path.as_deref()).await {
                     Ok(Some(key)) => vec![("authorization".to_string(), format!("Bearer {key}"))],
                     Ok(None) => Vec::new(),
-                    Err(error) => return Err(error.to_string()),
+                    Err(error) => return Err(error.into()),
                 };
                 http::post(
                     &server.url,
@@ -80,9 +102,8 @@ impl Runner {
                 )
                 .await
             }
-        }
-        .map_err(|error| error.to_string())?;
-        decoder.finish(&output)
+        }?;
+        Ok(decoder.finish(&output)?)
     }
 }
 
@@ -93,15 +114,17 @@ impl Runner {
 pub(crate) async fn api_key(
     key: &ApiKey,
     path: Option<&std::ffi::OsStr>,
-) -> Result<Option<String>, runner::RunError> {
+) -> Result<Option<String>, RunError> {
     let key = match key {
         ApiKey::None => return Ok(None),
         ApiKey::Stored(account) => {
             let account = account.clone();
             let stored = tokio::task::spawn_blocking(move || super::secrets::read(&account))
                 .await
-                .map_err(|error| runner::RunError::ApiKey(error.to_string()))?
-                .map_err(runner::RunError::ApiKey)?;
+                .map_err(|error| {
+                    RunError::ApiKey(KeyError::Store(SecretsError::Interrupted(error)))
+                })?
+                .map_err(|error| RunError::ApiKey(KeyError::Store(error)))?;
             match stored {
                 Some(key) => key,
                 None => return Ok(None),
@@ -109,13 +132,11 @@ pub(crate) async fn api_key(
         }
         ApiKey::Command(argv) => runner::run(argv, None, path, "", API_KEY_TIMEOUT, |_| {})
             .await
-            .map_err(|error| runner::RunError::ApiKey(error.to_string()))?,
+            .map_err(|error| RunError::ApiKey(KeyError::Command(Box::new(error))))?,
     };
     let key = key.trim().to_string();
     if key.is_empty() {
-        return Err(runner::RunError::ApiKey(
-            t!("lenses.errors.empty_key").into_owned(),
-        ));
+        return Err(RunError::ApiKey(KeyError::Empty));
     }
     Ok(Some(key))
 }
@@ -133,7 +154,7 @@ const API_KEY_TIMEOUT: Duration = Duration::from_secs(60);
 pub(crate) async fn run_jobs(
     jobs: Vec<Job>,
     runner: Runner,
-    mut report: impl FnMut(Job, Result<String, String>),
+    mut report: impl FnMut(Job, Result<String, AnswerError>),
 ) {
     let mut waiting: VecDeque<Job> = jobs.into();
     let mut running = JoinSet::new();
@@ -215,7 +236,7 @@ mod tests {
         }
     }
 
-    async fn collect(jobs: Vec<Job>, runner: Runner) -> Vec<(String, Result<String, String>)> {
+    async fn collect(jobs: Vec<Job>, runner: Runner) -> Vec<(String, Result<String, AnswerError>)> {
         let mut results = Vec::new();
         run_jobs(jobs, runner, |job, answer| results.push((job.id, answer))).await;
         results.sort_by(|a, b| a.0.cmp(&b.0));
@@ -250,7 +271,10 @@ mod tests {
         let results = collect(vec![job("a", "")], runner("echo nope >&2; exit 1", 1, None)).await;
 
         let (_, answer) = &results[0];
-        assert!(answer.as_ref().unwrap_err().contains("nope"), "{answer:?}");
+        assert!(
+            answer.as_ref().unwrap_err().to_string().contains("nope"),
+            "{answer:?}"
+        );
     }
 
     #[tokio::test]
@@ -268,7 +292,7 @@ mod tests {
         assert!(
             results
                 .iter()
-                .all(|(_, answer)| answer.as_deref() == Ok("0")),
+                .all(|(_, answer)| matches!(answer.as_deref(), Ok("0"))),
             "{results:?}"
         );
     }

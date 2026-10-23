@@ -91,8 +91,8 @@ impl Reader for Codex {
 
     /// The models `codex debug models` lists for choosing: its catalog
     /// holds internal ones too, which it marks as hidden.
-    fn models(&self, catalog: &str) -> Result<Vec<String>, String> {
-        let catalog: Value = serde_json::from_str(catalog).map_err(|error| error.to_string())?;
+    fn models(&self, catalog: &str) -> Result<Vec<String>, serde_json::Error> {
+        let catalog: Value = serde_json::from_str(catalog)?;
         Ok(catalog["models"]
             .as_array()
             .into_iter()

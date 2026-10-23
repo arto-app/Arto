@@ -152,7 +152,7 @@ impl PersistedState {
         );
 
         if let Err(e) = file.save(self) {
-            tracing::error!(?e, "Failed to save persisted state");
+            tracing::warn!(error = %e, "Failed to save persisted state");
         }
     }
 }
