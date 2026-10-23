@@ -6,8 +6,8 @@ use crate::config::{
     Config, FileOpenBehavior, WindowDimension, WindowDimensionUnit, WindowPosition,
     WindowPositionMode, WindowSize,
 };
+use crate::state::{Position, Size};
 use dioxus::prelude::*;
-use dioxus_desktop::window;
 use rust_i18n::t;
 use std::path::PathBuf;
 
@@ -19,7 +19,12 @@ use std::path::PathBuf;
 /// The places the reader keeps are not a setting at all — they are kept by
 /// starring a folder, and every window already starts with all of them.
 #[component]
-pub fn WindowTab(config: Signal<Config>, current_directory: Option<PathBuf>) -> Element {
+pub fn WindowTab(
+    config: Signal<Config>,
+    current_directory: Option<PathBuf>,
+    current_size: Size,
+    current_position: Position,
+) -> Element {
     let size_cfg = config.read().window_size.clone();
     let position_cfg = config.read().window_position.clone();
     let file_open = config.read().file_open;
@@ -27,32 +32,12 @@ pub fn WindowTab(config: Signal<Config>, current_directory: Option<PathBuf>) -> 
     let defaults = Config::default();
 
     let use_current_size = move |_| {
-        let metrics = crate::window::metrics::capture_window_metrics(&window().window);
-        config.write().window_size.default_size = WindowSize {
-            width: WindowDimension {
-                value: metrics.size.width as f64,
-                unit: WindowDimensionUnit::Pixels,
-            },
-            height: WindowDimension {
-                value: metrics.size.height as f64,
-                unit: WindowDimensionUnit::Pixels,
-            },
-        };
+        config.write().window_size.default_size = pixel_size(current_size);
     };
 
     let use_current_position = move |_| {
-        let metrics = crate::window::metrics::capture_window_metrics(&window().window);
         let mut cfg = config.write();
-        cfg.window_position.default_position = WindowPosition {
-            x: WindowDimension {
-                value: metrics.position.x as f64,
-                unit: WindowDimensionUnit::Pixels,
-            },
-            y: WindowDimension {
-                value: metrics.position.y as f64,
-                unit: WindowDimensionUnit::Pixels,
-            },
-        };
+        cfg.window_position.default_position = pixel_position(current_position);
         cfg.window_position.default_position_mode = WindowPositionMode::Coordinates;
     };
 
@@ -313,5 +298,62 @@ pub fn WindowTab(config: Signal<Config>, current_directory: Option<PathBuf>) -> 
                 }
             }
         }
+    }
+}
+
+fn pixels(value: f64) -> WindowDimension {
+    WindowDimension {
+        value,
+        unit: WindowDimensionUnit::Pixels,
+    }
+}
+
+/// A window's measured size as a configured default.
+fn pixel_size(size: Size) -> WindowSize {
+    WindowSize {
+        width: pixels(size.width as f64),
+        height: pixels(size.height as f64),
+    }
+}
+
+/// A window's measured position as a configured default.
+fn pixel_position(position: Position) -> WindowPosition {
+    WindowPosition {
+        x: pixels(position.x as f64),
+        y: pixels(position.y as f64),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_openers_size_becomes_a_size_in_pixels() {
+        let size = pixel_size(Size {
+            width: 1280,
+            height: 800,
+        });
+
+        assert_eq!(
+            size,
+            WindowSize {
+                width: pixels(1280.0),
+                height: pixels(800.0),
+            }
+        );
+    }
+
+    #[test]
+    fn the_openers_position_becomes_a_position_in_pixels() {
+        let position = pixel_position(Position { x: -40, y: 25 });
+
+        assert_eq!(
+            position,
+            WindowPosition {
+                x: pixels(-40.0),
+                y: pixels(25.0),
+            }
+        );
     }
 }

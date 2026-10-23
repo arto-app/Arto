@@ -94,13 +94,17 @@ impl AppState {
                 sidebar.primary_root().cloned(),
             )
         };
+        let window = dioxus::desktop::window();
+        let metrics = crate::window::metrics::capture_window_metrics(&window.window);
         crate::window::preferences::open_or_focus_preferences_window(
             crate::window::preferences::PreferencesSnapshot {
-                window_id: dioxus::desktop::window().id(),
+                window_id: window.id(),
                 sidebar_width,
                 sidebar_zoom_level,
                 content_zoom_level: *self.zoom_level.read(),
                 directory,
+                window_size: metrics.size,
+                window_position: metrics.position,
             },
             *self.current_theme.read(),
         );

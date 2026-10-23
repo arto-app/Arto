@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use crate::state::AppState;
 use crate::theme::Theme;
 
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Position {
     pub x: i32,
@@ -23,7 +23,7 @@ impl From<LogicalPosition<i32>> for Position {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Size {
     pub width: u32,
