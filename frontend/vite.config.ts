@@ -5,6 +5,7 @@ import fs from "fs";
 
 import icons from "./icons.json" with { type: "json" };
 import { scopeStylesheetPlugin } from "./build/scope-stylesheet.ts";
+import { writeIfChanged } from "./build/write-if-changed.ts";
 
 function iconSpritePlugin(): Plugin {
   return {
@@ -37,8 +38,7 @@ function iconSpritePlugin(): Plugin {
 
       const sprite = `<svg xmlns="http://www.w3.org/2000/svg" style="display: none">${symbols}</svg>`;
 
-      fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-      fs.writeFileSync(outputPath, sprite);
+      writeIfChanged(outputPath, sprite);
     },
   };
 }
@@ -78,15 +78,7 @@ const primerThemesPath = path.join(import.meta.dirname, "style/generated/primer-
 /** Generate the stylesheet and write it, leaving an unchanged file untouched. */
 export function writePrimerThemes(): string {
   const css = buildPrimerThemes();
-
-  // The file is part of the CSS module graph, so `vite build --watch` watches
-  // it; rewriting it from `buildStart` would trigger the next build, and so on
-  // forever. Only a real change may touch the mtime.
-  if (fs.existsSync(primerThemesPath) && fs.readFileSync(primerThemesPath, "utf-8") === css) {
-    return css;
-  }
-  fs.mkdirSync(path.dirname(primerThemesPath), { recursive: true });
-  fs.writeFileSync(primerThemesPath, css);
+  writeIfChanged(primerThemesPath, css);
   return css;
 }
 
