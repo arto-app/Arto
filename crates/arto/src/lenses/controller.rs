@@ -1,11 +1,14 @@
 //! Starting, stopping and closing lenses in a window: asking the page for
 //! blocks, running the command, and showing each answer as it arrives.
 
+mod page;
+mod policy;
+
 use super::agent;
 use super::cache::ResultCache;
 use super::job::{self, Block, Job};
 use super::session::{self, Runner};
-use super::store::{Key, Record, STORE};
+use super::store::{Record, STORE};
 use super::stream::finished_blocks;
 use super::{next_serial, peek_open_runs, LensRun, RenderedSource, Scope};
 use crate::config::CONFIG;
@@ -13,9 +16,11 @@ use crate::markdown;
 use crate::state::AppState;
 use crate::utils::task::spawn_detached_task;
 use arto_config::{says_nothing, usable_lenses, Lens, LensDisplay, LensUnit};
-use arto_markdown::SourceRange;
+use dioxus::core::Task;
 use dioxus::prelude::*;
+use page::*;
 use parking_lot::Mutex;
+use policy::*;
 use rust_i18n::t;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -29,10 +34,6 @@ const CACHE_BYTES: usize = 64 * 1024 * 1024;
 static CACHE: LazyLock<Mutex<ResultCache>> =
     LazyLock::new(|| Mutex::new(ResultCache::new(CACHE_BYTES)));
 
-/// How often the page is asked again for blocks it has not rendered yet.
-const COLLECT_ATTEMPTS: usize = 20;
-const COLLECT_INTERVAL: Duration = Duration::from_millis(50);
-
 /// How often an answer that is still arriving is rendered again.
 const STREAM_INTERVAL: Duration = Duration::from_millis(250);
 
@@ -44,43 +45,6 @@ pub(crate) fn offered_lenses() -> Vec<Lens> {
         tracing::warn!(%error, "lens left out");
     }
     usable.into_iter().cloned().collect()
-}
-
-/// When a lens asks its agent.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Policy {
-    /// Only when it has answered nothing about the document yet: what it
-    /// answered before is shown, and what changed since is marked outdated
-    /// for the reader to regenerate — opening a document is not a reason to
-    /// spend minutes and money asking again.
-    Kept,
-    /// For every place whose answer is not about the text as it is now, or
-    /// that has none — what changed, and what a stopped run left.
-    Regenerate,
-    /// For every place, whatever it answered before.
-    All,
-    /// As `Kept`, for a lens the reader did not just ask for — one that
-    /// comes back with its document, or follows it as it changes. A lens
-    /// that reaches what is on this machine beyond the document asks
-    /// nothing then, as `Recall`.
-    Resumed,
-    /// Never: what it answered before is shown, and nothing else.
-    Recall,
-}
-
-/// What `policy` comes to for `lens`.
-///
-/// A lens allowed to read the files around a document is one the reader
-/// trusts with the documents they open it on — not with whatever the
-/// document became since, or any document it comes back with: a file that
-/// changed on disk may now ask it to read the files beside it and write
-/// them into its answer.
-fn resolved(policy: Policy, lens: &Lens) -> Policy {
-    match policy {
-        Policy::Resumed if lens.reaches_local() => Policy::Recall,
-        Policy::Resumed => Policy::Kept,
-        policy => policy,
-    }
 }
 
 /// Look at `scope` through the lens `lens_id`, showing what it answered
@@ -158,23 +122,6 @@ pub(crate) fn toggle(state: AppState, place: usize) {
     }
 }
 
-/// Whether `lens` is on what `scope` looks at.
-fn is_on(lens: &Lens, scope: Scope) -> bool {
-    match scope {
-        Scope::Cursor => lens.on_block(),
-        Scope::Document => lens.on_document(),
-    }
-}
-
-/// What a lens's shortcut shows it over.
-fn shortcut_scope(lens: &Lens) -> Scope {
-    if lens.on_document() {
-        Scope::Document
-    } else {
-        Scope::Cursor
-    }
-}
-
 /// Take the run `token`'s answer off the page. The lens stays open, to be
 /// shown again at once, and the document opens with it hidden; a run still
 /// being answered goes on filing its answers.
@@ -247,31 +194,56 @@ fn remember(state: AppState, token: u64) {
 
 /// Start `lens_id` over `scope`, `shown` or opened hidden. A hidden run asks
 /// nothing and shows nothing until it is shown.
-fn start_with(mut state: AppState, lens_id: &str, scope: Scope, policy: Policy, shown: bool) {
+fn start_with(state: AppState, lens_id: &str, scope: Scope, policy: Policy, shown: bool) {
     let Some(lens) = offered_lenses().into_iter().find(|lens| lens.id == lens_id) else {
         tracing::warn!(lens_id, "no usable lens with this id");
         return;
     };
     // A page is a document of its own, so a page lens always looks at the
     // whole of one.
-    let page = lens.display == LensDisplay::Page;
-    let scope = if page { Scope::Document } else { scope };
+    let scope = if lens.display == LensDisplay::Page {
+        Scope::Document
+    } else {
+        scope
+    };
     // What the lens is not on it does not open over — a lens remembered
     // with a document before it was set to a block, say.
     if !is_on(&lens, scope) {
         return;
     }
     let policy = resolved(policy, &lens);
-    for token in replaced_by(&peek_open_runs(&state), &lens) {
-        dismiss(state, token);
-    }
-    if page && shown {
-        shelve_applied(state);
-    }
+    make_room(state, &lens, shown);
     let Some(source) = state.rendered_source.peek().clone() else {
         return;
     };
+    let token = open_run(state, &lens, scope, &source, shown);
+    if !shown {
+        return;
+    }
+    let task = ask(state, lens, source, scope, token, policy);
+    update(state, token, |run| run.task = Some(task));
+}
 
+/// Take out the runs opening `lens` takes the place of, and, for a page lens
+/// `shown`, the answer of the page lens applied now, to be switched back to.
+fn make_room(state: AppState, lens: &Lens, shown: bool) {
+    for token in replaced_by(&peek_open_runs(&state), lens) {
+        dismiss(state, token);
+    }
+    if lens.display == LensDisplay::Page && shown {
+        shelve_applied(state);
+    }
+}
+
+/// Open a run of `lens` over `scope` of `source` in the window, `shown` or
+/// hidden, noted for the next time the document is opened; its token.
+fn open_run(
+    mut state: AppState,
+    lens: &Lens,
+    scope: Scope,
+    source: &RenderedSource,
+    shown: bool,
+) -> u64 {
     let token = next_serial();
     let run = LensRun {
         lens_id: lens.id.clone(),
@@ -291,16 +263,26 @@ fn start_with(mut state: AppState, lens_id: &str, scope: Scope, policy: Policy, 
         error: None,
         applied: shown,
     };
-    if page {
+    if lens.display == LensDisplay::Page {
         state.page_lenses.write().push(run);
     } else {
         state.overlay_lenses.write().push(run);
     }
     remember(state, token);
-    if !shown {
-        return;
-    }
-    let task = spawn_detached_task(async move {
+    token
+}
+
+/// Have the agent of `lens` asked for the run `token`, in the way the lens
+/// shows over `scope`; the task that stops it.
+fn ask(
+    state: AppState,
+    lens: Lens,
+    source: RenderedSource,
+    scope: Scope,
+    token: u64,
+    policy: Policy,
+) -> Task {
+    spawn_detached_task(async move {
         let run = Run {
             state,
             lens: &lens,
@@ -314,16 +296,7 @@ fn start_with(mut state: AppState, lens_id: &str, scope: Scope, policy: Policy, 
             (LensDisplay::Popover | LensDisplay::Page, _) => on_document(run).await,
         }
         update(state, token, |run| run.task = None);
-    });
-    update(state, token, |run| run.task = Some(task));
-}
-
-/// The runs among `open` that opening `lens` takes the place of: its own.
-fn replaced_by(open: &[LensRun], lens: &Lens) -> Vec<u64> {
-    open.iter()
-        .filter(|run| run.lens_id == lens.id)
-        .map(|run| run.token)
-        .collect()
+    })
 }
 
 /// Close the lenses the configuration no longer offers as they were
@@ -334,19 +307,6 @@ pub(crate) fn close_unoffered(state: AppState) {
     for token in unoffered(&peek_open_runs(&state), &offered_lenses()) {
         dismiss(state, token);
     }
-}
-
-/// The runs among `open` whose lens `offered` has no longer, has with
-/// another display, or has on something other than what the run looks at.
-fn unoffered(open: &[LensRun], offered: &[Lens]) -> Vec<u64> {
-    open.iter()
-        .filter(|run| {
-            !offered.iter().any(|lens| {
-                lens.id == run.lens_id && lens.display == run.display && is_on(lens, run.scope)
-            })
-        })
-        .map(|run| run.token)
-        .collect()
 }
 
 /// Take the applied page lens's answer off the page, to be switched back
@@ -456,36 +416,6 @@ pub(crate) fn follow_rerender(state: AppState) {
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum Follow {
-    Keep,
-    Rerun(String),
-    Close,
-}
-
-/// What becomes of `run` now that the page shows `rendered`.
-///
-/// A lens over the whole document looks again when the document is
-/// re-rendered: what did not change answers at once from what it answered
-/// before, and what did is marked outdated rather than asked about again.
-/// A lens over one block is closed: the block cannot be told apart from its
-/// neighbours once the page is rebuilt.
-///
-/// Another document, or none, closes any lens: the reader went elsewhere,
-/// and a lens that followed would start runs nobody asked for.
-fn following(run: &LensRun, rendered: Option<&RenderedSource>) -> Follow {
-    let Some(rendered) = rendered.filter(|rendered| rendered.path == run.path) else {
-        return Follow::Close;
-    };
-    if rendered.generation == run.generation {
-        Follow::Keep
-    } else if run.scope == Scope::Document {
-        Follow::Rerun(run.lens_id.clone())
-    } else {
-        Follow::Close
-    }
-}
-
 /// Apply `change` to the run `token` and return what it returned, if the
 /// run is still open in the window.
 fn with_run<R>(
@@ -577,6 +507,21 @@ impl Run<'_> {
         .await
         .unwrap_or_else(|error| vec![Err(error.to_string()); count])
     }
+
+    /// [`Run::render_all`] for the answers `kept` from before, each beside
+    /// its job.
+    async fn render_kept(
+        &self,
+        kept: Vec<(Job, String, bool)>,
+    ) -> Vec<(Job, Result<String, String>, bool)> {
+        let rendered = self
+            .render_all(kept.iter().map(|(_, answer, _)| answer.clone()).collect())
+            .await;
+        kept.into_iter()
+            .zip(rendered)
+            .map(|((job, _, stale), html)| (job, html, stale))
+            .collect()
+    }
 }
 
 fn render(markdown: &str, path: &Path) -> Result<String, String> {
@@ -657,56 +602,26 @@ impl Kept {
             Err(error) => tracing::warn!(%error, "a lens's answers were not kept"),
         }
     }
-}
 
-/// What a place shows, found in what the lens answered before.
-#[derive(Debug, PartialEq)]
-enum Found {
-    /// An answer to the request as it is now.
-    Fresh(String),
-    /// An answer to what the place said before it changed.
-    Stale(String),
-    /// Nothing, and nothing is asked until the reader regenerates.
-    Missing,
-    /// Nothing yet: the agent is asked.
-    Ask,
-}
-
-/// What the place `slot`, whose request is `key`, shows, given what was
-/// answered `before` — `claimed` being the requests found fresh anywhere.
-fn found(before: &Record, policy: Policy, slot: &str, key: &Key, claimed: &HashSet<Key>) -> Found {
-    if policy == Policy::All {
-        return Found::Ask;
+    /// File each of `jobs` at its place `slot` as `policy` finds it in what
+    /// was answered before, and write what is filed.
+    fn sort(&mut self, policy: Policy, jobs: Vec<Job>, slot: impl Fn(&Job) -> String) -> Sorted {
+        let claimed = claimed(&self.before, jobs.iter().map(|job| &job.cache_key));
+        let mut sorted = Sorted::default();
+        for job in jobs {
+            let place = slot(&job);
+            let found = found(&self.before, policy, &place, &job.cache_key, &claimed);
+            file(&mut self.next, &self.before, &place, &job.cache_key, &found);
+            match found {
+                Found::Fresh(answer) => sorted.kept.push((job, answer, false)),
+                Found::Stale(answer) => sorted.kept.push((job, answer, true)),
+                Found::Missing => sorted.missing.push(job),
+                Found::Ask => sorted.pending.push(job),
+            }
+        }
+        self.save();
+        sorted
     }
-    if let Some(answer) = before.fresh(key) {
-        Found::Fresh(answer.to_string())
-    } else if policy == Policy::Regenerate || (policy != Policy::Recall && before.is_empty()) {
-        Found::Ask
-    } else if let Some(answer) = before.stale(slot, claimed) {
-        Found::Stale(answer.to_string())
-    } else {
-        Found::Missing
-    }
-}
-
-/// File in `next` what the place `slot`, whose request is `key`, keeps from
-/// `before` as it was `found` there. A place asked again keeps its old
-/// answer until the new one comes, so a run stopped or failed half-way
-/// loses nothing that was on file.
-fn file(next: &mut Record, before: &Record, slot: &str, key: &Key, found: &Found) {
-    match found {
-        Found::Fresh(answer) => next.put(slot, key, answer),
-        Found::Stale(_) | Found::Ask => next.carry(before, slot),
-        Found::Missing => {}
-    }
-}
-
-/// The requests among `keys` answered fresh in `before`.
-fn claimed<'a>(before: &Record, keys: impl IntoIterator<Item = &'a Key>) -> HashSet<Key> {
-    keys.into_iter()
-        .filter(|key| before.fresh(key).is_some())
-        .copied()
-        .collect()
 }
 
 /// One run per target block, each answer kept beside its block.
@@ -734,66 +649,88 @@ async fn per_block(run: Run<'_>, scope: Scope) {
         Scope::Document => Kept::load(&run).await,
         Scope::Cursor => Kept::unkept(&run),
     };
-    let claimed = claimed(&kept.before, jobs.iter().map(|job| &job.cache_key));
-    let mut kept_answers: Vec<(String, String, bool)> = Vec::new();
-    let mut missing = 0;
-    let mut pending = Vec::new();
-    for job in jobs {
-        let slot = &slots[&job.id];
-        let found = found(&kept.before, run.policy, slot, &job.cache_key, &claimed);
-        file(&mut kept.next, &kept.before, slot, &job.cache_key, &found);
-        match found {
-            Found::Fresh(answer) => kept_answers.push((job.id.clone(), answer, false)),
-            Found::Stale(answer) => kept_answers.push((job.id.clone(), answer, true)),
-            Found::Missing => missing += 1,
-            Found::Ask => pending.push(job),
-        }
-    }
-    kept.save();
-
-    // What was answered before goes to the page in one call rather than one
-    // per block.
-    let rendered = run
-        .render_all(
-            kept_answers
-                .iter()
-                .map(|(_, answer, _)| answer.clone())
-                .collect(),
-        )
-        .await;
+    let sorted = kept.sort(run.policy, jobs, |job| slots[&job.id].clone());
+    let rendered = run.render_kept(sorted.kept).await;
     if !run.is_current() {
         return;
     }
+    annotate_kept(&run, rendered, sorted.missing.len());
+    annotate_asked(&run, sorted.pending, &slots, &mut kept).await;
+}
+
+/// What a run's places come to from what was answered before, in the order
+/// of its jobs.
+#[derive(Default)]
+struct Sorted {
+    /// Answered before, each marked outdated or not.
+    kept: Vec<(Job, String, bool)>,
+    /// Without an answer, and not asked.
+    missing: Vec<Job>,
+    /// To be asked.
+    pending: Vec<Job>,
+}
+
+/// How many places a step showed an answer in, and in how many the answer
+/// failed to render.
+#[derive(Default)]
+struct Tally {
+    done: usize,
+    outdated: usize,
+    failed: usize,
+}
+
+impl Tally {
+    fn shown(&mut self, stale: bool) {
+        if stale {
+            self.outdated += 1;
+        } else {
+            self.done += 1;
+        }
+    }
+
+    fn add_to(&self, lens_run: &mut LensRun) {
+        lens_run.done += self.done;
+        lens_run.outdated += self.outdated;
+        lens_run.failed += self.failed;
+    }
+}
+
+/// Show what was answered before beside the blocks, in one call to the page
+/// rather than one per block, and count the places left `missing`.
+fn annotate_kept(run: &Run, rendered: Vec<(Job, Result<String, String>, bool)>, missing: usize) {
     let mut shown = Vec::new();
-    let (mut done, mut outdated, mut failed) = (0, 0, 0);
-    for ((id, _, stale), html) in kept_answers.into_iter().zip(rendered) {
+    let mut tally = Tally::default();
+    for (job, html, stale) in rendered {
         match html {
             Ok(html) => {
-                if stale {
-                    outdated += 1;
-                } else {
-                    done += 1;
-                }
-                shown.push((id, html, stale));
+                tally.shown(stale);
+                shown.push((job.id, html, stale));
             }
             Err(reason) => {
-                failed += 1;
-                eval_call("fail", &[json(&run.token), json(&id), json(&reason)]);
+                tally.failed += 1;
+                eval_call("fail", &[json(&run.token), json(&job.id), json(&reason)]);
             }
         }
     }
     eval_call("annotateAll", &[json(&run.token), json(&shown)]);
     run.update(|lens_run| {
-        lens_run.done += done;
-        lens_run.outdated += outdated;
-        lens_run.failed += failed;
+        tally.add_to(lens_run);
         lens_run.unanswered += missing;
     });
+}
 
+/// Ask about the blocks of `pending`, marked so on the page, and show and
+/// keep each answer at its place among `slots` as it comes.
+async fn annotate_asked(
+    run: &Run<'_>,
+    pending: Vec<Job>,
+    slots: &HashMap<String, String>,
+    kept: &mut Kept,
+) {
     let ids: Vec<&str> = pending.iter().map(|job| job.id.as_str()).collect();
     eval_call("markPending", &[json(&run.token), json(&ids)]);
     session::run_jobs(pending, run.runner(), |job, answer| {
-        if let Some(answer) = annotate(&run, &job, answer) {
+        if let Some(answer) = annotate(run, &job, answer) {
             kept.next.put(&slots[&job.id], &job.cache_key, &answer);
             kept.save();
         }
@@ -909,37 +846,47 @@ async fn on_document(run: Run<'_>) {
         &job.cache_key,
         &found,
     );
-    let kept_answer = match found {
-        Found::Fresh(answer) => Some((answer, false)),
-        Found::Stale(answer) => Some((answer, true)),
-        Found::Missing => {
-            run.update(|lens_run| lens_run.unanswered = total);
-            return;
-        }
-        Found::Ask => None,
-    };
-    if let Some((answer, stale)) = kept_answer {
-        kept.save();
-        let html = run.render_all(vec![answer]).await.remove(0);
-        if !run.is_current() {
-            return;
-        }
-        match html {
-            Ok(html) => {
-                show_html(&run, page, html, stale);
-                run.update(|lens_run| {
-                    if stale {
-                        lens_run.outdated = total;
-                    } else {
-                        lens_run.done = total;
-                    }
-                });
-            }
-            Err(reason) => run.update(|lens_run| lens_run.error = Some(reason)),
-        }
+    match found {
+        Found::Fresh(answer) => show_kept_document(&run, page, total, kept, answer, false).await,
+        Found::Stale(answer) => show_kept_document(&run, page, total, kept, answer, true).await,
+        Found::Missing => run.update(|lens_run| lens_run.unanswered = total),
+        Found::Ask => show_asked_document(&run, page, total, &job, kept).await,
+    }
+}
+
+/// Show `answer`, what was answered about the document before, over the
+/// `total` places it takes — marked outdated when it is `stale`.
+async fn show_kept_document(
+    run: &Run<'_>,
+    page: bool,
+    total: usize,
+    mut kept: Kept,
+    answer: String,
+    stale: bool,
+) {
+    kept.save();
+    let html = run.render_all(vec![answer]).await.remove(0);
+    if !run.is_current() {
         return;
     }
+    match html {
+        Ok(html) => {
+            show_html(run, page, html, stale);
+            run.update(|lens_run| {
+                if stale {
+                    lens_run.outdated = total;
+                } else {
+                    lens_run.done = total;
+                }
+            });
+        }
+        Err(reason) => run.update(|lens_run| lens_run.error = Some(reason)),
+    }
+}
 
+/// Ask about the whole document, showing the answer over the `total` places
+/// it takes as it arrives, and keep it once it is complete.
+async fn show_asked_document(run: &Run<'_>, page: bool, total: usize, job: &Job, mut kept: Kept) {
     let mut last_render: Option<Instant> = None;
     let mut shown = 0;
     let answer = run
@@ -951,7 +898,7 @@ async fn on_document(run: Run<'_>) {
                 shown = finished.len();
                 last_render = Some(Instant::now());
                 if let Ok(html) = run.render(finished) {
-                    show_html(&run, page, html, false);
+                    show_html(run, page, html, false);
                 }
             }
         })
@@ -961,83 +908,13 @@ async fn on_document(run: Run<'_>) {
     }
     match answer.and_then(|answer| run.render(&answer).map(|html| (answer, html))) {
         Ok((answer, html)) => {
-            show_html(&run, page, html, false);
+            show_html(run, page, html, false);
             run.update(|lens_run| lens_run.done = total);
             kept.next.put(DOCUMENT, &job.cache_key, &answer);
             kept.save();
         }
         Err(reason) => run.update(|lens_run| lens_run.error = Some(reason)),
     }
-}
-
-/// Show `html`, the answer of the run so far: in the page's places for a
-/// page lens, in the header otherwise — marked `outdated` when it is about
-/// what the document said before.
-fn show_html(run: &Run, page: bool, html: String, outdated: bool) {
-    if !page {
-        run.update(|lens_run| lens_run.html = Some(html));
-        return;
-    }
-    let mut eval = document::eval(&format!(
-        "dioxus.send(window.Arto?.lenses?.showPage?.({}, {}, {}) ?? 0);",
-        json(&run.token),
-        json(&html),
-        json(&outdated)
-    ));
-    let (state, token) = (run.state, run.token);
-    // While the answer streams in, the count is how many of the page's
-    // blocks it has reached.
-    spawn(async move {
-        if let Ok(reached) = eval.recv::<usize>().await {
-            update(state, token, |lens_run| {
-                if lens_run.is_running() {
-                    lens_run.done = lens_run.done.max(reached);
-                }
-            });
-        }
-    });
-}
-
-/// One of the document's top-level blocks, as the page reports it.
-#[derive(Debug, serde::Deserialize)]
-struct PageBlock {
-    range: Option<SourceRange>,
-    /// Prose to hand over, rather than code, a diagram or a formula.
-    translatable: bool,
-}
-
-/// The page, ready to show a page lens's answer.
-#[derive(Debug, serde::Deserialize)]
-struct Begun {
-    generation: Option<u64>,
-    /// How many of the document's top-level blocks an answer to the whole
-    /// document takes the places of: all but its raw HTML, which the answer
-    /// shows escaped rather than as blocks.
-    total: usize,
-    blocks: Vec<PageBlock>,
-}
-
-/// Have the page get ready to show a page lens's answer over the render of
-/// `generation`, waiting for it to show that render; the document's
-/// top-level blocks, whose places the answer takes.
-async fn begin_page(generation: u64, token: u64) -> Option<Begun> {
-    let js = format!(
-        "dioxus.send(window.Arto?.lenses?.beginPage?.({}) ?? {{ generation: null, total: 0, blocks: [] }});",
-        json(&token)
-    );
-    for _ in 0..COLLECT_ATTEMPTS {
-        let mut eval = document::eval(&js);
-        match eval.recv::<Begun>().await {
-            Ok(begun) if begun.generation == Some(generation) => return Some(begun),
-            Ok(_) => {}
-            Err(error) => {
-                tracing::debug!(?error, "the page did not get ready for the lens");
-                return None;
-            }
-        }
-        tokio::time::sleep(COLLECT_INTERVAL).await;
-    }
-    None
 }
 
 /// What a block of a page lens shows once every block above it has shown:
@@ -1050,7 +927,39 @@ type Reveal = (Job, Option<Result<String, String>>, bool);
 /// A block without an answer — code, a diagram, a run that failed — keeps
 /// its place as written.
 async fn by_block(run: Run<'_>, blocks: &[PageBlock]) {
-    let jobs: Vec<Job> = blocks
+    let jobs = page_block_jobs(&run, blocks);
+    run.update(|lens_run| lens_run.total = jobs.len());
+
+    // A place is the block's position among the document's top-level
+    // blocks, which is its id.
+    let slot = |job: &Job| format!("block:{}", job.id);
+    let mut in_order = InOrder::new(&jobs);
+    let mut kept = Kept::load(&run).await;
+    let sorted = kept.sort(run.policy, jobs, slot);
+    run.update(|lens_run| lens_run.unanswered += sorted.missing.len());
+    for job in sorted.missing {
+        in_order.ready(job, None, false);
+    }
+    for (job, html, stale) in run.render_kept(sorted.kept).await {
+        in_order.ready(job, Some(html), stale);
+    }
+    in_order.reveal(&run);
+    session::run_jobs(sorted.pending, run.runner(), |job, answer| {
+        if let Ok(answer) = &answer {
+            kept.next.put(&slot(&job), &job.cache_key, answer);
+            kept.save();
+        }
+        let html = answer.and_then(|answer| run.render(&answer));
+        in_order.ready(job, Some(html), false);
+        in_order.reveal(&run);
+    })
+    .await;
+}
+
+/// One job for each of `blocks` there is prose to hand over in, named after
+/// the block's position among them.
+fn page_block_jobs(run: &Run, blocks: &[PageBlock]) -> Vec<Job> {
+    blocks
         .iter()
         .enumerate()
         .filter(|(_, block)| block.translatable)
@@ -1065,34 +974,49 @@ async fn by_block(run: Run<'_>, blocks: &[PageBlock]) {
                 &index.to_string(),
             ))
         })
-        .collect();
-    run.update(|lens_run| lens_run.total = jobs.len());
+        .collect()
+}
 
-    // A place is the block's position among the document's top-level
-    // blocks, which is its id.
-    let slot = |job: &Job| format!("block:{}", job.id);
-    let order: Vec<String> = jobs.iter().map(|job| job.id.clone()).collect();
-    let mut ready: HashMap<String, Reveal> = HashMap::new();
-    let mut next = 0;
-    // Shows every block whose turn has come, in one call to the page.
-    let reveal = |ready: &mut HashMap<String, Reveal>, next: &mut usize| {
+/// The blocks of a page lens that are ready to show, held until every block
+/// above them is.
+struct InOrder {
+    order: Vec<String>,
+    ready: HashMap<String, Reveal>,
+    next: usize,
+}
+
+impl InOrder {
+    fn new(jobs: &[Job]) -> Self {
+        Self {
+            order: jobs.iter().map(|job| job.id.clone()).collect(),
+            ready: HashMap::new(),
+            next: 0,
+        }
+    }
+
+    fn ready(&mut self, job: Job, html: Option<Result<String, String>>, stale: bool) {
+        self.ready.insert(job.id.clone(), (job, html, stale));
+    }
+
+    /// Show every block whose turn has come, in one call to the page.
+    fn reveal(&mut self, run: &Run) {
         let mut shown = Vec::new();
-        let (mut done, mut outdated, mut failed) = (0, 0, 0);
-        while let Some((job, html, stale)) = order.get(*next).and_then(|id| ready.remove(id)) {
-            *next += 1;
+        let mut tally = Tally::default();
+        while let Some((job, html, stale)) = self
+            .order
+            .get(self.next)
+            .and_then(|id| self.ready.remove(id))
+        {
+            self.next += 1;
             match html {
                 None => {}
                 Some(Ok(html)) => {
-                    if stale {
-                        outdated += 1;
-                    } else {
-                        done += 1;
-                    }
+                    tally.shown(stale);
                     shown.push((job.id, html, stale));
                 }
                 Some(Err(reason)) => {
                     tracing::debug!(%reason, block = %job.id, "a block of a page lens kept its place");
-                    failed += 1;
+                    tally.failed += 1;
                 }
             }
         }
@@ -1102,391 +1026,6 @@ async fn by_block(run: Run<'_>, blocks: &[PageBlock]) {
         if !shown.is_empty() {
             eval_call("showAnswers", &[json(&run.token), json(&shown)]);
         }
-        run.update(|lens_run| {
-            lens_run.done += done;
-            lens_run.outdated += outdated;
-            lens_run.failed += failed;
-        });
-    };
-
-    let mut kept = Kept::load(&run).await;
-    let claimed = claimed(&kept.before, jobs.iter().map(|job| &job.cache_key));
-    let mut kept_answers: Vec<(Job, String, bool)> = Vec::new();
-    let mut missing = Vec::new();
-    let mut pending = Vec::new();
-    for job in jobs {
-        let place = slot(&job);
-        let found = found(&kept.before, run.policy, &place, &job.cache_key, &claimed);
-        file(&mut kept.next, &kept.before, &place, &job.cache_key, &found);
-        match found {
-            Found::Fresh(answer) => kept_answers.push((job, answer, false)),
-            Found::Stale(answer) => kept_answers.push((job, answer, true)),
-            Found::Missing => missing.push(job),
-            Found::Ask => pending.push(job),
-        }
-    }
-    kept.save();
-    run.update(|lens_run| lens_run.unanswered += missing.len());
-    for job in missing {
-        ready.insert(job.id.clone(), (job, None, false));
-    }
-    let rendered = run
-        .render_all(
-            kept_answers
-                .iter()
-                .map(|(_, answer, _)| answer.clone())
-                .collect(),
-        )
-        .await;
-    for ((job, _, stale), html) in kept_answers.into_iter().zip(rendered) {
-        ready.insert(job.id.clone(), (job, Some(html), stale));
-    }
-    reveal(&mut ready, &mut next);
-    session::run_jobs(pending, run.runner(), |job, answer| {
-        if let Ok(answer) = &answer {
-            kept.next.put(&slot(&job), &job.cache_key, answer);
-            kept.save();
-        }
-        let html = answer.and_then(|answer| run.render(&answer));
-        ready.insert(job.id.clone(), (job, Some(html), false));
-        reveal(&mut ready, &mut next);
-    })
-    .await;
-}
-
-/// Ask the page for the blocks of `scope`, tagged for the run `token`,
-/// waiting for it to show the render of `generation`: right after a
-/// re-render the page may still hold the previous one, whose ranges point
-/// into a different source.
-async fn collect(scope: Scope, label: &str, generation: u64, token: u64) -> Option<Vec<Block>> {
-    #[derive(serde::Deserialize)]
-    struct Offered {
-        generation: Option<u64>,
-        blocks: Vec<Block>,
-    }
-
-    let scope = match scope {
-        Scope::Cursor => "cursor",
-        Scope::Document => "document",
-    };
-    let js = format!(
-        "dioxus.send(window.Arto?.lenses?.collect?.({}, {}, {}) ?? {{ generation: null, blocks: [] }});",
-        json(&token),
-        json(&scope),
-        json(&label)
-    );
-    for _ in 0..COLLECT_ATTEMPTS {
-        let mut eval = document::eval(&js);
-        match eval.recv::<Offered>().await {
-            Ok(offered) if offered.generation == Some(generation) => return Some(offered.blocks),
-            Ok(_) => {}
-            Err(error) => {
-                tracing::debug!(?error, "the page did not answer for its blocks");
-                return None;
-            }
-        }
-        tokio::time::sleep(COLLECT_INTERVAL).await;
-    }
-    tracing::debug!(
-        generation,
-        "the page never showed the render the lens looked at"
-    );
-    None
-}
-
-fn eval_call(function: &str, args: &[String]) {
-    let js = format!("window.Arto?.lenses?.{function}?.({});", args.join(", "));
-    document::eval(&js);
-}
-
-fn json(value: &impl serde::Serialize) -> String {
-    serde_json::to_string(value).expect("a JSON value serializes")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::path::PathBuf;
-
-    fn run(display: LensDisplay, scope: Scope, rendered: &RenderedSource) -> LensRun {
-        LensRun {
-            lens_id: "lens".to_string(),
-            label: "Lens".to_string(),
-            display,
-            scope,
-            path: rendered.path.clone(),
-            generation: rendered.generation,
-            token: 1,
-            total: 0,
-            done: 0,
-            failed: 0,
-            outdated: 0,
-            unanswered: 0,
-            task: None,
-            html: None,
-            error: None,
-            applied: true,
-        }
-    }
-
-    fn rendered(path: &str) -> RenderedSource {
-        RenderedSource::new(PathBuf::from(path), "# Title\n")
-    }
-
-    #[test]
-    fn a_lens_stays_over_the_render_it_looked_at() {
-        let page = rendered("/notes/a.md");
-        let run = run(LensDisplay::Page, Scope::Document, &page);
-
-        assert_eq!(following(&run, Some(&page)), Follow::Keep);
-    }
-
-    #[test]
-    fn a_lens_over_the_document_looks_again_at_its_rerender() {
-        let run = run(LensDisplay::Page, Scope::Document, &rendered("/notes/a.md"));
-
-        assert_eq!(
-            following(&run, Some(&rendered("/notes/a.md"))),
-            Follow::Rerun("lens".to_string())
-        );
-    }
-
-    #[test]
-    fn a_popover_over_the_document_looks_again_and_one_over_a_block_closes() {
-        let page = rendered("/notes/a.md");
-        let popover = run(LensDisplay::Popover, Scope::Document, &page);
-        let block = run(LensDisplay::Annotate, Scope::Cursor, &page);
-
-        let rerendered = rendered("/notes/a.md");
-        assert_eq!(
-            following(&popover, Some(&rerendered)),
-            Follow::Rerun("lens".to_string())
-        );
-        assert_eq!(following(&block, Some(&rerendered)), Follow::Close);
-    }
-
-    fn record(entries: &[(&str, u8, &str)]) -> Record {
-        let mut record = Record::default();
-        for (slot, key, answer) in entries {
-            record.put(slot, &[*key; 32], answer);
-        }
-        record
-    }
-
-    #[test]
-    fn a_place_whose_text_is_unchanged_is_answered_from_before() {
-        let before = record(&[("block:0", 1, "kept")]);
-
-        assert_eq!(
-            found(&before, Policy::Kept, "block:0", &[1; 32], &HashSet::new()),
-            Found::Fresh("kept".to_string())
-        );
-    }
-
-    #[test]
-    fn a_place_whose_text_changed_shows_its_old_answer_without_asking() {
-        let before = record(&[("block:0", 1, "old")]);
-
-        assert_eq!(
-            found(&before, Policy::Kept, "block:0", &[2; 32], &HashSet::new()),
-            Found::Stale("old".to_string())
-        );
-        assert_eq!(
-            found(&before, Policy::Kept, "block:1", &[3; 32], &HashSet::new()),
-            Found::Missing
-        );
-    }
-
-    #[test]
-    fn the_agent_is_asked_the_first_time_and_when_the_reader_regenerates() {
-        let before = record(&[("block:0", 1, "old")]);
-
-        assert_eq!(
-            found(
-                &Record::default(),
-                Policy::Kept,
-                "block:0",
-                &[2; 32],
-                &HashSet::new()
-            ),
-            Found::Ask
-        );
-        assert_eq!(
-            found(
-                &before,
-                Policy::Regenerate,
-                "block:0",
-                &[2; 32],
-                &HashSet::new()
-            ),
-            Found::Ask
-        );
-        assert_eq!(
-            found(
-                &before,
-                Policy::Regenerate,
-                "block:0",
-                &[1; 32],
-                &HashSet::new()
-            ),
-            Found::Fresh("old".to_string()),
-            "regenerating asks again only about what changed"
-        );
-    }
-
-    #[test]
-    fn a_lens_opens_only_over_what_it_is_on_and_its_shortcut_follows() {
-        let mut lens = Lens::new("explain");
-        assert!(is_on(&lens, Scope::Cursor) && is_on(&lens, Scope::Document));
-        assert_eq!(shortcut_scope(&lens), Scope::Document);
-
-        lens.on = arto_config::LensTarget::Block;
-        assert!(is_on(&lens, Scope::Cursor));
-        assert!(!is_on(&lens, Scope::Document));
-        assert_eq!(shortcut_scope(&lens), Scope::Cursor);
-
-        lens.on = arto_config::LensTarget::Document;
-        assert!(!is_on(&lens, Scope::Cursor));
-        assert_eq!(shortcut_scope(&lens), Scope::Document);
-    }
-
-    #[test]
-    fn a_lens_that_reads_local_files_asks_nothing_when_it_comes_back_by_itself() {
-        let mut lens = Lens::new("digger");
-        assert_eq!(resolved(Policy::Resumed, &lens), Policy::Kept);
-        lens.allow = vec![arto_config::LensCapability::WebSearch];
-        assert_eq!(resolved(Policy::Resumed, &lens), Policy::Kept);
-        lens.allow = vec![arto_config::LensCapability::ReadFiles];
-        assert_eq!(resolved(Policy::Resumed, &lens), Policy::Recall);
-        assert_eq!(
-            resolved(Policy::Kept, &lens),
-            Policy::Kept,
-            "the reader asked for it"
-        );
-
-        let before = record(&[("block:0", 1, "old")]);
-        let nothing = HashSet::new();
-        assert_eq!(
-            found(
-                &Record::default(),
-                Policy::Recall,
-                "block:0",
-                &[1; 32],
-                &nothing
-            ),
-            Found::Missing,
-            "not even the first time"
-        );
-        assert_eq!(
-            found(&before, Policy::Recall, "block:0", &[1; 32], &nothing),
-            Found::Fresh("old".to_string())
-        );
-        assert_eq!(
-            found(&before, Policy::Recall, "block:0", &[2; 32], &nothing),
-            Found::Stale("old".to_string())
-        );
-    }
-
-    #[test]
-    fn an_answer_asked_again_stays_on_file_until_the_new_one_comes() {
-        let before = record(&[("block:0", 1, "old"), ("block:1", 2, "gone")]);
-        let mut next = Record::default();
-
-        file(&mut next, &before, "block:0", &[1; 32], &Found::Ask);
-        file(&mut next, &before, "block:1", &[3; 32], &Found::Missing);
-
-        assert_eq!(next.fresh(&[1; 32]), Some("old"));
-        assert_eq!(next.fresh(&[2; 32]), None);
-    }
-
-    #[test]
-    fn regenerating_all_asks_again_even_about_what_is_unchanged() {
-        let before = record(&[("block:0", 1, "kept")]);
-
-        assert_eq!(
-            found(&before, Policy::All, "block:0", &[1; 32], &HashSet::new()),
-            Found::Ask
-        );
-    }
-
-    #[test]
-    fn another_document_closes_the_lens() {
-        let run = run(LensDisplay::Page, Scope::Document, &rendered("/notes/a.md"));
-
-        assert_eq!(
-            following(&run, Some(&rendered("/notes/b.md"))),
-            Follow::Close
-        );
-        assert_eq!(following(&run, None), Follow::Close);
-    }
-
-    fn lens(id: &str, display: &str) -> Lens {
-        serde_json::from_value(serde_json::json!({
-            "id": id,
-            "label": id,
-            "display": display,
-            "agent": "claude",
-        }))
-        .unwrap()
-    }
-
-    fn open(runs: &[(&str, LensDisplay, u64)]) -> Vec<LensRun> {
-        let page = rendered("/notes/a.md");
-        runs.iter()
-            .map(|&(id, display, token)| LensRun {
-                lens_id: id.to_string(),
-                token,
-                ..run(display, Scope::Document, &page)
-            })
-            .collect()
-    }
-
-    #[test]
-    fn a_page_lens_replaces_only_its_own_earlier_run_and_the_others_wait() {
-        let open = open(&[
-            ("translate", LensDisplay::Page, 1),
-            ("gloss", LensDisplay::Annotate, 2),
-            ("summary", LensDisplay::Popover, 3),
-        ]);
-
-        assert!(replaced_by(&open, &lens("rewrite", "page")).is_empty());
-        assert_eq!(replaced_by(&open, &lens("translate", "page")), vec![1]);
-    }
-
-    #[test]
-    fn a_lens_over_the_page_replaces_only_its_own_earlier_run() {
-        let open = open(&[
-            ("translate", LensDisplay::Page, 1),
-            ("gloss", LensDisplay::Annotate, 2),
-            ("explain", LensDisplay::Annotate, 3),
-        ]);
-
-        assert_eq!(replaced_by(&open, &lens("gloss", "annotate")), vec![2]);
-        assert!(replaced_by(&open, &lens("summary", "popover")).is_empty());
-    }
-
-    #[test]
-    fn a_lens_no_longer_offered_as_it_was_opened_is_closed() {
-        let open = open(&[
-            ("translate", LensDisplay::Page, 1),
-            ("gloss", LensDisplay::Annotate, 2),
-            ("removed", LensDisplay::Annotate, 3),
-        ]);
-        let offered = [lens("translate", "page"), lens("gloss", "popover")];
-
-        assert_eq!(unoffered(&open, &offered), vec![2, 3]);
-    }
-
-    #[test]
-    fn a_lens_no_longer_on_what_it_was_opened_over_is_closed() {
-        let open = open(&[
-            ("explain", LensDisplay::Popover, 1),
-            ("gloss", LensDisplay::Annotate, 2),
-        ]);
-        let mut explain = lens("explain", "popover");
-        explain.on = arto_config::LensTarget::Block;
-        let offered = [explain, lens("gloss", "annotate")];
-
-        assert_eq!(unoffered(&open, &offered), vec![1]);
+        run.update(|lens_run| tally.add_to(lens_run));
     }
 }
