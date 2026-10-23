@@ -13,6 +13,7 @@ pub use data::*;
 use dioxus::document;
 use dioxus::prelude::*;
 use rust_i18n::t;
+use std::path::Path;
 
 use super::context_menu_state::ContentContextMenuState;
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSeparator};
@@ -107,28 +108,7 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
         || is_image
         || is_special_block;
 
-    // Determine smart default for Copy Path label and value
-    let (copy_path_label, copy_path_value) =
-        match (current_file.as_ref(), source_line, source_line_end) {
-            (Some(f), Some(start), Some(end)) if start != end => (
-                t!(
-                    "context_menu.copy_path_with_range",
-                    start = start,
-                    end = end
-                )
-                .to_string(),
-                Some(format_location(f, start, end)),
-            ),
-            (Some(f), Some(line), _) => (
-                t!("context_menu.copy_path_with_line", line = line).to_string(),
-                Some(format_location(f, line, line)),
-            ),
-            (Some(f), None, _) => {
-                let path_str = f.display().to_string();
-                (t!("context_menu.copy_path").to_string(), Some(path_str))
-            }
-            (None, _, _) => (t!("context_menu.copy_path").to_string(), None),
-        };
+    let copy_path = copy_path_row(current_file.as_deref(), source_line, source_line_end);
 
     rsx! {
         // Backdrop to close menu on outside click
@@ -221,11 +201,11 @@ pub fn ContentContextMenu(menu: ContentContextMenuState, on_close: EventHandler<
             }
 
             // Copy Path (smart default: path / path:line / path:start-end)
-            if let Some(value) = copy_path_value.clone() {
+            if let Some(row) = copy_path {
                 CopyItem {
-                    label: copy_path_label.clone(),
-                    shortcut: shortcut(copy_path_shortcut_action_str(source_line, source_line_end)),
-                    text: value,
+                    label: row.label,
+                    shortcut: shortcut(row.action),
+                    text: row.value,
                     on_close,
                 }
             }
@@ -491,15 +471,45 @@ fn copy_markdown_source_direct(
     });
 }
 
-fn copy_path_shortcut_action_str(
+/// The Copy Path row: the narrowest of path, path with line and path with
+/// range that what was clicked on allows.
+#[derive(Debug, PartialEq)]
+struct CopyPathRow {
+    label: String,
+    value: String,
+    /// The action whose shortcut the row shows.
+    action: &'static str,
+}
+
+fn copy_path_row(
+    file: Option<&Path>,
     source_line: Option<u32>,
     source_line_end: Option<u32>,
-) -> &'static str {
-    match (source_line, source_line_end) {
-        (Some(start), Some(end)) if start != end => "clipboard.copy_file_path_with_range",
-        (Some(_), _) => "clipboard.copy_file_path_with_line",
-        _ => "clipboard.copy_file_path",
-    }
+) -> Option<CopyPathRow> {
+    let file = file?;
+    let row = match (source_line, source_line_end) {
+        (Some(start), Some(end)) if start != end => CopyPathRow {
+            label: t!(
+                "context_menu.copy_path_with_range",
+                start = start,
+                end = end
+            )
+            .into_owned(),
+            value: format_location(file, start, end),
+            action: "clipboard.copy_file_path_with_range",
+        },
+        (Some(line), _) => CopyPathRow {
+            label: t!("context_menu.copy_path_with_line", line = line).into_owned(),
+            value: format_location(file, line, line),
+            action: "clipboard.copy_file_path_with_line",
+        },
+        (None, _) => CopyPathRow {
+            label: t!("context_menu.copy_path").into_owned(),
+            value: file.display().to_string(),
+            action: "clipboard.copy_file_path",
+        },
+    };
+    Some(row)
 }
 
 fn exec_edit_command(command: &'static str) {
@@ -507,4 +517,64 @@ fn exec_edit_command(command: &'static str) {
         let js = format!("document.execCommand('{command}');");
         let _ = document::eval(&js).await;
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(label: &str, value: &str, action: &'static str) -> Option<CopyPathRow> {
+        Some(CopyPathRow {
+            label: label.to_string(),
+            value: value.to_string(),
+            action,
+        })
+    }
+
+    #[test]
+    fn without_a_file_there_is_no_path_to_copy() {
+        assert_eq!(copy_path_row(None, Some(3), Some(5)), None);
+    }
+
+    #[test]
+    fn a_range_of_lines_is_copied_with_the_path() {
+        assert_eq!(
+            copy_path_row(Some(Path::new("/a/b.md")), Some(3), Some(5)),
+            row(
+                "Copy Path with Range (3-5)",
+                "/a/b.md:3-5",
+                "clipboard.copy_file_path_with_range"
+            )
+        );
+    }
+
+    #[test]
+    fn a_single_line_is_copied_with_the_path() {
+        let expected = row(
+            "Copy Path with Line (3)",
+            "/a/b.md:3",
+            "clipboard.copy_file_path_with_line",
+        );
+        assert_eq!(
+            copy_path_row(Some(Path::new("/a/b.md")), Some(3), Some(3)),
+            expected
+        );
+        assert_eq!(
+            copy_path_row(Some(Path::new("/a/b.md")), Some(3), None),
+            expected
+        );
+    }
+
+    #[test]
+    fn without_a_line_the_path_alone_is_copied() {
+        let expected = row("Copy Path", "/a/b.md", "clipboard.copy_file_path");
+        assert_eq!(
+            copy_path_row(Some(Path::new("/a/b.md")), None, None),
+            expected
+        );
+        assert_eq!(
+            copy_path_row(Some(Path::new("/a/b.md")), None, Some(5)),
+            expected
+        );
+    }
 }
