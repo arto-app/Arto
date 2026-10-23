@@ -444,21 +444,11 @@ fn copy_markdown_source_direct(
     selected_text: String,
 ) {
     spawn_detached(async move {
-        let handle = std::thread::spawn(move || {
-            let source = crate::utils::source_lines::extract_source_lines(
-                &file,
-                source_line,
-                source_line_end,
-            )?;
-            if selected_text.trim().is_empty() {
-                return Some(source);
-            }
-            Some(
-                crate::markdown::extract_source_selection(&source, &selected_text)
-                    .unwrap_or(source),
-            )
-        });
-        match handle.join() {
+        let extracted = tokio::task::spawn_blocking(move || {
+            markdown_to_copy(&file, source_line, source_line_end, &selected_text)
+        })
+        .await;
+        match extracted {
             Ok(Some(md)) => {
                 crate::utils::clipboard::copy_text(&md);
                 crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
@@ -466,9 +456,19 @@ fn copy_markdown_source_direct(
             Ok(None) => {
                 tracing::debug!(%source_line, %source_line_end, "No source lines extracted")
             }
-            Err(_) => tracing::debug!("Source extraction thread panicked"),
+            Err(error) => tracing::debug!(%error, "Source extraction task failed"),
         }
     });
+}
+
+/// The Markdown behind `selected_text` within lines `start..=end` of
+/// `file`, or the lines whole when nothing is selected.
+fn markdown_to_copy(file: &Path, start: u32, end: u32, selected_text: &str) -> Option<String> {
+    let source = crate::utils::source_lines::extract_source_lines(file, start, end)?;
+    if selected_text.trim().is_empty() {
+        return Some(source);
+    }
+    Some(crate::markdown::extract_source_selection(&source, selected_text).unwrap_or(source))
 }
 
 /// The Copy Path row: the narrowest of path, path with line and path with
@@ -529,6 +529,40 @@ mod tests {
             value: value.to_string(),
             action,
         })
+    }
+
+    #[test]
+    fn without_a_selection_the_whole_lines_are_copied() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("doc.md");
+        std::fs::write(
+            &file,
+            indoc::indoc! {"
+            # Title
+
+            First paragraph.
+            Second line.
+        "},
+        )
+        .unwrap();
+
+        assert_eq!(
+            markdown_to_copy(&file, 3, 4, "  "),
+            Some("First paragraph.\nSecond line.".to_string())
+        );
+    }
+
+    #[test]
+    fn lines_the_file_does_not_have_copy_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("doc.md");
+        std::fs::write(&file, "one line\n").unwrap();
+
+        assert_eq!(markdown_to_copy(&file, 5, 6, ""), None);
+        assert_eq!(
+            markdown_to_copy(&dir.path().join("gone.md"), 1, 1, ""),
+            None
+        );
     }
 
     #[test]
