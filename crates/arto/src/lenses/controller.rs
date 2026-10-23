@@ -1,6 +1,7 @@
 //! Starting, stopping and closing lenses in a window: asking the page for
 //! blocks, running the command, and showing each answer as it arrives.
 
+mod page;
 mod policy;
 
 use super::agent;
@@ -15,8 +16,8 @@ use crate::markdown;
 use crate::state::AppState;
 use crate::utils::task::spawn_detached_task;
 use arto_config::{says_nothing, usable_lenses, Lens, LensDisplay, LensUnit};
-use arto_markdown::SourceRange;
 use dioxus::prelude::*;
+use page::*;
 use parking_lot::Mutex;
 use policy::*;
 use rust_i18n::t;
@@ -31,10 +32,6 @@ const CACHE_BYTES: usize = 64 * 1024 * 1024;
 
 static CACHE: LazyLock<Mutex<ResultCache>> =
     LazyLock::new(|| Mutex::new(ResultCache::new(CACHE_BYTES)));
-
-/// How often the page is asked again for blocks it has not rendered yet.
-const COLLECT_ATTEMPTS: usize = 20;
-const COLLECT_INTERVAL: Duration = Duration::from_millis(50);
 
 /// How often an answer that is still arriving is rendered again.
 const STREAM_INTERVAL: Duration = Duration::from_millis(250);
@@ -818,76 +815,6 @@ async fn on_document(run: Run<'_>) {
     }
 }
 
-/// Show `html`, the answer of the run so far: in the page's places for a
-/// page lens, in the header otherwise — marked `outdated` when it is about
-/// what the document said before.
-fn show_html(run: &Run, page: bool, html: String, outdated: bool) {
-    if !page {
-        run.update(|lens_run| lens_run.html = Some(html));
-        return;
-    }
-    let mut eval = document::eval(&format!(
-        "dioxus.send(window.Arto?.lenses?.showPage?.({}, {}, {}) ?? 0);",
-        json(&run.token),
-        json(&html),
-        json(&outdated)
-    ));
-    let (state, token) = (run.state, run.token);
-    // While the answer streams in, the count is how many of the page's
-    // blocks it has reached.
-    spawn(async move {
-        if let Ok(reached) = eval.recv::<usize>().await {
-            update(state, token, |lens_run| {
-                if lens_run.is_running() {
-                    lens_run.done = lens_run.done.max(reached);
-                }
-            });
-        }
-    });
-}
-
-/// One of the document's top-level blocks, as the page reports it.
-#[derive(Debug, serde::Deserialize)]
-struct PageBlock {
-    range: Option<SourceRange>,
-    /// Prose to hand over, rather than code, a diagram or a formula.
-    translatable: bool,
-}
-
-/// The page, ready to show a page lens's answer.
-#[derive(Debug, serde::Deserialize)]
-struct Begun {
-    generation: Option<u64>,
-    /// How many of the document's top-level blocks an answer to the whole
-    /// document takes the places of: all but its raw HTML, which the answer
-    /// shows escaped rather than as blocks.
-    total: usize,
-    blocks: Vec<PageBlock>,
-}
-
-/// Have the page get ready to show a page lens's answer over the render of
-/// `generation`, waiting for it to show that render; the document's
-/// top-level blocks, whose places the answer takes.
-async fn begin_page(generation: u64, token: u64) -> Option<Begun> {
-    let js = format!(
-        "dioxus.send(window.Arto?.lenses?.beginPage?.({}) ?? {{ generation: null, total: 0, blocks: [] }});",
-        json(&token)
-    );
-    for _ in 0..COLLECT_ATTEMPTS {
-        let mut eval = document::eval(&js);
-        match eval.recv::<Begun>().await {
-            Ok(begun) if begun.generation == Some(generation) => return Some(begun),
-            Ok(_) => {}
-            Err(error) => {
-                tracing::debug!(?error, "the page did not get ready for the lens");
-                return None;
-            }
-        }
-        tokio::time::sleep(COLLECT_INTERVAL).await;
-    }
-    None
-}
-
 /// What a block of a page lens shows once every block above it has shown:
 /// its answer rendered, marked outdated or not, or nothing.
 type Reveal = (Job, Option<Result<String, String>>, bool);
@@ -1000,53 +927,4 @@ async fn by_block(run: Run<'_>, blocks: &[PageBlock]) {
         reveal(&mut ready, &mut next);
     })
     .await;
-}
-
-/// Ask the page for the blocks of `scope`, tagged for the run `token`,
-/// waiting for it to show the render of `generation`: right after a
-/// re-render the page may still hold the previous one, whose ranges point
-/// into a different source.
-async fn collect(scope: Scope, label: &str, generation: u64, token: u64) -> Option<Vec<Block>> {
-    #[derive(serde::Deserialize)]
-    struct Offered {
-        generation: Option<u64>,
-        blocks: Vec<Block>,
-    }
-
-    let scope = match scope {
-        Scope::Cursor => "cursor",
-        Scope::Document => "document",
-    };
-    let js = format!(
-        "dioxus.send(window.Arto?.lenses?.collect?.({}, {}, {}) ?? {{ generation: null, blocks: [] }});",
-        json(&token),
-        json(&scope),
-        json(&label)
-    );
-    for _ in 0..COLLECT_ATTEMPTS {
-        let mut eval = document::eval(&js);
-        match eval.recv::<Offered>().await {
-            Ok(offered) if offered.generation == Some(generation) => return Some(offered.blocks),
-            Ok(_) => {}
-            Err(error) => {
-                tracing::debug!(?error, "the page did not answer for its blocks");
-                return None;
-            }
-        }
-        tokio::time::sleep(COLLECT_INTERVAL).await;
-    }
-    tracing::debug!(
-        generation,
-        "the page never showed the render the lens looked at"
-    );
-    None
-}
-
-fn eval_call(function: &str, args: &[String]) {
-    let js = format!("window.Arto?.lenses?.{function}?.({});", args.join(", "));
-    document::eval(&js);
-}
-
-fn json(value: &impl serde::Serialize) -> String {
-    serde_json::to_string(value).expect("a JSON value serializes")
 }
