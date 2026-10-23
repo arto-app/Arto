@@ -92,6 +92,28 @@ impl Row {
             Self::Starred(path) | Self::Place(path) | Self::File(path) => Some(path),
         }
     }
+
+    fn icon(&self) -> IconName {
+        match self {
+            Self::Command(_) => IconName::Command,
+            Self::Document(_) => IconName::File,
+            Self::Starred(_) => IconName::StarFilled,
+            Self::Place(_) => IconName::Bookmark,
+            Self::File(_) => IconName::FileSearch,
+        }
+    }
+
+    /// What tells this row apart from every other in the list: a document
+    /// can be in the history and starred at once, and is two rows then.
+    fn key(&self) -> String {
+        match self {
+            Self::Command(action) => format!("command:{action}"),
+            Self::Document(visit) => format!("document:{}", visit.path.display()),
+            Self::Starred(path) => format!("starred:{}", path.display()),
+            Self::Place(path) => format!("place:{}", path.display()),
+            Self::File(path) => format!("file:{}", path.display()),
+        }
+    }
 }
 
 /// Where the palette's rows come from.
@@ -538,6 +560,56 @@ mod tests {
     }
 
     #[test]
+    fn each_kind_of_row_is_keyed_apart_from_the_others() {
+        let path = "/a/b.md";
+        let keys: Vec<String> = [
+            Row::Command(Action::SearchOpen),
+            Row::Document(visit(path)),
+            Row::Starred(PathBuf::from(path)),
+            Row::Place(PathBuf::from(path)),
+            Row::File(PathBuf::from(path)),
+        ]
+        .iter()
+        .map(Row::key)
+        .collect();
+        assert_eq!(
+            keys,
+            [
+                "command:search.open",
+                "document:/a/b.md",
+                "starred:/a/b.md",
+                "place:/a/b.md",
+                "file:/a/b.md",
+            ]
+        );
+    }
+
+    #[test]
+    fn each_kind_of_row_has_its_own_icon() {
+        let path = "/a/b.md";
+        let icons: Vec<IconName> = [
+            Row::Command(Action::SearchOpen),
+            Row::Document(visit(path)),
+            Row::Starred(PathBuf::from(path)),
+            Row::Place(PathBuf::from(path)),
+            Row::File(PathBuf::from(path)),
+        ]
+        .iter()
+        .map(Row::icon)
+        .collect();
+        assert_eq!(
+            icons,
+            [
+                IconName::Command,
+                IconName::File,
+                IconName::StarFilled,
+                IconName::Bookmark,
+                IconName::FileSearch,
+            ]
+        );
+    }
+
+    #[test]
     fn stepping_wraps_at_both_ends() {
         assert_eq!(step_cursor(0, 3, true), 1);
         assert_eq!(step_cursor(2, 3, true), 0);
@@ -874,67 +946,34 @@ pub fn PaletteRows(
                 if let Some(heading) = &headings[index] {
                     div { class: "palette-group", "{heading}" }
                 }
-                match row {
-                    Row::Command(action) => rsx! {
-                        div {
-                            key: "command:{action}",
-                            class: "palette-row",
-                            class: if index == current { "keyboard-focused" },
-                            onclick: move |_| on_pick.call(index),
-                            Icon { name: IconName::Command, size: 14 }
-                            span {
-                                class: "palette-row-name",
-                                Matched {
-                                    text: command_name(*action).unwrap_or_default(),
-                                    query: query.clone(),
-                                }
-                            }
-                            span {
-                                class: "palette-row-hint",
-                                {shortcut_hint(*action).unwrap_or_default()}
+                if let Row::Command(action) = row {
+                    div {
+                        key: "{row.key()}",
+                        class: "palette-row",
+                        class: if index == current { "keyboard-focused" },
+                        onclick: move |_| on_pick.call(index),
+                        Icon { name: row.icon(), size: 14 }
+                        span {
+                            class: "palette-row-name",
+                            Matched {
+                                text: command_name(*action).unwrap_or_default(),
+                                query: query.clone(),
                             }
                         }
-                    },
-                    Row::Document(visit) => rsx! {
-                        PalettePath {
-                            key: "document:{visit.path.display()}",
-                            path: visit.path.clone(),
-                            icon: IconName::File,
-                            current: index == current,
-                            query: query.clone(),
-                            on_pick: move |_| on_pick.call(index),
+                        span {
+                            class: "palette-row-hint",
+                            {shortcut_hint(*action).unwrap_or_default()}
                         }
-                    },
-                    Row::Starred(path) => rsx! {
-                        PalettePath {
-                            key: "starred:{path.display()}",
-                            path: path.clone(),
-                            icon: IconName::StarFilled,
-                            current: index == current,
-                            query: query.clone(),
-                            on_pick: move |_| on_pick.call(index),
-                        }
-                    },
-                    Row::Place(path) => rsx! {
-                        PalettePath {
-                            key: "place:{path.display()}",
-                            path: path.clone(),
-                            icon: IconName::Bookmark,
-                            current: index == current,
-                            query: query.clone(),
-                            on_pick: move |_| on_pick.call(index),
-                        }
-                    },
-                    Row::File(path) => rsx! {
-                        PalettePath {
-                            key: "file:{path.display()}",
-                            path: path.clone(),
-                            icon: IconName::FileSearch,
-                            current: index == current,
-                            query: query.clone(),
-                            on_pick: move |_| on_pick.call(index),
-                        }
-                    },
+                    }
+                } else if let Some(path) = row.path() {
+                    PalettePath {
+                        key: "{row.key()}",
+                        path: path.to_path_buf(),
+                        icon: row.icon(),
+                        current: index == current,
+                        query: query.clone(),
+                        on_pick: move |_| on_pick.call(index),
+                    }
                 }
             }
         }
