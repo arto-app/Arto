@@ -14,6 +14,7 @@ use std::path::Path;
 
 mod alerts;
 mod containers;
+mod errors;
 mod images;
 mod line_endings;
 mod options;

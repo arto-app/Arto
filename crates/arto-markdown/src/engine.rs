@@ -23,8 +23,7 @@ mod wiki;
 
 pub use source_map::*;
 
-use crate::{HeadingInfo, RawHtml, ReadingProfile, RenderOptions};
-use anyhow::{anyhow, Result};
+use crate::{HeadingInfo, RawHtml, ReadingProfile, RenderError, RenderOptions};
 use lines::LineTable;
 use ox_content_allocator::Allocator;
 use ox_content_parser::{Parser, ParserOptions};
@@ -102,11 +101,11 @@ pub(crate) fn render(
     frontmatter_lines: usize,
     options: &RenderOptions,
     with_toc: bool,
-) -> Result<Rendered> {
+) -> Result<Rendered, RenderError> {
     let allocator = Allocator::new();
     let document = Parser::with_options(&allocator, body, parser_options(options))
         .parse()
-        .map_err(|error| anyhow!("failed to parse Markdown: {error}"))?;
+        .map_err(|error| RenderError::Parse(Box::new(error)))?;
 
     let html = HtmlRenderer::with_options(renderer_options(options))
         .render_with_hooks(&document, &mut hooks::ArtoHooks::new(body));
@@ -147,11 +146,11 @@ pub(crate) fn links(
     body: &str,
     frontmatter_lines: usize,
     options: &RenderOptions,
-) -> Result<Vec<links::Link>> {
+) -> Result<Vec<links::Link>, RenderError> {
     let allocator = Allocator::new();
     let document = Parser::with_options(&allocator, body, parser_options(options))
         .parse()
-        .map_err(|error| anyhow!("failed to parse Markdown: {error}"))?;
+        .map_err(|error| RenderError::Parse(Box::new(error)))?;
     Ok(links::collect(
         &document,
         &LineTable::new(body, frontmatter_lines),

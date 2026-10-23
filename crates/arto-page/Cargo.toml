@@ -41,8 +41,6 @@ cli = ["dep:clap"]
 ffi = []
 
 [dependencies]
-# Only for `PageError::Render`, which carries arto-markdown's error as-is.
-anyhow.workspace = true
 # The page honours the user's config.json (rendering options, default theme)
 # so `arto page` and Quick Look look like the app does.
 arto-config.workspace = true

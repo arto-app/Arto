@@ -190,6 +190,7 @@
 
 mod block;
 mod engine;
+mod error;
 mod frontmatter;
 mod headings;
 mod images;
@@ -204,13 +205,13 @@ mod sanitize;
 
 pub use block::*;
 pub use engine::*;
+pub use error::*;
 pub use headings::*;
 pub use links::*;
 pub use options::*;
 pub use reading::*;
 pub use remote_media::*;
 
-use anyhow::Result;
 use frontmatter::extract_and_render_frontmatter;
 use post_process::post_process_html_tags;
 use remote_media::detach;
@@ -236,7 +237,7 @@ fn run_pipeline(
     base_path: &Path,
     options: &RenderOptions,
     with_toc: bool,
-) -> Result<PipelineResult> {
+) -> Result<PipelineResult, RenderError> {
     let base_dir = base_path
         .parent()
         .map(|p| p.to_path_buf())
@@ -301,7 +302,7 @@ pub fn render_to_html(
     markdown: impl AsRef<str>,
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
-) -> Result<RenderResult> {
+) -> Result<RenderResult, RenderError> {
     render(markdown.as_ref(), base_path.as_ref(), options, false)
 }
 
@@ -311,7 +312,7 @@ pub fn render_to_html_with_toc(
     markdown: impl AsRef<str>,
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
-) -> Result<RenderResult> {
+) -> Result<RenderResult, RenderError> {
     render(markdown.as_ref(), base_path.as_ref(), options, true)
 }
 
@@ -334,7 +335,7 @@ pub fn render_detached(
     markdown: impl AsRef<str>,
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
-) -> Result<RenderResult> {
+) -> Result<RenderResult, RenderError> {
     let mut rendered = render(markdown.as_ref(), base_path.as_ref(), options, false)?;
     let local = match &options.images {
         ImageResolution::Deferred { base_url } => Some(base_url.as_str()),
@@ -366,7 +367,7 @@ pub fn render_preview(
     markdown: impl AsRef<str>,
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
-) -> Result<RenderResult> {
+) -> Result<RenderResult, RenderError> {
     let base_path = base_path.as_ref();
     let options = RenderOptions {
         raw_html: RawHtml::Escape,
@@ -400,7 +401,7 @@ fn render(
     base_path: &Path,
     options: &RenderOptions,
     with_toc: bool,
-) -> Result<RenderResult> {
+) -> Result<RenderResult, RenderError> {
     let pipeline = run_pipeline(markdown, base_path, options, with_toc)?;
 
     let post_processed = post_process_html_tags(
