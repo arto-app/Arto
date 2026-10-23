@@ -192,11 +192,13 @@ mod block;
 mod engine;
 mod frontmatter;
 mod headings;
+mod images;
 mod line_endings;
 mod links;
 mod options;
 mod post_process;
 mod reading;
+mod remote_media;
 mod rewrite;
 mod sanitize;
 
@@ -206,10 +208,12 @@ pub use headings::*;
 pub use links::*;
 pub use options::*;
 pub use reading::*;
+pub use remote_media::*;
 
 use anyhow::Result;
 use frontmatter::extract_and_render_frontmatter;
 use post_process::post_process_html_tags;
+use remote_media::detach;
 use std::path::{Path, PathBuf};
 
 /// Everything the render functions need after the document was rendered.
@@ -388,106 +392,7 @@ pub fn render_preview(
 /// the page it is shown on, becomes a document link to `document_path`
 /// itself. Links with a scheme of their own are left alone.
 pub fn rebase_document_links(html: &str, document_path: impl AsRef<Path>) -> String {
-    post_process::rebase_document_links(html, document_path.as_ref())
-}
-
-/// Whether `url` makes the page fetch something from another host: an
-/// absolute or protocol-relative address that is neither inline data nor
-/// under `local`, where the app serves images from.
-///
-/// Read the way a browser's URL parser reads it on a page served over
-/// http: tabs and newlines dropped, a backslash taken for a slash — so
-/// `\\host/x` is as protocol-relative as `//host/x`.
-fn is_remote(url: &str, local: Option<&str>) -> bool {
-    let url: String = url
-        .chars()
-        .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
-        .map(|c| if c == '\\' { '/' } else { c })
-        .collect();
-    let url = url.trim_matches(|c: char| c <= ' ');
-    if local.is_some_and(|local| url.starts_with(local)) {
-        return false;
-    }
-    if url.starts_with("//") {
-        return true;
-    }
-    match url.split_once(':') {
-        Some((scheme, _)) => {
-            let is_scheme = !scheme.is_empty()
-                && scheme
-                    .chars()
-                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'));
-            is_scheme && !scheme.eq_ignore_ascii_case("data")
-        }
-        None => false,
-    }
-}
-
-/// `html` with every image, video or other media that would be fetched from
-/// another host taken out, for a page that is not allowed to load it.
-///
-/// An image leaves its alt text; a video or an audio player leaves the
-/// fallback content inside it, which for a GitHub video is the link to it.
-/// Inline `data:` media is kept.
-pub fn without_remote_media(html: impl AsRef<str>) -> String {
-    strip_remote_media(html.as_ref(), None, false)
-}
-
-/// `html` without its `data-source-range` attributes, and without media
-/// fetched from anywhere but `local` (see [`render_detached`]).
-fn detach(html: &str, local: Option<&str>) -> String {
-    strip_remote_media(html, local, true)
-}
-
-/// `html` without media fetched from anywhere but `local`, and without its
-/// `data-source-range` attributes when `strip_ranges` is set.
-fn strip_remote_media(html: &str, local: Option<&str>, strip_ranges: bool) -> String {
-    let fetches_elsewhere = |el: &lol_html::html_content::Element| {
-        let srcset = el.get_attribute("srcset").unwrap_or_default();
-        ["src", "poster", "data"]
-            .iter()
-            .filter_map(|name| el.get_attribute(name))
-            .chain(
-                srcset
-                    .split(',')
-                    .filter_map(|candidate| candidate.split_whitespace().next())
-                    .map(str::to_string),
-            )
-            .any(|url| is_remote(&url, local))
-    };
-    let mut settings = lol_html::Settings::new();
-    if strip_ranges {
-        settings = settings.append_element_content_handler(lol_html::element!(
-            "[data-source-range]",
-            |el| {
-                el.remove_attribute("data-source-range");
-                Ok(())
-            }
-        ));
-    }
-    let settings = settings.append_element_content_handler(lol_html::element!(
-        "img, video, audio, source, track, picture, object, embed, input",
-        move |el| {
-            if fetches_elsewhere(el) {
-                // What a player holds is shown only where it cannot play, so
-                // it is the stand-in; the media nested in it is matched by
-                // this handler as well.
-                if matches!(el.tag_name().as_str(), "video" | "audio") {
-                    el.remove_and_keep_content();
-                } else {
-                    let alt = el.get_attribute("alt").unwrap_or_default();
-                    el.replace(&alt, lol_html::html_content::ContentType::Text);
-                }
-            }
-            Ok(())
-        }
-    ));
-    // A page that may not fetch from elsewhere gets a document cut short
-    // rather than the media this pass did not reach.
-    rewrite::rewrite(html, settings).unwrap_or_else(|interrupted| {
-        tracing::debug!(error = %interrupted.error, "stripping remote media stopped part way");
-        interrupted.written
-    })
+    links::rebase_document_links(html, document_path.as_ref())
 }
 
 fn render(

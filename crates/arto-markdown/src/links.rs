@@ -5,6 +5,10 @@
 //! documents a source points at — so what a reader can click and what is
 //! listed as a link are the same set.
 
+use lol_html::{element, Settings};
+use std::path::Path;
+
+use crate::rewrite::rewrite;
 use crate::{frontmatter, line_endings, RenderOptions, SourceRange};
 
 /// A link to another Markdown document, as a click on it would open it.
@@ -126,4 +130,77 @@ pub(crate) fn file_url_to_path(href: &str) -> Option<String> {
         tracing::debug!(?href, "file: URL could not be parsed; left as written");
     }
     Some(path?.to_string_lossy().into_owned())
+}
+
+/// Whether the file a local link points at exists. The check is what the
+/// click handler will do with the same path, so a link that cannot open is
+/// shown as such before it is clicked.
+pub(crate) fn link_target_exists(base_dir: &Path, path: &str) -> bool {
+    let target = Path::new(path);
+    if target.is_absolute() {
+        target.is_file()
+    } else {
+        base_dir.join(target).is_file()
+    }
+}
+
+/// Turn `el` into the `span.md-link` the app follows (see the HTML contract
+/// in the crate docs).
+pub(crate) fn make_document_link(
+    el: &mut lol_html::html_content::Element,
+    link: &str,
+    class: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    el.set_tag_name("span")?;
+    el.remove_attribute("href");
+    el.set_attribute("data-md-link", link)?;
+    el.set_attribute("class", class)?;
+    el.set_attribute(
+        "onmousedown",
+        "if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}",
+    )?;
+    Ok(())
+}
+
+/// `html`, rendered from the document at `document_path`, with its links
+/// made to name their targets the same wherever it is shown.
+///
+/// A document link keeps the path as written, which the app resolves
+/// against the document on screen; shown on another document's page it
+/// would resolve against that one instead. A relative path is therefore
+/// joined onto the directory `document_path` is in, and a link that is only
+/// a fragment becomes a document link to `document_path` itself.
+pub(crate) fn rebase_document_links(html: &str, document_path: &Path) -> String {
+    let base_dir = document_path.parent().unwrap_or(Path::new(""));
+    let settings = Settings::new()
+        .append_element_content_handler(element!("span.md-link[data-md-link]", |el| {
+            let Some(link) = el.get_attribute("data-md-link") else {
+                return Ok(());
+            };
+            let (path, fragment) = link
+                .split_once('#')
+                .map_or((link.as_str(), None), |(path, fragment)| {
+                    (path, Some(fragment))
+                });
+            if Path::new(path).is_absolute() {
+                return Ok(());
+            }
+            let rebased = base_dir.join(path).display().to_string();
+            let rebased = match fragment {
+                Some(fragment) => format!("{rebased}#{fragment}"),
+                None => rebased,
+            };
+            el.set_attribute("data-md-link", &rebased)?;
+            Ok(())
+        }))
+        .append_element_content_handler(element!(r##"a[href^="#"]"##, |el| {
+            let Some(href) = el.get_attribute("href") else {
+                return Ok(());
+            };
+            let link = format!("{}{href}", document_path.display());
+            make_document_link(el, &link, "md-link")?;
+            Ok(())
+        }));
+    // Links left unrebased still open something; links cut off open nothing.
+    rewrite(html, settings).unwrap_or_else(|_| html.to_string())
 }
