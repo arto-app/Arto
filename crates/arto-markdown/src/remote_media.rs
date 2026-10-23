@@ -4,7 +4,7 @@ use lol_html::html_content::{ContentType, Element};
 use lol_html::{element, Settings};
 
 use crate::rewrite::rewrite;
-use crate::urls::fetches_from_elsewhere;
+use crate::urls::{fetches_from_elsewhere, parse_srcset};
 
 /// `html` with every image, video or other media that would be fetched from
 /// another host taken out, for a page that is not allowed to load it.
@@ -31,10 +31,9 @@ fn strip_remote_media(html: &str, local: Option<&str>, strip_ranges: bool) -> St
             .iter()
             .filter_map(|name| el.get_attribute(name))
             .chain(
-                srcset
-                    .split(',')
-                    .filter_map(|candidate| candidate.split_whitespace().next())
-                    .map(str::to_string),
+                parse_srcset(&srcset)
+                    .into_iter()
+                    .map(|candidate| candidate.url),
             )
             .any(|url| fetches_from_elsewhere(&url, local))
     };
