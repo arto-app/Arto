@@ -1,5 +1,5 @@
 import { currentTheme, type Theme } from "./theme";
-import { buildMermaidThemeConfig } from "./mermaid-theme";
+import { buildMermaidThemeConfig, cssTokens } from "./mermaid-theme";
 import { fixTextContrast } from "./mermaid-contrast";
 import { type MermaidLibrary, mermaidLibrary } from "./libraries";
 import { inertSvg } from "./preview-diagram";
@@ -12,12 +12,16 @@ export function init(): void {
   setTheme(currentTheme());
 }
 
-export function setTheme(theme: Theme): void {
+/**
+ * Draw the next diagrams in `theme`, with its colours as `tokensFrom`
+ * resolves them.
+ */
+export function setTheme(theme: Theme, tokensFrom: Element = document.body): void {
   const mermaid = mermaidLibrary();
   if (!mermaid) {
     return;
   }
-  const config = buildMermaidThemeConfig(theme);
+  const config = buildMermaidThemeConfig(theme, cssTokens(tokensFrom));
   mermaid.initialize({
     startOnLoad: false,
     ...config,

@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 
 import icons from "./icons.json" with { type: "json" };
+import { scopeStylesheetPlugin } from "./build/scope-stylesheet.ts";
 
 function iconSpritePlugin(): Plugin {
   return {
@@ -217,13 +218,20 @@ const bundleConsumers: BundleConsumer[] = [
     dir: path.resolve(import.meta.dirname, "../crates/arto/assets/frontend"),
     files: ["main.js", "main.css", "icons/tabler-sprite.svg"],
   },
-  // The page crate inlines the stylesheet, the page runtime, and whichever
-  // library bundles the document it is writing calls for.
+  // The page crate inlines the stylesheet and the page runtime, and takes the
+  // library bundles from the frontend crate below.
   {
     dir: path.resolve(import.meta.dirname, "../crates/arto-page/assets/frontend"),
+    files: ["main.css", "page.iife.js"],
+  },
+  // The frontend crate hands a host the runtime and the stylesheet for a
+  // document in someone else's page, and every consumer the library bundles
+  // and the manifests that choose among them.
+  {
+    dir: path.resolve(import.meta.dirname, "../crates/arto-frontend/assets/frontend"),
     files: [
-      "main.css",
-      "page.iife.js",
+      "embed.iife.js",
+      "embed.css",
       "page-mermaid.iife.js",
       "page-math.iife.js",
       "page-hljs-common.iife.js",
@@ -256,7 +264,7 @@ const pageLibraries = [
 /**
  * Write down the languages a highlight.js bundle answers to, beside it.
  *
- * `arto-page` reads the body it is writing to choose between the two builds,
+ * `arto-frontend` reads the body it is given to choose between the two builds,
  * and the choice is only as good as its idea of what is in them — a name
  * hard-coded on the Rust side would go quietly wrong on the next highlight.js
  * release. So the list is build output, like the bundle it describes, and the
@@ -326,6 +334,13 @@ export default defineConfig(({ mode }) => {
       hljsManifestPlugin("pageHljsAll", () => import("highlight.js"), "page-hljs-all.txt"),
       syncBundlePlugin(consumers, production),
     ],
+    css: {
+      postcss: {
+        // Only the host's stylesheet: Arto's own windows and pages own the
+        // document they are in, and their stylesheet styles it whole.
+        plugins: [scopeStylesheetPlugin((file) => file.endsWith("/style/embed.css"))],
+      },
+    },
     build: {
       outDir,
       // In dev mode, keep existing files for incremental updates
@@ -362,6 +377,17 @@ export default defineConfig(({ mode }) => {
       // where ES modules are not reliable on older macOS. It leaves the
       // libraries below to their own bundles.
       page: iifeEnvironment("page", "ArtoRenderer"),
+      // `embed.iife.js` is the runtime for a document a host places in its
+      // own page, under the same global so the library bundles register with
+      // it as they do with a page. Its stylesheet is a file of its own: the
+      // page's is the whole of Arto's, which would restyle the host.
+      embed: {
+        ...iifeEnvironment("embed", "ArtoRenderer"),
+        build: {
+          ...iifeEnvironment("embed", "ArtoRenderer").build,
+          rollupOptions: { output: { assetFileNames: "embed.css" } },
+        },
+      },
       ...Object.fromEntries(
         pageLibraries.map(({ environment, entry, global }) => [
           environment,
@@ -376,6 +402,7 @@ export default defineConfig(({ mode }) => {
       async buildApp(builder) {
         await builder.build(builder.environments.client);
         await builder.build(builder.environments.page);
+        await builder.build(builder.environments.embed);
         for (const { environment } of pageLibraries) {
           await builder.build(builder.environments[environment]);
         }

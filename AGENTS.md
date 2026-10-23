@@ -53,6 +53,7 @@ documentation's links and the workflow files. CI runs the same recipes.
 | `crates/arto-config/` | `config.json` types and file I/O (no globals) |
 | `crates/arto-keybindings/` | Keybinding parsing and defaults |
 | `crates/arto-lsp/` | The wire protocol: JSON-RPC 2.0 in LSP framing, and the socket it runs on |
+| `crates/arto-frontend/` | The frontend's bundles as Rust strings: the library bundles `arto-page` embeds, and the runtime and stylesheet for another app's page |
 | `crates/arto-page/` | Standalone page renderer: `arto page` CLI and the Quick Look static library |
 | `frontend/` | TypeScript and CSS bundled into each crate's `assets/frontend/` by Vite |
 | `samples/` | Rendering samples; their HTML is snapshot-tested in `arto-markdown` |
@@ -106,7 +107,7 @@ they stay as they are.
 | `keybindings` | `crates/arto-keybindings/` |
 | `lsp` | `crates/arto-lsp/` |
 | `page` | `crates/arto-page/` |
-| `frontend` | `frontend/` |
+| `frontend` | `frontend/`, `crates/arto-frontend/` |
 | `samples` | `samples/` |
 | `schemas` | `schemas/` |
 | `platform` | `platform/` |

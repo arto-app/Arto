@@ -46,7 +46,27 @@ const FRAME_BUDGET_MS = 8;
  * page renderer, where the document itself scrolls — the implicit root is
  * the right one.
  */
-const SCROLLER = ".content";
+export const APP_SCROLLER = ".content";
+
+/** Where the document scrolls now; `null` for the viewport. */
+let scroller: string | null = APP_SCROLLER;
+
+/**
+ * Say which element the document scrolls in, or `null` when it scrolls with
+ * the page.
+ *
+ * Arto's window is the only place `.content` means that. A host that places
+ * the rendered document in a window of its own may have a `.content` for
+ * anything at all, and an observer rooted there would never see a block of
+ * ours come near.
+ */
+export function setScroller(selector: string | null): void {
+  scroller = selector;
+}
+
+function scrollerElement(): Element | null {
+  return scroller === null ? null : document.querySelector(scroller);
+}
 
 /** How many times [`flush`] re-drains a queue that jobs keep refilling. */
 const MAX_FLUSH_ROUNDS = 20;
@@ -120,7 +140,7 @@ function observerOrNull(): IntersectionObserver | null {
   if (typeof IntersectionObserver === "undefined") {
     return null;
   }
-  const root = document.querySelector(SCROLLER);
+  const root = scrollerElement();
   // An observer's root is fixed for its life, so a mismatch has to be rebuilt
   // rather than adjusted. Registering a block before `.content` exists would
   // otherwise pin the viewport as the root for the rest of the process, and
@@ -157,11 +177,11 @@ function now(): number {
 
 /** The bounds jobs are ranked against: the part of the document on screen. */
 function viewportBounds(): { top: number; bottom: number } {
-  const scroller = document.querySelector(SCROLLER);
-  if (!scroller) {
+  const element = scrollerElement();
+  if (!element) {
     return { top: 0, bottom: window.innerHeight };
   }
-  const rect = scroller.getBoundingClientRect();
+  const rect = element.getBoundingClientRect();
   return { top: rect.top, bottom: rect.bottom };
 }
 

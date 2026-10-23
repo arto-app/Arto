@@ -1,0 +1,30 @@
+[package]
+name = "arto-frontend"
+description = "Arto's frontend bundles, for rendering arto-markdown's output in an app of your own"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords = ["markdown", "mermaid", "katex", "highlight", "webview"]
+categories = ["text-processing", "web-programming"]
+# The bundles under assets/ are build output copied in by the frontend build
+# (see frontend/vite.config.ts); list them so a package cannot be published
+# without them.
+include = [
+  "src/**",
+  "assets/frontend/embed.css",
+  "assets/frontend/embed.iife.js",
+  "assets/frontend/page-mermaid.iife.js",
+  "assets/frontend/page-math.iife.js",
+  "assets/frontend/page-hljs-common.iife.js",
+  "assets/frontend/page-hljs-common.txt",
+  "assets/frontend/page-hljs-all.iife.js",
+  "assets/frontend/page-hljs-all.txt",
+]
+
+# Nothing: a host that only wants the bundles should not compile anything to
+# get them, and the fragment it chooses them for is plain HTML.
+[dependencies]

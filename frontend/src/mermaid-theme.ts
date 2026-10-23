@@ -35,8 +35,13 @@ export function buildMermaidThemeConfig(
   return { theme: isDarkTheme(theme) ? "dark" : "default", themeVariables };
 }
 
-function cssTokens(): TokenResolver {
-  const style = getComputedStyle(document.body);
+/**
+ * The tokens as `element` resolves them. The body inherits the ones named on
+ * the root, which is where Arto's own windows name them; a document placed in
+ * a host's page has them on the element it sits in instead.
+ */
+export function cssTokens(element: Element = document.body): TokenResolver {
+  const style = getComputedStyle(element);
   return (name) => style.getPropertyValue(name);
 }
 

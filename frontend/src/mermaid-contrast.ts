@@ -33,7 +33,7 @@ interface Rgba extends Rgb {
 export function fixTextContrast(svg: SVGSVGElement): void {
   const groups = svg.querySelectorAll(".node, .cluster");
   const { dark, light } = TEXT_COLORS;
-  const bg = getBackgroundColor();
+  const bg = getBackgroundColor(svg);
 
   for (const group of groups) {
     const shape = findStyledShape(group);
@@ -66,10 +66,12 @@ const TEXT_COLORS = { dark: "#1f2328", light: "#e6edf3" };
 /**
  * Get the diagram background color from the theme CSS variable `--bg-color`.
  * Used to blend semi-transparent fill colors before computing luminance.
- * Reads from the body, which inherits the theme tokens named on the root.
+ * Read where the diagram is drawn: the tokens are named on the root in Arto's
+ * own windows, but on the element the document sits in when it is placed in
+ * a host's page.
  */
-function getBackgroundColor(): Rgb {
-  const style = getComputedStyle(document.body);
+function getBackgroundColor(svg: SVGSVGElement): Rgb {
+  const style = getComputedStyle(svg);
   const bgVar = style.getPropertyValue("--bg-color").trim();
   if (bgVar) {
     const parsed = parseColor(bgVar);

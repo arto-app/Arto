@@ -28,6 +28,10 @@
 //! whose `script-src` allowlists only the SHA-256 hashes of the first-party
 //! inline scripts embedded here. [`PageOptions`] can switch the policy off
 //! for callers that render trusted input.
+//!
+//! The library bundles and the choice among them come from `arto-frontend`,
+//! which also serves an application that places `arto-markdown`'s output in a
+//! page of its own rather than writing one.
 
 pub use arto_config::{
     CjkFontLanguage, ColorTheme, Config, ConfigError, FontFamilyChoice, Theme, ThemeConfig,
@@ -35,9 +39,9 @@ pub use arto_config::{
 };
 pub use arto_markdown::RenderOptions;
 
+use arto_frontend::Libraries;
 use base64::Engine;
 use sha2::{Digest, Sha256};
-use std::collections::HashSet;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -54,40 +58,6 @@ const FRONTEND_CSS: &str = include_str!("../assets/frontend/main.css");
 /// The frontend bundle (IIFE build exposing `window.ArtoRenderer`), embedded
 /// at compile time.
 const PAGE_JS: &str = include_str!("../assets/frontend/page.iife.js");
-
-/// Mermaid, embedded only in a page whose document draws a diagram.
-///
-/// It is three quarters of the frontend by weight and it is a bundle of its
-/// own for that reason: the IIFE format cannot code-split, so the only way to
-/// leave a library out of a page is to have built it separately.
-const PAGE_MERMAID_JS: &str = include_str!("../assets/frontend/page-mermaid.iife.js");
-
-/// KaTeX, embedded only in a page whose document sets a formula. It carries
-/// the rasterizer behind the block's copy-as-image button too, which in a
-/// page has nothing but a formula to draw.
-const PAGE_MATH_JS: &str = include_str!("../assets/frontend/page-math.iife.js");
-
-/// highlight.js with the languages it calls common, which is a seventh of the
-/// library and what nearly every document writes its code blocks in.
-const PAGE_HLJS_COMMON_JS: &str = include_str!("../assets/frontend/page-hljs-common.iife.js");
-
-/// highlight.js with every language, for the documents that name one the
-/// common build does not have.
-const PAGE_HLJS_ALL_JS: &str = include_str!("../assets/frontend/page-hljs-all.iife.js");
-
-/// The names each highlight.js build answers to, aliases included, one per
-/// line and written by the frontend build beside the bundle it describes.
-///
-/// Reading them rather than naming languages here is what keeps the choice
-/// honest across a highlight.js release: a set hard-coded in this crate would
-/// go quietly wrong the first time upstream moved a language in or out of
-/// `common`, and the page would lose its colours with nothing failing.
-const HLJS_COMMON_MANIFEST: &str = include_str!("../assets/frontend/page-hljs-common.txt");
-const HLJS_ALL_MANIFEST: &str = include_str!("../assets/frontend/page-hljs-all.txt");
-
-static HLJS_COMMON: LazyLock<HashSet<&str>> =
-    LazyLock::new(|| HLJS_COMMON_MANIFEST.lines().collect());
-static HLJS_ALL: LazyLock<HashSet<&str>> = LazyLock::new(|| HLJS_ALL_MANIFEST.lines().collect());
 
 /// Style overrides for a standalone page, applied after [`FRONTEND_CSS`].
 ///
@@ -182,105 +152,6 @@ fn strip_unused_themes(css: &str, light: &str, dark: &str) -> String {
 
     out.push_str(rest);
     out
-}
-
-/// Whether the document sets a formula for the page to typeset.
-///
-/// Math is typeset in the page rather than in the HTML handed to it, so a body
-/// with no `preprocessed-math*` container never reaches for KaTeX — nor for a
-/// KaTeX glyph, which is what lets the stylesheet's faces go as well.
-fn sets_math(body_html: &str) -> bool {
-    body_html.contains("preprocessed-math")
-}
-
-/// Whether the document holds a diagram for the page to draw.
-///
-/// `arto-markdown` writes the container; the fenced form the renderer also
-/// accepts is looked for among the code blocks rather than anywhere in the
-/// body, because a document that merely quotes `language-mermaid` in a code
-/// sample would otherwise carry the largest bundle of them all for nothing.
-/// The name is matched as written: the renderer selects it with
-/// `code.cjk_font_language-mermaid`, and a class selector is case-sensitive.
-fn draws_diagram(body_html: &str) -> bool {
-    body_html.contains("preprocessed-mermaid")
-        || code_block_languages(body_html).any(|language| language == Some("mermaid"))
-}
-
-/// How much of highlight.js a page has to carry for the document it holds.
-///
-/// Ordered, because a document is read block by block and what it needs is
-/// the most any one block asks for.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum Highlighting {
-    /// Nothing to colour, or nothing that highlight.js could colour anyway.
-    None,
-    /// Every language named is one the common build has — or a block names
-    /// none, and the language has to be detected, which is what that set is
-    /// upstream's answer for.
-    Common,
-    /// Something only the whole library can colour.
-    Every,
-}
-
-/// Which build of highlight.js, if any, the body calls for.
-fn highlighting_for(body_html: &str) -> Highlighting {
-    code_block_languages(body_html)
-        .map(|language| match language {
-            None => Highlighting::Common,
-            // `hljs.getLanguage` lowercases before it looks a name up, so a
-            // fence written `JSON` colours like `json` and has to be counted
-            // as `json` here — matched as written, the page would leave the
-            // library out and show the block the app colours as plain text.
-            Some(name) => match name.to_ascii_lowercase().as_str() {
-                // Another renderer owns these two, which is why the frontend
-                // takes them out of highlight.js rather than colouring them.
-                "mermaid" | "math" => Highlighting::None,
-                name if HLJS_COMMON.contains(name) => Highlighting::Common,
-                name if HLJS_ALL.contains(name) => Highlighting::Every,
-                // A name highlight.js has never heard of stays plain text
-                // whichever build is embedded, so it asks for neither.
-                _ => Highlighting::None,
-            },
-        })
-        .max()
-        .unwrap_or(Highlighting::None)
-}
-
-/// The language of every block the page would colour, `None` where the fence
-/// named none and the language has to be detected.
-///
-/// A block is a `<code>` opening immediately inside a `<pre>`, which is what
-/// the frontend highlights (`pre code`) and what the pipeline writes for a
-/// fenced block. An inline code span is a `<code>` anywhere else, and a
-/// diagram's or a formula's `<pre>` holds no `<code>` at all.
-fn code_block_languages(body_html: &str) -> impl Iterator<Item = Option<&str>> {
-    body_html.match_indices("<pre").filter_map(|(at, _)| {
-        let tag_end = body_html[at..].find('>')? + 1;
-        let attributes = body_html[at + tag_end..]
-            .trim_start()
-            .strip_prefix("<code")?;
-        let end = attributes.find('>')?;
-        Some(language_class(&attributes[..end]))
-    })
-}
-
-/// The language a `<code>`'s attributes name, if any.
-///
-/// The marker is looked for as a class of its own anywhere in the list, which
-/// is how the frontend reads it off `className` — a body carrying raw HTML may
-/// have written the classes in any order, and taking only the first one would
-/// call a labelled block unlabelled.
-fn language_class(attributes: &str) -> Option<&str> {
-    const CLASS: &str = "class=\"";
-    const MARKER: &str = "language-";
-
-    let at = attributes.find(CLASS)? + CLASS.len();
-    let list = &attributes[at..];
-    let list = &list[..list.find('"')?];
-    list.split_ascii_whitespace()
-        .find_map(|class| class.strip_prefix(MARKER))
-        // `language-` on its own names nothing; the frontend detects instead.
-        .filter(|name| !name.is_empty())
 }
 
 /// The index just past the `}` that closes the block opening at `open`.
@@ -500,23 +371,17 @@ fn sha256_base64(content: &str) -> String {
 /// first-party inline scripts (by SHA-256 hash), so raw HTML in an untrusted
 /// Markdown body cannot run JavaScript.
 fn build_document(body_html: &str, options: &PageOptions) -> String {
+    let libraries = Libraries::for_fragment(body_html);
+
     // The page runtime, then the libraries this document calls for, then the
     // bootstrap. The order is the dependency: the runtime publishes the slots
     // a library registers itself in, and the bootstrap starts a page that has
     // everything it is going to get.
-    let mut scripts = vec![inline_script(PAGE_JS)];
-    if draws_diagram(body_html) {
-        scripts.push(inline_script(PAGE_MERMAID_JS));
-    }
-    if sets_math(body_html) {
-        scripts.push(inline_script(PAGE_MATH_JS));
-    }
-    match highlighting_for(body_html) {
-        Highlighting::None => {}
-        Highlighting::Common => scripts.push(inline_script(PAGE_HLJS_COMMON_JS)),
-        Highlighting::Every => scripts.push(inline_script(PAGE_HLJS_ALL_JS)),
-    }
-    scripts.push(inline_script(BOOTSTRAP_JS));
+    let scripts: Vec<String> = std::iter::once(PAGE_JS)
+        .chain(libraries.scripts())
+        .chain(std::iter::once(BOOTSTRAP_JS))
+        .map(inline_script)
+        .collect();
 
     // Allowlist exactly the inline scripts we emit; everything else the
     // Markdown body may contain (script tags, event handlers, javascript: URLs)
@@ -554,7 +419,7 @@ fn build_document(body_html: &str, options: &PageOptions) -> String {
     // `preprocessed-math*` container never reaches for a KaTeX glyph; and the
     // stylesheet's other themes have no name left that could select them.
     let css = {
-        let with_math_settled = if sets_math(body_html) {
+        let with_math_settled = if libraries.math {
             FRONTEND_CSS
         } else {
             &CSS_WITHOUT_MATH_FONTS
@@ -722,115 +587,6 @@ mod tests {
         assert_eq!(html.matches("<script>").count(), 3);
     }
 
-    /// The scripts a body pulls in, the page's own and the bootstrap aside.
-    fn libraries_for(body_html: &str) -> usize {
-        build_document(body_html, &PageOptions::default())
-            .matches("<script>")
-            .count()
-            - 2
-    }
-
-    #[test]
-    fn test_a_document_with_no_code_block_carries_no_highlighter() {
-        assert_eq!(highlighting_for("<p>hi</p>"), Highlighting::None);
-        // An inline code span is not a block, and is not coloured.
-        assert_eq!(
-            highlighting_for("<p>the <code>--flag</code> flag</p>"),
-            Highlighting::None
-        );
-        assert_eq!(libraries_for("<p>the <code>--flag</code> flag</p>"), 0);
-    }
-
-    #[test]
-    fn test_a_usual_language_takes_the_common_build() {
-        let rust = r#"<pre data-source-range="1:1-3:3"><code data-source-range="2:1-2:12" class="language-rust">fn main() {}</code></pre>"#;
-
-        assert_eq!(highlighting_for(rust), Highlighting::Common);
-        assert_eq!(libraries_for(rust), 1);
-    }
-
-    #[test]
-    fn test_an_unlabelled_block_takes_the_common_build_to_detect_with() {
-        let plain = r#"<pre data-source-range="1:1-3:3"><code data-source-range="2:1-2:15">anything at all</code></pre>"#;
-
-        assert_eq!(highlighting_for(plain), Highlighting::Common);
-    }
-
-    #[test]
-    fn test_a_language_outside_the_common_set_takes_the_whole_library() {
-        let unusual = r#"<pre><code class="language-brainfuck">+++.</code></pre>"#;
-        // The premise: this is a language highlight.js has and `common` does
-        // not, which is what makes the whole library the only build that can
-        // colour it.
-        assert!(!HLJS_COMMON.contains("brainfuck"));
-        assert!(HLJS_ALL.contains("brainfuck"));
-
-        assert_eq!(highlighting_for(unusual), Highlighting::Every);
-    }
-
-    #[test]
-    fn test_the_most_any_block_asks_for_is_what_the_page_carries() {
-        let both = r#"<pre><code class="language-rust">fn main() {}</code></pre><pre><code class="language-brainfuck">+++.</code></pre>"#;
-
-        assert_eq!(highlighting_for(both), Highlighting::Every);
-    }
-
-    #[test]
-    fn test_an_alias_is_the_language_it_stands_for() {
-        // `sh` is `bash`, and the manifest carries the aliases for that
-        // reason: a fence rarely says the language's own name.
-        let shell = r#"<pre><code class="language-sh">ls</code></pre>"#;
-
-        assert_eq!(highlighting_for(shell), Highlighting::Common);
-    }
-
-    #[test]
-    fn test_a_language_named_in_capitals_is_the_language_it_names() {
-        // `hljs.getLanguage` lowercases, so the app colours this block; a page
-        // that read the name as written would embed no library at all.
-        let shouty = r#"<pre><code class="language-JSON">{"a":1}</code></pre>"#;
-
-        assert_eq!(highlighting_for(shouty), Highlighting::Common);
-        assert_eq!(libraries_for(shouty), 1);
-    }
-
-    #[test]
-    fn test_the_marker_is_found_wherever_it_sits_in_the_class_list() {
-        // Raw HTML in the body may write the classes in any order.
-        let second = r#"<pre><code class="hljs language-brainfuck">+++.</code></pre>"#;
-
-        assert_eq!(highlighting_for(second), Highlighting::Every);
-    }
-
-    #[test]
-    fn test_a_body_that_only_quotes_the_diagram_class_carries_no_mermaid() {
-        // A document showing the frontend's own contract in a code sample
-        // holds the text, not a diagram, and Mermaid is the largest bundle
-        // there is to embed by mistake.
-        let quoting = r#"<pre><code class="language-html">&lt;code class="language-mermaid"&gt;</code></pre>"#;
-
-        assert!(!draws_diagram(quoting));
-    }
-
-    #[test]
-    fn test_a_name_highlight_js_does_not_know_asks_for_nothing() {
-        let unknown = r#"<pre><code class="language-notalanguage">x</code></pre>"#;
-
-        assert_eq!(highlighting_for(unknown), Highlighting::None);
-        assert_eq!(libraries_for(unknown), 0);
-    }
-
-    #[test]
-    fn test_a_diagram_block_is_drawn_rather_than_coloured() {
-        // The fenced form the renderer also accepts: Mermaid draws it, and
-        // highlight.js is told not to colour it, so the page carries one
-        // library rather than two.
-        let fenced = r#"<pre><code class="language-mermaid">graph TD;</code></pre>"#;
-
-        assert_eq!(highlighting_for(fenced), Highlighting::None);
-        assert_eq!(libraries_for(fenced), 1);
-    }
-
     #[test]
     fn test_build_document_allowlists_every_script_it_embeds() {
         let html = build_document(DIAGRAM_BODY, &PageOptions::default());
@@ -840,7 +596,7 @@ mod tests {
         assert_eq!(html.matches("'sha256-").count(), 3);
         assert!(html.contains(&format!(
             "'sha256-{}'",
-            sha256_base64(&inline_script(PAGE_MERMAID_JS))
+            sha256_base64(&inline_script(arto_frontend::MERMAID))
         )));
     }
 

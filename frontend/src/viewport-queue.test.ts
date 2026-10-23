@@ -179,6 +179,25 @@ describe("whenNearViewport", () => {
     // has to be the root or the head start is clipped away.
     expect(options?.root).toBe(content);
   });
+
+  test("observes against the viewport once told the page has no scroller of its own", () => {
+    // A host's window may well have a `.content` of its own, which has
+    // nothing to do with where the document scrolls.
+    const content = document.createElement("div");
+    content.className = "content";
+    document.body.append(content);
+    const element = document.createElement("div");
+    content.append(element);
+
+    viewportQueue.setScroller(null);
+    try {
+      viewportQueue.whenNearViewport(element, vi.fn());
+
+      expect(options?.root).toBeNull();
+    } finally {
+      viewportQueue.setScroller(viewportQueue.APP_SCROLLER);
+    }
+  });
 });
 
 describe("flush", () => {

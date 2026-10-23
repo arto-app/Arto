@@ -24,7 +24,7 @@ export async function rasterizeMathBlock(
     }
 
     const backgroundColor = opaque
-      ? getComputedStyle(document.body).getPropertyValue("--bg-color").trim() || "#ffffff"
+      ? getComputedStyle(element).getPropertyValue("--bg-color").trim() || "#ffffff"
       : "transparent";
 
     // Ensure fonts are loaded before rasterization so KaTeX renders correctly.

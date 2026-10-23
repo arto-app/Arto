@@ -1,0 +1,24 @@
+/* The stylesheet for a document placed in a host's page.
+
+   What Arto's own windows paint the rendered document with, and nothing of
+   the window around it: no chrome, no body rule, no scrollbar. The build
+   confines every rule to `.markdown-viewer` (see
+   `build/scope-stylesheet.ts`), so the tokens and the theme are named on
+   that element and nothing outside it is restyled. */
+@import url("@primer/primitives/dist/css/base/size/size.css");
+@import url("@primer/primitives/dist/css/base/typography/typography.css");
+@import url("./generated/primer-themes.css");
+@import url("@primer/css/dist/markdown.css");
+
+@import url("./variables.css");
+@import url("./syntax.css");
+
+@import url("./components/content/frontmatter.css");
+@import url("./components/content/markdown-alert.css");
+@import url("./components/content/markdown-viewer.css");
+@import url("./components/content/footnotes.css");
+@import url("./components/content/code-copy.css");
+@import url("./components/mermaid-window.css");
+@import url("./components/math-window.css");
+
+@import url("katex/dist/katex.min.css");
