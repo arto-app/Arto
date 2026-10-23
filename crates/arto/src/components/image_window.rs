@@ -1,11 +1,11 @@
 use dioxus::prelude::*;
 use rust_i18n::t;
 
-use crate::assets::main_script_url;
 use crate::components::theme_selector::ThemeSelector;
+use crate::components::viewer_window_shell::ViewerWindowShell;
 use crate::hooks::{
-    use_clipboard_image_handler, use_theme_dispatch, use_window_close_handler, use_zoom_sync,
-    CopyImageButton,
+    spawn_viewer_init, use_clipboard_image_handler, use_theme_dispatch, use_window_close_handler,
+    use_zoom_sync, CopyImageButton,
 };
 use crate::theme::Theme;
 
@@ -39,7 +39,6 @@ pub fn ImageWindow(props: ImageWindowProps) -> Element {
     use_clipboard_image_handler();
     use_theme_dispatch(current_theme);
 
-    // Load viewer script on mount
     use_effect(move || {
         // The copy button rasterizes what this window shows, and a canvas that
         // drew an image from the app's own origin is tainted — reading it back
@@ -47,71 +46,37 @@ pub fn ImageWindow(props: ImageWindowProps) -> Element {
         // bytes instead of as its URL.
         let src =
             crate::assets::images::data_url_for(&props.src).unwrap_or_else(|| props.src.clone());
-        let src_json = serde_json::to_string(&src).unwrap_or_default();
-        let image_id_json = serde_json::to_string(&props.image_id).unwrap_or_default();
-
-        let main_script = main_script_url();
-        spawn(async move {
-            let eval_result = document::eval(&indoc::formatdoc! {r#"
-                (async () => {{
-                    try {{
-                        const {{ initImageWindow }} = await import("{main_script}");
-                        await initImageWindow({src_json}, {image_id_json});
-                    }} catch (error) {{
-                        console.error("Failed to load image window module:", error);
-                    }}
-                }})();
-            "#});
-
-            if let Err(e) = eval_result.await {
-                tracing::error!("Failed to initialize image window: {}", e);
-            }
-        });
+        spawn_viewer_init(
+            "image",
+            "initImageWindow",
+            vec![
+                serde_json::to_string(&src).unwrap_or_default(),
+                serde_json::to_string(&props.image_id).unwrap_or_default(),
+            ],
+        );
     });
 
     rsx! {
-        div {
-            class: "image-window-container",
-
-            // Header with controls
-            div {
-                class: "image-window-header",
-                div { class: "image-window-title", "{title}" }
-                div {
-                    class: "image-window-controls",
-                    CopyImageButton {
-                        js_function: "copyImageToClipboard",
-                        label: t!("viewer_window.image.copy").to_string(),
-                    }
-                    ThemeSelector { current_theme }
+        ViewerWindowShell {
+            kind: "image",
+            title: title.clone(),
+            controls: rsx! {
+                CopyImageButton {
+                    js_function: "copyImageToClipboard",
+                    label: t!("viewer_window.image.copy").to_string(),
                 }
-            }
-
-            // Canvas container for image
+                ThemeSelector { current_theme }
+            },
+            status: t!("viewer_window.zoom_status.pan", zoom = zoom_level()).to_string(),
+            // The wrapper is translated to pan, the container inside it zoomed.
             div {
-                id: "image-window-canvas",
-                class: "image-window-canvas",
-
-                // Wrapper for positioning (translate)
+                id: "image-wrapper",
+                class: "image-wrapper",
                 div {
-                    id: "image-wrapper",
-                    class: "image-wrapper",
-
-                    // Inner container for zoom
-                    div {
-                        id: "image-container",
-                        class: "image-container",
-                        img {
-                            alt: "{title}",
-                        }
-                    }
+                    id: "image-container",
+                    class: "image-container",
+                    img { alt: "{title}" }
                 }
-            }
-
-            // Status bar
-            div {
-                class: "image-window-status",
-                {t!("viewer_window.zoom_status.pan", zoom = zoom_level()).to_string()}
             }
         }
     }

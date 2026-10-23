@@ -24,3 +24,4 @@ pub mod sidebar;
 pub mod swatch_row;
 pub mod theme_selector;
 pub mod user_highlights;
+pub mod viewer_window_shell;
