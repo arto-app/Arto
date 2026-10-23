@@ -12,12 +12,15 @@ use crate::urls::{
 };
 use crate::{DeferredImage, ImageResolution};
 
-/// Maximum byte size of a local image that will be inlined as a data URL.
+/// The largest local image, in bytes, that a render inlines as a data URL or
+/// hands to the host under [`ImageResolution::Deferred`].
 ///
 /// Prevents accidental misreferences (e.g. log files, device files like `/dev/zero`)
 /// from freezing the UI or exhausting memory during Markdown rendering. Legitimate
-/// screenshots, photos, and diagrams comfortably fit within this limit.
-const MAX_INLINE_IMAGE_SIZE: u64 = 32 * 1024 * 1024;
+/// screenshots, photos, and diagrams comfortably fit within this limit. A host
+/// that serves deferred images reads the file later than the render did, so it
+/// applies the same bound again when it does.
+pub const MAX_IMAGE_BYTES: u64 = 32 * 1024 * 1024;
 
 /// Read a file for inlining, rejecting anything over `max_size` bytes.
 ///
@@ -77,13 +80,13 @@ fn get_mime_type(path: &Path) -> &'static str {
 /// relative ones joined onto `canonical_base`. A path that resolves outside
 /// `canonical_base` is still read (logged at `trace` level), matching
 /// standard Markdown viewer behavior. Reads are bounded by
-/// `MAX_INLINE_IMAGE_SIZE` so a misreferenced huge file or a device file
+/// `MAX_IMAGE_BYTES` so a misreferenced huge file or a device file
 /// cannot freeze the UI. An empty file is declined as well: it holds no image,
 /// and its data URL would end in the `base64,` comma, which `srcset` parsing
 /// strips back off into a malformed URL.
 fn inline_local_image(src: &str, canonical_base: &Path) -> Option<String> {
     let canonical_path = resolve_local_image(src, canonical_base)?;
-    let image_data = read_image_bounded(&canonical_path, MAX_INLINE_IMAGE_SIZE)?;
+    let image_data = read_image_bounded(&canonical_path, MAX_IMAGE_BYTES)?;
     if image_data.is_empty() {
         tracing::debug!(?canonical_path, "Image file is empty; nothing to inline");
         return None;
@@ -175,11 +178,11 @@ impl DeferredImages {
 /// the URL is far too late to drop it.
 fn deferred_image(path: PathBuf) -> Option<DeferredImage> {
     let metadata = std::fs::metadata(&path).ok()?;
-    if metadata.len() > MAX_INLINE_IMAGE_SIZE {
+    if metadata.len() > MAX_IMAGE_BYTES {
         tracing::debug!(
             ?path,
             size = metadata.len(),
-            limit = MAX_INLINE_IMAGE_SIZE,
+            limit = MAX_IMAGE_BYTES,
             "Image exceeds the size limit; not served"
         );
         return None;

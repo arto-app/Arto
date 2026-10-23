@@ -32,6 +32,7 @@
 mod frontend;
 pub mod images;
 
+use arto_markdown::MAX_IMAGE_BYTES;
 use dioxus::desktop::wry::http::{Request, Response};
 use dioxus::desktop::wry::{RequestAsyncResponder, WebViewId};
 use dioxus::desktop::Config;
@@ -110,7 +111,7 @@ fn respond_with_image(id: &str) -> Response<Cow<'static, [u8]>> {
         return not_found();
     };
 
-    let Some(bytes) = read_bounded(&image.path, MAX_IMAGE_SIZE) else {
+    let Some(bytes) = read_bounded(&image.path, MAX_IMAGE_BYTES) else {
         return not_found();
     };
 
@@ -123,10 +124,6 @@ fn respond_with_image(id: &str) -> Response<Cow<'static, [u8]>> {
         .body(Cow::Owned(bytes))
         .expect("a response with a body and valid headers")
 }
-
-/// The largest image the app will read, matching the pipeline's own bound.
-/// Guards against a path that has come to name a device file or a log.
-const MAX_IMAGE_SIZE: u64 = 32 * 1024 * 1024;
 
 fn read_bounded(path: &std::path::Path, max_size: u64) -> Option<Vec<u8>> {
     let file = std::fs::File::open(path)

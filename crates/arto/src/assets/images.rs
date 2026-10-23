@@ -121,7 +121,7 @@ pub fn data_url_for(src: &str) -> Option<String> {
     // Bounded for the same reason serving one is: the file is read now, not
     // when the document was rendered, and by now it may have grown or been
     // replaced by something that is not an image at all.
-    let bytes = super::read_bounded(&image.path, super::MAX_IMAGE_SIZE)?;
+    let bytes = super::read_bounded(&image.path, arto_markdown::MAX_IMAGE_BYTES)?;
 
     Some(format!(
         "data:{};base64,{}",

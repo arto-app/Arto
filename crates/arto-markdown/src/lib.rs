@@ -208,6 +208,7 @@ pub use block::*;
 pub use engine::*;
 pub use error::*;
 pub use headings::*;
+pub use images::*;
 pub use links::*;
 pub use options::*;
 pub use reading::*;
