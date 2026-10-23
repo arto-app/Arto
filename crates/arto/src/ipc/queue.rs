@@ -80,7 +80,7 @@ pub(super) fn register_cleanup_handler() {
                 tracing::debug!("IPC cleanup signal handler registered");
             }
             Err(e) => {
-                tracing::warn!(?e, "Failed to register IPC cleanup signal handler");
+                tracing::warn!(error = %e, "Failed to register IPC cleanup signal handler");
             }
         }
     });

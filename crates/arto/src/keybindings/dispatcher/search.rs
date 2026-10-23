@@ -10,8 +10,8 @@ use super::*;
 pub(super) fn search_navigate_eval(direction: &'static str) {
     spawn_detached(async move {
         let js = format!("window.Arto.search.navigate('{direction}')");
-        if let Err(e) = document::eval(&js).await {
-            tracing::debug!(%direction, "Search navigate failed: {e}");
+        if let Err(error) = document::eval(&js).await {
+            tracing::debug!(%direction, %error, "Search navigate failed");
         }
     });
 }
@@ -72,7 +72,7 @@ pub(super) fn search_pin_current(state: &mut AppState) {
                 .await;
             }
             Ok(_) => {}
-            Err(e) => tracing::debug!("Search pin current failed: {e}"),
+            Err(error) => tracing::debug!(%error, "Search pin current failed"),
         }
     });
 }

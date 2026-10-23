@@ -182,7 +182,7 @@ fn handle_app_event<T>(event: &Event<'_, T>) {
                         }
                     }
                     Err(_) => {
-                        tracing::info!(?url, "Non file/directory path URL is specified. Skip.");
+                        tracing::warn!(%url, "Skipping a URL that is not a file path");
                     }
                 }
             }

@@ -32,7 +32,7 @@ pub fn open_document_link(
     let (path, fragment) = split_link_fragment(link);
 
     let Some(canonical_path) = resolve_document_link(current_file, path) else {
-        tracing::error!(?current_file, path, "Failed to resolve document link");
+        tracing::warn!(?current_file, path, "Failed to resolve document link");
         return false;
     };
 
@@ -50,7 +50,7 @@ pub fn open_document_link(
         return true;
     }
 
-    tracing::info!("Opening file: {:?}", canonical_path);
+    tracing::debug!(path = ?canonical_path, "Opening document link");
     state.pending_scroll_fragment.set(fragment);
     match how {
         LinkOpen::NewWindow => {

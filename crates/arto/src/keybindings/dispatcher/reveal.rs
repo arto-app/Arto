@@ -49,8 +49,8 @@ pub(super) fn scroll_into_view(selector: &'static str) {
             }});
             "#
         );
-        if let Err(e) = document::eval(&js).await {
-            tracing::debug!(selector, "Failed to scroll cursor into view: {e}");
+        if let Err(error) = document::eval(&js).await {
+            tracing::debug!(selector, %error, "Failed to scroll cursor into view");
         }
     });
 }
@@ -58,8 +58,8 @@ pub(super) fn scroll_into_view(selector: &'static str) {
 pub(super) fn scroll_eval(method: &'static str) {
     spawn_detached(async move {
         let js = format!("window.Arto.scroll.{method}();");
-        if let Err(e) = document::eval(&js).await {
-            tracing::debug!(%method, "Scroll eval failed: {e}");
+        if let Err(error) = document::eval(&js).await {
+            tracing::debug!(%method, %error, "Scroll eval failed");
         }
     });
 }
@@ -75,8 +75,8 @@ pub(super) fn changes_eval(method: &str) {
 pub(crate) fn content_cursor_eval(method: &'static str) {
     spawn_detached(async move {
         let js = format!("window.Arto.contentCursor.{method}()");
-        if let Err(e) = document::eval(&js).await {
-            tracing::debug!(%method, "Content cursor eval failed: {e}");
+        if let Err(error) = document::eval(&js).await {
+            tracing::debug!(%method, %error, "Content cursor eval failed");
         }
     });
 }
