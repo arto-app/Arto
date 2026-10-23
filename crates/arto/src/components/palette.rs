@@ -9,7 +9,7 @@ use crate::files::Listing;
 use crate::fuzzy::{best, Query};
 use crate::keybindings::{command_name, Action, COMMAND_ACTIONS};
 use crate::state::AppState;
-use crate::visits::{Visit, VISITS, VISITS_CHANGED};
+use crate::visits::{Visit, VISITS};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -346,7 +346,7 @@ pub fn Palette() -> Element {
     use_hook(move || ensure_files(&state));
 
     use_future(move || async move {
-        let mut visited = VISITS_CHANGED.subscribe();
+        let mut visited = VISITS.subscribe();
         let mut listed = crate::files::FILES_CHANGED.subscribe();
         loop {
             let changed = tokio::select! {

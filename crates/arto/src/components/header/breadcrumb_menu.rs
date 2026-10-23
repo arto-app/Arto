@@ -6,7 +6,7 @@ use rust_i18n::t;
 use crate::components::document_name::DocumentName;
 use crate::components::icon::{Icon, IconName};
 use crate::state::{AppState, Face};
-use crate::visits::{Visit, VISITS, VISITS_CHANGED};
+use crate::visits::{Visit, VISITS};
 
 /// How many documents the breadcrumb drops.
 ///
@@ -27,7 +27,7 @@ pub fn Breadcrumb(label: String) -> Element {
     let mut revision = use_signal(|| 0u32);
 
     use_future(move || async move {
-        let mut rx = VISITS_CHANGED.subscribe();
+        let mut rx = VISITS.subscribe();
         while rx.recv().await.is_ok() {
             *revision.write() += 1;
         }

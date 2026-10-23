@@ -3,7 +3,7 @@ use rust_i18n::t;
 
 use crate::components::document_name::DocumentName;
 use crate::state::AppState;
-use crate::visits::{Visit, VISITS, VISITS_CHANGED};
+use crate::visits::{Visit, VISITS};
 
 /// The documents read just before this one, left in the margin.
 ///
@@ -22,7 +22,7 @@ pub fn MarginTrace(count: usize, visible: bool) -> Element {
     let mut revision = use_signal(|| 0u32);
 
     use_future(move || async move {
-        let mut rx = VISITS_CHANGED.subscribe();
+        let mut rx = VISITS.subscribe();
         while rx.recv().await.is_ok() {
             *revision.write() += 1;
         }

@@ -257,6 +257,12 @@ impl<T: Serialize + DeserializeOwned + Default> Shared<T> {
         result
     }
 
+    /// Write the value out as it stands, without announcing anything: for a
+    /// change [`Shared::update`] was told to keep in memory alone.
+    pub fn save(&self) {
+        self.save_locked(&self.value.read());
+    }
+
     fn save_locked(&self, value: &T) {
         if let Err(err) = self.file.save(value) {
             tracing::warn!(path = %self.file.path().display(), %err, "Failed to save");
@@ -465,6 +471,26 @@ mod tests {
         shared.update(|_| ((), false));
 
         assert!(!dir.path().join("list.json").exists());
+        assert!(changed.try_recv().is_err());
+    }
+
+    #[test]
+    fn a_change_kept_in_memory_goes_out_with_the_next_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let shared = shared(&dir);
+        let mut changed = shared.subscribe();
+
+        shared.update(|list| {
+            list.items.push("a".to_string());
+            ((), false)
+        });
+        assert!(!dir.path().join("list.json").exists());
+        shared.save();
+
+        assert_eq!(
+            JsonFile::<List>::at(dir.path().join("list.json")).load_or_default(),
+            list(&["a"])
+        );
         assert!(changed.try_recv().is_err());
     }
 

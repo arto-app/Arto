@@ -12,15 +12,13 @@
 //! boundaries can be tested against a fixed clock.
 
 use crate::scroll_anchor::ScrollAnchor;
+use crate::utils::data_store::{app_data_file, JsonFile, Shared};
 use crate::utils::paths::true_spelling;
 use chrono::{DateTime, Datelike, Days, Local, NaiveDate, Weekday};
-use parking_lot::RwLock;
 use rust_i18n::t;
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
-use tokio::sync::broadcast;
 
 /// How many visits are kept.
 ///
@@ -310,28 +308,6 @@ impl Visits {
         group(&self.items, now)
     }
 
-    fn path() -> PathBuf {
-        crate::utils::data_store::app_data_file("visits.json")
-    }
-
-    /// Load the list, or start an empty one.
-    ///
-    /// A file that cannot be read or parsed is not worth failing over: the
-    /// history is a convenience, and losing it costs a reader nothing they
-    /// cannot get back by opening the document again.
-    pub fn load() -> Self {
-        let path = Self::path();
-        match fs::read_to_string(&path) {
-            Ok(content) => serde_json::from_str::<Self>(&content)
-                .map(Self::folded)
-                .unwrap_or_else(|err| {
-                    tracing::warn!(?path, %err, "Ignoring unreadable visit history");
-                    Self::default()
-                }),
-            Err(_) => Self::default(),
-        }
-    }
-
     /// One row per document per day, however the file spells them.
     ///
     /// A history written before the spellings were folded together holds the
@@ -353,23 +329,19 @@ impl Visits {
                 .collect(),
         }
     }
-
-    pub fn save(&self) -> std::io::Result<()> {
-        let path = Self::path();
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        let content = serde_json::to_string_pretty(self)?;
-        fs::write(&path, content)
-    }
 }
 
-/// The history, shared by every window.
-pub static VISITS: LazyLock<RwLock<Visits>> = LazyLock::new(|| RwLock::new(Visits::load()));
-
-/// Announced whenever the history changes, so open windows redraw.
-pub static VISITS_CHANGED: LazyLock<broadcast::Sender<()>> =
-    LazyLock::new(|| broadcast::channel(16).0);
+/// The history, shared by every window and announced whenever it changes,
+/// so open windows redraw.
+///
+/// A file that cannot be read or parsed starts an empty history rather than
+/// failing: the history is a convenience, and losing it costs a reader
+/// nothing they cannot get back by opening the document again.
+pub static VISITS: LazyLock<Shared<Visits>> = LazyLock::new(|| {
+    let file = JsonFile::<Visits>::at(app_data_file("visits.json"));
+    let visits = file.load_or_default().folded();
+    Shared::new(file, visits)
+});
 
 /// Note where the reader has got to, in memory alone.
 ///
@@ -378,7 +350,7 @@ pub static VISITS_CHANGED: LazyLock<broadcast::Sender<()>> =
 /// moment the row stops being the one being read. It goes to disk with the
 /// next save — the visit that follows, or the window closing.
 pub fn keep_position(path: &Path, anchor: ScrollAnchor) {
-    VISITS.write().keep_position(path, anchor);
+    VISITS.update(|visits| (visits.keep_position(path, anchor), false));
 }
 
 /// Where the reader had got to in a document they have read before.
@@ -388,31 +360,17 @@ pub fn position(path: &Path) -> Option<ScrollAnchor> {
 
 /// Write the history out, positions and all.
 pub fn save_visits() {
-    if let Err(err) = VISITS.read().save() {
-        tracing::warn!(%err, "Failed to save visit history");
-    }
+    VISITS.save();
 }
 
 /// Record a visit, persist it, and tell the other windows.
 pub fn record_visit(path: impl Into<PathBuf>) {
-    let mut visits = VISITS.write();
-    visits.record(path, Local::now());
-    if let Err(err) = visits.save() {
-        tracing::warn!(%err, "Failed to save visit history");
-    }
-    drop(visits);
-    let _ = VISITS_CHANGED.send(());
+    VISITS.update(|visits| (visits.record(path, Local::now()), true));
 }
 
 /// Drop one document from the history, persist it, and tell the other windows.
 pub fn forget_visit(path: &Path) {
-    let mut visits = VISITS.write();
-    visits.forget(path);
-    if let Err(err) = visits.save() {
-        tracing::warn!(%err, "Failed to save visit history");
-    }
-    drop(visits);
-    let _ = VISITS_CHANGED.send(());
+    VISITS.update(|visits| (visits.forget(path), true));
 }
 
 #[cfg(test)]
