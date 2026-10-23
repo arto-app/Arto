@@ -3,6 +3,7 @@ pub(crate) mod data_store;
 pub mod file;
 pub mod file_operations;
 pub mod image;
+pub(crate) mod kept_index;
 pub mod paths;
 pub mod print;
 pub mod screen;

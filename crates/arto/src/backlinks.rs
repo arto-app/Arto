@@ -21,6 +21,7 @@
 
 use crate::files::Listing;
 use crate::markdown::RenderOptions;
+use crate::utils::kept_index::{self, HoldsKeptIndex, KeptIndex, Mark, Scanning};
 use crate::utils::paths::canonical_key;
 use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
@@ -229,12 +230,6 @@ pub struct Backlinks {
     pub partial: bool,
 }
 
-impl Backlinks {
-    fn answers(&self, root: &Path, target: &Path) -> bool {
-        self.root == root && self.target == target
-    }
-}
-
 /// The links one file makes, and the version of the file they were read
 /// from.
 struct Entry {
@@ -243,29 +238,25 @@ struct Entry {
     links: Arc<[ResolvedLink]>,
 }
 
-/// A search, and when it was made.
-struct Kept {
+/// The folder searched, and the document searched for.
+type SearchKey = (PathBuf, PathBuf);
+
+/// A finished search.
+struct Search {
     backlinks: Arc<Backlinks>,
     /// The folder listing it searched, so a newer listing makes it stale.
     listing: Arc<Listing>,
-    at: Instant,
 }
 
 /// The searches, the files they read, and the searches in flight.
-#[derive(Default)]
 struct Index {
-    kept: Vec<Kept>,
+    searches: KeptIndex<SearchKey, Search>,
     /// The links each file makes, whatever they point at.
     ///
     /// Kept apart from any one search because they do not depend on the
     /// target: moving to another document asks the same files again, and a
     /// file that has not changed is answered from here with a `stat`.
     links: HashMap<PathBuf, Entry>,
-    /// The searches marked as running, each with the number of the search
-    /// that holds the mark — see [`Scanning`].
-    scanning: HashMap<(PathBuf, PathBuf), u64>,
-    /// The number the next search is marked with.
-    next_search: u64,
     /// The document most recently asked about, by folder. A search for any
     /// other document in that folder is one nobody is waiting on any more.
     wanted: HashMap<PathBuf, PathBuf>,
@@ -273,64 +264,69 @@ struct Index {
     /// depends on them — wiki links, and math, which can swallow a link —
     /// so a change to them starts a new era.
     options: Option<RenderOptions>,
-    /// Which era what is kept belongs to. See [`forget`].
-    era: u64,
+}
+
+impl Default for Index {
+    fn default() -> Self {
+        Self {
+            searches: KeptIndex::new(MAX_KEPT),
+            links: HashMap::new(),
+            wanted: HashMap::new(),
+            options: None,
+        }
+    }
+}
+
+impl HoldsKeptIndex for Index {
+    type Key = SearchKey;
+    type Value = Search;
+
+    fn kept_index(&mut self) -> &mut KeptIndex<SearchKey, Search> {
+        &mut self.searches
+    }
 }
 
 impl Index {
     /// Drop every search and every file read, and start a new era.
     fn forget(&mut self) {
-        self.kept.clear();
+        self.searches.forget();
         self.links.clear();
-        self.era = self.era.wrapping_add(1);
     }
 
-    /// Keep a finished search, dropping the oldest once there are too many.
-    /// A search from before the last [`forget`] is dropped instead.
-    fn remember(&mut self, backlinks: Backlinks, listing: Arc<Listing>, era: u64) {
-        if era != self.era {
-            return;
-        }
-        self.kept
-            .retain(|kept| !kept.backlinks.answers(&backlinks.root, &backlinks.target));
-        self.kept.push(Kept {
-            backlinks: Arc::new(backlinks),
-            listing,
-            at: Instant::now(),
-        });
-        while self.kept.len() > MAX_KEPT {
-            self.kept.remove(0);
-        }
+    fn era(&self) -> u64 {
+        self.searches.era()
     }
-}
 
-/// A search marked as running, unmarked however it ends.
-///
-/// The mark carries the search's own number, and only that search takes it
-/// off: one that gives up unmarks itself early, and by the time it ends a
-/// new search for the same document may hold the mark.
-struct Scanning {
-    key: (PathBuf, PathBuf),
-    id: u64,
-}
-
-impl Scanning {
-    fn unmark(&self, index: &mut Index) {
-        if index.scanning.get(&self.key) == Some(&self.id) {
-            index.scanning.remove(&self.key);
+    /// Mark a search for `target` under `root` as running, unless one
+    /// already is or the last one still answers from `listing`.
+    fn begin(
+        &mut self,
+        root: &Path,
+        target: &Path,
+        listing: &Arc<Listing>,
+        options: &RenderOptions,
+    ) -> Option<Mark<SearchKey>> {
+        if self.options.as_ref() != Some(options) {
+            self.forget();
+            self.options = Some(options.clone());
         }
-    }
-}
-
-impl Drop for Scanning {
-    fn drop(&mut self) {
-        self.unmark(&mut INDEX.write());
+        let key = (root.to_path_buf(), target.to_path_buf());
+        if self.searches.is_marked(&key) {
+            // Still wanted: the search already marked for it is the answer.
+            self.wanted.insert(key.0, key.1);
+            return None;
+        }
+        let mark = self.searches.begin(key, FRESH_FOR, |search| {
+            Arc::ptr_eq(&search.listing, listing)
+        })?;
+        self.wanted.insert(root.to_path_buf(), target.to_path_buf());
+        Some(mark)
     }
 }
 
 static INDEX: LazyLock<RwLock<Index>> = LazyLock::new(|| RwLock::new(Index::default()));
 
-/// Held by the search that is running. See [`ensure`].
+/// Held by the search that is running. See [`search`].
 static TURN: Mutex<()> = Mutex::new(());
 
 /// Announced whenever a search finishes, so an open Links face redraws.
@@ -344,121 +340,97 @@ pub static BACKLINKS_CHANGED: LazyLock<broadcast::Sender<()>> =
 pub fn lookup(root: &Path, target: &Path) -> Option<Arc<Backlinks>> {
     INDEX
         .read()
-        .kept
-        .iter()
-        .find(|kept| kept.backlinks.answers(root, target))
-        .map(|kept| Arc::clone(&kept.backlinks))
+        .searches
+        .get(&(root.to_path_buf(), target.to_path_buf()))
+        .map(|search| Arc::clone(&search.backlinks))
 }
 
 /// Search `root` for links to `target` if it has not been searched lately,
-/// on a thread of its own.
+/// on a thread of its own, reading links as `options` has them.
 ///
 /// The folder is searched through its listing (see [`crate::files`]). When
 /// there is none yet, this asks for one and returns: the listing announces
 /// itself on [`crate::files::FILES_CHANGED`], and asking again then is what
 /// starts the search.
-pub fn ensure(root: &Path, target: &Path) {
+pub fn ensure(root: &Path, target: &Path, options: &RenderOptions) {
     crate::files::ensure(root, false);
     let Some(listing) = crate::files::listing(root, false) else {
         return;
     };
-    let key = (root.to_path_buf(), target.to_path_buf());
-    let options = crate::config::CONFIG.read().markdown.clone();
-    let (era, id) = {
-        let mut index = INDEX.write();
-        if index.options.as_ref() != Some(&options) {
-            index.forget();
-            index.options = Some(options.clone());
-        }
-        if index.scanning.contains_key(&key) {
-            // Still wanted: the search already marked for it is the answer.
-            index
-                .wanted
-                .insert(root.to_path_buf(), target.to_path_buf());
-            return;
-        }
-        let fresh = index.kept.iter().any(|kept| {
-            kept.backlinks.answers(root, target)
-                && Arc::ptr_eq(&kept.listing, &listing)
-                && kept.at.elapsed() < FRESH_FOR
-        });
-        if fresh {
-            return;
-        }
-        let id = index.next_search;
-        index.next_search = id.wrapping_add(1);
-        index.scanning.insert(key.clone(), id);
-        index
-            .wanted
-            .insert(root.to_path_buf(), target.to_path_buf());
-        (index.era, id)
+    let Some(mark) = INDEX.write().begin(root, target, &listing, options) else {
+        return;
     };
-
-    // A plain thread, as for the listing: reading files is blocking work,
-    // and the runtime it would otherwise sit on is the one drawing the
-    // window.
-    std::thread::spawn(move || {
-        let scanning = Scanning { key, id };
-        let (root, target) = scanning.key.clone();
-        // One search at a time, across every window: each one already reads
-        // on several threads, and two at once only split the disk between
-        // them.
-        let _turn = TURN.lock();
-        // A reader moving from document to document asks for a search at
-        // each, and only the last one asked for in a folder still has anyone
-        // waiting on it. The search that is given up says nothing: the one
-        // that replaced it is running or waiting its turn, and will announce
-        // itself, and every window asks again then.
-        //
-        // Giving up is decided under the index lock, together with taking
-        // the mark off: a request for this document arriving at the same
-        // moment then either finds the mark and is answered by this search,
-        // or finds it gone and starts one of its own.
-        let still_wanted = || {
-            let mut index = INDEX.write();
-            let wanted = index.wanted.get(&root) == Some(&target);
-            if !wanted {
-                scanning.unmark(&mut index);
-            }
-            wanted
-        };
-        let abandon = || INDEX.read().wanted.get(&root) != Some(&target);
-        let started = Instant::now();
-        let found = loop {
-            if !still_wanted() {
-                return;
-            }
-            let found = scan(
-                &INDEX,
-                era,
-                &listing.files,
-                &target,
-                &options,
-                Instant::now() + TIME_BUDGET,
-                &abandon,
-            );
-            if !found.abandoned {
-                break found;
-            }
-        };
-        let backlinks = Backlinks {
-            root,
-            target,
-            sources: found.sources,
-            partial: listing.truncated || found.partial,
-        };
-        tracing::debug!(
-            root = ?backlinks.root,
-            target = ?backlinks.target,
-            sources = backlinks.sources.len(),
-            partial = backlinks.partial,
-            elapsed = ?started.elapsed(),
-            "Searched a folder for backlinks"
-        );
-        INDEX.write().remember(backlinks, listing, era);
-        drop(scanning);
-        let _ = BACKLINKS_CHANGED.send(());
+    let options = options.clone();
+    kept_index::spawn(&INDEX, mark, &BACKLINKS_CHANGED, move |scanning| {
+        search(scanning, listing, &options)
     });
+}
+
+/// The search [`ensure`] started, or [`None`] once nobody wants it.
+fn search(
+    scanning: &Scanning<'_, Index>,
+    listing: Arc<Listing>,
+    options: &RenderOptions,
+) -> Option<Search> {
+    let (root, target) = scanning.key();
+    // One search at a time, across every window: each one already reads on
+    // several threads, and two at once only split the disk between them.
+    let _turn = TURN.lock();
+    // A reader moving from document to document asks for a search at each,
+    // and only the last one asked for in a folder still has anyone waiting
+    // on it. The search that is given up says nothing: the one that replaced
+    // it is running or waiting its turn, and will announce itself, and every
+    // window asks again then.
+    //
+    // Giving up is decided under the index lock, together with taking the
+    // mark off: a request for this document arriving at the same moment then
+    // either finds the mark and is answered by this search, or finds it gone
+    // and starts one of its own.
+    let still_wanted = || {
+        let mut index = INDEX.write();
+        let wanted = index.wanted.get(root) == Some(target);
+        if !wanted {
+            scanning.unmark(&mut index);
+        }
+        wanted
+    };
+    let abandon = || INDEX.read().wanted.get(root) != Some(target);
+    let started = Instant::now();
+    let found = loop {
+        if !still_wanted() {
+            return None;
+        }
+        let found = scan(
+            &INDEX,
+            scanning.era(),
+            &listing.files,
+            target,
+            options,
+            Instant::now() + TIME_BUDGET,
+            &abandon,
+        );
+        if !found.abandoned {
+            break found;
+        }
+    };
+    let backlinks = Backlinks {
+        root: root.clone(),
+        target: target.clone(),
+        sources: found.sources,
+        partial: listing.truncated || found.partial,
+    };
+    tracing::debug!(
+        root = ?backlinks.root,
+        target = ?backlinks.target,
+        sources = backlinks.sources.len(),
+        partial = backlinks.partial,
+        elapsed = ?started.elapsed(),
+        "Searched a folder for backlinks"
+    );
+    Some(Search {
+        backlinks: Arc::new(backlinks),
+        listing,
+    })
 }
 
 /// Forget every search and every file read, so the next look reads the disk
@@ -607,7 +579,7 @@ fn links_from(
     let content = String::from_utf8_lossy(&bytes);
     let links: Arc<[ResolvedLink]> = links_of(file, &content, options).into();
     let mut index = index.write();
-    if index.era == era {
+    if index.era() == era {
         index.links.insert(
             file.to_path_buf(),
             Entry {
@@ -855,7 +827,7 @@ mod tests {
     }
 
     fn scan_for(index: &RwLock<Index>, files: &[PathBuf], target: &Path) -> Scan {
-        let era = index.read().era;
+        let era = index.read().era();
         scan(
             index,
             era,
@@ -966,8 +938,8 @@ mod tests {
     fn what_was_read_before_a_reload_is_not_recorded() {
         let (dir, files) = linked_tree();
         let index = RwLock::new(Index::default());
-        let era = index.read().era;
-        index.write().era = era.wrapping_add(1);
+        let era = index.read().era();
+        index.write().forget();
 
         let Scan { sources, .. } = scan(
             &index,
@@ -1031,22 +1003,6 @@ mod tests {
         assert_eq!(found.sources.len(), 2);
     }
 
-    #[test]
-    fn a_search_that_gave_up_leaves_a_newer_mark_alone() {
-        let key = (PathBuf::from("/w"), PathBuf::from("/w/a.md"));
-        let mut index = Index::default();
-        let old = Scanning {
-            key: key.clone(),
-            id: 1,
-        };
-        index.scanning.insert(key.clone(), 2);
-
-        old.unmark(&mut index);
-        std::mem::forget(old);
-
-        assert_eq!(index.scanning.get(&key), Some(&2));
-    }
-
     fn listing() -> Arc<Listing> {
         Arc::new(Listing {
             root: PathBuf::from("/w"),
@@ -1056,34 +1012,95 @@ mod tests {
         })
     }
 
-    fn backlinks_of(target: &str) -> Backlinks {
-        Backlinks {
-            root: PathBuf::from("/w"),
-            target: PathBuf::from(target),
-            sources: Vec::new(),
-            partial: false,
+    fn search_of(target: &str, listing: &Arc<Listing>) -> Search {
+        Search {
+            backlinks: Arc::new(Backlinks {
+                root: PathBuf::from("/w"),
+                target: PathBuf::from(target),
+                sources: Vec::new(),
+                partial: false,
+            }),
+            listing: Arc::clone(listing),
         }
     }
 
-    #[test]
-    fn only_the_last_few_searches_are_kept() {
-        let mut index = Index::default();
-        for at in 0..MAX_KEPT + 2 {
-            let era = index.era;
-            index.remember(backlinks_of(&format!("/w/{at}.md")), listing(), era);
-        }
-
-        assert_eq!(index.kept.len(), MAX_KEPT);
-        assert_eq!(index.kept[0].backlinks.target, PathBuf::from("/w/2.md"));
+    fn begin(index: &mut Index, target: &str, listing: &Arc<Listing>) -> Option<Mark<SearchKey>> {
+        index.begin(
+            Path::new("/w"),
+            Path::new(target),
+            listing,
+            &RenderOptions::default(),
+        )
     }
 
     #[test]
-    fn a_search_from_before_a_reload_is_not_kept() {
+    fn a_search_asked_for_is_the_one_wanted() {
         let mut index = Index::default();
-        let era = index.era;
-        index.era = era.wrapping_add(1);
-        index.remember(backlinks_of("/w/a.md"), listing(), era);
+        let listing = listing();
 
-        assert!(index.kept.is_empty());
+        assert!(begin(&mut index, "/w/a.md", &listing).is_some());
+        assert!(begin(&mut index, "/w/b.md", &listing).is_some());
+
+        assert_eq!(
+            index.wanted.get(Path::new("/w")),
+            Some(&PathBuf::from("/w/b.md"))
+        );
+    }
+
+    #[test]
+    fn a_search_under_way_is_not_started_again_but_is_wanted_again() {
+        let mut index = Index::default();
+        let listing = listing();
+        let _a = begin(&mut index, "/w/a.md", &listing).unwrap();
+        let _b = begin(&mut index, "/w/b.md", &listing).unwrap();
+
+        assert!(begin(&mut index, "/w/a.md", &listing).is_none());
+
+        assert_eq!(
+            index.wanted.get(Path::new("/w")),
+            Some(&PathBuf::from("/w/a.md"))
+        );
+    }
+
+    #[test]
+    fn a_search_of_the_same_listing_is_not_made_again() {
+        let mut index = Index::default();
+        let listing = listing();
+        let mark = begin(&mut index, "/w/a.md", &listing).unwrap();
+        let era = index.era();
+        index.searches.unmark(&mark);
+        index.searches.remember(
+            (PathBuf::from("/w"), PathBuf::from("/w/a.md")),
+            search_of("/w/a.md", &listing),
+            era,
+        );
+
+        assert!(begin(&mut index, "/w/a.md", &listing).is_none());
+        // A listing read since is a folder that may have changed.
+        assert!(begin(&mut index, "/w/a.md", &self::listing()).is_some());
+    }
+
+    #[test]
+    fn other_markdown_options_forget_what_was_read() {
+        let mut index = Index::default();
+        let listing = listing();
+        let mark = begin(&mut index, "/w/a.md", &listing).unwrap();
+        index.searches.unmark(&mark);
+        index.searches.remember(
+            (PathBuf::from("/w"), PathBuf::from("/w/a.md")),
+            search_of("/w/a.md", &listing),
+            index.era(),
+        );
+        let era = index.era();
+
+        let options = RenderOptions {
+            wiki_links: !RenderOptions::default().wiki_links,
+            ..RenderOptions::default()
+        };
+        assert!(index
+            .begin(Path::new("/w"), Path::new("/w/a.md"), &listing, &options)
+            .is_some());
+
+        assert_ne!(index.era(), era);
     }
 }
