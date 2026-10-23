@@ -63,16 +63,9 @@ impl KeyContext {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("unknown key context: {0:?}")]
 pub struct KeyContextParseError(pub(crate) String);
-
-impl fmt::Display for KeyContextParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "unknown key context: {:?}", self.0)
-    }
-}
-
-impl std::error::Error for KeyContextParseError {}
 
 impl fmt::Display for KeyContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -104,6 +97,14 @@ impl FromStr for KeyContext {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_unknown_context_names_itself_in_the_error() {
+        assert_eq!(
+            KeyContext::from_str("menu").unwrap_err().to_string(),
+            r#"unknown key context: "menu""#
+        );
+    }
 
     #[test]
     fn display_roundtrip() {
