@@ -9,9 +9,9 @@
 
 import mermaid from "mermaid";
 
-const runtime = window.ArtoRenderer;
-if (runtime) {
-  runtime.provideMermaid(mermaid);
-} else {
-  console.error("Mermaid loaded without the page runtime; diagrams will stay as source");
-}
+import { registerWithPage } from "./page-library";
+
+registerWithPage(
+  (runtime) => runtime.provideMermaid(mermaid),
+  "Mermaid loaded without the page runtime; diagrams will stay as source",
+);

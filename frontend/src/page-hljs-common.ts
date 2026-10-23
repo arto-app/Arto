@@ -14,9 +14,9 @@
 
 import hljs from "highlight.js/lib/common";
 
-const runtime = window.ArtoRenderer;
-if (runtime) {
-  runtime.provideHljs(hljs);
-} else {
-  console.error("highlight.js loaded without the page runtime; code will stay unhighlighted");
-}
+import { registerWithPage } from "./page-library";
+
+registerWithPage(
+  (runtime) => runtime.provideHljs(hljs),
+  "highlight.js loaded without the page runtime; code will stay unhighlighted",
+);

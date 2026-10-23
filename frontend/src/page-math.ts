@@ -10,10 +10,9 @@
 import html2canvas from "html2canvas";
 import katex from "katex";
 
-const runtime = window.ArtoRenderer;
-if (runtime) {
+import { registerWithPage } from "./page-library";
+
+registerWithPage((runtime) => {
   runtime.provideKatex(katex);
   runtime.provideHtml2Canvas(html2canvas);
-} else {
-  console.error("KaTeX loaded without the page runtime; formulas will stay as source");
-}
+}, "KaTeX loaded without the page runtime; formulas will stay as source");
