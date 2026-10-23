@@ -308,7 +308,7 @@ fn MenuRow(
                 if let Some(icon) = icon {
                     Icon { name: icon, size: 14 }
                 } else if checked {
-                    "✓"
+                    Icon { name: IconName::Check, size: 14 }
                 }
             }
             span { "{label}" }

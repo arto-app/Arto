@@ -112,7 +112,7 @@ pub(super) fn RecipePicker(
                                 value: filled.languages[0].clone(),
                                 on_input: move |text: String| blanks.write().languages[0] = text,
                             }
-                            span { class: "lens-language-swap", "aria-hidden": "true", "⇄" }
+                            span { class: "lens-language-swap", Icon { name: IconName::ArrowsExchange, size: 16 } }
                             TextField {
                                 label: t!("preferences.lenses.recipes.and.label"),
                                 hint: t!("preferences.lenses.recipes.and.hint"),
