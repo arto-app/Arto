@@ -4,6 +4,7 @@ pub mod file;
 pub mod file_operations;
 pub mod image;
 pub(crate) mod kept_index;
+pub mod page_runtime;
 pub mod paths;
 pub mod print;
 pub mod screen;

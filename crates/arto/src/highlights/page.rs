@@ -17,6 +17,7 @@ use super::{
     load, rebase, rebase_all, same_document, Highlight, HighlightId, PageReport, HIGHLIGHTS_CHANGED,
 };
 use crate::state::AppState;
+use crate::utils::page_runtime::once_arto_has;
 
 /// How the page names the document it is asked to draw highlights on, and
 /// names it back in what it reports.
@@ -78,18 +79,16 @@ pub fn take_up(mut state: AppState, document: Option<&Path>) -> Vec<Highlight> {
 pub fn use_page_highlights(file: ReadSignal<PathBuf>, mut state: AppState) {
     // What the page found, each time it draws them.
     use_future(move || async move {
-        let mut eval = document::eval(indoc::indoc! {r#"
-            (async () => {
-                while (!window.Arto?.highlights?.setup) {
-                    await new Promise(resolve => setTimeout(resolve, 10));
-                }
+        let mut eval = document::eval(&once_arto_has(
+            "highlights.setup",
+            indoc::indoc! {r#"
                 window.Arto.highlights.setup(
                     (report) => dioxus.send({ type: "report", ...report }),
                     (opened) => dioxus.send({ type: "open", ...opened }),
                 );
                 dioxus.send({ type: "ready" });
-            })();
-        "#});
+            "#},
+        ));
         while let Ok(message) = eval.recv::<FromPage>().await {
             let report = match message {
                 FromPage::Report(report) => report,

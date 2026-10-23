@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use crate::pinned_search::PinnedSearchId;
 use crate::state::AppState;
+use crate::utils::page_runtime::once_arto_has;
 
 /// Data structure for a single search match from JavaScript
 #[derive(Serialize, Deserialize)]
@@ -37,18 +38,10 @@ struct SearchResultData {
 pub fn use_search_handler(mut state: AppState) {
     use_effect(move || {
         // Setup unified JS search handler that receives all data at once
-        // Wait for window.Arto to be available (init() is async)
-        let mut eval_provider = document::eval(indoc::indoc! {r#"
-            (async () => {
-                // Wait for window.Arto to be initialized
-                while (!window.Arto?.search?.setup) {
-                    await new Promise(resolve => setTimeout(resolve, 10));
-                }
-                window.Arto.search.setup((data) => {
-                    dioxus.send(data);
-                });
-            })();
-        "#});
+        let mut eval_provider = document::eval(&once_arto_has(
+            "search.setup",
+            "window.Arto.search.setup((data) => dioxus.send(data));",
+        ));
 
         spawn(async move {
             while let Ok(data) = eval_provider.recv::<SearchResultData>().await {
