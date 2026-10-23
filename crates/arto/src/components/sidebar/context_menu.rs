@@ -5,7 +5,7 @@ use rust_i18n::t;
 
 use crate::bookmarks::BOOKMARKS;
 use crate::components::context_menu::{clamp_menu_position, ContextMenuItem, ContextMenuSeparator};
-use crate::components::icon::{Icon, IconName};
+use crate::components::icon::IconName;
 use crate::keybindings::{shortcut_hint_for_context_action, KeyContext};
 use crate::state::AppState;
 use crate::utils::file_operations;
@@ -246,24 +246,14 @@ pub fn SidebarContextMenu(
             // A folder that is kept is one of the places; a document that is
             // kept is one of the stars. One list, two names, and the row says
             // which of them it is about.
-            div {
-                class: "context-menu-item",
-                onclick: move |_| on_toggle_bookmark.call(()),
-
-                Icon {
-                    name: if is_file {
-                        if is_bookmarked { IconName::StarFilled } else { IconName::Star }
-                    } else {
-                        IconName::Bookmark
-                    },
-                    size: 14,
-                    class: "context-menu-icon",
-                }
-
-                span {
-                    class: "context-menu-label",
-                    "{bookmark_label}"
-                }
+            ContextMenuItem {
+                label: bookmark_label,
+                icon: Some(if is_file {
+                    if is_bookmarked { IconName::StarFilled } else { IconName::Star }
+                } else {
+                    IconName::Bookmark
+                }),
+                on_click: move |_| on_toggle_bookmark.call(()),
             }
 
             ContextMenuSeparator {}
