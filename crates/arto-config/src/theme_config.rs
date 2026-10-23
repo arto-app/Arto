@@ -1,6 +1,6 @@
 use super::behavior::{NewWindowBehavior, StartupBehavior};
 use crate::color_theme::ColorTheme;
-use crate::theme::Theme;
+use arto_types::Theme;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

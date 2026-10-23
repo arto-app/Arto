@@ -81,7 +81,8 @@ Arto/
 │   ├── arto-lsp/     # The wire protocol: JSON-RPC 2.0 in LSP framing, and the local socket
 │   ├── arto-keybindings/ # Shortcut parsing, binding sets, presets, and the matching engine
 │   ├── arto-markdown/ # Markdown → HTML rendering library used by the app and arto-page
-│   └── arto-page/    # Self-contained HTML pages: CLI, `arto page`, Quick Look FFI (feature ffi)
+│   ├── arto-page/    # Self-contained HTML pages: CLI, `arto page`, Quick Look FFI (feature ffi)
+│   └── arto-types/   # Values config.json and the wire protocol both carry (Theme, FileOpenBehavior)
 ├── frontend/         # WebView-side TypeScript and CSS (pnpm + Vite)
 ├── platform/         # OS-specific files, one directory per OS
 │   ├── macos/        #   bundle/ (Info.plist, icon), quicklook/ (Swift shim), verify-bundle.sh

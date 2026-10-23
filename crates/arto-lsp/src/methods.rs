@@ -8,7 +8,7 @@
 
 use crate::jsonrpc::{ErrorCode, ResponseError};
 use crate::protocol::{OpenEvent, OpenRequest, WindowOptions};
-use arto_config::FileOpenBehavior;
+use arto_types::FileOpenBehavior;
 use serde::{Deserialize, Serialize};
 
 /// Establish what the two ends can say to each other. Must come first.
@@ -209,7 +209,7 @@ fn parse_params<T: serde::de::DeserializeOwned>(
 mod tests {
     use super::*;
     use crate::protocol::{WindowExtent, WindowPoint};
-    use arto_config::Theme;
+    use arto_types::Theme;
     use serde_json::json;
     use std::path::PathBuf;
 
