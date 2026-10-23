@@ -1,6 +1,5 @@
 use dioxus::prelude::*;
 use rust_i18n::t;
-use sha2::{Digest, Sha256};
 
 use crate::assets::main_script_url;
 use crate::components::icon::{Icon, IconName};
@@ -17,15 +16,6 @@ pub struct MermaidWindowProps {
     pub diagram_id: String,
     /// Initial theme
     pub theme: Theme,
-}
-
-/// Generate unique ID from Mermaid source
-pub fn generate_diagram_id(source: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(source.as_bytes());
-    let result = hasher.finalize();
-    // Use first 16 characters of hex hash
-    result.iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
 
 /// Mermaid Window Component

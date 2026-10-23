@@ -12,6 +12,7 @@ use rust_i18n::t;
 use std::collections::HashMap;
 
 use crate::components::icon::{Icon, IconName};
+use crate::components::swatch_row::SwatchRow;
 use crate::highlights::{Highlight, HighlightColor, HighlightId, HighlightPlace};
 use crate::markdown::HeadingInfo;
 use crate::state::AppState;
@@ -185,24 +186,17 @@ fn UserHighlightRow(
                     if lost {
                         span { class: "color-palette-note", {t!("contents.highlights.not_found").to_string()} }
                     } else {
-                        for choice in HighlightColor::ALL {
-                            button {
-                                key: "{choice.to_js_name()}",
-                                class: if choice == color {
-                                    format!("color-palette-swatch selected {}", choice.css_class())
-                                } else {
-                                    format!("color-palette-swatch {}", choice.css_class())
-                                },
-                                onclick: {
-                                    let id = id.clone();
-                                    move |_| {
-                                        if let Some(file) = state.current_file() {
-                                            crate::highlights::recolor(&file, &id, choice);
-                                        }
-                                        show_popover.set(false);
+                        SwatchRow {
+                            selected: color,
+                            on_pick: {
+                                let id = id.clone();
+                                move |choice| {
+                                    if let Some(file) = state.current_file() {
+                                        crate::highlights::recolor(&file, &id, choice);
                                     }
-                                },
-                            }
+                                    show_popover.set(false);
+                                }
+                            },
                         }
                     }
 

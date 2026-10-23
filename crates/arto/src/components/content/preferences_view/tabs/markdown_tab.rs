@@ -1,4 +1,4 @@
-use super::super::form_controls::{OptionCardItem, OptionCards, ToggleRow};
+use super::super::form_controls::{OptionCardItem, OptionCards, PreferenceItem, ToggleRow};
 use crate::config::Config;
 use crate::markdown::{RawHtml, RenderOptions};
 use dioxus::prelude::*;
@@ -108,16 +108,9 @@ pub fn MarkdownTab(config: Signal<Config>) -> Element {
 
             h3 { class: "preference-section-title", {t!("preferences.markdown.raw_html.title").to_string()} }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.markdown.raw_html.label").to_string()} }
-                    p {
-                        class: "preference-description",
-                        {t!("preferences.markdown.raw_html.description").to_string()}
-                    }
-                }
+            PreferenceItem {
+                label: t!("preferences.markdown.raw_html.label").to_string(),
+                description: t!("preferences.markdown.raw_html.description").to_string(),
                 OptionCards {
                     name: "markdown-raw-html".to_string(),
                     options: vec![

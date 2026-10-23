@@ -1,4 +1,6 @@
-use super::super::form_controls::{OptionCardItem, OptionCards, ResetLine, ThemePicker};
+use super::super::form_controls::{
+    ChoiceItem, OptionCardItem, OptionCards, PreferenceItem, SelectRow, ThemePicker,
+};
 use crate::components::icon::IconName;
 use crate::config::{Config, Language};
 use crate::theme::{preview_theme, Theme};
@@ -32,13 +34,9 @@ pub fn AppearanceTab(config: Signal<Config>) -> Element {
 
             h3 { class: "preference-section-title", {t!("preferences.appearance.mode.title").to_string()} }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.appearance.mode.default_theme.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.appearance.mode.default_theme.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.appearance.mode.default_theme.label").to_string(),
+                description: t!("preferences.appearance.mode.default_theme.description").to_string(),
                 OptionCards {
                     name: "theme-default".to_string(),
                     options: vec![
@@ -71,13 +69,9 @@ pub fn AppearanceTab(config: Signal<Config>) -> Element {
 
             h3 { class: "preference-section-title", {t!("preferences.appearance.themes.title").to_string()} }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.appearance.themes.light.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.appearance.themes.light.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.appearance.themes.light.label").to_string(),
+                description: t!("preferences.appearance.themes.light.description").to_string(),
                 ThemePicker {
                     name: "theme-light".to_string(),
                     dark_mode: false,
@@ -90,13 +84,9 @@ pub fn AppearanceTab(config: Signal<Config>) -> Element {
                 }
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.appearance.themes.dark.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.appearance.themes.dark.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.appearance.themes.dark.label").to_string(),
+                description: t!("preferences.appearance.themes.dark.description").to_string(),
                 ThemePicker {
                     name: "theme-dark".to_string(),
                     dark_mode: true,
@@ -123,38 +113,23 @@ fn LanguageRow(selected: Language, on_change: EventHandler<Language>) -> Element
         Some(name) => name.to_string(),
         None => t!("preferences.appearance.language.auto").to_string(),
     };
-    let shipped = Config::default().language;
+    let options = crate::i18n::CHOICES
+        .iter()
+        .map(|&language| ChoiceItem {
+            value: language,
+            label: label(language),
+        })
+        .collect::<Vec<_>>();
     let needs_restart = crate::i18n::locale_at_launch(selected) != crate::i18n::locale();
 
     rsx! {
-        div {
-            class: "preference-item",
-            div {
-                class: "preference-row",
-                div {
-                    class: "preference-row-text",
-                    span { class: "preference-row-label", {t!("preferences.appearance.language.label").to_string()} }
-                    span { class: "preference-description", {t!("preferences.appearance.language.description").to_string()} }
-                }
-                select {
-                    class: "preference-select",
-                    aria_label: t!("preferences.appearance.language.label").to_string(),
-                    onchange: move |evt: FormEvent| {
-                        let chosen = evt.value().parse::<usize>().ok();
-                        if let Some(&language) = chosen.and_then(|index| crate::i18n::CHOICES.get(index)) {
-                            on_change.call(language);
-                        }
-                    },
-                    for (index, &language) in crate::i18n::CHOICES.iter().enumerate() {
-                        option {
-                            key: "{index}",
-                            value: "{index}",
-                            selected: language == selected,
-                            {label(language)}
-                        }
-                    }
-                }
-            }
+        SelectRow {
+            label: t!("preferences.appearance.language.label").to_string(),
+            description: t!("preferences.appearance.language.description").to_string(),
+            options,
+            selected,
+            on_change,
+            shipped: Config::default().language,
             if needs_restart {
                 div {
                     class: "preference-restart",
@@ -165,10 +140,6 @@ fn LanguageRow(selected: Language, on_change: EventHandler<Language>) -> Element
                         {t!("preferences.appearance.language.restart").to_string()}
                     }
                 }
-            }
-            ResetLine {
-                shipped: (selected != shipped).then(|| label(shipped)),
-                on_reset: move |_| on_change.call(shipped),
             }
         }
     }

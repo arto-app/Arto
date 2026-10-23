@@ -1,3 +1,5 @@
+mod viewer_window_bridge;
+
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -15,6 +17,7 @@ use crate::scroll_anchor::ScrollAnchor;
 use crate::state::{AppState, DocumentContent};
 use crate::utils::file::is_markdown_file;
 use crate::watcher::FILE_WATCHER;
+use viewer_window_bridge::use_viewer_window_bridge;
 
 /// Data structure for markdown link clicks from JavaScript
 #[derive(Serialize, Deserialize)]
@@ -68,9 +71,7 @@ pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
     use_changes_on_config(state);
     use_link_click_handler(file, state);
     use_link_preview_handler(file);
-    use_mermaid_window_handler();
-    use_math_window_handler();
-    use_image_window_handler();
+    use_viewer_window_bridge(state);
     use_clipboard_handlers();
     use_context_menu_handler(file);
     use_page_highlights(file, state);
@@ -637,88 +638,6 @@ fn handle_link_click(click_data: LinkClickData, current_file: &Path, state: &mut
         }
     };
     open_document_link(state, current_file, &path, how);
-}
-
-/// Hook to setup Mermaid window open handler
-fn use_mermaid_window_handler() {
-    use_effect(|| {
-        let mut eval_provider = document::eval(indoc::indoc! {r#"
-            window.handleMermaidWindowOpen = (source) => {
-                dioxus.send({ type: "open_mermaid_window", source: source });
-            };
-        "#});
-
-        spawn(async move {
-            while let Ok(data) = eval_provider.recv::<serde_json::Value>().await {
-                if let Some(msg_type) = data.get("type").and_then(|v| v.as_str()) {
-                    if msg_type == "open_mermaid_window" {
-                        if let Some(source) = data.get("source").and_then(|v| v.as_str()) {
-                            let state = use_context::<AppState>();
-                            let theme = *state.current_theme.read();
-                            tracing::info!("Opening mermaid window for diagram");
-                            crate::window::open_or_focus_mermaid_window(source.to_string(), theme);
-                        }
-                    }
-                }
-            }
-        });
-    });
-}
-
-/// Hook to setup Math window open handler
-fn use_math_window_handler() {
-    use_effect(|| {
-        let mut eval_provider = document::eval(indoc::indoc! {r#"
-            window.handleMathWindowOpen = (source) => {
-                dioxus.send({ type: "open_math_window", source: source });
-            };
-        "#});
-
-        spawn(async move {
-            while let Ok(data) = eval_provider.recv::<serde_json::Value>().await {
-                if let Some(msg_type) = data.get("type").and_then(|v| v.as_str()) {
-                    if msg_type == "open_math_window" {
-                        if let Some(source) = data.get("source").and_then(|v| v.as_str()) {
-                            let state = use_context::<AppState>();
-                            let theme = *state.current_theme.read();
-                            tracing::info!("Opening math window for LaTeX");
-                            crate::window::open_or_focus_math_window(source.to_string(), theme);
-                        }
-                    }
-                }
-            }
-        });
-    });
-}
-
-/// Hook to setup Image window open handler
-fn use_image_window_handler() {
-    use_effect(|| {
-        let mut eval_provider = document::eval(indoc::indoc! {r#"
-            window.handleImageWindowOpen = (src, alt) => {
-                dioxus.send({ type: "open_image_window", src: src, alt: alt });
-            };
-        "#});
-
-        spawn(async move {
-            while let Ok(data) = eval_provider.recv::<serde_json::Value>().await {
-                if let Some(msg_type) = data.get("type").and_then(|v| v.as_str()) {
-                    if msg_type == "open_image_window" {
-                        if let Some(src) = data.get("src").and_then(|v| v.as_str()) {
-                            let alt = data
-                                .get("alt")
-                                .and_then(|v| v.as_str())
-                                .map(|s| s.to_string());
-                            let state = use_context::<AppState>();
-                            let theme = *state.current_theme.read();
-                            tracing::info!("Opening image window");
-                            crate::window::open_or_focus_image_window(src.to_string(), alt, theme);
-                        }
-                    }
-                }
-            }
-        });
-    });
 }
 
 /// Hook to register Rust clipboard handlers accessible from JavaScript.

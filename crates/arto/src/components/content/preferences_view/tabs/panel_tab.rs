@@ -1,4 +1,6 @@
-use super::super::form_controls::{OptionCardItem, OptionCards, SliderInput, ToggleRow};
+use super::super::form_controls::{
+    OptionCardItem, OptionCards, PreferenceItem, SliderInput, ToggleRow,
+};
 use crate::config::{
     normalize_sidebar_zoom, Config, OpenFromPanel, PinPanelOn, MAX_SIDEBAR_ZOOM, MIN_SIDEBAR_ZOOM,
     ZOOM_STEP,
@@ -30,13 +32,9 @@ pub fn PanelTab(
 
             h3 { class: "preference-section-title", {t!("preferences.panel.current.title").to_string()} }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.panel.current.zoom.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.panel.current.zoom.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.panel.current.zoom.label").to_string(),
+                description: t!("preferences.panel.current.zoom.description").to_string(),
                 SliderInput {
                     value: current_zoom(),
                     min: MIN_SIDEBAR_ZOOM,
@@ -55,13 +53,9 @@ pub fn PanelTab(
 
             h3 { class: "preference-section-title", {t!("preferences.panel.defaults.title").to_string()} }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.panel.defaults.width.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.panel.defaults.width.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.panel.defaults.width.label").to_string(),
+                description: t!("preferences.panel.defaults.width.description").to_string(),
                 SliderInput {
                     value: sidebar_cfg.default_width,
                     min: 200.0,
@@ -76,13 +70,9 @@ pub fn PanelTab(
                 }
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.panel.defaults.zoom.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.panel.defaults.zoom.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.panel.defaults.zoom.label").to_string(),
+                description: t!("preferences.panel.defaults.zoom.description").to_string(),
                 SliderInput {
                     value: sidebar_cfg.default_zoom_level,
                     min: MIN_SIDEBAR_ZOOM,
@@ -124,16 +114,9 @@ pub fn PanelTab(
                 shipped: Some(defaults.sidebar.peek_on_hover),
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.panel.behavior.pin_on.label").to_string()} }
-                    p {
-                        class: "preference-description",
-                        {t!("preferences.panel.behavior.pin_on.description").to_string()}
-                    }
-                }
+            PreferenceItem {
+                label: t!("preferences.panel.behavior.pin_on.label").to_string(),
+                description: t!("preferences.panel.behavior.pin_on.description").to_string(),
                 OptionCards {
                     name: "panel-pin-on".to_string(),
                     options: vec![
@@ -158,16 +141,9 @@ pub fn PanelTab(
                 }
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.panel.behavior.on_open.label").to_string()} }
-                    p {
-                        class: "preference-description",
-                        {t!("preferences.panel.behavior.on_open.description").to_string()}
-                    }
-                }
+            PreferenceItem {
+                label: t!("preferences.panel.behavior.on_open.label").to_string(),
+                description: t!("preferences.panel.behavior.on_open.description").to_string(),
                 OptionCards {
                     name: "panel-on-open".to_string(),
                     options: vec![

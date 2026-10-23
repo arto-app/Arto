@@ -1,5 +1,5 @@
 use super::super::form_controls::{
-    ChoiceItem, ChoiceRow, OptionCardItem, OptionCards, SliderInput, ToggleRow,
+    ChoiceItem, ChoiceRow, OptionCardItem, OptionCards, PreferenceItem, SliderInput, ToggleRow,
 };
 use crate::config::{
     normalize_content_zoom, normalize_font_size, normalize_line_height, normalize_measure,
@@ -100,13 +100,9 @@ pub fn ReadingTab(
 
             h3 { class: "preference-section-title", {t!("preferences.reading.current.title").to_string()} }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.reading.current.zoom.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.reading.current.zoom.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.reading.current.zoom.label").to_string(),
+                description: t!("preferences.reading.current.zoom.description").to_string(),
                 SliderInput {
                     value: current_zoom(),
                     min: MIN_CONTENT_ZOOM,
@@ -125,13 +121,9 @@ pub fn ReadingTab(
 
             h3 { class: "preference-section-title", {t!("preferences.reading.defaults.title").to_string()} }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.reading.defaults.zoom.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.reading.defaults.zoom.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.reading.defaults.zoom.label").to_string(),
+                description: t!("preferences.reading.defaults.zoom.description").to_string(),
                 SliderInput {
                     value: zoom_cfg.default_zoom_level,
                     min: MIN_CONTENT_ZOOM,
@@ -147,16 +139,9 @@ pub fn ReadingTab(
                 }
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.reading.defaults.min_content_width.label").to_string()} }
-                    p {
-                        class: "preference-description",
-                        {t!("preferences.reading.defaults.min_content_width.description").to_string()}
-                    }
-                }
+            PreferenceItem {
+                label: t!("preferences.reading.defaults.min_content_width.label").to_string(),
+                description: t!("preferences.reading.defaults.min_content_width.description").to_string(),
                 SliderInput {
                     value: sidebar_cfg.min_content_width,
                     min: *MIN_CONTENT_WIDTH_RANGE.start(),
@@ -172,16 +157,9 @@ pub fn ReadingTab(
 
             h3 { class: "preference-section-title", {t!("preferences.reading.typography.title").to_string()} }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.reading.typography.measure.label").to_string()} }
-                    p {
-                        class: "preference-description",
-                        {t!("preferences.reading.typography.measure.description", hint = measure_hint(typography_cfg.measure)).to_string()}
-                    }
-                }
+            PreferenceItem {
+                label: t!("preferences.reading.typography.measure.label").to_string(),
+                description: t!("preferences.reading.typography.measure.description", hint = measure_hint(typography_cfg.measure)).to_string(),
                 SliderInput {
                     value: typography_cfg.measure,
                     min: MIN_MEASURE,
@@ -209,13 +187,9 @@ pub fn ReadingTab(
                 },
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.reading.typography.line_height.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.reading.typography.line_height.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.reading.typography.line_height.label").to_string(),
+                description: t!("preferences.reading.typography.line_height.description").to_string(),
                 SliderInput {
                     value: typography_cfg.line_height,
                     min: MIN_LINE_HEIGHT,
@@ -230,13 +204,9 @@ pub fn ReadingTab(
                 }
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.reading.typography.font_family.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.reading.typography.font_family.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.reading.typography.font_family.label").to_string(),
+                description: t!("preferences.reading.typography.font_family.description").to_string(),
                 OptionCards {
                     name: "reading-font-family".to_string(),
                     options: vec![
@@ -293,13 +263,9 @@ pub fn ReadingTab(
                 }
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.reading.typography.font_size.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.reading.typography.font_size.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.reading.typography.font_size.label").to_string(),
+                description: t!("preferences.reading.typography.font_size.description").to_string(),
                 SliderInput {
                     value: typography_cfg.font_size,
                     min: MIN_FONT_SIZE,
@@ -345,16 +311,9 @@ pub fn ReadingTab(
 
             h3 { class: "preference-section-title", {t!("preferences.reading.trace.title").to_string()} }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.reading.trace.when.label").to_string()} }
-                    p {
-                        class: "preference-description",
-                        {t!("preferences.reading.trace.when.description").to_string()}
-                    }
-                }
+            PreferenceItem {
+                label: t!("preferences.reading.trace.when.label").to_string(),
+                description: t!("preferences.reading.trace.when.description").to_string(),
                 OptionCards {
                     name: "reading-recent-trace".to_string(),
                     options: vec![
@@ -385,13 +344,9 @@ pub fn ReadingTab(
                 }
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.reading.trace.count.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.reading.trace.count.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.reading.trace.count.label").to_string(),
+                description: t!("preferences.reading.trace.count.description").to_string(),
                 SliderInput {
                     value: sidebar_cfg.recent_trace_count as f64,
                     min: 1.0,
@@ -415,13 +370,9 @@ pub fn ReadingTab(
                 shipped: Some(defaults.reading.show_time),
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.reading.reading_time.words_per_minute.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.reading.reading_time.words_per_minute.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.reading.reading_time.words_per_minute.label").to_string(),
+                description: t!("preferences.reading.reading_time.words_per_minute.description").to_string(),
                 SliderInput {
                     value: reading_cfg.words_per_minute as f64,
                     min: 100.0,
@@ -435,13 +386,9 @@ pub fn ReadingTab(
                 }
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.reading.reading_time.characters_per_minute.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.reading.reading_time.characters_per_minute.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.reading.reading_time.characters_per_minute.label").to_string(),
+                description: t!("preferences.reading.reading_time.characters_per_minute.description").to_string(),
                 SliderInput {
                     value: reading_cfg.characters_per_minute as f64,
                     min: 200.0,
@@ -455,13 +402,9 @@ pub fn ReadingTab(
                 }
             }
 
-            div {
-                class: "preference-item",
-                div {
-                    class: "preference-item-header",
-                    label { {t!("preferences.reading.reading_time.min_minutes.label").to_string()} }
-                    p { class: "preference-description", {t!("preferences.reading.reading_time.min_minutes.description").to_string()} }
-                }
+            PreferenceItem {
+                label: t!("preferences.reading.reading_time.min_minutes.label").to_string(),
+                description: t!("preferences.reading.reading_time.min_minutes.description").to_string(),
                 SliderInput {
                     value: reading_cfg.min_minutes as f64,
                     min: 0.0,

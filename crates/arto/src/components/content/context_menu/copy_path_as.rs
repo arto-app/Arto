@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use crate::components::context_menu::{ContextMenuItem, ContextMenuSubmenu};
 use crate::components::icon::IconName;
+use crate::utils::source_lines::format_location;
 
 /// "Copy Path As..." submenu: Path / Path with Line / Path with Range
 #[component]
@@ -40,7 +41,7 @@ pub(super) fn CopyPathAsSubmenu(
                     label: t!("context_menu.path_with_line", line = line).to_string(),
                     icon: Some(IconName::File),
                     on_click: {
-                        let value = format!("{path_str}:{line}");
+                        let value = format_location(&current_file, line, line);
                         move |_| {
                             crate::utils::clipboard::copy_text(&value);
                             crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));
@@ -56,7 +57,7 @@ pub(super) fn CopyPathAsSubmenu(
                         label: t!("context_menu.path_with_range", start = start, end = end).to_string(),
                         icon: Some(IconName::File),
                         on_click: {
-                            let value = format!("{path_str}:{start}-{end}");
+                            let value = format_location(&current_file, start, end);
                             move |_| {
                                 crate::utils::clipboard::copy_text(&value);
                                 crate::keybindings::dispatcher::show_action_feedback(&t!("context_menu.copied"));

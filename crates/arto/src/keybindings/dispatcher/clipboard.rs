@@ -7,6 +7,7 @@ use dioxus::document;
 use rust_i18n::t;
 
 use super::*;
+use crate::utils::source_lines::format_location;
 
 pub(super) fn copy_content_cursor_text(js_getter: &'static str) {
     spawn_detached(async move {
@@ -211,12 +212,8 @@ pub(super) fn copy_file_path_with_line(file: std::path::PathBuf, is_range: bool)
             "(() => { dioxus.send(window.Arto?.contentCursor?.getSourceLineRange() ?? null); })()";
         let mut eval = document::eval(js);
         if let Ok(Some((start, end))) = eval.recv::<Option<(u32, u32)>>().await {
-            let path_str = file.display().to_string();
-            let text = if is_range && start != end {
-                format!("{path_str}:{start}-{end}")
-            } else {
-                format!("{path_str}:{start}")
-            };
+            let end = if is_range { end } else { start };
+            let text = format_location(&file, start, end);
             crate::utils::clipboard::copy_text(&text);
             show_action_feedback(&t!("keybindings.feedback.copied"));
         }

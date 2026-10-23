@@ -282,6 +282,8 @@ pub fn PreferencesView(snapshot: PreferencesSnapshot) -> Element {
                             WindowTab {
                                 config,
                                 current_directory: snapshot.directory.clone(),
+                                current_size: snapshot.window_size,
+                                current_position: snapshot.window_position,
                             }
                         },
                         PreferencesTab::Startup => rsx! {

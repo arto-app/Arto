@@ -9,6 +9,7 @@ use dioxus::prelude::*;
 use rust_i18n::t;
 
 use crate::components::icon::{Icon, IconName};
+use crate::components::swatch_row::SwatchRow;
 use crate::pinned_search::{
     remove_pinned_search, set_pinned_search_color, toggle_pinned_search_disabled, HighlightColor,
     PinnedSearch,
@@ -137,16 +138,7 @@ fn ColorPalettePopover(
             class: "color-palette-popover",
 
             // All controls in a single row: colors + toggle + remove
-            for color in HighlightColor::ALL {
-                button {
-                    class: if color == current_color {
-                        format!("color-palette-swatch selected {}", color.css_class())
-                    } else {
-                        format!("color-palette-swatch {}", color.css_class())
-                    },
-                    onclick: move |_| on_select.call(color),
-                }
-            }
+            SwatchRow { selected: current_color, on_pick: on_select }
 
             // Separator
             div { class: "color-palette-separator" }

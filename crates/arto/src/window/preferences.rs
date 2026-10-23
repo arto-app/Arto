@@ -21,6 +21,7 @@ use std::path::PathBuf;
 
 use crate::assets::{main_head, with_asset_protocol};
 use crate::components::preferences_window::{PreferencesWindow, PreferencesWindowProps};
+use crate::state::{Position, Size};
 use crate::theme::Theme;
 
 use super::child::{create_and_register_child_window, try_focus_or_mark_pending};
@@ -53,6 +54,10 @@ pub struct PreferencesSnapshot {
     pub sidebar_zoom_level: f64,
     pub content_zoom_level: f64,
     pub directory: Option<PathBuf>,
+    /// The opener's inner size, which "Use Current" records as the default.
+    pub window_size: Size,
+    /// The opener's position, which "Use Current" records as the default.
+    pub window_position: Position,
 }
 
 /// Open the preferences window, or focus it if it is already open.

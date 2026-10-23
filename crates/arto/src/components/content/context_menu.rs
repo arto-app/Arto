@@ -19,6 +19,7 @@ use crate::components::context_menu::{ContextMenuItem, ContextMenuSeparator};
 use crate::components::icon::IconName;
 use crate::keybindings::dispatcher::dispatch_action;
 use crate::keybindings::{shortcut_hint_for_context_action, Action, KeyContext};
+use crate::utils::source_lines::format_location;
 use crate::utils::task::spawn_detached;
 use copy_as::CopyAsSubmenu;
 use copy_code_as::CopyCodeAsSubmenu;
@@ -105,25 +106,19 @@ pub fn ContentContextMenu(
     // Determine smart default for Copy Path label and value
     let (copy_path_label, copy_path_value) =
         match (current_file.as_ref(), source_line, source_line_end) {
-            (Some(f), Some(start), Some(end)) if start != end => {
-                let path_str = f.display().to_string();
-                (
-                    t!(
-                        "context_menu.copy_path_with_range",
-                        start = start,
-                        end = end
-                    )
-                    .to_string(),
-                    Some(format!("{path_str}:{start}-{end}")),
+            (Some(f), Some(start), Some(end)) if start != end => (
+                t!(
+                    "context_menu.copy_path_with_range",
+                    start = start,
+                    end = end
                 )
-            }
-            (Some(f), Some(line), _) => {
-                let path_str = f.display().to_string();
-                (
-                    t!("context_menu.copy_path_with_line", line = line).to_string(),
-                    Some(format!("{path_str}:{line}")),
-                )
-            }
+                .to_string(),
+                Some(format_location(f, start, end)),
+            ),
+            (Some(f), Some(line), _) => (
+                t!("context_menu.copy_path_with_line", line = line).to_string(),
+                Some(format_location(f, line, line)),
+            ),
             (Some(f), None, _) => {
                 let path_str = f.display().to_string();
                 (t!("context_menu.copy_path").to_string(), Some(path_str))

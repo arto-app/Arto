@@ -105,6 +105,7 @@ tracing-oslog = "0.3.0"
 flate2 = "1.1"
 
 [dev-dependencies]
+dioxus-ssr = "0.7.10"
 rust-i18n-support = { version = "4.2.4", features = ["codegen"] }
 tempfile.workspace = true
 tokio = { version = "1.52.3", features = ["macros", "process", "rt", "sync", "time"] }
