@@ -338,7 +338,7 @@ fn get_current_file(state: &AppState) -> Option<std::path::PathBuf> {
 pub(crate) fn pick_markdown_file() -> Option<std::path::PathBuf> {
     use rfd::FileDialog;
     FileDialog::new()
-        .add_filter("Markdown", &["md", "markdown"])
+        .add_filter("Markdown", crate::utils::file::MARKDOWN_EXTENSIONS)
         .set_directory(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/")))
         .pick_file()
 }
