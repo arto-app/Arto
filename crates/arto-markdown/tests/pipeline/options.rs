@@ -65,9 +65,18 @@ fn a_linked_bare_url_leaves_the_lines_around_it_where_they_were() {
         After URL
     "});
 
-    assert!(html.contains(r#"<h1 data-source-range="1:1-1:7">"#), "{html}");
-    assert!(html.contains(r#"<p data-source-range="3:1-3:19">"#), "{html}");
-    assert!(html.contains(r#"<p data-source-range="5:1-5:9">"#), "{html}");
+    assert!(
+        html.contains(r#"<h1 data-source-range="1:1-1:7">"#),
+        "{html}"
+    );
+    assert!(
+        html.contains(r#"<p data-source-range="3:1-3:19">"#),
+        "{html}"
+    );
+    assert!(
+        html.contains(r#"<p data-source-range="5:1-5:9">"#),
+        "{html}"
+    );
 }
 
 #[test]
@@ -228,6 +237,39 @@ fn raw_html_is_filtered_by_default() {
     );
     assert!(!escaped.contains("<kbd>"), "{escaped}");
     assert!(escaped.contains("&lt;kbd&gt;"), "{escaped}");
+}
+
+#[test]
+fn raw_html_the_rewriter_cannot_read_unambiguously_still_renders() {
+    // Inside a `<select>`, whether `<noscript>` holds text or markup depends
+    // on whether the browser runs scripts, so lol_html stops rather than
+    // guess. That used to panic the whole render.
+    let source = indoc! {r#"
+        before
+
+        <select><noscript><img src=x onerror=alert(1)></noscript></select>
+
+        after
+    "#};
+
+    // The filter cannot vouch for what it could not read, so the document is
+    // shown whole with its raw HTML escaped.
+    let filtered = render(source);
+    assert!(filtered.contains("before"), "{filtered}");
+    assert!(filtered.contains("after"), "{filtered}");
+    assert!(filtered.contains("&lt;select&gt;"), "{filtered}");
+    assert!(!filtered.contains("<select"), "{filtered}");
+    assert!(!filtered.contains("<img"), "{filtered}");
+
+    let allowed = render_with(
+        source,
+        RenderOptions {
+            raw_html: RawHtml::Allow,
+            ..Default::default()
+        },
+    );
+    assert!(allowed.contains("before"), "{allowed}");
+    assert!(allowed.contains("after"), "{allowed}");
 }
 
 #[test]

@@ -302,7 +302,7 @@
           "const": "allow"
         },
         {
-          "description": "GFM's tagfilter: neutralize the tags that restyle or script the page\n(`<style>`, `<script>`, `<iframe>` and friends) by escaping their\nleading `<`, and leave all other markup working.",
+          "description": "GFM's tagfilter: neutralize the tags that restyle or script the page\n(`<style>`, `<script>`, `<iframe>` and friends) by escaping their\nleading `<`, and leave all other markup working.\n\nA document whose markup the filter cannot read unambiguously (a\n`<noscript>` inside a `<select>`, say) has all of its raw HTML\nescaped instead, since what the filter did not read it cannot vouch\nfor.",
           "type": "string",
           "const": "filter"
         },

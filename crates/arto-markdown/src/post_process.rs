@@ -1,11 +1,12 @@
 use base64::{engine::general_purpose, Engine as _};
-use lol_html::{element, HtmlRewriter, Settings};
+use lol_html::{element, Settings};
 use sha2::{Digest, Sha256};
 use std::cell::RefCell;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use crate::links::{has_foreign_scheme, local_link};
+use crate::rewrite::{rewrite, Interrupted};
 use crate::sanitize::is_unsafe_attribute;
 use crate::{DeferredImage, ImageResolution, RawHtml};
 
@@ -404,15 +405,8 @@ pub(super) fn rebase_document_links(html: &str, document_path: &Path) -> String 
             make_document_link(el, &link, "md-link")?;
             Ok(())
         }));
-    let mut output = Vec::new();
-    let mut rewriter = HtmlRewriter::new(settings, |chunk: &[u8]| {
-        output.extend_from_slice(chunk);
-    });
-    let rewritten = rewriter.write(html.as_bytes()).and(rewriter.end());
-    match rewritten.map(|_| String::from_utf8(output)) {
-        Ok(Ok(html)) => html,
-        _ => html.to_string(),
-    }
+    // Links left unrebased still open something; links cut off open nothing.
+    rewrite(html, settings).unwrap_or_else(|_| html.to_string())
 }
 
 /// Post-process HTML with lol_html.
@@ -429,18 +423,18 @@ pub(super) fn rebase_document_links(html: &str, document_path: &Path) -> String 
 ///   it
 ///
 /// Returns the rewritten HTML and, under [`ImageResolution::Deferred`], the
-/// images the host is now expected to serve.
+/// images the host is now expected to serve — or the pass that stopped part
+/// way, whose output only went through the filter as far as it got.
 pub(super) fn post_process_html_tags(
     html_str: &str,
     base_dir: &Path,
     resolution: &ImageResolution,
     raw_html: RawHtml,
-) -> (String, Vec<DeferredImage>) {
+) -> Result<(String, Vec<DeferredImage>), Interrupted> {
     let canonical_base = base_dir
         .canonicalize()
         .unwrap_or_else(|_| base_dir.to_path_buf());
     let link_base = canonical_base.clone();
-    let mut output = Vec::new();
 
     // Both image handlers write into the one list. They borrow it rather than
     // share ownership of it, so that reading it back after the rewriter is
@@ -470,73 +464,63 @@ pub(super) fn post_process_html_tags(
         }));
     }
 
-    let mut rewriter = HtmlRewriter::new(
-        settings
-            .append_element_content_handler(element!("img[src]", |el| {
-                if let Some(src) = el.get_attribute("src") {
-                    if let Some(resolved) =
-                        resolved_image_src(&src, &canonical_base, resolution, &collected)
-                    {
-                        el.set_attribute("src", &resolved)?;
-                    }
+    let settings = settings
+        .append_element_content_handler(element!("img[src]", |el| {
+            if let Some(src) = el.get_attribute("src") {
+                if let Some(resolved) =
+                    resolved_image_src(&src, &canonical_base, resolution, &collected)
+                {
+                    el.set_attribute("src", &resolved)?;
                 }
-                Ok(())
-            }))
-            // A `<source>` inside a `<picture>` is what the browser picks in
-            // the theme it matches, so it needs the same inlining as `<img>`
-            // or that theme shows nothing.
-            .append_element_content_handler(element!("img[srcset], source[srcset]", |el| {
-                if let Some(srcset) = el.get_attribute("srcset") {
-                    match inline_srcset(&srcset, &canonical_base, resolution, &collected) {
-                        // Nothing is left to pick from, so the attribute
-                        // has to go rather than stay empty: an `<img>`
-                        // then falls back to its `src` and a `<source>`
-                        // is ignored in favor of the `<picture>`'s `<img>`.
-                        Some(inlined) if inlined.is_empty() => {
-                            el.remove_attribute("srcset");
-                        }
-                        Some(inlined) => el.set_attribute("srcset", &inlined)?,
-                        None => {}
+            }
+            Ok(())
+        }))
+        // A `<source>` inside a `<picture>` is what the browser picks in
+        // the theme it matches, so it needs the same inlining as `<img>`
+        // or that theme shows nothing.
+        .append_element_content_handler(element!("img[srcset], source[srcset]", |el| {
+            if let Some(srcset) = el.get_attribute("srcset") {
+                match inline_srcset(&srcset, &canonical_base, resolution, &collected) {
+                    // Nothing is left to pick from, so the attribute
+                    // has to go rather than stay empty: an `<img>`
+                    // then falls back to its `src` and a `<source>`
+                    // is ignored in favor of the `<picture>`'s `<img>`.
+                    Some(inlined) if inlined.is_empty() => {
+                        el.remove_attribute("srcset");
                     }
+                    Some(inlined) => el.set_attribute("srcset", &inlined)?,
+                    None => {}
                 }
-                Ok(())
-            }))
-            // Process anchor tags: convert markdown links to spans
-            .append_element_content_handler(element!("a[href]", move |el| {
-                let Some(href) = el.get_attribute("href") else {
-                    return Ok(());
-                };
-                // A link that is only a fragment, or that addresses something
-                // other than a file, stays an anchor.
-                let Some(local) = local_link(&href) else {
-                    return Ok(());
-                };
-                let class = if !local.is_markdown() {
-                    "md-link md-link-invalid"
-                } else if !link_target_exists(&link_base, &local.path) {
-                    "md-link md-link-missing"
-                } else {
-                    "md-link"
-                };
-                let link = match local.fragment {
-                    Some(fragment) => format!("{}#{fragment}", local.path),
-                    None => local.path,
-                };
-                make_document_link(el, &link, class)?;
-                Ok(())
-            })),
-        |chunk: &[u8]| {
-            output.extend_from_slice(chunk);
-        },
-    );
+            }
+            Ok(())
+        }))
+        // Process anchor tags: convert markdown links to spans
+        .append_element_content_handler(element!("a[href]", move |el| {
+            let Some(href) = el.get_attribute("href") else {
+                return Ok(());
+            };
+            // A link that is only a fragment, or that addresses something
+            // other than a file, stays an anchor.
+            let Some(local) = local_link(&href) else {
+                return Ok(());
+            };
+            let class = if !local.is_markdown() {
+                "md-link md-link-invalid"
+            } else if !link_target_exists(&link_base, &local.path) {
+                "md-link md-link-missing"
+            } else {
+                "md-link"
+            };
+            let link = match local.fragment {
+                Some(fragment) => format!("{}#{fragment}", local.path),
+                None => local.path,
+            };
+            make_document_link(el, &link, class)?;
+            Ok(())
+        }));
 
-    let _ = rewriter.write(html_str.as_bytes());
-    // `end` consumes the rewriter, which is what releases the handlers' borrow
-    // of `output` and of the collected images.
-    let _ = rewriter.end();
-
-    let html = String::from_utf8(output).unwrap_or_else(|_| html_str.to_string());
-    (html, collected.into_inner().entries)
+    let html = rewrite(html_str, settings)?;
+    Ok((html, collected.into_inner().entries))
 }
 
 #[cfg(test)]
@@ -554,7 +538,9 @@ mod tests {
     /// The same, for the tests that are about which raw-HTML setting is in
     /// force.
     fn post_process_with(html: &str, base_dir: &Path, raw_html: RawHtml) -> String {
-        post_process_html_tags(html, base_dir, &ImageResolution::DataUrl, raw_html).0
+        post_process_html_tags(html, base_dir, &ImageResolution::DataUrl, raw_html)
+            .expect("post-processes")
+            .0
     }
 
     // ========================================================================

@@ -197,6 +197,7 @@ mod links;
 mod options;
 mod post_process;
 mod reading;
+mod rewrite;
 mod sanitize;
 
 pub use block::*;
@@ -481,15 +482,12 @@ fn strip_remote_media(html: &str, local: Option<&str>, strip_ranges: bool) -> St
             Ok(())
         }
     ));
-    let mut output = Vec::new();
-    let mut rewriter = lol_html::HtmlRewriter::new(settings, |chunk: &[u8]| {
-        output.extend_from_slice(chunk);
-    });
-    let rewritten = rewriter.write(html.as_bytes()).and(rewriter.end());
-    match rewritten.map(|_| String::from_utf8(output)) {
-        Ok(Ok(html)) => html,
-        _ => html.to_string(),
-    }
+    // A page that may not fetch from elsewhere gets a document cut short
+    // rather than the media this pass did not reach.
+    rewrite::rewrite(html, settings).unwrap_or_else(|interrupted| {
+        tracing::debug!(error = %interrupted.error, "stripping remote media stopped part way");
+        interrupted.written
+    })
 }
 
 fn render(
@@ -500,12 +498,36 @@ fn render(
 ) -> Result<RenderResult> {
     let pipeline = run_pipeline(markdown, base_path, options, with_toc)?;
 
-    let (html_output, images) = post_process_html_tags(
+    let post_processed = post_process_html_tags(
         &pipeline.raw_html,
         &pipeline.base_dir,
         &options.images,
         options.raw_html,
     );
+    let (html_output, images) = match post_processed {
+        Ok(post_processed) => post_processed,
+        Err(interrupted) => {
+            tracing::debug!(error = %interrupted.error, "post-processing stopped part way");
+            match options.raw_html {
+                // What the filter did not reach would reach the page
+                // unfiltered. Escaped, the raw HTML needs no filter to be
+                // safe, and the document is shown whole.
+                RawHtml::Filter => {
+                    let escaped = RenderOptions {
+                        raw_html: RawHtml::Escape,
+                        ..options.clone()
+                    };
+                    return render(markdown, base_path, &escaped, with_toc);
+                }
+                // Trusted with its raw HTML, the document loses only its
+                // images and link targets by being shown as it came.
+                RawHtml::Allow => (pipeline.raw_html, Vec::new()),
+                // Nothing raw is left to be ambiguous, so this is not
+                // expected; what was written went through the filter.
+                RawHtml::Escape => (interrupted.written, Vec::new()),
+            }
+        }
+    };
 
     Ok(RenderResult {
         html: prepend_frontmatter(&pipeline.frontmatter_html, html_output),
