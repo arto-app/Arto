@@ -22,7 +22,7 @@ use super::content::{
     close_context_menu, use_search_handler, Content, ContentContextMenu, CONTENT_CONTEXT_MENU,
 };
 use super::header::Header;
-use super::sidebar::file_explorer::SidebarContextMenuHost;
+use super::sidebar::context_menu::SidebarContextMenuHost;
 use super::sidebar::Sidebar;
 use crate::assets::main_script_url;
 #[cfg(target_os = "macos")]

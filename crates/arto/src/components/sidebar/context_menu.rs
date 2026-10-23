@@ -8,6 +8,7 @@ use crate::components::context_menu::{clamp_menu_position, ContextMenuItem, Cont
 use crate::components::icon::{Icon, IconName};
 use crate::keybindings::{shortcut_hint_for_context_action, KeyContext};
 use crate::state::AppState;
+use crate::utils::file_operations;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SidebarItemKind {
@@ -64,7 +65,7 @@ const VIEWPORT_MARGIN: i32 = 8;
 ///
 /// This lives in [`crate::state::AppState`] as a single `Option` and is rendered
 /// exactly once at the `app-container` root by
-/// [`crate::components::sidebar::file_explorer::SidebarContextMenuHost`].
+/// [`SidebarContextMenuHost`].
 /// Keeping it out of the file-tree subtree means watcher-driven remounts (keyed
 /// on `sidebar_refresh_counter`) can no longer unmount an open menu.
 #[derive(Debug, Clone, PartialEq)]
@@ -291,6 +292,158 @@ pub fn SidebarContextMenu(
                 icon: Some(IconName::Refresh),
                 on_click: move |_| on_reload.call(()),
             }
+        }
+    }
+}
+
+/// Renders the left-sidebar file-tree context menu once, at the app-container
+/// root, driven by `AppState::sidebar_context_menu`.
+///
+/// # Why hoisted here
+///
+/// The file tree is keyed on `AppState::sidebar_refresh_counter`, which the
+/// directory watcher bumps on every filesystem event. Rendering the menu inside
+/// a tree node meant a watcher-driven remount destroyed the node — and the open
+/// menu with it. Hosting the menu here, outside every keyed subtree, makes it
+/// independent of those remounts: tree nodes only *set* the menu state, and this
+/// host owns every action handler.
+#[component]
+pub fn SidebarContextMenuHost() -> Element {
+    let mut state = use_context::<AppState>();
+
+    // Subscribe to the menu state; render nothing while the menu is closed.
+    let Some(data) = state.sidebar_context_menu.read().clone() else {
+        return rsx! {};
+    };
+
+    let path = data.path.clone();
+    let is_dir = data.kind.is_dir();
+    let role = data.role;
+
+    // Handler for "Open File" / "Open Directory"
+    let handle_open = {
+        let path = path.clone();
+        move |_| {
+            // The snapshotted target may have been deleted/renamed while the menu
+            // stayed open; close as a no-op instead of acting on a stale path.
+            if !context_action_should_proceed(&path) {
+                state.close_sidebar_context_menu();
+                return;
+            }
+            if is_dir {
+                state.add_root(&path);
+            } else {
+                state.open_from_panel(&path);
+            }
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    // Handler for "Go to Parent Directory" / "Move Place Up a Directory"
+    //
+    // Unguarded by existence, unlike every other action here: this one reads
+    // nothing off the filesystem, and a root whose folder was deleted while
+    // the menu was open is exactly the root that has to be got out of. The
+    // same arrow on the row itself has never asked either.
+    let handle_go_to_parent = {
+        let path = path.clone();
+        move |_| {
+            state.move_root_up(&path, role == SidebarRowRole::PlaceRoot);
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    // Handler for "Change Root Directory"
+    let handle_change_root_directory = {
+        let path = path.clone();
+        move |_| {
+            if !context_action_should_proceed(&path) {
+                state.close_sidebar_context_menu();
+                return;
+            }
+            state.add_root(&path);
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    // Handler for "Open in New Window"
+    let handle_open_in_new_window = {
+        let path = path.clone();
+        move |_| {
+            if !context_action_should_proceed(&path) {
+                state.close_sidebar_context_menu();
+                return;
+            }
+            let path = path.clone();
+            let (document, directory) = if is_dir {
+                (crate::state::Document::default(), Some(path))
+            } else {
+                (
+                    crate::state::Document::new(&path),
+                    path.parent().map(|p| p.to_path_buf()),
+                )
+            };
+            let params = crate::window::main::CreateMainWindowConfigParams {
+                directory,
+                ..Default::default()
+            };
+            crate::window::create_main_window_sync(&dioxus::desktop::window(), document, params);
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    // Handler for "Copy File Path" / "Copy Directory Path"
+    let handle_copy_path = {
+        let path = path.clone();
+        move |_| {
+            crate::utils::clipboard::copy_text(path.to_string_lossy());
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    // Handler for "Reveal in Finder"
+    let handle_reveal_in_finder = {
+        let path = path.clone();
+        move |_| {
+            if !context_action_should_proceed(&path) {
+                state.close_sidebar_context_menu();
+                return;
+            }
+            file_operations::reveal_in_finder(&path);
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    // Handler for "Reload"
+    let handle_reload = move |_| {
+        state.bump_sidebar_refresh();
+        state.close_sidebar_context_menu();
+    };
+
+    // Handler for "Toggle Bookmark"
+    let handle_toggle_bookmark = {
+        let path = path.clone();
+        move |_| {
+            crate::bookmarks::toggle_bookmark(&path);
+            state.close_sidebar_context_menu();
+        }
+    };
+
+    rsx! {
+        SidebarContextMenu {
+            position: data.position,
+            path: path.clone(),
+            kind: data.kind,
+            role,
+            on_close: move |_| state.close_sidebar_context_menu(),
+            on_open: handle_open,
+            on_open_in_new_window: handle_open_in_new_window,
+            on_go_to_parent: handle_go_to_parent,
+            on_change_root_directory: handle_change_root_directory,
+            on_toggle_bookmark: handle_toggle_bookmark,
+            on_copy_path: handle_copy_path,
+            on_reveal_in_finder: handle_reveal_in_finder,
+            on_reload: handle_reload,
         }
     }
 }
