@@ -13,12 +13,16 @@ use clap::{Args, ValueEnum};
 use std::io::Write;
 use std::path::PathBuf;
 
-/// The `--theme` values; a clap-side mirror of [`Theme`].
+/// The `--theme` values; a clap-side mirror of [`Theme`], shared by
+/// `arto-page` and the `arto` command line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum ThemeArg {
-    /// Follow the viewer's system setting
+    /// Follow the system appearance
+    #[value(alias = "system")]
     Auto,
+    /// Always light, whatever the system is set to
     Light,
+    /// Always dark, whatever the system is set to
     Dark,
 }
 
@@ -156,6 +160,27 @@ mod tests {
         assert_eq!(options.theme, Theme::Light);
         assert!(!options.render.auto_link_urls);
         assert!(!options.content_security_policy);
+    }
+
+    #[test]
+    fn the_theme_flag_takes_the_names_of_both_command_lines() {
+        #[derive(clap::Parser)]
+        struct Cli {
+            #[command(flatten)]
+            page: PageArgs,
+        }
+        let theme = |value: &str| {
+            <Cli as clap::Parser>::try_parse_from(["arto-page", "--theme", value, "doc.md"])
+                .map(|cli| cli.page.theme)
+        };
+
+        assert_eq!(theme("auto").unwrap(), Some(ThemeArg::Auto));
+        // `arto --theme` spelled following the system `system` before both
+        // command lines shared this argument.
+        assert_eq!(theme("system").unwrap(), Some(ThemeArg::Auto));
+        assert_eq!(theme("light").unwrap(), Some(ThemeArg::Light));
+        assert_eq!(theme("dark").unwrap(), Some(ThemeArg::Dark));
+        assert!(theme("dim").is_err());
     }
 
     #[test]

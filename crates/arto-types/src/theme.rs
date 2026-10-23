@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 /// The user's theme preference.
 ///
@@ -14,12 +15,20 @@ pub enum Theme {
     Dark,
 }
 
-impl From<&str> for Theme {
-    fn from(s: &str) -> Self {
+/// A string that names none of [`Theme`]'s variants.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("unknown theme {0:?}; expected \"auto\", \"light\" or \"dark\"")]
+pub struct UnknownTheme(pub String);
+
+impl FromStr for Theme {
+    type Err = UnknownTheme;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "light" => Theme::Light,
-            "dark" => Theme::Dark,
-            _ => Theme::Auto,
+            "auto" => Ok(Theme::Auto),
+            "light" => Ok(Theme::Light),
+            "dark" => Ok(Theme::Dark),
+            _ => Err(UnknownTheme(s.to_string())),
         }
     }
 }
@@ -35,9 +44,20 @@ mod tests {
     }
 
     #[test]
-    fn unknown_strings_fall_back_to_auto() {
-        assert_eq!(Theme::from("light"), Theme::Light);
-        assert_eq!(Theme::from("dark"), Theme::Dark);
-        assert_eq!(Theme::from("anything else"), Theme::Auto);
+    fn parses_the_names_it_serializes_to() {
+        for theme in [Theme::Auto, Theme::Light, Theme::Dark] {
+            let name = serde_json::to_value(theme).unwrap();
+            assert_eq!(name.as_str().unwrap().parse::<Theme>(), Ok(theme));
+        }
+    }
+
+    #[test]
+    fn rejects_a_name_it_does_not_know() {
+        assert_eq!(
+            "system".parse::<Theme>(),
+            Err(UnknownTheme("system".to_string()))
+        );
+        assert!("Dark".parse::<Theme>().is_err());
+        assert!("".parse::<Theme>().is_err());
     }
 }

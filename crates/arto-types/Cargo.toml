@@ -14,6 +14,7 @@ categories = ["config"]
 [dependencies]
 serde.workspace = true
 schemars = { workspace = true, optional = true }
+thiserror.workspace = true
 
 [features]
 # `JsonSchema` for the types, so the configuration crate can describe
