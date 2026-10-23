@@ -5,6 +5,7 @@ use dioxus::prelude::*;
 
 use crate::components::icon::{Icon, IconName};
 use crate::config::{BindingSet, Config, KeyAction};
+use crate::hooks::use_dismiss_on_outside;
 use crate::keybindings::{
     accelerator_for_key, action_group_name, action_title, context_name, presets, resolve_bindings,
     Action, KeyContext, ResolvedBinding, ACTION_GROUPS, MENU_ACTIONS,
@@ -354,91 +355,10 @@ fn BindingForm(
         });
     });
 
-    // Close form when clicking outside `.binding-form`.
-    // This uses pointer events (not focus/timer based) so button clicks inside
-    // the form don't accidentally close it on platforms where buttons don't take focus.
-    use_hook(move || {
-        spawn(async move {
-            let mut eval = document::eval(
-                r#"
-                (() => {
-                    const prev = window.__artoBindingFormOutsideClickHandler;
-                    if (prev) {
-                        document.removeEventListener('pointerdown', prev, true);
-                    }
-                    const handler = (e) => {
-                        const inside = e.target instanceof Element
-                            && e.target.closest('.binding-form');
-                        if (!inside) {
-                            dioxus.send(true);
-                        }
-                    };
-                    window.__artoBindingFormOutsideClickHandler = handler;
-                    document.addEventListener('pointerdown', handler, true);
-                })();
-                "#,
-            );
-            while let Ok(outside) = eval.recv::<bool>().await {
-                if outside && !*recording.read() {
-                    on_close.call(());
-                    break;
-                }
-            }
-        });
-    });
-
-    // Close form on Escape regardless of focused element.
-    use_hook(move || {
-        spawn(async move {
-            let mut eval = document::eval(
-                r#"
-                (() => {
-                    const prev = window.__artoBindingFormEscapeHandler;
-                    if (prev) {
-                        document.removeEventListener('keydown', prev, true);
-                    }
-                    const handler = (e) => {
-                        if (e.key === 'Escape') {
-                            dioxus.send(true);
-                        }
-                    };
-                    window.__artoBindingFormEscapeHandler = handler;
-                    document.addEventListener('keydown', handler, true);
-                })();
-                "#,
-            );
-            while let Ok(pressed) = eval.recv::<bool>().await {
-                if pressed && !*recording.read() {
-                    on_close.call(());
-                    break;
-                }
-            }
-        });
-    });
-
-    use_drop(move || {
-        let _ = document::eval(
-            r#"
-            (() => {
-                const handler = window.__artoBindingFormOutsideClickHandler;
-                if (handler) {
-                    document.removeEventListener('pointerdown', handler, true);
-                    delete window.__artoBindingFormOutsideClickHandler;
-                }
-            })();
-            "#,
-        );
-        let _ = document::eval(
-            r#"
-            (() => {
-                const handler = window.__artoBindingFormEscapeHandler;
-                if (handler) {
-                    document.removeEventListener('keydown', handler, true);
-                    delete window.__artoBindingFormEscapeHandler;
-                }
-            })();
-            "#,
-        );
+    use_dismiss_on_outside(".binding-form", move || {
+        if !*recording.peek() {
+            on_close.call(());
+        }
     });
 
     // Memoize resolved bindings: only recompute when config changes,
