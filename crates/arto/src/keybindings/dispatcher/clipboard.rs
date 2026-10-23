@@ -206,7 +206,17 @@ pub(super) fn copy_link_path_from_cursor() {
     });
 }
 
-pub(super) fn copy_file_path_with_line(file: std::path::PathBuf, is_range: bool) {
+pub(super) fn copy_current_file_path(state: &AppState) {
+    if let Some(file) = get_current_file(state) {
+        crate::utils::clipboard::copy_text(file.to_string_lossy());
+        show_action_feedback(&t!("keybindings.feedback.copied"));
+    }
+}
+
+pub(super) fn copy_file_path_with_line(state: &AppState, is_range: bool) {
+    let Some(file) = get_current_file(state) else {
+        return;
+    };
     spawn_detached(async move {
         let js =
             "(() => { dioxus.send(window.Arto?.contentCursor?.getSourceLineRange() ?? null); })()";
@@ -220,7 +230,10 @@ pub(super) fn copy_file_path_with_line(file: std::path::PathBuf, is_range: bool)
     });
 }
 
-pub(super) fn copy_markdown_source(file: std::path::PathBuf) {
+pub(super) fn copy_markdown_source(state: &AppState) {
+    let Some(file) = get_current_file(state) else {
+        return;
+    };
     spawn_detached(async move {
         #[derive(serde::Deserialize)]
         struct MarkdownSourceRequest {

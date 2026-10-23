@@ -291,6 +291,27 @@ pub(super) fn get_bookmark_target_path(state: &AppState) -> Option<std::path::Pa
     }
 }
 
+/// Add the folder above the first root beside it.
+///
+/// Walking the root itself is gone: a root's parent is added alongside it now
+/// rather than replacing it, and the tree holds several roots at once, so
+/// there is no single "current directory" to step through.
+pub(super) fn add_parent_of_primary_root(state: &mut AppState) {
+    let parent = state
+        .sidebar
+        .read()
+        .primary_root()
+        .and_then(|root| root.parent().map(|p| p.to_path_buf()));
+    if let Some(parent) = parent {
+        state.add_root(parent);
+    }
+}
+
+pub(super) fn toggle_show_all_files(state: &mut AppState) {
+    let current = state.sidebar.read().show_all_files;
+    state.sidebar.write().show_all_files = !current;
+}
+
 pub(super) fn set_parent_of_current_file_as_root(state: &mut AppState) {
     let Some(file) = get_current_file(state) else {
         return;
