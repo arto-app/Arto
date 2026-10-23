@@ -1,0 +1,33 @@
+name: "Keep cached cargo artifacts from aging out"
+description: >
+  Stamp every dependency artifact under target/ with the current time, so the
+  cache Swatinem/rust-cache saves after the job does not lose them on its next
+  partial restore. Run it as the job's last step, after everything that
+  builds.
+
+  On a restore that is not a full key match — every change to Cargo.lock or a
+  manifest — rust-cache deletes each artifact in deps/, build/ and
+  .fingerprint/ last modified more than a week ago before the build starts.
+  Cargo never rewrites an artifact it finds fresh, so a dependency that has not
+  changed keeps the mtime of the build that first produced it, however many
+  caches it has been carried through. A week after that build it is deleted on
+  the next lockfile change and recompiled, along with everything that depends
+  on it: a cargo update that bumps a dozen crates rebuilds nearly the whole
+  graph.
+
+  Every entry gets the same timestamp, so no dependency looks newer than what
+  depends on it. Registry and git dependencies are fingerprinted by version
+  rather than by mtime, and rust-cache does not save workspace members, so the
+  stamp cannot make a stale unit look fresh.
+
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      run: |
+        [ -d target ] || exit 0
+        stamp="$(date +%Y%m%d%H%M.%S)"
+        # -path rather than -regex: BSD find on the macOS runners has no
+        # alternation in its default regex syntax.
+        find target \( -path '*/deps/*' -o -path '*/build/*' -o -path '*/.fingerprint/*' \) \
+          -exec touch -c -t "$stamp" {} +

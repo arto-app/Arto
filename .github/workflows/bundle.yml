@@ -240,6 +240,8 @@ jobs:
           Push-Location $empty
           & $binary --version
           Pop-Location
+      - uses: ./.github/actions/age-proof-cargo-cache
+        if: inputs.version == ''
       - uses: actions/upload-artifact@v7
         with:
           name: arto-${{ matrix.target }}
