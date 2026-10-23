@@ -26,7 +26,8 @@ use tokio::sync::broadcast::error::RecvError;
 /// lately.
 fn ensure(state: &AppState) {
     if let Some((root, target)) = state.backlinks_scope() {
-        crate::backlinks::ensure(&root, &target);
+        let options = crate::config::CONFIG.read().markdown.clone();
+        crate::backlinks::ensure(&root, &target, &options);
     }
 }
 

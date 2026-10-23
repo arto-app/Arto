@@ -34,6 +34,38 @@ pub(crate) use highlight::highlight_selection;
 pub(crate) use palette::activate_palette_row;
 pub(crate) use reveal::content_cursor_eval;
 
+/// Where Help → Go to Homepage leads.
+const HOMEPAGE_URL: &str = env!("CARGO_PKG_REPOSITORY");
+
+pub(crate) fn open_homepage() {
+    let _ = open::that(HOMEPAGE_URL);
+}
+
+/// A new window is a fresh start: the places, the welcome page, and nothing
+/// the window it was asked from happened to have wandered into.
+fn open_new_window() {
+    crate::window::create_main_window_sync(
+        &dioxus::desktop::window(),
+        crate::state::Document::default(),
+        crate::window::CreateMainWindowConfigParams::default(),
+    );
+}
+
+/// What `action` does when it acts on no window's state, or [`None`] when it
+/// needs one.
+///
+/// The native menu runs these even with no window open, where there is no
+/// state to hand [`dispatch_action`].
+pub fn stateless_action(action: &Action) -> Option<fn()> {
+    Some(match action {
+        Action::WindowNew => open_new_window,
+        Action::WindowCloseAllChildWindows => crate::window::close_child_windows_for_last_focused,
+        Action::WindowCloseAllWindows => crate::window::close_all_main_windows,
+        Action::AppGoToHomepage => open_homepage,
+        _ => return None,
+    })
+}
+
 /// Execute an action by dispatching to the appropriate handler.
 ///
 /// This is the main entry point for action execution after the engine
@@ -45,6 +77,9 @@ pub(crate) use reveal::content_cursor_eval;
 /// here is therefore spawned with [`spawn_detached`], so an action outlives
 /// the widget that asked for it.
 pub fn dispatch_action(action: &Action, mut state: AppState) {
+    if let Some(run) = stateless_action(action) {
+        return run();
+    }
     match action {
         // --- Scroll (JS eval) ---
         Action::ScrollDown => scroll_eval("down"),
@@ -82,15 +117,6 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::ZoomReset => state.zoom_reset(),
 
         // --- Window ---
-        // A new window is a fresh start: the places, the welcome page, and nothing
-        // this window happened to have wandered into.
-        Action::WindowNew => {
-            crate::window::create_main_window_sync(
-                &dioxus::desktop::window(),
-                crate::state::Document::default(),
-                crate::window::CreateMainWindowConfigParams::default(),
-            );
-        }
         Action::WindowDuplicate => duplicate_window(&mut state),
         // Putting the document down is what "new" means for a window that
         // reads one: the welcome page takes its place, offering the next.
@@ -99,12 +125,6 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         }
         Action::WindowClose => {
             dioxus::desktop::window().close();
-        }
-        Action::WindowCloseAllChildWindows => {
-            crate::window::close_child_windows_for_last_focused();
-        }
-        Action::WindowCloseAllWindows => {
-            crate::window::close_all_main_windows();
         }
         // Closing the panel hands the keyboard back to the document; that
         // belongs to `hide_panel`, so both the rail and this go through it.
@@ -246,9 +266,6 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::AppQuit => {
             dioxus::desktop::window().close();
         }
-        Action::AppGoToHomepage => {
-            let _ = open::that("https://github.com/arto-app/Arto");
-        }
         // Both are answered before dispatch, in `keybinding_engine`: they act
         // on the overlay, which is the window's own state and not the
         // document's.
@@ -272,6 +289,12 @@ pub fn dispatch_action(action: &Action, mut state: AppState) {
         Action::ThemeSetAuto => state.current_theme.set(Theme::Auto),
 
         Action::Cancel => {}
+
+        // Run before the match, by `stateless_action`.
+        Action::WindowNew
+        | Action::WindowCloseAllChildWindows
+        | Action::WindowCloseAllWindows
+        | Action::AppGoToHomepage => {}
     }
 }
 

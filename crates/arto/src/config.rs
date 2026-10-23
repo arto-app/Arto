@@ -6,13 +6,11 @@
 
 pub use arto_config::*;
 
-use notify_debouncer_full::notify::RecursiveMode;
-use notify_debouncer_full::{new_debouncer, DebounceEventResult};
+use crate::watcher::FILE_WATCHER;
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
-use std::time::Duration;
 use tokio::sync::broadcast;
 
 /// Global configuration instance.
@@ -35,10 +33,6 @@ pub static CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
 pub static CONFIG_CHANGED_BROADCAST: LazyLock<broadcast::Sender<()>> =
     LazyLock::new(|| broadcast::channel(16).0);
 
-/// How long the files have to settle before they are read again: an editor
-/// saving writes, renames and touches in quick succession.
-const RELOAD_DEBOUNCE: Duration = Duration::from_millis(300);
-
 /// Read `config.json` and `mappings.json` again whenever either changes on
 /// disk, and tell every window when that changed the configuration.
 ///
@@ -47,6 +41,10 @@ const RELOAD_DEBOUNCE: Duration = Duration::from_millis(300);
 /// program has to reach the running app as one made in the preferences
 /// does. The files are watched where they really are, so a configuration
 /// kept elsewhere and linked into place is still seen.
+///
+/// Their directories are watched rather than the files: an editor saving by
+/// renaming a new file into place would leave a watch on the old one behind,
+/// and on a first launch there is no file yet to watch.
 pub fn watch_config_files() {
     let files: Vec<PathBuf> = [Config::path(), Config::mappings_path()]
         .into_iter()
@@ -57,42 +55,36 @@ pub fn watch_config_files() {
         .filter_map(|file| file.parent().map(Path::to_path_buf))
         .collect();
 
-    std::thread::spawn(move || {
-        let watched = files.clone();
-        let debouncer = new_debouncer(RELOAD_DEBOUNCE, None, move |result: DebounceEventResult| {
-            let Ok(events) = result else { return };
-            let touched = events
-                .iter()
-                .flat_map(|event| &event.paths)
-                .any(|path| watched.contains(path));
-            if touched {
-                reload();
-            }
-        });
-        let mut debouncer = match debouncer {
-            Ok(debouncer) => debouncer,
-            Err(error) => {
-                tracing::warn!(%error, "config files are not watched");
-                return;
-            }
-        };
-        for directory in &directories {
+    for directory in directories {
+        let files = files.clone();
+        std::thread::spawn(move || {
             // On a first launch nothing has been saved yet, and a directory
             // that does not exist cannot be watched; made here, the files
             // the first save writes into it are seen like any later edit.
-            if let Err(error) = std::fs::create_dir_all(directory) {
+            if let Err(error) = std::fs::create_dir_all(&directory) {
                 tracing::warn!(%error, ?directory, "config directory could not be made");
             }
-            if let Err(error) = debouncer.watch(directory, RecursiveMode::NonRecursive) {
-                tracing::warn!(%error, ?directory, "config directory is not watched");
+            let mut changes = match FILE_WATCHER.watch_directory_non_recursive_blocking(&directory)
+            {
+                Ok(changes) => changes,
+                Err(error) => {
+                    tracing::warn!(%error, ?directory, "config directory is not watched");
+                    return;
+                }
+            };
+            // The app keeps its own files beside the configuration, and
+            // writes them far more often than anyone edits it.
+            while let Some(changed) = changes.blocking_recv() {
+                if is_config_file_touched(&files, &changed) {
+                    reload();
+                }
             }
-        }
-        // The watcher stops when it is dropped; this thread keeps it for
-        // the life of the app.
-        loop {
-            std::thread::park();
-        }
-    });
+        });
+    }
+}
+
+fn is_config_file_touched(files: &[PathBuf], changed: &[PathBuf]) -> bool {
+    changed.iter().any(|path| files.contains(path))
 }
 
 fn reload() {
@@ -133,6 +125,26 @@ fn replacement(current: &Config, loaded: Result<Config, ConfigError>) -> Option<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_change_to_a_config_file_is_read_again() {
+        let files = vec![
+            PathBuf::from("/c/config.json"),
+            PathBuf::from("/c/mappings.json"),
+        ];
+
+        assert!(is_config_file_touched(
+            &files,
+            &[
+                PathBuf::from("/c/state.json"),
+                PathBuf::from("/c/mappings.json")
+            ]
+        ));
+        assert!(!is_config_file_touched(
+            &files,
+            &[PathBuf::from("/c/state.json"), PathBuf::from("/c")]
+        ));
+    }
 
     #[test]
     fn a_changed_configuration_replaces_the_one_in_use() {

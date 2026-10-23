@@ -1,9 +1,9 @@
-use notify_debouncer_full::{
-    new_debouncer, notify::RecursiveMode, DebounceEventResult, Debouncer, RecommendedCache,
-};
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::{Arc, LazyLock, Mutex};
+use notify_debouncer_full::notify::{RecommendedWatcher, RecursiveMode};
+use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, RecommendedCache};
+use parking_lot::Mutex;
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::mpsc::{self, Receiver, Sender};
@@ -24,179 +24,169 @@ pub struct FileWatcher {
 enum FileWatcherCommand {
     Watch(PathBuf, Sender<()>),
     Unwatch(PathBuf),
-    WatchDirectoryNonRecursive(PathBuf, Sender<()>),
+    WatchDirectoryNonRecursive(PathBuf, Sender<Vec<PathBuf>>),
     UnwatchDirectoryNonRecursive(PathBuf),
+}
+
+type Senders<T> = HashMap<PathBuf, Vec<Sender<T>>>;
+
+/// Who is told about a change: a file's watchers about the file itself, a
+/// directory's about its direct children and the directory itself.
+#[derive(Default)]
+struct Watchers {
+    files: Senders<()>,
+    directories: Senders<Vec<PathBuf>>,
+}
+
+impl Watchers {
+    fn notify(&self, changed: &HashSet<PathBuf>) {
+        for path in self.changed_files(changed) {
+            tracing::debug!(?path, "File changed");
+            for sender in &self.files[path] {
+                let _ = sender.blocking_send(());
+            }
+        }
+        for (directory, paths) in self.changed_directories(changed) {
+            tracing::trace!(?directory, ?paths, "Direct directory content changed");
+            for sender in &self.directories[directory] {
+                let _ = sender.blocking_send(paths.clone());
+            }
+        }
+    }
+
+    fn changed_files<'a>(&'a self, changed: &'a HashSet<PathBuf>) -> Vec<&'a PathBuf> {
+        changed
+            .iter()
+            .filter(|path| self.files.contains_key(*path))
+            .collect()
+    }
+
+    /// Each watched directory something changed in, with what changed in it,
+    /// in path order. Changes under `.git` are left out: a repository's
+    /// bookkeeping churns on every command and is never something a reader
+    /// is shown.
+    fn changed_directories(&self, changed: &HashSet<PathBuf>) -> Vec<(&PathBuf, Vec<PathBuf>)> {
+        let mut found: Vec<(&PathBuf, Vec<PathBuf>)> = self
+            .directories
+            .keys()
+            .filter_map(|directory| {
+                let paths: BTreeSet<&PathBuf> = changed
+                    .iter()
+                    .filter(|path| !path.components().any(|c| c.as_os_str() == ".git"))
+                    .filter(|path| *path == directory || path.parent() == Some(directory))
+                    .collect();
+                (!paths.is_empty()).then(|| (directory, paths.into_iter().cloned().collect()))
+            })
+            .collect();
+        found.sort_by_key(|(directory, _)| *directory);
+        found
+    }
+}
+
+/// Add `tx` to the watchers of `path`, and say whether it is the first.
+fn add<T>(senders: &mut Senders<T>, path: &Path, tx: Sender<T>) -> bool {
+    let is_first = !senders.contains_key(path);
+    senders.entry(path.to_path_buf()).or_default().push(tx);
+    is_first
+}
+
+/// Drop one watcher of `path`, and say whether that was the last.
+fn remove<T>(senders: &mut Senders<T>, path: &Path) -> bool {
+    let Some(watchers) = senders.get_mut(path) else {
+        return false;
+    };
+    watchers.pop();
+    let is_last = watchers.is_empty();
+    if is_last {
+        senders.remove(path);
+    }
+    is_last
+}
+
+type WatcherDebouncer = Debouncer<RecommendedWatcher, RecommendedCache>;
+
+fn route_events(watchers: &Mutex<Watchers>, result: DebounceEventResult) {
+    match result {
+        Ok(events) => {
+            let changed: HashSet<PathBuf> = events
+                .into_iter()
+                .flat_map(|event| event.event.paths)
+                .collect();
+            watchers.lock().notify(&changed);
+        }
+        Err(errors) => {
+            for error in errors {
+                tracing::error!(?error, "File watcher error");
+            }
+        }
+    }
+}
+
+fn run_commands(
+    debouncer: &mut WatcherDebouncer,
+    watchers: &Mutex<Watchers>,
+    mut commands: Receiver<FileWatcherCommand>,
+) {
+    while let Some(command) = commands.blocking_recv() {
+        match command {
+            FileWatcherCommand::Watch(path, tx) => {
+                if add(&mut watchers.lock().files, &path, tx) {
+                    start_watching(debouncer, &path, "file");
+                }
+            }
+            FileWatcherCommand::Unwatch(path) => {
+                if remove(&mut watchers.lock().files, &path) {
+                    stop_watching(debouncer, &path, "file");
+                }
+            }
+            FileWatcherCommand::WatchDirectoryNonRecursive(path, tx) => {
+                if add(&mut watchers.lock().directories, &path, tx) {
+                    start_watching(debouncer, &path, "directory");
+                }
+            }
+            FileWatcherCommand::UnwatchDirectoryNonRecursive(path) => {
+                if remove(&mut watchers.lock().directories, &path) {
+                    stop_watching(debouncer, &path, "directory");
+                }
+            }
+        }
+    }
+    tracing::info!("File watcher command channel closed");
+}
+
+fn start_watching(debouncer: &mut WatcherDebouncer, path: &Path, kind: &str) {
+    match debouncer.watch(path, RecursiveMode::NonRecursive) {
+        Ok(()) => tracing::info!(?path, kind, "Started watching"),
+        Err(error) => tracing::error!(?path, kind, ?error, "Failed to watch"),
+    }
+}
+
+fn stop_watching(debouncer: &mut WatcherDebouncer, path: &Path, kind: &str) {
+    match debouncer.unwatch(path) {
+        Ok(()) => tracing::info!(?path, kind, "Stopped watching"),
+        Err(error) => tracing::error!(?path, kind, ?error, "Failed to unwatch"),
+    }
 }
 
 impl FileWatcher {
     fn new() -> Self {
-        let (command_tx, mut command_rx) = mpsc::channel::<FileWatcherCommand>(100);
+        let (command_tx, command_rx) = mpsc::channel::<FileWatcherCommand>(100);
 
-        // Spawn a dedicated thread for the file watcher
         std::thread::spawn(move || {
-            // Map of file paths to their notification channels
-            let file_watchers: Arc<Mutex<HashMap<PathBuf, Vec<Sender<()>>>>> =
-                Arc::new(Mutex::new(HashMap::new()));
-            let file_watchers_clone = file_watchers.clone();
-
-            // Map of directory paths to their notification channels (non-recursive watching)
-            let non_recursive_dir_watchers: Arc<Mutex<HashMap<PathBuf, Vec<Sender<()>>>>> =
-                Arc::new(Mutex::new(HashMap::new()));
-            let non_recursive_dir_watchers_clone = non_recursive_dir_watchers.clone();
-
-            // Create a debouncer with 500ms delay
-            let mut debouncer: Debouncer<
-                notify_debouncer_full::notify::RecommendedWatcher,
-                RecommendedCache,
-            > = match new_debouncer(
-                Duration::from_millis(500),
-                None,
-                move |result: DebounceEventResult| match result {
-                    Ok(events) => {
-                        // Collect unique paths that changed
-                        let mut changed_paths = std::collections::HashSet::new();
-                        for event in events {
-                            for path in &event.paths {
-                                changed_paths.insert(path.clone());
-                            }
-                        }
-
-                        // Notify file watchers (exact path match)
-                        let file_watchers = file_watchers_clone.lock().unwrap();
-                        for path in &changed_paths {
-                            if let Some(senders) = file_watchers.get(path) {
-                                tracing::debug!("File changed: {:?}", path);
-                                for sender in senders {
-                                    let _ = sender.blocking_send(());
-                                }
-                            }
-                        }
-                        drop(file_watchers);
-
-                        // Notify non-recursive directory watchers (direct children only)
-                        let non_recursive_dir_watchers =
-                            non_recursive_dir_watchers_clone.lock().unwrap();
-                        let mut notified_non_recursive_dirs = std::collections::HashSet::new();
-                        for changed_path in &changed_paths {
-                            // Skip .git directory changes (too noisy)
-                            if changed_path.components().any(|c| c.as_os_str() == ".git") {
-                                continue;
-                            }
-
-                            for (watched_dir, senders) in non_recursive_dir_watchers.iter() {
-                                let is_direct_child = changed_path
-                                    .parent()
-                                    .is_some_and(|parent| parent == watched_dir.as_path());
-                                let is_watched_dir_itself = changed_path == watched_dir;
-
-                                if (is_direct_child || is_watched_dir_itself)
-                                    && !notified_non_recursive_dirs.contains(watched_dir)
-                                {
-                                    tracing::trace!(
-                                        ?watched_dir,
-                                        ?changed_path,
-                                        "Direct directory content changed"
-                                    );
-                                    for sender in senders {
-                                        let _ = sender.blocking_send(());
-                                    }
-                                    notified_non_recursive_dirs.insert(watched_dir.clone());
-                                }
-                            }
-                        }
-                    }
-                    Err(errors) => {
-                        for error in errors {
-                            tracing::error!("File watcher error: {:?}", error);
-                        }
-                    }
-                },
-            ) {
-                Ok(d) => d,
-                Err(e) => {
-                    tracing::error!("Failed to create file watcher: {:?}", e);
+            let watchers = Arc::new(Mutex::new(Watchers::default()));
+            let debouncer = new_debouncer(Duration::from_millis(500), None, {
+                let watchers = Arc::clone(&watchers);
+                move |result| route_events(&watchers, result)
+            });
+            let mut debouncer = match debouncer {
+                Ok(debouncer) => debouncer,
+                Err(error) => {
+                    tracing::error!(?error, "Failed to create file watcher");
                     return;
                 }
             };
-
             tracing::info!("Global file watcher started");
-
-            // Process commands
-            loop {
-                match command_rx.blocking_recv() {
-                    Some(FileWatcherCommand::Watch(path, tx)) => {
-                        let mut watchers = file_watchers.lock().unwrap();
-                        let is_first = !watchers.contains_key(&path);
-
-                        watchers.entry(path.clone()).or_default().push(tx);
-
-                        // Only start watching if this is the first watcher for this file
-                        if is_first {
-                            if let Err(e) = debouncer.watch(&path, RecursiveMode::NonRecursive) {
-                                tracing::error!("Failed to watch file {:?}: {:?}", path, e);
-                            } else {
-                                tracing::info!("Started watching file: {:?}", path);
-                            }
-                        }
-                    }
-                    Some(FileWatcherCommand::Unwatch(path)) => {
-                        let mut watchers = file_watchers.lock().unwrap();
-                        if let Some(senders) = watchers.get_mut(&path) {
-                            senders.pop();
-                            // If no more watchers for this file, stop watching
-                            if senders.is_empty() {
-                                watchers.remove(&path);
-                                if let Err(e) = debouncer.unwatch(&path) {
-                                    tracing::error!("Failed to unwatch file {:?}: {:?}", path, e);
-                                } else {
-                                    tracing::info!("Stopped watching file: {:?}", path);
-                                }
-                            }
-                        }
-                    }
-                    Some(FileWatcherCommand::WatchDirectoryNonRecursive(path, tx)) => {
-                        let mut watchers = non_recursive_dir_watchers.lock().unwrap();
-                        let is_first = !watchers.contains_key(&path);
-
-                        watchers.entry(path.clone()).or_default().push(tx);
-
-                        // Only start watching if this is the first watcher for this directory
-                        if is_first {
-                            if let Err(e) = debouncer.watch(&path, RecursiveMode::NonRecursive) {
-                                tracing::error!("Failed to watch directory {:?}: {:?}", path, e);
-                            } else {
-                                tracing::info!(
-                                    "Started watching directory (non-recursive): {:?}",
-                                    path
-                                );
-                            }
-                        }
-                    }
-                    Some(FileWatcherCommand::UnwatchDirectoryNonRecursive(path)) => {
-                        let mut watchers = non_recursive_dir_watchers.lock().unwrap();
-                        if let Some(senders) = watchers.get_mut(&path) {
-                            senders.pop();
-                            // If no more watchers for this directory, stop watching
-                            if senders.is_empty() {
-                                watchers.remove(&path);
-                                if let Err(e) = debouncer.unwatch(&path) {
-                                    tracing::error!(
-                                        "Failed to unwatch directory {:?}: {:?}",
-                                        path,
-                                        e
-                                    );
-                                } else {
-                                    tracing::info!("Stopped watching directory: {:?}", path);
-                                }
-                            }
-                        }
-                    }
-                    None => {
-                        tracing::info!("File watcher command channel closed");
-                        break;
-                    }
-                }
-            }
+            run_commands(&mut debouncer, &watchers, command_rx);
         });
 
         Self { command_tx }
@@ -222,16 +212,31 @@ impl FileWatcher {
             .map_err(|_| WatcherError::CommandFailed)
     }
 
-    /// Watch a directory non-recursively and receive notifications for direct children.
+    /// Watch a directory non-recursively and receive, for each batch of
+    /// changes, the direct children that changed (or the directory itself).
     pub async fn watch_directory_non_recursive(
         &self,
         path: impl Into<PathBuf>,
-    ) -> WatcherResult<Receiver<()>> {
+    ) -> WatcherResult<Receiver<Vec<PathBuf>>> {
         let path = path.into();
         let (tx, rx) = mpsc::channel(100);
         self.command_tx
             .send(FileWatcherCommand::WatchDirectoryNonRecursive(path, tx))
             .await
+            .map_err(|_| WatcherError::CommandFailed)?;
+        Ok(rx)
+    }
+
+    /// [`FileWatcher::watch_directory_non_recursive`] from a plain thread,
+    /// outside any async runtime.
+    pub fn watch_directory_non_recursive_blocking(
+        &self,
+        path: impl Into<PathBuf>,
+    ) -> WatcherResult<Receiver<Vec<PathBuf>>> {
+        let path = path.into();
+        let (tx, rx) = mpsc::channel(100);
+        self.command_tx
+            .blocking_send(FileWatcherCommand::WatchDirectoryNonRecursive(path, tx))
             .map_err(|_| WatcherError::CommandFailed)?;
         Ok(rx)
     }
@@ -250,3 +255,99 @@ impl FileWatcher {
 }
 
 pub static FILE_WATCHER: LazyLock<FileWatcher> = LazyLock::new(FileWatcher::new);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn paths(paths: &[&str]) -> HashSet<PathBuf> {
+        paths.iter().map(PathBuf::from).collect()
+    }
+
+    fn watching(files: &[&str], directories: &[&str]) -> Watchers {
+        let mut watchers = Watchers::default();
+        for file in files {
+            add(&mut watchers.files, Path::new(file), mpsc::channel(1).0);
+        }
+        for directory in directories {
+            add(
+                &mut watchers.directories,
+                Path::new(directory),
+                mpsc::channel(1).0,
+            );
+        }
+        watchers
+    }
+
+    #[test]
+    fn a_file_is_told_about_itself_alone() {
+        let watchers = watching(&["/w/a.md"], &[]);
+
+        let changed = paths(&["/w/a.md", "/w/b.md"]);
+
+        assert_eq!(
+            watchers.changed_files(&changed),
+            vec![&PathBuf::from("/w/a.md")]
+        );
+    }
+
+    #[test]
+    fn a_directory_is_told_which_of_its_children_changed() {
+        let watchers = watching(&[], &["/w"]);
+
+        let changed = paths(&["/w/b.md", "/w/a.md", "/w/sub/deep.md", "/elsewhere/c.md"]);
+
+        assert_eq!(
+            watchers.changed_directories(&changed),
+            vec![(
+                &PathBuf::from("/w"),
+                vec![PathBuf::from("/w/a.md"), PathBuf::from("/w/b.md")]
+            )]
+        );
+    }
+
+    #[test]
+    fn a_directory_is_told_about_itself() {
+        let watchers = watching(&[], &["/w"]);
+
+        let changed = paths(&["/w"]);
+
+        assert_eq!(
+            watchers.changed_directories(&changed),
+            vec![(&PathBuf::from("/w"), vec![PathBuf::from("/w")])]
+        );
+    }
+
+    #[test]
+    fn a_repository_s_bookkeeping_is_not_a_change() {
+        let watchers = watching(&[], &["/w", "/w/.git"]);
+
+        let changed = paths(&["/w/.git", "/w/.git/index"]);
+
+        assert!(watchers.changed_directories(&changed).is_empty());
+    }
+
+    #[test]
+    fn only_the_first_watcher_starts_a_watch_and_only_the_last_stops_it() {
+        let mut senders: Senders<()> = HashMap::new();
+        let path = Path::new("/w/a.md");
+
+        assert!(add(&mut senders, path, mpsc::channel(1).0));
+        assert!(!add(&mut senders, path, mpsc::channel(1).0));
+
+        assert!(!remove(&mut senders, path));
+        assert!(remove(&mut senders, path));
+        assert!(!remove(&mut senders, path));
+    }
+
+    #[test]
+    fn what_changed_reaches_the_directory_s_watchers() {
+        let mut watchers = Watchers::default();
+        let (tx, mut rx) = mpsc::channel(1);
+        add(&mut watchers.directories, Path::new("/w"), tx);
+
+        watchers.notify(&paths(&["/w/a.md"]));
+
+        assert_eq!(rx.try_recv().unwrap(), vec![PathBuf::from("/w/a.md")]);
+    }
+}
