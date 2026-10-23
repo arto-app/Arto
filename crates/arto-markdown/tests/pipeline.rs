@@ -670,6 +670,32 @@ fn every_alert_kind_is_recognized() {
 }
 
 #[test]
+fn consecutive_alerts_each_keep_their_own_lines() {
+    let html = render(indoc! {"
+        > [!NOTE]
+        > First note
+
+        > [!WARNING]
+        > A warning
+
+        > [!TIP]
+        > A tip
+    "});
+
+    for (class, line) in [("note", 1), ("warning", 4), ("tip", 7)] {
+        let alert = html
+            .find(&format!("markdown-alert-{class}"))
+            .unwrap_or_else(|| panic!("{class}: {html}"));
+        let start_tag = &html[html[..alert].rfind('<').unwrap()..];
+        let start_tag = &start_tag[..start_tag.find('>').unwrap()];
+        assert!(
+            start_tag.contains(&format!(r#"data-source-range="{line}:1-"#)),
+            "{class} should start on line {line}: {start_tag}"
+        );
+    }
+}
+
+#[test]
 fn plain_blockquote_is_not_an_alert() {
     let html = render("Regular paragraph\n> Regular quote");
 
@@ -1057,6 +1083,22 @@ fn invalid_frontmatter_stays_content() {
         texts,
         ["invalid: [unclosed", "Heading After Invalid Frontmatter"]
     );
+}
+
+#[test]
+fn an_empty_document_renders_nothing() {
+    let html = render("");
+
+    assert!(html.trim().is_empty(), "{html:?}");
+}
+
+#[test]
+fn a_document_of_frontmatter_alone_renders_only_its_table() {
+    let html = render("---\ntitle: Test\n---\n");
+
+    assert!(html.contains(r#"<details class="frontmatter""#), "{html}");
+    assert!(!html.contains("<h1"), "{html}");
+    assert!(!html.contains("<p "), "{html}");
 }
 
 // ----------------------------------------------------------------------
@@ -1504,6 +1546,47 @@ fn math_off_leaves_the_dollars_to_the_prose() {
     );
     assert!(!html.contains("preprocessed-math"), "{html}");
     assert!(html.contains("$HOME/$USER"), "{html}");
+}
+
+#[test]
+fn a_bare_url_becomes_a_link_unless_turned_off() {
+    let source = "Visit https://example.com for info";
+    assert!(
+        render(source).contains(r#"<a href="https://example.com">https://example.com</a>"#),
+        "the default links a bare URL"
+    );
+
+    let html = render_with(
+        source,
+        RenderOptions {
+            auto_link_urls: false,
+            ..Default::default()
+        },
+    );
+    assert!(!html.contains("<a href"), "{html}");
+    assert!(html.contains("https://example.com"), "{html}");
+}
+
+#[test]
+fn a_bare_url_in_a_code_block_stays_code() {
+    let html = render("```\nhttps://example.com\n```\n");
+
+    assert!(!html.contains("<a href"), "{html}");
+}
+
+#[test]
+fn a_linked_bare_url_leaves_the_lines_around_it_where_they_were() {
+    let html = render(indoc! {"
+        # Title
+
+        https://example.com
+
+        After URL
+    "});
+
+    assert!(html.contains(r#"<h1 data-source-range="1:1-1:7">"#), "{html}");
+    assert!(html.contains(r#"<p data-source-range="3:1-3:19">"#), "{html}");
+    assert!(html.contains(r#"<p data-source-range="5:1-5:9">"#), "{html}");
 }
 
 #[test]
