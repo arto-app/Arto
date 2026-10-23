@@ -53,8 +53,11 @@ dev:
   set -euo pipefail
   root="{{justfile_directory()}}"
   cd "$root/frontend"
-  # Respect VITE_OUT_DIR so the existence check matches where Vite writes.
-  dist="${VITE_OUT_DIR:-$root/crates/arto/assets/frontend}"
+  # VITE_OUT_DIR moves Vite's output off dist/ and turns off the copies into
+  # the crates, which is what the Nix build wants. The app runs on its own
+  # copy, so with it set the loop would watch a bundle the app never sees.
+  unset VITE_OUT_DIR
+  dist="$root/crates/arto/assets/frontend"
   if [ ! -f "$dist/main.js" ] || [ ! -f "$dist/main.css" ]; then
     echo "Building frontend bundle..."
     pnpm exec vite build --mode development --minify false
