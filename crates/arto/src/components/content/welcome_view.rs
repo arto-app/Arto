@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use rust_i18n::t;
 use std::path::PathBuf;
 
-use crate::bookmarks::{BOOKMARKS, BOOKMARKS_CHANGED};
+use crate::bookmarks::BOOKMARKS;
 use crate::components::document_name::DocumentName;
 use crate::components::icon::{Icon, IconName};
 use crate::state::{AppState, Face};
@@ -31,7 +31,7 @@ pub fn WelcomeView() -> Element {
     // window, a folder starred in this one.
     use_future(move || async move {
         let mut visited = VISITS_CHANGED.subscribe();
-        let mut bookmarked = BOOKMARKS_CHANGED.subscribe();
+        let mut bookmarked = BOOKMARKS.subscribe();
         loop {
             let changed = tokio::select! {
                 result = visited.recv() => result.is_ok(),

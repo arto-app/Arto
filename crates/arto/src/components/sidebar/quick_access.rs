@@ -11,7 +11,7 @@ use dioxus::prelude::*;
 use rust_i18n::t;
 use std::path::PathBuf;
 
-use crate::bookmarks::{move_bookmark, BOOKMARKS, BOOKMARKS_CHANGED};
+use crate::bookmarks::{move_bookmark, BOOKMARKS};
 use crate::components::document_name::DocumentName;
 use crate::components::icon::{Icon, IconName};
 use crate::components::reorder::{drop_class, drop_side, DragRow};
@@ -65,7 +65,7 @@ pub fn StarredFace() -> Element {
     let mut drop_target = use_signal(|| None::<DragRow>);
 
     use_future(move || async move {
-        let mut rx = BOOKMARKS_CHANGED.subscribe();
+        let mut rx = BOOKMARKS.subscribe();
         while rx.recv().await.is_ok() {
             starred.set(load_starred());
         }

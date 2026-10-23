@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 use rust_i18n::t;
 use std::path::PathBuf;
 
-use crate::bookmarks::{toggle_bookmark, BOOKMARKS, BOOKMARKS_CHANGED};
+use crate::bookmarks::{toggle_bookmark, BOOKMARKS};
 use crate::components::icon::{Icon, IconName};
 
 /// Reusable bookmark toggle button
@@ -17,11 +17,11 @@ pub fn BookmarkButton(
     size: u32,
 ) -> Element {
     // Re-render trigger for bookmark changes from other windows/components.
-    // When BOOKMARKS_CHANGED fires, toggling this signal causes a re-render,
+    // When BOOKMARKS announces a change, toggling this signal causes a re-render,
     // which re-evaluates `is_bookmarked` below with the current `path` prop.
     let mut bookmark_dirty = use_signal(|| false);
     use_future(move || async move {
-        let mut rx = BOOKMARKS_CHANGED.subscribe();
+        let mut rx = BOOKMARKS.subscribe();
         while rx.recv().await.is_ok() {
             bookmark_dirty.set(!bookmark_dirty());
         }
