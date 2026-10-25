@@ -251,7 +251,7 @@ jobs:
       - uses: raven-actions/actionlint@v2
       # Policy in .github/zizmor.yml. Findings below "low" are advice
       # (self-repository syntax, superfluous actions), not failures.
-      - uses: zizmorcore/zizmor-action@v0.6.4
+      - uses: zizmorcore/zizmor-action@v0.7.1
         with:
           advanced-security: false
           min-severity: low
