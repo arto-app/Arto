@@ -3170,9 +3170,9 @@ dependencies = [
 
 [[package]]
 name = "interprocess"
-version = "2.4.5"
+version = "2.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe388dd743f24e2e350318bd4bc67b2ab99599c2c63076cd9397293206779186"
+checksum = "7529951166d4dd4d2a6b9f0bb97919b810623f75eeb76e81ee9e6644886cae37"
 dependencies = [
  "doctest-file",
  "libc",
@@ -3471,9 +3471,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.190"
+version = "0.2.191"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce5d3ddc6d3fa000eb1536d85e147bfe31aacaba692ed6a876f95cb7c855be78"
+checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
 
 [[package]]
 name = "libfuzzer-sys"
@@ -4427,27 +4427,27 @@ dependencies = [
 
 [[package]]
 name = "ox_content_allocator"
-version = "3.3.0"
+version = "3.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b55eaae545ee1de89c6a13e43c46c558fbe5fdea09e17dd4a401824cb4789d01"
+checksum = "001a8a90a7bcc95ace55663b18fe55ae9f3db18aed2c026e364dd132c5dbd66d"
 dependencies = [
  "bumpalo",
 ]
 
 [[package]]
 name = "ox_content_ast"
-version = "3.3.0"
+version = "3.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6312d5a1fe26cc8d4ea71d96d6b37b919a1c4057c1751483024f765715a9f687"
+checksum = "7033c252ffb9d607b07d7cf044366acb241374dca7e08e787a34208b877d380a"
 dependencies = [
  "ox_content_allocator",
 ]
 
 [[package]]
 name = "ox_content_parser"
-version = "3.3.0"
+version = "3.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c484f517d74ae9dd594495f82a4a930e5064554bd6d76235231567d85b347f21"
+checksum = "b3e3c69333a6e547f8821e9c1bb95af58895a1f2939ce11be7fbe519a890c015"
 dependencies = [
  "compact_str",
  "memchr",
@@ -4460,9 +4460,9 @@ dependencies = [
 
 [[package]]
 name = "ox_content_renderer"
-version = "3.3.0"
+version = "3.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5299230624f766bac6feb491c2708b1eb90edc762f9a5aa92869a47ea84f9545"
+checksum = "ba12360964acaaa4318ae6639ebe0b29b566df529a7420ad066d6de46d06fced"
 dependencies = [
  "compact_str",
  "memchr",
