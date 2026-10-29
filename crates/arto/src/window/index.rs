@@ -10,6 +10,7 @@ pub fn build_custom_index(theme: Theme) -> String {
     <!DOCTYPE html>
     <html lang="{lang}" data-theme="{resolved}">
         <head>
+            <meta charset="utf-8">
             <title>Arto</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
             <!-- CUSTOM HEAD -->
@@ -31,6 +32,7 @@ fn build_viewer_window_index(title: &str, body_class: &str, theme: Theme) -> Str
     <!DOCTYPE html>
     <html lang="{lang}" data-theme="{resolved}">
         <head>
+            <meta charset="utf-8">
             <title>{title} - Arto</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <!-- CUSTOM HEAD -->
@@ -105,6 +107,29 @@ mod tests {
             build_preferences_window_index(Theme::Light),
         ] {
             assert!(index.contains(&lang), "no {lang}: {index:.200}");
+        }
+    }
+
+    /// The protocol serves the page as `text/html` with no charset, so
+    /// without a declaration WebKit decodes it in the system's legacy
+    /// encoding — Shift_JIS on a Japanese Mac — and the translated title and
+    /// the frontend's catalog in the head come out garbled. The declaration
+    /// counts only within the first 1024 bytes, ahead of any of that text.
+    #[test]
+    fn every_window_declares_utf8_before_any_text() {
+        let charset = r#"<meta charset="utf-8">"#;
+        for index in [
+            build_custom_index(Theme::Light),
+            build_mermaid_window_index(Theme::Light),
+            build_math_window_index(Theme::Light),
+            build_image_window_index(Theme::Light),
+            build_preferences_window_index(Theme::Light),
+        ] {
+            let at = index.find(charset);
+            assert!(
+                at.is_some_and(|at| at < 1024 && at < index.find("<title>").unwrap()),
+                "no leading {charset}: {index:.200}"
+            );
         }
     }
 }
