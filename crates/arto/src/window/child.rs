@@ -232,14 +232,7 @@ pub fn open_or_focus_mermaid_window(source: String, theme: Theme) {
     let parent_id = window().id();
 
     if try_focus_or_mark_pending(&diagram_id, parent_id) {
-        let dom = VirtualDom::new_with_props(
-            MermaidWindow,
-            MermaidWindowProps {
-                source,
-                diagram_id: diagram_id.clone(),
-                theme,
-            },
-        );
+        let dom = VirtualDom::new_with_props(MermaidWindow, MermaidWindowProps { source, theme });
         let config = with_asset_protocol(Config::new())
             .with_menu(None)
             .with_window(super::icon::apply_app_icon(

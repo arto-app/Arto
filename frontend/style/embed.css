@@ -18,6 +18,7 @@
 @import url("./components/content/markdown-viewer.css");
 @import url("./components/content/footnotes.css");
 @import url("./components/content/code-copy.css");
+@import url("./components/content/mermaid.css");
 @import url("./components/mermaid-window.css");
 @import url("./components/math-window.css");
 

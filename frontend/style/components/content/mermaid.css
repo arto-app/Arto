@@ -1,0 +1,33 @@
+/* Mermaid diagrams, drawn by Pele, in the theme's colours.
+
+   Pele names every colour as a variable, so a diagram follows a theme change
+   with the rest of the document. The inks for a fill the author chose are
+   the exception: which one a label gets depends on that fill, not on the
+   theme, so they stay fixed. */
+.pele {
+  --pele-bg: var(--bgColor-default);
+  --pele-fg: var(--fgColor-default);
+  --pele-fg-on-light: #1f2328;
+  --pele-fg-on-dark: #e6edf3;
+  --pele-muted: var(--fgColor-muted);
+  --pele-line: var(--fgColor-default);
+  --pele-surface: var(--bgColor-muted);
+  --pele-surface-alt: var(--bgColor-inset);
+  --pele-border: var(--borderColor-default);
+  --pele-accent: var(--bgColor-accent-emphasis);
+  --pele-critical: var(--bgColor-danger-emphasis);
+  --pele-error: var(--fgColor-danger);
+  --pele-radius: var(--borderRadius-medium);
+
+  /* Text drawn on a series colour is the page's background, so the series
+     are the theme's foreground inks, which keep their contrast with it in
+     every theme, the colour-vision ones included. */
+  --pele-series-1: var(--fgColor-accent);
+  --pele-series-2: var(--fgColor-success);
+  --pele-series-3: var(--fgColor-attention);
+  --pele-series-4: var(--fgColor-danger);
+  --pele-series-5: var(--fgColor-done);
+  --pele-series-6: var(--fgColor-severe);
+  --pele-series-7: var(--fgColor-sponsors);
+  --pele-series-8: var(--fgColor-muted);
+}

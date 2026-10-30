@@ -4,7 +4,7 @@
  * The app carries all three in its own bundle and hands them over as it
  * starts. A standalone page cannot: it embeds the frontend inline, so every
  * byte is paid again by every page written and every Quick Look preview, and
- * mermaid alone is three quarters of the bundle. The page bundle therefore
+ * together they are many times the runtime. The page bundle therefore
  * leaves them out, and `arto-page` appends the ones the document actually
  * calls for — each a bundle of its own that registers what it carries here.
  *
@@ -32,7 +32,8 @@ declare global {
   }
 }
 
-export type MermaidLibrary = typeof import("mermaid").default;
+/** Pele, which draws Mermaid's syntax; a renderer needs nothing of it but `render`. */
+export type MermaidLibrary = Pick<typeof import("pele"), "render">;
 export type KatexLibrary = typeof import("katex").default;
 export type Html2CanvasLibrary = typeof import("html2canvas").default;
 export type HljsLibrary = typeof import("highlight.js").default;

@@ -61,9 +61,6 @@ export function render(viewer: Element): void {
   viewers.add(viewer);
   viewer.classList.add(VIEWER);
   viewer.setAttribute("data-theme", theme);
-  // The diagrams take their colours from the tokens the viewer resolves, and
-  // those only exist once the theme is named on it.
-  mermaidRenderer.setTheme(theme, viewer);
   draw(viewer);
 }
 
@@ -79,34 +76,15 @@ function draw(viewer: Element): void {
  * Paint every viewer rendered so far, and every one rendered after, in
  * `theme` — one of GitHub's theme names, as `config.json` spells them.
  *
- * Resolves once the diagrams are queued to be drawn again: their colours are
- * baked into the SVG, so they cannot follow the stylesheet the way the rest
- * of the document does.
+ * The diagrams follow the stylesheet like the rest of the document, so
+ * nothing is drawn again. A promise all the same: the script API returns
+ * one, and a host may await it.
  */
-export async function setTheme(next: Theme): Promise<void> {
+export function setTheme(next: Theme): Promise<void> {
   theme = next;
-  const live = liveViewers();
-  for (const viewer of live) {
+  for (const viewer of liveViewers()) {
     viewer.setAttribute("data-theme", theme);
     applyPictureTheme(viewer, theme);
   }
-  if (live.length === 0) {
-    return;
-  }
-
-  // A diagram being drawn when the theme changed lands in the old colours
-  // and marks itself drawn; let those finish, so they are redrawn too.
-  await viewportQueue.idle();
-  mermaidRenderer.setTheme(theme, live[0]);
-  for (const viewer of live) {
-    for (const block of viewer.querySelectorAll<HTMLElement>(
-      "pre.preprocessed-mermaid[data-rendered]",
-    )) {
-      block.innerHTML = "";
-      block.removeAttribute("data-rendered");
-      block.removeAttribute("data-copy-button-added");
-    }
-    void mermaidRenderer.renderDiagrams(viewer);
-    codeCopy.addCopyButtons(viewer);
-  }
+  return Promise.resolve();
 }

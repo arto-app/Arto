@@ -53,16 +53,13 @@ function setupSpecialBlockListeners(markdownBody: Element): void {
 
 class RenderCoordinator {
   #rafId: number | null = null;
-  /** The Mermaid re-theme pass in flight, so a second ask joins the first. */
-  #mermaidPass: Promise<void> | null = null;
   /**
    * How many batch renders are in flight.
    *
    * A count rather than a flag: a batch render spans several frames now that
    * it waits for the blocks on screen to be drawn, which is long enough for a
-   * theme change to start a Mermaid re-render inside that window. With a flag
-   * the inner render's completion would drop the guard while the outer one is
-   * still writing.
+   * second render to start inside that window. With a flag the inner render's
+   * completion would drop the guard while the outer one is still writing.
    */
   #batchDepth = 0;
   /** Whether the viewport queue is drawing a block right now. */
@@ -261,90 +258,6 @@ class RenderCoordinator {
       } catch (error) {
         console.error("RenderCoordinator: Error in render complete callback:", error);
       }
-    }
-  }
-
-  /**
-   * Draw every Mermaid diagram again, in the theme that is current now.
-   *
-   * Resolves once the diagrams have been queued again, which is what the
-   * print path has to wait for: it clears them here and drains the queue
-   * next, and a clear whose re-queue has not happened yet would be drained
-   * as nothing at all.
-   */
-  forceRenderMermaid(): Promise<void> {
-    const markdownBodies = document.querySelectorAll(PAGE_BODIES);
-    if (markdownBodies.length === 0) {
-      return Promise.resolve();
-    }
-
-    this.#clearDrawnDiagrams();
-    return this.#scheduleMermaidRender();
-  }
-
-  /** Throw away every drawn diagram, so the next pass draws them again. */
-  #clearDrawnDiagrams(): void {
-    const markdownBodies = document.querySelectorAll(PAGE_BODIES);
-
-    markdownBodies.forEach((markdownBody) => {
-      markdownBody.querySelectorAll("pre.preprocessed-mermaid[data-rendered]").forEach((el) => {
-        const element = el as HTMLElement;
-
-        // Clear the rendered content and copy button flag
-        element.innerHTML = "";
-        element.removeAttribute("data-rendered");
-        element.removeAttribute("data-copy-button-added");
-      });
-    });
-  }
-
-  #scheduleMermaidRender(): Promise<void> {
-    if (this.#mermaidPass !== null) {
-      return this.#mermaidPass;
-    }
-
-    this.#mermaidPass = new Promise<void>((settled) => {
-      this.#rafId = requestAnimationFrame(async () => {
-        this.#rafId = null;
-        try {
-          // A job that was already drawing a diagram when the theme changed
-          // finishes by writing it in the theme being replaced and marking it
-          // drawn, which would make the pass below skip it. Let those land,
-          // then throw them away too.
-          await viewportQueue.idle();
-          this.#clearDrawnDiagrams();
-          await this.#runMermaidPass();
-        } finally {
-          this.#mermaidPass = null;
-          settled();
-        }
-      });
-    });
-    return this.#mermaidPass;
-  }
-
-  async #runMermaidPass(): Promise<void> {
-    const markdownBodies = document.querySelectorAll(PAGE_BODIES);
-    if (markdownBodies.length === 0) {
-      return;
-    }
-
-    this.#batchDepth++;
-    try {
-      await Promise.all(
-        Array.from(markdownBodies).map(async (markdownBody) => {
-          await mermaidRenderer.renderDiagrams(markdownBody);
-          // Re-add copy buttons after Mermaid re-render
-          codeCopy.addCopyButtons(markdownBody);
-          setupSpecialBlockListeners(markdownBody);
-        }),
-      );
-      console.debug("RenderCoordinator: Mermaid re-render completed");
-    } catch (error) {
-      console.error("RenderCoordinator: Error during Mermaid re-render:", error);
-    } finally {
-      this.#batchDepth--;
-      this.#processPendingMutations();
     }
   }
 

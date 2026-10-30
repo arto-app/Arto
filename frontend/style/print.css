@@ -117,8 +117,8 @@
     page-break-inside: avoid;
   }
 
-  /* Mermaid emits SVGs with width="100%" capped by an inline max-width
-     of the diagram's natural size, so the width already fits the page.
+  /* A diagram's SVG is capped at the width of its block by an inline
+     max-width, so the width already fits the page.
      Cap the height to one A4 page (297mm minus print margins and some
      slack); the intrinsic aspect ratio then shrinks the width to match,
      so tall diagrams scale down instead of being cut at a page break. */

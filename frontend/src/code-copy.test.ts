@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
-import { writeTextToClipboard, writeImageToClipboard } from "./code-copy";
+import { convertSvgToDataUrl, writeTextToClipboard, writeImageToClipboard } from "./code-copy";
 
 /** Replace `navigator.clipboard`, which is read-only on the real object. */
 function stubClipboard(clipboard: unknown): void {
@@ -84,5 +84,34 @@ describe("writeImageToClipboard", () => {
 
   test("rejects when neither is available, so the button reports failure", async () => {
     await expect(writeImageToClipboard(blob, dataUrl)).rejects.toThrow();
+  });
+});
+
+describe("convertSvgToDataUrl", () => {
+  function decoded(dataUrl: string): string {
+    const base64 = dataUrl.replace(/^data:image\/svg\+xml;base64,/, "");
+    return decodeURIComponent(escape(atob(base64)));
+  }
+
+  test("an image of a diagram carries the colours the page resolved for it", () => {
+    document.body.innerHTML = `<style>.pele { --pele-bg: #0d1117; --pele-fg: #f0f6fc; }</style>
+      <svg xmlns="http://www.w3.org/2000/svg" class="pele" viewBox="0 0 10 10"
+        style="--_bg:var(--pele-bg,#fff);--_fg:var(--pele-fg,#1f1f1f)"></svg>`;
+    const svg = document.querySelector("svg") as SVGSVGElement;
+
+    const image = decoded(convertSvgToDataUrl(svg, { width: 10, height: 10 }));
+
+    expect(image).toContain("--pele-bg: #0d1117");
+    expect(image).toContain("--pele-fg: #f0f6fc");
+  });
+
+  test("a variable the page leaves unset keeps the diagram's own fallback", () => {
+    document.body.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="pele" viewBox="0 0 10 10"
+        style="--_bg:var(--pele-bg,#fff)"></svg>`;
+    const svg = document.querySelector("svg") as SVGSVGElement;
+
+    const image = decoded(convertSvgToDataUrl(svg, { width: 10, height: 10 }));
+
+    expect(image).not.toContain("--pele-bg:");
   });
 });

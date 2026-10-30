@@ -90,9 +90,8 @@
 
     pre.preprocessed-mermaid {
       text-align: center;
-      /* Override the Markdown stylesheet pre rules (12px/1em) to match
-         Mermaid themeVariables.fontSize so text measurement and rendering
-         use the same font-size context */
+      /* Override the Markdown stylesheet pre rules (12px/1em): Pele sets the
+         labels in the size of the block it draws in */
       font-size: var(--font-size-base);
     }
   }

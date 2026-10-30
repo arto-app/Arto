@@ -1,11 +1,12 @@
 /**
  * A Mermaid diagram made safe to show in a link's preview.
  *
- * The page draws with `securityLevel: "loose"`, which writes a diagram's
- * `click` links and HTML labels as the source asks. On the page that is the
- * reader's own document; in a preview it is another's, put up because the
- * pointer rested on a link, so nothing in it may run. What it shows — images
- * included — is left as drawn.
+ * Pele writes a diagram's `click` links as the source asks, a path relative to
+ * the document included. On the page that is the reader's own document; in a
+ * preview it is another's, put up because the pointer rested on a link, so a
+ * link may only go where the diagram meant and nothing in it may run. That is
+ * checked here rather than trusted to the renderer, which has its own idea of
+ * a safe link. What it shows — images included — is left as drawn.
  */
 
 /** Elements that are there to run or embed something. */
@@ -53,7 +54,7 @@ function clean(el: Element): void {
 }
 
 /**
- * The diagram in Mermaid's `markup`, with everything that would run taken
+ * The diagram in Pele's `markup`, with everything that would run taken
  * out, ready to be put on the page; `null` when the markup holds no diagram.
  *
  * Parsed into a document of its own, where nothing runs, and cleaned there

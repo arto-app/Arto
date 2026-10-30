@@ -20,8 +20,7 @@ vi.mock("./content-cursor", () => ({ getCurrentElement: () => cursor.element }))
 const libraries = vi.hoisted(() => ({
   katex: { renderToString: (tex: string) => `<span class="katex">${tex}</span>` },
   mermaid: {
-    initialize: () => {},
-    render: vi.fn<(id: string, source: string, container: Element) => Promise<{ svg: string }>>(),
+    render: vi.fn<(source: string, options: object) => { svg: string }>(),
   },
 }));
 vi.mock("./libraries", () => ({
@@ -422,7 +421,7 @@ describe("hover", () => {
 
     beforeEach(() => {
       libraries.mermaid.render.mockReset();
-      placement.placePopover.mockClear();
+      placement.placePopover.mockReset();
     });
 
     test("the preview is drawn apart from the page, which leaves it to the preview", () => {
@@ -441,41 +440,21 @@ describe("hover", () => {
       expect(body.querySelector("pre.preprocessed-math .katex")?.textContent).toBe("\\sum");
     });
 
-    test("a diagram is drawn in the preview, which is placed again for its new size", async () => {
-      libraries.mermaid.render.mockResolvedValue({ svg: DRAWN });
+    test("a diagram is drawn in the preview before the card is placed for its size", () => {
+      libraries.mermaid.render.mockReturnValue({ svg: DRAWN });
+      const drawnWhenPlaced: boolean[] = [];
+      placement.placePopover.mockImplementation((card: HTMLElement) => {
+        drawnWhenPlaced.push(card.querySelector("pre.preprocessed-mermaid svg") !== null);
+      });
+
       previewDocument(DIAGRAM);
-      const placedBefore = placement.placePopover.mock.calls.length;
 
-      await vi.runAllTimersAsync();
-
-      const block = previewBody().querySelector("pre.preprocessed-mermaid");
-      expect(libraries.mermaid.render).toHaveBeenCalledWith(
-        expect.any(String),
-        "flowchart LR",
-        expect.any(Element),
-      );
-      expect(block?.querySelector("svg")).not.toBeNull();
-      expect(placement.placePopover.mock.calls.length).toBeGreaterThan(placedBefore);
-    });
-
-    test("a diagram drawn after its preview was put away is not put anywhere", async () => {
-      let finish: (value: { svg: string }) => void = () => {};
-      libraries.mermaid.render.mockReturnValue(new Promise((resolve) => (finish = resolve)));
-      previewDocument(DIAGRAM);
-      const block = previewBody().querySelector("pre.preprocessed-mermaid") as HTMLElement;
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-      const placedBefore = placement.placePopover.mock.calls.length;
-
-      finish({ svg: DRAWN });
-      await vi.runAllTimersAsync();
-
-      expect(block.querySelector("svg")).toBeNull();
-      expect(block.textContent).toBe("flowchart LR");
-      expect(placement.placePopover.mock.calls.length).toBe(placedBefore);
+      expect(libraries.mermaid.render).toHaveBeenCalledWith("flowchart LR", expect.any(Object));
+      expect(drawnWhenPlaced[drawnWhenPlaced.length - 1]).toBe(true);
     });
 
     test("a preview draws a few diagrams and shows the rest as their source", async () => {
-      libraries.mermaid.render.mockResolvedValue({ svg: DRAWN });
+      libraries.mermaid.render.mockReturnValue({ svg: DRAWN });
       previewDocument(`<blockquote>${DIAGRAM.repeat(MAX_PREVIEW_DIAGRAMS + 2)}</blockquote>`);
 
       await vi.runAllTimersAsync();
@@ -487,7 +466,7 @@ describe("hover", () => {
     });
 
     test("a diagram's script link is taken out before it is shown", async () => {
-      libraries.mermaid.render.mockResolvedValue({
+      libraries.mermaid.render.mockReturnValue({
         svg: `<svg xmlns="http://www.w3.org/2000/svg" id="mermaid-1"><a href="javascript:alert(1)"><text>A</text></a></svg>`,
       });
       previewDocument(DIAGRAM);
@@ -500,7 +479,7 @@ describe("hover", () => {
     });
 
     test("a diagram the page has drawn is drawn afresh from its source", async () => {
-      libraries.mermaid.render.mockResolvedValue({ svg: DRAWN });
+      libraries.mermaid.render.mockReturnValue({ svg: DRAWN });
       page(`<p><a href="#later">later</a></p><h2 id="later">Later</h2>
         <pre class="preprocessed-mermaid" data-original-content="flowchart LR" data-rendered="true"><svg id="mermaid-9"></svg></pre>`);
       hover(document.querySelector('a[href="#later"]') as Element);
@@ -508,11 +487,7 @@ describe("hover", () => {
 
       await vi.runAllTimersAsync();
 
-      expect(libraries.mermaid.render).toHaveBeenCalledWith(
-        expect.any(String),
-        "flowchart LR",
-        expect.any(Element),
-      );
+      expect(libraries.mermaid.render).toHaveBeenCalledWith("flowchart LR", expect.any(Object));
       expect(previewBody().querySelector('svg[id="mermaid-1"]')).not.toBeNull();
       expect(document.querySelectorAll("svg")).toHaveLength(2);
     });
