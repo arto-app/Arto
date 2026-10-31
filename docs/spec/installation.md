@@ -6,7 +6,8 @@ them.
 
 ## macOS
 
-Install with the [Homebrew] tap. Arto is not signed or notarized with an Apple
+Releases are built for Apple silicon Macs. Install with the [Homebrew] tap.
+Arto is not signed or notarized with an Apple
 Developer ID, so the cask removes the quarantine attribute that would otherwise
 stop macOS from opening it — see [homebrew-tap] for why.
 
@@ -65,8 +66,9 @@ does: the app renders offline.
 
 ## A single binary
 
-Every release also carries the application as one executable, for Linux and
-Windows, when a package is more ceremony than you want. Download the one for
+A release also carries the application as one executable, for Linux and
+Windows when their build succeeds (see [Platform support](#platform-support)),
+when a package is more ceremony than you want. Download the one for
 your machine from the [releases] page and run it from wherever you put it —
 the stylesheet, the scripts and the icons are compiled into it, so there is
 nothing to install beside it.
@@ -78,14 +80,14 @@ chmod +x arto-linux-x86_64
 
 It is the same application, without what an installer arranges around it: no
 menu entry, no file associations, and no `arto` on your `PATH` unless you put
-it there. The Linux binary still needs WebKitGTK 4.1 on the system, exactly as
-the `.deb` and the AppImage do.
+it there. The Linux binary still needs WebKitGTK 4.1 on the system, as the
+`.deb` and the AppImage do, and the other system libraries the `.deb`
+declares, such as `libxdo`; the `.deb` or Nix pulls them in for you. It is
+built where the `.deb` is, so it needs the same glibc (see [Linux](#linux)).
 
-On Windows the two also differ in how they meet a terminal. The installed copy
-is a GUI program, so no command prompt opens behind a document started from
-Explorer or the Start menu. The single binary is a console program, so a shell
-waits for it — see [CLI usage](./cli.md).
-Double-click it instead and it hides the console it was given.
+On Windows the single binary is the one a shell waits for, so it is the copy
+to run from a terminal — see [CLI usage](./cli.md). Double-clicked, it hides
+the console it was given.
 
 Both carry the Microsoft C runtime inside them, so neither asks for the Visual
 C++ redistributable to be installed first.
@@ -95,7 +97,9 @@ carries the Finder associations and the Quick Look preview.
 
 ## Nix
 
-[Nix] works on both macOS and Linux. To try Arto without installing it:
+[Nix] works on Apple silicon Macs and on Linux. The app bundle it builds on
+macOS has no Quick Look preview; install with Homebrew for that. To try Arto
+without installing it:
 
 ```sh
 nix run github:arto-app/Arto
@@ -124,7 +128,7 @@ nix run github:arto-app/Arto#arto-page -- README.md > README.html
 
 | Platform | Status |
 | --- | --- |
-| macOS | Supported. Developed and tested here, and the only platform with Quick Look integration. |
+| macOS | Supported on Apple silicon. Developed and tested here, and the only platform with Quick Look integration. |
 | Linux | Experimental. Builds are published and CI runs the test suite, but the desktop integration gets far less real use. |
 | Windows | Experimental. CI builds and tests it, and a release carries an installer and a single binary when that build succeeds, but almost nobody runs it. |
 
@@ -135,10 +139,18 @@ Bug reports for the experimental platforms are welcome, and so are PRs.
 Launch Arto to see the welcome screen, which lists the keyboard shortcuts and
 how to get started.
 
-Homebrew, the `.deb` and Nix also put an `arto` command on your `PATH`. The
-AppImage and the single binary do not — each is one self-contained file, so run
-it by its own path instead. Either way, see [CLI usage](./cli.md) for what you
-can hand it.
+What each way of installing gives you:
+
+| Installed with | `arto` on `PATH` | Menu entry and file associations | Needs on the system |
+| --- | --- | --- | --- |
+| Homebrew (macOS) | yes | yes, with Quick Look | — |
+| `.deb` | yes | yes | WebKitGTK 4.1, pulled in by `apt` |
+| AppImage | no — run it by its path | no | WebKitGTK 4.1 |
+| Windows installer | no | yes | WebView2, fetched by the installer |
+| Single binary | no — run it by its path | no | Linux: WebKitGTK 4.1 and the libraries the `.deb` declares; Windows: WebView2 |
+| Nix | yes | macOS: the app bundle, without Quick Look; Linux: no | — |
+
+See [CLI usage](./cli.md) for what you can hand the `arto` command.
 
 [Homebrew]: https://brew.sh/
 [homebrew-tap]: https://github.com/arto-app/homebrew-tap
