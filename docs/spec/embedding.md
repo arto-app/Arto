@@ -36,13 +36,26 @@ The fragment `arto-markdown` renders goes inside a viewer element:
 The stylesheet is loaded, then the runtime, then the library bundles the
 fragment needs.
 
+```mermaid
+sequenceDiagram
+    participant H as Host
+    participant M as arto-markdown
+    participant F as arto-frontend
+    H->>M: render the Markdown
+    M-->>H: the HTML fragment
+    H->>F: Libraries::for_fragment
+    F-->>H: the bundles it needs
+    Note over H: load STYLESHEET, RUNTIME,<br/>then those bundles
+    H->>H: ArtoRenderer.render(viewer)
+```
+
 ## The stylesheet stays in the viewer
 
 Every rule of `STYLESHEET` applies inside an element of class
 `markdown-viewer` and nowhere else. The design tokens are declared on that
 element and the theme is named on it, so a `data-theme` or a custom property
 the host declares on its own root is left alone, and nothing outside the
-viewer is restyled. The host.s own rules still reach into the viewer, as they
+viewer is restyled. The host's own rules still reach into the viewer, as they
 reach any element of its page.
 
 The viewer is painted as Arto paints the page around a document: its padding,
@@ -52,21 +65,27 @@ like any other style.
 ## The script API
 
 `window.ArtoRenderer.render(viewer)` draws what the fragment inside `viewer`
-leaves to script. It names the current theme on `viewer` and gives it the
+leaves to script, and gives each code block a button that copies it through
+the browser's clipboard. It names the current theme on `viewer` and gives it the
 class `markdown-viewer` if it does not have it. Each diagram, formula and code
 block is drawn as it comes near the visible part of the page, so a long
 document costs what is on screen.
 
 Calling `render` again on the same viewer after the host replaced its content
 — a file changed on disk — draws the new content; what was drawn already is
-left as it is. A viewer taken out of the page is forgotten.
+left as it is. A viewer taken out of the page is forgotten. The bundles the
+new content needs are the host's to load first: a fragment that gains its
+first diagram or formula needs `Libraries::for_fragment` asked again, and
+what a missing bundle would draw is left undrawn.
 
 `window.ArtoRenderer.setTheme(theme)` repaints every viewer rendered so far,
 and every one rendered after, in one of GitHub's themes, named as
 `config.json` names them (`light`, `dark_dimmed`, …). Diagrams take the new
 colours from the stylesheet like the rest of the document, so nothing is drawn
 again and the promise it returns settles at once. Until it is called, a viewer
-is painted `light`.
+is painted `light`. An image written as a `<picture>` with
+`prefers-color-scheme` sources follows this theme rather than the system's,
+in `render` and in `setTheme` alike.
 
 The runtime does nothing until `render` is called and touches nothing outside
 the viewers it was handed: no keyboard handler, no scrolling, no observer of
@@ -77,7 +96,12 @@ the host's document.
 Links, images and source positions stay as `arto-markdown` writes them: a
 document link is a `span.md-link` with its `data-md-link`, a block carries its
 `data-source-range`, and images resolved with `ImageResolution::Deferred` are
-for the host to serve. Clicking a diagram, a formula or an image opens nothing.
+for the host to serve. A document link pressed with the left or middle button
+calls `window.handleMarkdownLinkClick(path, button)`, which the host defines;
+the runtime does not. `path` is the link's target as the document wrote it —
+relative to the document's own folder, fragment included — and resolving it
+is the host's. The runtime opens no viewer of its own for a diagram, a
+formula or an image; a link around one still behaves as a link.
 
 ## Compatibility
 
