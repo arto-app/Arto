@@ -1,0 +1,7 @@
+# `vitro test` runs the tests in a throwaway Windows VM: the Windows-only code
+# paths (named-pipe IPC, the hamburger menu) never compile on macOS or Linux.
+# See CONTRIBUTING.md for what the machine needs.
+images = ["windows"]
+
+[image.windows]
+command = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "platform/windows/vitro.ps1", "just", "test"]

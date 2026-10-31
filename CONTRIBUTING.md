@@ -69,6 +69,37 @@ just install
 
 The binary will be available at `target/release/arto` or `target/dx/arto/bundle/macos/bundle/`.
 
+## Trying Windows in a VM
+
+Code behind `cfg(windows)` never compiles on macOS or Linux. [vitro] runs it
+in a throwaway Windows VM from a golden image of your own, built once with
+`vitro build windows` and provisioned with Git, the MSVC build tools, LLVM and
+Rust (vitro's `examples/provision/windows-devtools.ps1` does that).
+`platform/windows/vitro.ps1` adds the rest — Node with pnpm, just, and Git's
+bash — to every VM before running a command.
+
+```bash
+# The tests, in a VM that is destroyed afterwards (see vitro.toml)
+vitro test
+
+# The app itself, in a VM that stays up
+vitro run windows
+vitro exec --sync . windows powershell -ExecutionPolicy Bypass \
+  -File platform/windows/vitro.ps1 just standalone
+vitro wait --desktop windows
+vitro launch windows 'C:\Users\dev\Arto\target\aarch64-pc-windows-msvc\release\arto.exe'
+vitro screenshot windows
+vitro destroy windows
+```
+
+`--sync` copies the checkout to a directory of the same name in the guest's
+home, so `dev` above is your image's `ssh_user` and `Arto` the name of your
+checkout. `launch` does not start in that home, so the path has to be
+absolute. On an x86_64 host the binary is under `target\x86_64-pc-windows-msvc`
+instead.
+
+[vitro]: https://github.com/lambdalisue/vitro
+
 ## Project Structure
 
 ```
