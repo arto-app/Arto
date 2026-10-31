@@ -197,7 +197,7 @@ export interface ArtoApi {
     hide: typeof linkPreview.hide;
   };
   print: {
-    /** Switch to the light theme for printing; resolves after Mermaid re-renders. */
+    /** Switch to the light theme for printing; resolves once everything is drawn. */
     prepare: () => Promise<void>;
     /**
      * Draw everything the reader never scrolled to, and nothing else.

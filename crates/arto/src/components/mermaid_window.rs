@@ -14,8 +14,6 @@ use crate::theme::Theme;
 pub struct MermaidWindowProps {
     /// Mermaid source code
     pub source: String,
-    /// Unique diagram identifier (hash)
-    pub diagram_id: String,
     /// Initial theme
     pub theme: Theme,
 }
@@ -35,10 +33,7 @@ pub fn MermaidWindow(props: MermaidWindowProps) -> Element {
         spawn_viewer_init(
             "mermaid",
             "initMermaidWindow",
-            vec![
-                serde_json::to_string(&props.source).unwrap_or_default(),
-                serde_json::to_string(&props.diagram_id).unwrap_or_default(),
-            ],
+            vec![serde_json::to_string(&props.source).unwrap_or_default()],
         );
     });
 

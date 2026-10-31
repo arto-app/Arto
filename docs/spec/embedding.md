@@ -12,14 +12,14 @@ links and its theme stay its own.
 
 - `STYLESHEET`, the styles of a rendered document;
 - `RUNTIME`, the script that draws it, published as `window.ArtoRenderer`;
-- the library bundles: Mermaid, KaTeX, and highlight.js in a common and a
-  complete build;
+- the library bundles: Pele, which draws Mermaid diagrams, KaTeX, and
+  highlight.js in a common and a complete build;
 - `Libraries::for_fragment`, which names the bundles a rendered fragment
   needs, and `Libraries::scripts`, which yields them in the order to load
   them.
 
 The library bundles are the ones `arto page` and Quick Look embed, and the
-crate is versioned with `arto-markdown`. A document that draws no diagram needs no Mermaid, one that
+crate is versioned with `arto-markdown`. A document that draws no diagram needs no Pele, one that
 sets no formula needs no KaTeX, and the complete highlight.js is needed only
 for a language outside the common build.
 
@@ -63,9 +63,10 @@ left as it is. A viewer taken out of the page is forgotten.
 
 `window.ArtoRenderer.setTheme(theme)` repaints every viewer rendered so far,
 and every one rendered after, in one of GitHub's themes, named as
-`config.json` names them (`light`, `dark_dimmed`, …). Its promise settles
-once the diagrams are queued to be drawn again in the new colours. Until it is
-called, a viewer is painted `light`.
+`config.json` names them (`light`, `dark_dimmed`, …). Diagrams take the new
+colours from the stylesheet like the rest of the document, so nothing is drawn
+again and the promise it returns settles at once. Until it is called, a viewer
+is painted `light`.
 
 The runtime does nothing until `render` is called and touches nothing outside
 the viewers it was handed: no keyboard handler, no scrolling, no observer of

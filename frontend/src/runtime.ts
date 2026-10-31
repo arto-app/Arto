@@ -6,7 +6,6 @@ import { setupRowHover } from "./row-hover";
 import { setupScrollbarReach } from "./scrollbar-reach";
 import { currentTheme } from "./theme";
 import { setCurrentTheme } from "./theme-switch";
-import * as mermaidRenderer from "./mermaid-renderer";
 import { renderCoordinator } from "./render-coordinator";
 import * as keyboardInterceptor from "./keyboard-interceptor";
 import * as mouseNavigation from "./mouse-navigation";
@@ -24,7 +23,6 @@ import { forgetStep, setupFocusScrolling, stepFocus } from "./focus-mode";
 export { setCurrentTheme } from "./theme-switch";
 
 export function init(): void {
-  mermaidRenderer.init();
   renderCoordinator.init();
 
   // The header's line and the gutter's current tick both answer to where the

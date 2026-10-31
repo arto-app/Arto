@@ -47,8 +47,8 @@ pub const RUNTIME: &str = include_str!("../assets/frontend/embed.iife.js");
 
 /// Mermaid, for a fragment that draws a diagram. Load it after [`RUNTIME`].
 ///
-/// It is three quarters of the frontend by weight and it is a bundle of its
-/// own for that reason: the IIFE format cannot code-split, so the only way to
+/// It is several times the runtime by weight and it is a bundle of its own
+/// for that reason: the IIFE format cannot code-split, so the only way to
 /// leave a library out of a page is to have built it separately.
 pub const MERMAID: &str = include_str!("../assets/frontend/page-mermaid.iife.js");
 
@@ -156,7 +156,7 @@ fn sets_math(body_html: &str) -> bool {
 /// `arto-markdown` writes the container; the fenced form the renderer also
 /// accepts is looked for among the code blocks rather than anywhere in the
 /// body, because a document that merely quotes `language-mermaid` in a code
-/// sample would otherwise carry the largest bundle of them all for nothing.
+/// sample would otherwise carry a bundle several times the runtime for nothing.
 /// The name is matched as written: the renderer selects it with
 /// `code.language-mermaid`, and a class selector is case-sensitive.
 fn draws_diagram(body_html: &str) -> bool {
@@ -376,8 +376,8 @@ mod tests {
     #[test]
     fn test_a_body_that_only_quotes_the_diagram_class_carries_no_mermaid() {
         // A document showing the frontend's own contract in a code sample
-        // holds the text, not a diagram, and Mermaid is the largest bundle
-        // there is to embed by mistake.
+        // holds the text, not a diagram, and Pele is a heavy bundle to embed
+        // by mistake.
         let quoting = r#"<pre><code class="language-html">&lt;code class="language-mermaid"&gt;</code></pre>"#;
 
         assert!(!draws_diagram(quoting));

@@ -170,8 +170,6 @@ function headingById(root: ParentNode, id: string): Element | null {
 // ----------------------------------------------------------------------
 
 let popover: HTMLElement | null = null;
-/** The excerpt on show; a drawing finished after it was put away is dropped. */
-let shownBody: HTMLElement | null = null;
 /** The preview being waited for or shown. */
 let current: Preview | null = null;
 let showTimer: ReturnType<typeof setTimeout> | null = null;
@@ -218,7 +216,6 @@ export function hide(): void {
   current = null;
   due = false;
   answer = undefined;
-  shownBody = null;
   popover?.classList.remove("is-visible");
 }
 
@@ -381,8 +378,7 @@ function show(anchor: HTMLElement, { title, excerpt, open }: Shown): void {
     parts.push(more);
   }
   popover.replaceChildren(...parts);
-  shownBody = body;
-  if (excerpt) draw(body, popover, anchor);
+  if (excerpt) draw(body);
   anchor.setAttribute("aria-describedby", POPOVER_ID);
   popover.classList.add("is-visible");
   placePopover(popover, anchor);
@@ -390,17 +386,12 @@ function show(anchor: HTMLElement, { title, excerpt, open }: Shown): void {
 
 /**
  * Set the formulas and draw the diagrams of the excerpt in `body`, which
- * the page's renderers never look at.
- *
- * Formulas are set before the card is placed. A diagram is drawn later, and
- * the card is placed again for the size it has then.
+ * the page's renderers never look at. Both are done before the card is
+ * placed, so it is placed for the size it has.
  */
-function draw(body: HTMLElement, card: HTMLElement, anchor: HTMLElement): void {
+function draw(body: HTMLElement): void {
   renderMathElsewhere(body);
-  const isCurrent = (): boolean => shownBody === body;
-  void renderDiagramsElsewhere(body, isCurrent).then((drawn) => {
-    if (drawn && isCurrent()) placePopover(card, anchor);
-  });
+  renderDiagramsElsewhere(body);
 }
 
 /**

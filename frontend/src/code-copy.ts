@@ -290,11 +290,9 @@ export function findSvgElement(container: Element): SVGSVGElement {
 }
 
 /** Get SVG dimensions, preferring viewBox over getBBox.
- *  Mermaid sets viewBox to the full intended rendering area during diagram
- *  generation, whereas getBBox() returns only the tight content bounds which
- *  may be smaller (especially for Gantt charts). */
+ *  The viewBox is the area the diagram was laid out in, whereas getBBox()
+ *  returns only the tight content bounds, which leave out its padding. */
 export function getSvgDimensions(svg: SVGGraphicsElement): { width: number; height: number } {
-  // Prefer viewBox dimensions (matches mermaid-window-controller approach)
   const viewBox = svg.getAttribute("viewBox");
   if (viewBox) {
     const parts = viewBox.split(/[\s,]+/).map(Number);
@@ -342,8 +340,9 @@ export function createCanvasFromSvg(
 }
 
 /** Convert SVG element to data URL.
- *  Resolves inherited styles (e.g., font-family) so the SVG renders
- *  correctly when loaded as a standalone image. */
+ *  Resolves inherited styles (the font, and the theme's colours a diagram
+ *  names as CSS variables) so the SVG renders correctly when loaded as a
+ *  standalone image, which has no page to inherit them from. */
 export function convertSvgToDataUrl(
   svg: SVGElement,
   dimensions: { width: number; height: number },
@@ -352,15 +351,24 @@ export function convertSvgToDataUrl(
   svgClone.setAttribute("width", String(dimensions.width));
   svgClone.setAttribute("height", String(dimensions.height));
 
-  // Resolve inherited font-family from the live DOM.
-  // Mermaid uses fontFamily: "inherit" which works in-page but fails
-  // when the SVG is loaded as a standalone <img> (no parent to inherit from).
-  const computedFont = getComputedStyle(svg).fontFamily;
-  if (computedFont) {
-    svgClone.style.fontFamily = computedFont;
+  const computed = getComputedStyle(svg);
+  if (computed.fontFamily) {
+    svgClone.style.fontFamily = computed.fontFamily;
   }
 
-  const svgString = new XMLSerializer().serializeToString(svgClone);
+  // Read off the markup rather than listed here, so a variable Pele adds is
+  // carried as well. One the page leaves unset keeps the fallback the
+  // diagram names beside it.
+  const serializer = new XMLSerializer();
+  const names = new Set(serializer.serializeToString(svg).match(/--pele-[\w-]+/g));
+  for (const name of names) {
+    const value = computed.getPropertyValue(name).trim();
+    if (value) {
+      svgClone.style.setProperty(name, value);
+    }
+  }
+
+  const svgString = serializer.serializeToString(svgClone);
   const base64SVG = btoa(unescape(encodeURIComponent(svgString)));
 
   return `data:image/svg+xml;base64,${base64SVG}`;

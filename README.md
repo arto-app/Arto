@@ -109,7 +109,7 @@ Full flags and behaviour: [CLI usage](./docs/spec/cli.md).
 
 - **[Dioxus]** — the Rust UI framework the whole application is written in. Native windows, menus and state, no Electron.
 - **[ox-content]** — the Markdown engine. It renders GitHub's dialect, including autolinks, alerts, heading slugs and the tag filter, so Arto does not carry its own version of any of them.
-- **[KaTeX]** and **[Mermaid]** for math and diagrams, drawn in the page as you reach them.
+- **[KaTeX]** for math and **[Pele]** for Mermaid diagrams, drawn in the page as you reach them.
 
 ## Contributing
 
@@ -134,4 +134,4 @@ See [LICENSE](./LICENSE).
 [Dioxus]: https://dioxuslabs.com/
 [ox-content]: https://github.com/ubugeeei-prod/ox-content
 [KaTeX]: https://katex.org/
-[Mermaid]: https://mermaid.js.org/
+[Pele]: https://pele.run/

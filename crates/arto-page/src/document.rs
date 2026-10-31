@@ -202,9 +202,9 @@ mod tests {
         let plain = build_document("<p>hi</p>", &PageOptions::default());
         let diagram = build_document(DIAGRAM_BODY, &PageOptions::default());
 
-        // Mermaid is three quarters of the frontend by weight, so what a
-        // prose page saves is most of its scripts.
-        assert!(diagram.len() > plain.len() + 3_000_000);
+        // Pele is several times the page runtime by weight, so what a prose
+        // page saves is most of its scripts.
+        assert!(diagram.len() > plain.len() + 500_000);
         assert_eq!(plain.matches("<script>").count(), 2);
         assert_eq!(diagram.matches("<script>").count(), 3);
     }
@@ -292,7 +292,7 @@ mod tests {
         assert_eq!(html.matches("</script").count(), 2);
 
         // The libraries are embedded the same way and have to hold to the
-        // same rule; Mermaid is by far the largest of them.
+        // same rule; Pele is among the largest of them.
         let diagram = build_document(DIAGRAM_BODY, &PageOptions::default());
         assert_eq!(diagram.matches("</script>").count(), 3);
         assert_eq!(diagram.matches("</script").count(), 3);

@@ -1,7 +1,6 @@
-import mermaid from "mermaid";
-import { themedElement, type Theme } from "./theme";
-import { buildMermaidThemeConfig } from "./mermaid-theme";
-import { fixTextContrast } from "./mermaid-contrast";
+import { render } from "pele";
+import { themedElement } from "./theme";
+import { diagramOptions } from "./mermaid-renderer";
 import { BaseViewerController } from "./base-viewer-controller";
 
 class MermaidWindowController extends BaseViewerController {
@@ -18,13 +17,8 @@ class MermaidWindowController extends BaseViewerController {
     }
   }
 
-  async init(source: string, diagramId: string): Promise<void> {
-    // Initialize mermaid with current theme
-    const currentTheme = themedElement().getAttribute("data-theme") as Theme;
-    this.#initializeMermaidTheme(currentTheme || "light");
-
-    // Render the Mermaid diagram
-    await this.#renderDiagram(source, diagramId);
+  init(source: string): void {
+    this.#renderDiagram(source);
 
     // Setup event listeners
     this.setupEventListeners();
@@ -39,82 +33,29 @@ class MermaidWindowController extends BaseViewerController {
   }
 
   setTheme(theme: string): void {
-    // Update body theme attribute
+    // The diagram names its colours as CSS variables, so the attribute alone
+    // repaints it.
     themedElement().setAttribute("data-theme", theme);
-
-    // Re-initialize mermaid with new theme
-    this.#initializeMermaidTheme(theme as Theme);
-
-    // Re-render the diagram with new theme asynchronously
-    if (this.#diagramContainer) {
-      const source = this.#diagramContainer.getAttribute("data-mermaid-source");
-      const diagramId = this.#diagramContainer.getAttribute("data-diagram-id");
-
-      if (source && diagramId) {
-        // Re-render asynchronously without blocking
-        this.#renderDiagram(source, diagramId)
-          .then(() => {
-            // Restore zoom and position after re-render
-            this.updateTransform();
-          })
-          .catch((error) => {
-            console.error("Failed to re-render diagram:", error);
-          });
-      }
-    }
   }
 
-  #initializeMermaidTheme(theme: Theme): void {
-    const config = buildMermaidThemeConfig(theme);
-    mermaid.initialize({
-      startOnLoad: false,
-      ...config,
-      securityLevel: "loose",
-      fontFamily: "inherit",
-    });
-  }
-
-  async #renderDiagram(source: string, diagramId: string): Promise<void> {
+  #renderDiagram(source: string): void {
+    if (!this.#diagramContainer) return;
     try {
-      const { svg } = await mermaid.render(`viewer-${diagramId}`, source);
-      if (this.#diagramContainer) {
-        this.#diagramContainer.innerHTML = svg;
-
-        // Set explicit pixel dimensions for CSS zoom to work properly.
-        // Use viewBox dimensions rather than getBBox() because Mermaid's
-        // Gantt renderer sets viewBox to the full intended area ("0 0 w h")
-        // while getBBox() may return smaller content bounds, creating a
-        // mismatch between viewBox and pixel dimensions that causes the
-        // diagram to appear extremely small after zoom scaling.
-        const svgElement = this.#diagramContainer.querySelector("svg");
-        if (svgElement) {
-          // Fix text contrast for nodes with custom fill colors
-          fixTextContrast(svgElement as SVGSVGElement);
-
-          const dims = this.#getViewerDimensions(svgElement);
-          svgElement.setAttribute("width", String(dims.width));
-          svgElement.setAttribute("height", String(dims.height));
-          // Remove responsive max-width that conflicts with explicit dimensions
-          svgElement.style.removeProperty("max-width");
-        }
-
-        // Store source and ID for theme switching
-        this.#diagramContainer.setAttribute("data-mermaid-source", source);
-        this.#diagramContainer.setAttribute("data-diagram-id", diagramId);
-      }
+      // At its natural pixel size, which the window zooms from; a responsive
+      // SVG would shrink to the container instead.
+      const { svg } = render(source, {
+        ...diagramOptions(this.#diagramContainer),
+        responsive: false,
+      });
+      this.#diagramContainer.innerHTML = svg;
     } catch (error) {
-      console.error("Failed to render diagram:", error);
-      if (this.#diagramContainer) {
-        BaseViewerController.showRenderError(this.#diagramContainer, error);
-      }
+      console.warn("Failed to render diagram:", error);
+      BaseViewerController.showRenderError(this.#diagramContainer, error);
     }
   }
 
-  // Get the intended diagram dimensions from the SVG's viewBox attribute.
-  // Prefer viewBox over getBBox() because Mermaid sets viewBox to the full
-  // intended rendering area during diagram generation, whereas getBBox()
-  // returns only the tight content bounds which may be smaller (especially
-  // for Gantt charts where viewBox="0 0 w h" encompasses padding/axis area).
+  // The area the diagram was laid out in, from its viewBox: getBBox() returns
+  // only the tight content bounds, which leave out its padding.
   #getViewerDimensions(svg: SVGSVGElement): { width: number; height: number } {
     const viewBox = svg.getAttribute("viewBox");
     if (viewBox) {
@@ -174,9 +115,9 @@ declare global {
   }
 }
 
-export async function initMermaidWindow(source: string, diagramId: string): Promise<void> {
+export function initMermaidWindow(source: string): void {
   controller = new MermaidWindowController();
-  await controller.init(source, diagramId);
+  controller.init(source);
 
   // Expose globally for Rust to call
   window.mermaidWindowController = controller;
