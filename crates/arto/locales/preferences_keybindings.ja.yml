@@ -12,6 +12,18 @@ preferences:
       clear:
         name: "クリア"
         description: "すべてのキー割り当てを削除"
+      changes:
+        one: "このプリセットから %{count} 件変更"
+        other: "このプリセットから %{count} 件変更"
+      reset_all: "すべて戻す"
+    view:
+      by_action: "機能ごと"
+      by_section: "セクションごと"
+    action_list:
+      changed: "変更済み"
+      reset: "戻す"
+      add_key: "キーを追加"
+      remove_key: "%{key} を外す"
     bindings:
       title: "キー割り当て"
       filter_placeholder: "キーまたはアクションで絞り込む…"
@@ -40,4 +52,5 @@ preferences:
       also_bound: "%{binding} にも割り当てられています。どちらかがもう一方を隠します"
       overrides: "このコンテキストでは %{binding} を上書きします"
       overridden_in: "次のコンテキストで上書きされます: %{contexts}"
+      takes_from: "%{key} は「%{action}」から外れます"
       separator: "、"

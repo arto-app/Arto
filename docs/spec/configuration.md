@@ -10,11 +10,11 @@ Preferences live in `config.json` in the app config directory:
 
 The Preferences window writes this file, and it can be edited by hand as
 well: Arto reads it again when it is saved, so a change takes effect without
-a restart. Keybindings are kept apart, in `mappings.json` next to it — see
+a restart. Keybindings are kept apart, in `keys.toml` next to it — see
 [Keybindings](./keybindings.md).
 
 A save never leaves half a file behind. When `config.json` or
-`mappings.json` is a symlink — kept in a dotfiles repository and linked into
+`keys.toml` is a symlink — kept in a dotfiles repository and linked into
 place — the file it points to is the one written, its permissions are kept,
 and the link stays a link.
 
@@ -24,7 +24,7 @@ are the ones the [schema](#editor-support) marks as required.
 
 Without a `config.json`, Arto uses the defaults. A file that cannot be read
 or parsed — a typo, a missing required key, a value of the wrong type — is
-not read at all, and nothing in it applies: at launch Arto starts with the defaults, for `config.json` and `mappings.json`
+not read at all, and nothing in it applies: at launch Arto starts with the defaults, for `config.json` and `keys.toml`
 alike, and while it runs it keeps the configuration it had until the file is
 saved again in a shape it can read.
 

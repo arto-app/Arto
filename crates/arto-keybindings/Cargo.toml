@@ -18,3 +18,7 @@ keyboard-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+toml_edit.workspace = true
+
+[dev-dependencies]
+indoc.workspace = true

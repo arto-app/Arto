@@ -33,7 +33,7 @@ pub static CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
 pub static CONFIG_CHANGED_BROADCAST: LazyLock<broadcast::Sender<()>> =
     LazyLock::new(|| broadcast::channel(16).0);
 
-/// Read `config.json` and `mappings.json` again whenever either changes on
+/// Read `config.json` and `keys.toml` again whenever one of them changes on
 /// disk, and tell every window when that changed the configuration.
 ///
 /// Some settings — lenses among them — have no place in the preferences
@@ -46,7 +46,7 @@ pub static CONFIG_CHANGED_BROADCAST: LazyLock<broadcast::Sender<()>> =
 /// renaming a new file into place would leave a watch on the old one behind,
 /// and on a first launch there is no file yet to watch.
 pub fn watch_config_files() {
-    let files: Vec<PathBuf> = [Config::path(), Config::mappings_path()]
+    let files: Vec<PathBuf> = [Config::path(), Config::keys_path(), Config::mappings_path()]
         .into_iter()
         .map(|path| std::fs::canonicalize(&path).unwrap_or(path))
         .collect();
@@ -116,7 +116,7 @@ fn replacement(current: &Config, loaded: Result<Config, ConfigError>) -> Option<
     match loaded {
         Ok(loaded) => (loaded != *current).then_some(loaded),
         Err(error) => {
-            tracing::warn!(%error, "config.json not reloaded; keeping the configuration in use");
+            tracing::warn!(%error, "configuration not reloaded; keeping the configuration in use");
             None
         }
     }
@@ -130,14 +130,14 @@ mod tests {
     fn only_a_change_to_a_config_file_is_read_again() {
         let files = vec![
             PathBuf::from("/c/config.json"),
-            PathBuf::from("/c/mappings.json"),
+            PathBuf::from("/c/keys.toml"),
         ];
 
         assert!(is_config_file_touched(
             &files,
             &[
                 PathBuf::from("/c/state.json"),
-                PathBuf::from("/c/mappings.json")
+                PathBuf::from("/c/keys.toml")
             ]
         ));
         assert!(!is_config_file_touched(

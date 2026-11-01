@@ -1,40 +1,44 @@
 # Keybindings
 
-Shortcuts live in `mappings.json`, next to `config.json` in the app config
-directory. Preferences ships Default, Vim and Emacs presets, plus Clear, which
-removes every binding so you can start from nothing; this document is for
-editing the file directly.
+Shortcuts live in `keys.toml`, next to `config.json` in the app config
+directory. The file names a preset to start from and says how your shortcuts
+differ from it; this document is for editing it directly.
 
-Without a `mappings.json`, Arto uses the Default preset. A file that exists
-replaces the preset whole — a binding it leaves out is not bound — and Arto
-reads it again when it is saved, so an edit takes effect without a restart.
-A lens's own `shortcut` lives with the lens in `config.json` (see
-[Lenses](./lenses.md#configuring-a-lens)) and is bound on top of this file,
-Clear included, unless the file already binds the same keys.
+Arto ships the Default, Vim and Emacs presets, and `none`, which binds
+nothing so you can start from scratch. Without a `keys.toml`, Arto uses the
+Default preset. Arto reads the file again when it is saved, so an edit takes
+effect without a restart. A lens's own `shortcut` lives with the lens in
+`config.json` (see [Lenses](./lenses.md#configuring-a-lens)) and is bound on
+top of these shortcuts, `none` included, unless they already bind the same
+keys.
 
 ## The file
 
-Each section is a list of bindings, each binding a `key` and the `action` it
-runs:
+```toml
+preset = "vim"
 
-```json
-{
-  "menuShortcuts": [
-    { "key": "Cmd+o", "action": "file.open" }
-  ],
-  "global": [
-    { "key": "j", "action": "scroll.down" },
-    { "key": "g g", "action": "scroll.top" }
-  ],
-  "sidebar": [
-    { "key": "Enter", "action": "cursor.open" }
-  ]
-}
+[menu]
+"Cmd+p" = "none"
+
+[global]
+"Ctrl+n" = "scroll.down"
+"Ctrl+p" = "scroll.up"
+
+[sidebar]
+"Enter" = "cursor.open"
 ```
+
+`preset` is `default`, `vim`, `emacs` or `none`; left out, it is `default`.
+Each table is a section of the preset, and each entry binds keys to the
+action they run. An entry for keys the section already binds replaces that
+binding, and one for keys it does not bind adds one; `"none"` takes the keys
+away, so they do nothing there. Everything the file does not mention stays as
+the preset has it, so a file holds only your own changes, and a preset that
+changes in a later version of Arto reaches you.
 
 | Section | Bindings that answer |
 | --- | --- |
-| `menuShortcuts` | Through the menu; see [Two kinds of shortcut](#two-kinds-of-shortcut) |
+| `menu` | Through the menu; see [Two kinds of shortcut](#two-kinds-of-shortcut) |
 | `global` | Anywhere in a window, unless the context's own section binds the same keys; not while typing in a text field other than find and the palette |
 | `content` | While the document has focus |
 | `sidebar` | While the panel has focus, whichever of its faces is showing |
@@ -42,16 +46,43 @@ runs:
 | `palette` | While the command palette is open |
 | `contents` | While the list of headings is open |
 
-Adding a binding in **Preferences → Keybindings** offers every action, and
-the file it writes names each by the id used here; the [Default preset] shows
-the ids of the common ones.
+The presets are written as this file is, each section in full: [Default],
+[Vim] and [Emacs] show every action id they use. Adding a binding in
+**Preferences → Keybindings** offers every action.
 
 An entry whose key cannot be read or whose action Arto does not know is
 skipped, and the rest of the file still applies. A file that is not valid
-JSON, or whose entries are not shaped as above, is not read at all: at
-launch Arto starts with the default configuration — `config.json` included —
-and while it runs it keeps the shortcuts it had until the file is saved
-again in a shape it can read.
+TOML, that names a preset or a section Arto does not have, or whose entries
+are not strings, is not read at all: at launch Arto starts with the default
+configuration — `config.json` included — and while it runs it keeps the
+shortcuts it had until the file is saved again in a shape it can read.
+
+## Changing them in Preferences
+
+**Preferences → Keybindings** shows which preset is in use and how many
+changes the file makes to it. Choosing a preset replaces every shortcut with
+the preset's; choosing the one in use puts back all of its shortcuts.
+
+The shortcuts are listed action by action, each with the keys that run it,
+and can be filtered by keys, by an action's name or by its group. Keys added
+to an action are bound where it works, without choosing a section: the first
+single chord held with Cmd or Ctrl added to an action the menu offers becomes
+its menu shortcut, and other keys go to `global`, or to the section of the
+list or field the action works in. Keys that ran another action there move to
+this one, and so do keys the menu used for another action, since on macOS the
+menu would take them first; the form says which action loses them. Keys
+taken away are
+taken away wherever they ran the action, and keys that run it in some
+sections only say where. An action whose keys differ from the preset is
+marked, and can be put back to the preset's keys.
+
+Listed by section instead, the shortcuts are edited section by section, as
+the file holds them.
+
+Each change is written into `keys.toml` at once, as a change to the preset:
+entries that still hold are left as they were written, comments included,
+and an entry that no longer differs from the preset is taken out. A
+`keys.toml` that cannot be read is not written over until it is fixed.
 
 ## Writing a key
 
@@ -83,14 +114,14 @@ separated by spaces, pressed one after another:
 
 ```mermaid
 flowchart LR
-    K[Key press] -- macOS, focus or not --> M["menuShortcuts<br/>dispatched by the system"]
+    K[Key press] -- macOS, focus or not --> M["menu<br/>dispatched by the system"]
     K -- a window has focus --> E[In-window engine]
     E --> C[The context's own section]
     C -- no match --> G[global]
-    G -. "Linux, Windows" .-> MS[menuShortcuts]
+    G -. "Linux, Windows" .-> MS[menu]
 ```
 
-**Menu shortcuts** (`menuShortcuts`) are single chords (`Cmd+o`), each keyed
+**Menu shortcuts** (`menu`) are single chords (`Cmd+o`), each keyed
 by a menu action such as `file.open`. On macOS they are native menu
 accelerators, shown in the menu bar and dispatched by the system, so the
 actions that need no window — `Cmd+n` opening one, say — work with every
@@ -108,11 +139,14 @@ reaches `global`.
 The same action may appear in both: `file.open` can be a native `Cmd+o` menu
 shortcut *and* have an in-window keybinding.
 
-## Migrating an older `mappings.json`
+## Moving from `mappings.json`
 
-Files written before `menuShortcuts` existed still load unchanged.
-Menu-backed shortcuts under `global` (`Cmd+o`, `Cmd+n`) keep working through
-the engine, but to get native menu accelerators, move those entries into a
-`menuShortcuts` section — or re-apply a preset from Preferences.
+Arto kept shortcuts in `mappings.json`, every one of them, before
+`keys.toml`. While there is no `keys.toml`, Arto reads `mappings.json` as it
+did, and the first change saved from Preferences writes `keys.toml` from it,
+as changes to the preset it is closest to. Once `keys.toml` exists,
+`mappings.json` is no longer read; Arto leaves it where it is.
 
-[Default preset]: ../../crates/arto-keybindings/src/presets/default.json
+[Default]: ../../crates/arto-keybindings/src/presets/default.toml
+[Vim]: ../../crates/arto-keybindings/src/presets/vim.toml
+[Emacs]: ../../crates/arto-keybindings/src/presets/emacs.toml

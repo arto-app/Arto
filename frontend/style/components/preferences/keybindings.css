@@ -435,3 +435,121 @@
   background: var(--error-color);
   color: white;
 }
+
+/* The preset in use, and how far the bindings are from it */
+.preset-card.selected {
+  border-color: var(--accent-bg);
+  background: color-mix(in srgb, var(--accent-bg) 8%, transparent);
+}
+
+.preset-card.selected .preset-card-name {
+  color: var(--accent-color);
+}
+
+.preset-changes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 0;
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+}
+
+/* Filter and view switch on one line */
+.binding-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* By action */
+.action-group {
+  padding: 16px 0 8px;
+}
+
+.action-group + .action-group {
+  border-top: 1px solid var(--border-color);
+}
+
+.action-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 2fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.action-row:hover {
+  background: var(--hover-bg);
+}
+
+.action-row-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-md);
+  color: var(--text-color);
+}
+
+.action-row-changed {
+  font-size: var(--font-size-xs);
+  color: var(--accent-color);
+}
+
+.action-row-keys {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.action-row-keys .key-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.key-badge-where {
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.key-badge-remove,
+.action-row-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: var(--opacity-rest);
+  transition: opacity var(--transition-quiet) ease;
+}
+
+.action-row:hover .key-badge-remove,
+.action-row:hover .action-row-add {
+  opacity: var(--opacity-woken);
+}
+
+.key-badge-remove:hover,
+.action-row-add:hover {
+  opacity: 1;
+  background: var(--hover-bg);
+}
+
+.key-badge-remove:focus-visible,
+.action-row-add:focus-visible {
+  opacity: 1;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.action-row .key-adder {
+  flex-basis: 100%;
+}

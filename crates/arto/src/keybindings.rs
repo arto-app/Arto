@@ -327,7 +327,7 @@ pub fn context_name(context: KeyContext) -> String {
 
 /// Build the matching engine for `bindings`, reporting the entries it had to
 /// skip. Invalid keys or unknown actions come from a hand-edited
-/// `mappings.json`; they are warned about here, once per engine build,
+/// `keys.toml`; they are warned about here, once per engine build,
 /// rather than silently dropped.
 pub fn engine_for(bindings: &BindingSet) -> KeybindingEngine {
     let (engine, errors) = KeybindingEngine::build(bindings);

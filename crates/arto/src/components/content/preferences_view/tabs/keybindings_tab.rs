@@ -7,8 +7,8 @@ use crate::components::icon::{Icon, IconName};
 use crate::config::{BindingSet, Config, KeyAction};
 use crate::hooks::use_dismiss_on_outside;
 use crate::keybindings::{
-    accelerator_for_key, action_group_name, action_title, context_name, presets, resolve_bindings,
-    Action, KeyContext, ResolvedBinding, ACTION_GROUPS, MENU_ACTIONS,
+    accelerator_for_key, action_group_name, action_title, context_name, resolve_bindings, Action,
+    BoundKey, KeyContext, Keymap, Preset, ResolvedBinding, Section, ACTION_GROUPS, MENU_ACTIONS,
 };
 use crate::keybindings::{KeyChord, ShortcutSequence};
 use rust_i18n::t;
@@ -26,48 +26,111 @@ enum BindingScope {
     Engine(Option<KeyContext>),
 }
 
+/// How the bindings are listed.
+///
+/// By action is what a reader usually wants — "which keys open a file?" —
+/// and leaves where each key is bound to Arto. By section shows the file's
+/// own sections, for the reader who wants to say exactly where.
+#[derive(Clone, Copy, PartialEq)]
+enum View {
+    ByAction,
+    BySection,
+}
+
 #[component]
 pub fn KeybindingsTab(config: Signal<Config>) -> Element {
     let keybindings = config.read().keybindings.clone();
+    let preset = config.read().keybinding_preset;
+    let changes = Keymap::between(preset, &keybindings).len();
     let mut filter_text = use_signal(String::new);
+    let mut view = use_signal(|| View::ByAction);
 
     rsx! {
         div {
             class: "preferences-pane",
 
-            // Preset cards
             h3 { class: "preference-section-title", {t!("preferences.keybindings.presets.title").to_string()} }
-            PresetCards { on_choose: move |bindings| config.write().keybindings = bindings }
-
-            // Binding sections grouped by context
-            h3 { class: "preference-section-title", {t!("preferences.keybindings.bindings.title").to_string()} }
-            input {
-                r#type: "text",
-                class: "binding-filter-input",
-                placeholder: t!("preferences.keybindings.bindings.filter_placeholder").to_string(),
-                value: "{filter_text}",
-                oninput: move |evt| filter_text.set(evt.value()),
-                onkeydown: move |evt: KeyboardEvent| {
-                    if evt.key() == Key::Escape {
-                        spawn(async move {
-                            let _ = document::eval("document.activeElement?.blur()").await;
-                        });
+            PresetCards {
+                current: preset,
+                on_choose: move |preset| choose_preset(&mut config.write(), preset),
+            }
+            if changes > 0 {
+                div {
+                    class: "preset-changes",
+                    span { {crate::i18n::plural("preferences.keybindings.presets.changes", changes)} }
+                    button {
+                        r#type: "button",
+                        class: "preference-reset",
+                        onclick: move |_| choose_preset(&mut config.write(), preset),
+                        {t!("preferences.keybindings.presets.reset_all").to_string()}
                     }
-                },
+                }
             }
 
+            h3 { class: "preference-section-title", {t!("preferences.keybindings.bindings.title").to_string()} }
+            div {
+                class: "binding-toolbar",
+                input {
+                    r#type: "text",
+                    class: "binding-filter-input",
+                    placeholder: t!("preferences.keybindings.bindings.filter_placeholder").to_string(),
+                    value: "{filter_text}",
+                    oninput: move |evt| filter_text.set(evt.value()),
+                    onkeydown: move |evt: KeyboardEvent| {
+                        if evt.key() == Key::Escape {
+                            spawn(async move {
+                                let _ = document::eval("document.activeElement?.blur()").await;
+                            });
+                        }
+                    },
+                }
+                div {
+                    class: "segmented",
+                    role: "radiogroup",
+                    for (choice , label) in [
+                        (View::ByAction, t!("preferences.keybindings.view.by_action")),
+                        (View::BySection, t!("preferences.keybindings.view.by_section")),
+                    ]
+                    {
+                        label {
+                            class: if *view.read() == choice { "segment selected" } else { "segment" },
+                            input {
+                                r#type: "radio",
+                                name: "keybindings-view",
+                                checked: *view.read() == choice,
+                                onchange: move |_| view.set(choice),
+                            }
+                            span { "{label}" }
+                        }
+                    }
+                }
+            }
+
+            if *view.read() == View::ByAction {
+                ActionList { filter_query: filter_text(), config }
+            } else {
+                SectionList { keybindings, filter_query: filter_text(), config }
+            }
+        }
+    }
+}
+
+/// The file's sections, one table each.
+#[component]
+fn SectionList(keybindings: BindingSet, filter_query: String, config: Signal<Config>) -> Element {
+    rsx! {
             BindingSection {
                 title: menu_shortcuts_title(),
                 scope: BindingScope::Menu,
                 bindings: keybindings.menu_shortcuts.clone(),
-                filter_query: filter_text(),
+                filter_query: filter_query.clone(),
                 config,
             }
             BindingSection {
                 title: context_label(None),
                 scope: BindingScope::Engine(None),
                 bindings: keybindings.global.clone(),
-                filter_query: filter_text(),
+                filter_query: filter_query.clone(),
                 config,
             }
             for context in KeyContext::ALL {
@@ -76,59 +139,305 @@ pub fn KeybindingsTab(config: Signal<Config>) -> Element {
                     title: context_name(context),
                     scope: BindingScope::Engine(Some(context)),
                     bindings: keybindings.of(context).clone(),
-                    filter_query: filter_text(),
+                    filter_query: filter_query.clone(),
                     config,
                 }
             }
-        }
     }
 }
 
-/// A set of bindings the reader can start from, replacing every binding.
-struct Preset {
+/// A preset the reader can start from, replacing every binding.
+struct PresetCard {
     name: fn() -> String,
     description: fn() -> String,
-    bindings: fn() -> BindingSet,
+    preset: Preset,
 }
 
-const PRESETS: &[Preset] = &[
-    Preset {
+const PRESET_CARDS: &[PresetCard] = &[
+    PresetCard {
         name: || t!("preferences.keybindings.presets.default.name").into_owned(),
         description: || t!("preferences.keybindings.presets.default.description").into_owned(),
-        bindings: presets::default::bindings,
+        preset: Preset::Default,
     },
-    Preset {
+    PresetCard {
         name: || "Vim".to_string(),
         description: || t!("preferences.keybindings.presets.vim.description").into_owned(),
-        bindings: presets::vim::bindings,
+        preset: Preset::Vim,
     },
-    Preset {
+    PresetCard {
         name: || "Emacs".to_string(),
         description: || t!("preferences.keybindings.presets.emacs.description").into_owned(),
-        bindings: presets::emacs::bindings,
+        preset: Preset::Emacs,
     },
-    Preset {
+    PresetCard {
         name: || t!("preferences.keybindings.presets.clear.name").into_owned(),
         description: || t!("preferences.keybindings.presets.clear.description").into_owned(),
-        bindings: BindingSet::default,
+        preset: Preset::None,
     },
 ];
 
+/// Every binding becomes the preset's, and `keys.toml` is written from it.
+fn choose_preset(config: &mut Config, preset: Preset) {
+    config.keybindings = preset.bindings();
+    config.keybinding_preset = preset;
+}
+
 #[component]
-fn PresetCards(on_choose: EventHandler<BindingSet>) -> Element {
+fn PresetCards(current: Preset, on_choose: EventHandler<Preset>) -> Element {
     rsx! {
         div {
             class: "preset-cards",
-            for preset in PRESETS.iter() {
+            for card in PRESET_CARDS.iter() {
                 button {
-                    class: "preset-card",
-                    onclick: move |_| on_choose.call((preset.bindings)()),
-                    span { class: "preset-card-name", {(preset.name)()} }
-                    span { class: "preset-card-desc", {(preset.description)()} }
+                    class: if card.preset == current { "preset-card selected" } else { "preset-card" },
+                    onclick: move |_| on_choose.call(card.preset),
+                    span { class: "preset-card-name", {(card.name)()} }
+                    span { class: "preset-card-desc", {(card.description)()} }
                 }
             }
         }
     }
+}
+
+/// Every action, group by group, with the keys that run it.
+#[component]
+fn ActionList(filter_query: String, config: Signal<Config>) -> Element {
+    let preset = use_memo(move || config.read().keybinding_preset.bindings());
+    let bindings = config.read().keybindings.clone();
+    let query = filter_query.to_lowercase();
+
+    let groups: Vec<(String, Vec<ActionEntry>)> = ACTION_GROUPS
+        .iter()
+        .filter_map(|(label, actions)| {
+            let group = action_group_name(label);
+            let entries: Vec<ActionEntry> = actions
+                .iter()
+                .map(|action| ActionEntry {
+                    action: *action,
+                    keys: bindings.keys_for(action.to_string()),
+                    changed: !bindings.binds_alike(action.to_string(), &preset.read()),
+                })
+                .filter(|entry| entry.matches(&query, &group))
+                .collect();
+            (!entries.is_empty()).then_some((group, entries))
+        })
+        .collect();
+
+    rsx! {
+        if groups.is_empty() {
+            p { class: "binding-empty", {t!("preferences.keybindings.bindings.no_match").to_string()} }
+        }
+        for (group , entries) in groups {
+            div {
+                key: "{group}",
+                class: "action-group",
+                h4 { class: "binding-section-title", "{group}" }
+                for entry in entries {
+                    ActionRow {
+                        key: "{entry.action}",
+                        action: entry.action,
+                        keys: entry.keys,
+                        changed: entry.changed,
+                        config,
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// One action of [`ActionList`], as it stands now.
+struct ActionEntry {
+    action: Action,
+    keys: Vec<BoundKey>,
+    changed: bool,
+}
+
+impl ActionEntry {
+    /// Whether the filter keeps this action: by what it is called, its id,
+    /// its group, or any of its keys.
+    fn matches(&self, query: &str, group: &str) -> bool {
+        query.is_empty()
+            || action_title(self.action).to_lowercase().contains(query)
+            || self.action.to_string().contains(query)
+            || group.to_lowercase().contains(query)
+            || self
+                .keys
+                .iter()
+                .any(|bound| bound.key.to_lowercase().contains(query))
+    }
+}
+
+/// An action, its keys, and the way to add, take away or put back keys.
+#[component]
+fn ActionRow(
+    action: Action,
+    keys: Vec<BoundKey>,
+    changed: bool,
+    config: Signal<Config>,
+) -> Element {
+    let mut adding = use_signal(|| false);
+    let id = action.to_string();
+
+    rsx! {
+        div {
+            class: if changed { "action-row changed" } else { "action-row" },
+            div {
+                class: "action-row-title",
+                span { "{action_title(action)}" }
+                if changed {
+                    span { class: "action-row-changed", {t!("preferences.keybindings.action_list.changed").to_string()} }
+                }
+            }
+            div {
+                class: "action-row-keys",
+                for bound in keys {
+                    {
+                        let where_label = bound_key_where(action, &bound.sections);
+                        let key = bound.key.clone();
+                        let id = id.clone();
+                        rsx! {
+                            span {
+                                key: "{bound.key}",
+                                class: "key-badge",
+                                "{bound.key}"
+                                if let Some(where_label) = where_label {
+                                    span { class: "key-badge-where", "{where_label}" }
+                                }
+                                button {
+                                    r#type: "button",
+                                    class: "key-badge-remove",
+                                    title: t!("preferences.keybindings.action_list.remove_key", key = bound.key.clone()).to_string(),
+                                    onclick: move |_| config.write().keybindings.unbind(&id, &key),
+                                    Icon { name: IconName::Close, size: 10 }
+                                }
+                            }
+                        }
+                    }
+                }
+                if *adding.read() {
+                    KeyAdder { action, config, on_close: move |_| adding.set(false) }
+                } else {
+                    button {
+                        r#type: "button",
+                        class: "action-row-add",
+                        title: t!("preferences.keybindings.action_list.add_key").to_string(),
+                        onclick: move |_| adding.set(true),
+                        Icon { name: IconName::Add, size: 12 }
+                    }
+                }
+            }
+            if changed {
+                button {
+                    r#type: "button",
+                    class: "preference-reset action-row-reset",
+                    onclick: move |_| {
+                        let preset = config.read().keybinding_preset.bindings();
+                        config.write().keybindings.restore(&id, &preset);
+                    },
+                    {t!("preferences.keybindings.action_list.reset").to_string()}
+                }
+            }
+        }
+    }
+}
+
+/// Where a key of `action` runs it, when that is worth saying: in a section
+/// other than the action's own and other than `global`, which is everywhere.
+/// The menu is not named either; the menu bar shows its own shortcuts.
+fn bound_key_where(action: Action, sections: &[Section]) -> Option<String> {
+    let named: Vec<String> = sections
+        .iter()
+        .filter(|section| {
+            **section != action.home() && **section != Section::Global && **section != Section::Menu
+        })
+        .map(|section| match section {
+            Section::Context(context) => context_name(*context),
+            Section::Global => context_label(None),
+            Section::Menu => menu_shortcuts_title(),
+        })
+        .collect();
+    (!named.is_empty()).then(|| named.join(&*t!("preferences.keybindings.notice.separator")))
+}
+
+/// Keys typed or recorded for `action`, and what adding them would do.
+#[component]
+fn KeyAdder(action: Action, config: Signal<Config>, on_close: EventHandler<()>) -> Element {
+    let key_input = use_signal(String::new);
+    let mut recording = use_signal(|| false);
+
+    use_dismiss_on_outside(".key-adder", move || {
+        if !*recording.peek() {
+            on_close.call(());
+        }
+    });
+
+    let key = key_input.read().clone();
+    let valid = ShortcutSequence::from_str(&key).is_ok();
+    let notice = valid
+        .then(|| adding_notice(&config.read().keybindings, action, &key))
+        .flatten();
+
+    rsx! {
+        div {
+            class: "binding-form key-adder",
+            div {
+                class: "binding-form-row",
+                KeyRecorder { value: key_input, recording }
+            }
+            if let Some(notice) = notice {
+                p { class: "binding-notice binding-notice--overwrite", "{notice}" }
+            }
+            div {
+                class: "binding-form-buttons",
+                button {
+                    class: "binding-form-confirm",
+                    disabled: !valid,
+                    onclick: move |_| {
+                        let key = key_input.read().clone();
+                        config.write().keybindings.bind(action, &key);
+                        on_close.call(());
+                    },
+                    {t!("preferences.keybindings.form.add").to_string()}
+                }
+                button {
+                    class: "binding-form-cancel",
+                    onclick: move |_| {
+                        recording.set(false);
+                        on_close.call(());
+                    },
+                    {t!("preferences.keybindings.form.cancel").to_string()}
+                }
+            }
+        }
+    }
+}
+
+/// What adding `key` to `action` takes from other actions, if anything.
+///
+/// Adding never fails on a clash: the keys move to `action`, and this is
+/// what tells the reader which actions lose them.
+fn adding_notice(bindings: &BindingSet, action: Action, key: &str) -> Option<String> {
+    let rivals = bindings.section_for_new_key(action, key).rivals();
+    let wanted = ShortcutSequence::from_str(key).ok()?.to_string();
+    let id = action.to_string();
+    let mut losing: Vec<String> = Vec::new();
+    for bound in rivals.iter().flat_map(|rival| bindings.section(*rival)) {
+        let same =
+            ShortcutSequence::from_str(&bound.key).is_ok_and(|keys| keys.to_string() == wanted);
+        let label = action_label(&bound.action);
+        if same && bound.action != id && !losing.contains(&label) {
+            losing.push(label);
+        }
+    }
+    (!losing.is_empty()).then(|| {
+        t!(
+            "preferences.keybindings.notice.takes_from",
+            key = key,
+            action = losing.join(&*t!("preferences.keybindings.notice.separator"))
+        )
+        .into_owned()
+    })
 }
 
 /// Sort column for binding table.
@@ -1091,8 +1400,9 @@ mod tests {
     }
 
     #[test]
-    fn the_preset_cards_are_drawn_in_order_with_their_descriptions() {
-        let mut dom = VirtualDom::new(|| rsx! { PresetCards { on_choose: |_| {} } });
+    fn the_preset_cards_are_drawn_in_order_with_the_one_in_use_marked() {
+        let mut dom =
+            VirtualDom::new(|| rsx! { PresetCards { current: Preset::Vim, on_choose: |_| {} } });
         dom.rebuild_in_place();
         let html = dioxus_ssr::render(&dom);
 
@@ -1104,7 +1414,7 @@ mod tests {
                 r#"<span class="preset-card-name">Default</span>"#,
                 r#"<span class="preset-card-desc">Arrow keys, Cmd+Key, Ctrl+Tab</span>"#,
                 r#"</button>"#,
-                r#"<button class="preset-card">"#,
+                r#"<button class="preset-card selected">"#,
                 r#"<span class="preset-card-name">Vim</span>"#,
                 r#"<span class="preset-card-desc">j/k scroll, g g, chord sequences</span>"#,
                 r#"</button>"#,
@@ -1122,17 +1432,151 @@ mod tests {
     }
 
     #[test]
-    fn each_preset_applies_its_own_bindings() {
-        let applied: Vec<BindingSet> = PRESETS.iter().map(|preset| (preset.bindings)()).collect();
+    fn a_key_says_where_it_runs_only_outside_its_action_s_home_and_global() {
         assert_eq!(
-            applied,
-            vec![
-                presets::default::bindings(),
-                presets::vim::bindings(),
-                presets::emacs::bindings(),
-                BindingSet::default(),
-            ]
+            bound_key_where(
+                KbAction::FocusPlaces,
+                &[Section::Global, Section::Context(KeyContext::Sidebar)]
+            ),
+            Some("Panel".to_string())
         );
+        assert_eq!(
+            bound_key_where(
+                KbAction::PaletteNext,
+                &[Section::Context(KeyContext::Palette)]
+            ),
+            None
+        );
+        assert_eq!(bound_key_where(KbAction::FileOpen, &[Section::Menu]), None);
+    }
+
+    #[test]
+    fn adding_a_key_another_action_has_says_which_one_loses_it() {
+        let bindings = Preset::Default.bindings();
+        let notice = adding_notice(&bindings, KbAction::FileOpenDirectory, "Cmd+o").unwrap();
+        assert!(notice.contains("Cmd+o"), "{notice}");
+        assert!(
+            notice.contains(&action_title(KbAction::FileOpen)),
+            "{notice}"
+        );
+    }
+
+    #[test]
+    fn adding_a_menu_shortcut_to_a_list_action_says_the_menu_loses_it() {
+        let bindings = Preset::Default.bindings();
+        let notice = adding_notice(&bindings, KbAction::CursorDown, "Cmd+o").unwrap();
+        assert!(
+            notice.contains(&action_title(KbAction::FileOpen)),
+            "{notice}"
+        );
+    }
+
+    #[test]
+    fn adding_a_menu_shortcut_says_every_action_that_loses_it() {
+        let bindings = Preset::Emacs.bindings();
+        let notice = adding_notice(&bindings, KbAction::AppAbout, "Ctrl+n").unwrap();
+        for action in [
+            KbAction::ScrollDown,
+            KbAction::CursorDown,
+            KbAction::PaletteNext,
+            KbAction::ContentsNext,
+        ] {
+            assert!(notice.contains(&action_title(action)), "{notice}");
+        }
+    }
+
+    #[test]
+    fn adding_a_free_key_says_nothing() {
+        let bindings = Preset::Default.bindings();
+        assert_eq!(
+            adding_notice(&bindings, KbAction::FileOpen, "Cmd+Alt+Shift+F12"),
+            None
+        );
+    }
+
+    #[test]
+    fn adding_a_key_an_action_already_has_says_nothing() {
+        let bindings = Preset::Default.bindings();
+        assert_eq!(adding_notice(&bindings, KbAction::FileOpen, "Cmd+o"), None);
+    }
+
+    #[test]
+    fn the_action_filter_finds_an_action_by_name_id_group_or_key() {
+        let entry = ActionEntry {
+            action: KbAction::FileOpen,
+            keys: Preset::Default.bindings().keys_for("file.open"),
+            changed: false,
+        };
+        assert!(entry.matches("", "File"));
+        assert!(entry.matches("file.open", "File"));
+        assert!(entry.matches("cmd+o", "File"));
+        assert!(entry.matches("file", "File"));
+        assert!(!entry.matches("zoom", "File"));
+    }
+
+    fn render_action_row(keys: Vec<BoundKey>, changed: bool) -> String {
+        #[component]
+        fn Row(keys: Vec<BoundKey>, changed: bool) -> Element {
+            let config = use_signal(Config::default_with_keybindings);
+            rsx! { ActionRow { action: KbAction::FocusPlaces, keys, changed, config } }
+        }
+        let mut dom = VirtualDom::new_with_props(Row, RowProps { keys, changed });
+        dom.rebuild_in_place();
+        dioxus_ssr::render(&dom)
+    }
+
+    #[test]
+    fn a_changed_action_is_marked_and_offers_its_preset_keys_back() {
+        let html = render_action_row(Vec::new(), true);
+        assert!(html.contains(r#"class="action-row changed""#), "{html}");
+        assert!(html.contains("Changed"), "{html}");
+        assert!(html.contains("action-row-reset"), "{html}");
+    }
+
+    #[test]
+    fn an_action_as_its_preset_has_it_shows_no_mark_and_no_reset() {
+        let html = render_action_row(Vec::new(), false);
+        assert!(html.contains(r#"class="action-row""#), "{html}");
+        assert!(!html.contains("Changed"), "{html}");
+        assert!(!html.contains("action-row-reset"), "{html}");
+    }
+
+    #[test]
+    fn each_key_of_an_action_is_a_badge_naming_where_it_runs_when_that_matters() {
+        let html = render_action_row(
+            vec![
+                BoundKey {
+                    key: "Ctrl+w h".to_string(),
+                    sections: vec![Section::Global],
+                },
+                BoundKey {
+                    key: "Backslash p".to_string(),
+                    sections: vec![Section::Context(KeyContext::Sidebar)],
+                },
+            ],
+            false,
+        );
+        assert!(html.contains("Ctrl+w h"), "{html}");
+        assert!(
+            html.contains(r#"<span class="key-badge-where">Panel</span>"#),
+            "{html}"
+        );
+        assert_eq!(html.matches("key-badge-where").count(), 1, "{html}");
+    }
+
+    #[test]
+    fn there_is_a_card_for_every_preset_in_order() {
+        let cards: Vec<Preset> = PRESET_CARDS.iter().map(|card| card.preset).collect();
+        assert_eq!(cards, Preset::ALL);
+    }
+
+    #[test]
+    fn choosing_a_preset_replaces_every_binding_and_is_what_the_file_starts_from() {
+        let mut config = Config::default_with_keybindings();
+        config.keybindings.global.clear();
+        choose_preset(&mut config, Preset::Vim);
+        assert_eq!(config.keybindings, Preset::Vim.bindings());
+        assert_eq!(config.keybinding_preset, Preset::Vim);
     }
 
     #[test]

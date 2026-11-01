@@ -1,15 +1,16 @@
 //! Where the configuration files live and how they are read and written.
 //!
-//! Preferences are `config.json`; keybindings are `mappings.json` next to it.
+//! Preferences are `config.json`; keybindings are `keys.toml` next to it.
 //! Both sit in the platform configuration directory under `arto/`, falling
 //! back to `~/.arto/` when the platform directory is unknown.
 
 use crate::{write_atomically, Access, Config};
-use arto_keybindings::BindingSet;
+use arto_keybindings::{BindingSet, Keymap, KeymapError, Preset};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 const CONFIG_FILENAME: &str = "config.json";
+const KEYS_FILENAME: &str = "keys.toml";
 const MAPPINGS_FILENAME: &str = "mappings.json";
 
 /// Why the configuration could not be loaded or saved.
@@ -26,6 +27,12 @@ pub enum ConfigError {
         path: PathBuf,
         #[source]
         source: serde_json::Error,
+    },
+    #[error("cannot parse {path}: {source}")]
+    Keys {
+        path: PathBuf,
+        #[source]
+        source: KeymapError,
     },
     #[error("cannot write {path}: {source}")]
     Write {
@@ -57,7 +64,13 @@ impl Config {
         config_file(CONFIG_FILENAME)
     }
 
-    /// Get the keyboard mappings file path based on the platform.
+    /// Get the keybindings file path based on the platform.
+    pub fn keys_path() -> PathBuf {
+        config_file(KEYS_FILENAME)
+    }
+
+    /// The file keybindings were kept in before `keys.toml`, read only while
+    /// `keys.toml` does not exist.
     pub fn mappings_path() -> PathBuf {
         config_file(MAPPINGS_FILENAME)
     }
@@ -65,32 +78,33 @@ impl Config {
     /// Every preference at its default plus the default keybinding preset.
     ///
     /// `Config::default()` has no keybindings because they come from
-    /// `mappings.json`, not `config.json`; this is what to run with when
+    /// `keys.toml`, not `config.json`; this is what to run with when
     /// loading fails, so the app still has working shortcuts.
     pub fn default_with_keybindings() -> Self {
         Self {
-            keybindings: resolve_keybindings(None),
+            keybindings: Preset::default().bindings(),
             ..Self::default()
         }
     }
 
     /// Load configuration from disk, or the defaults when no file exists.
     ///
-    /// A missing `mappings.json` yields the default preset, so a fresh
-    /// install has working shortcuts without writing anything first.
+    /// A missing `keys.toml` yields the default preset, so a fresh install
+    /// has working shortcuts without writing anything first.
     pub fn load() -> Result<Self, ConfigError> {
         let mut config = Self::load_preferences()?;
-        let mappings_path = Self::mappings_path();
-        config.keybindings = resolve_keybindings(load_mappings(&mappings_path)?);
-        tracing::debug!(mappings_path = %mappings_path.display(), "Keybindings loaded");
+        let keys_path = Self::keys_path();
+        (config.keybinding_preset, config.keybindings) =
+            load_keybindings(&keys_path, &Self::mappings_path())?;
+        tracing::debug!(keys_path = %keys_path.display(), "Keybindings loaded");
         Ok(config)
     }
 
     /// Load `config.json` alone, or the defaults when it does not exist.
     ///
-    /// Keybindings are the default preset; `mappings.json` is not read. For
+    /// Keybindings are the default preset; `keys.toml` is not read. For
     /// consumers that only render (`arto page`, Quick Look) this keeps a
-    /// broken `mappings.json` from getting in the way of settings that have
+    /// broken `keys.toml` from getting in the way of settings that have
     /// nothing to do with it.
     pub fn load_preferences() -> Result<Self, ConfigError> {
         // Try the read rather than testing existence first: `Path::exists`
@@ -108,23 +122,24 @@ impl Config {
     pub fn load_preferences_from(config_path: impl AsRef<Path>) -> Result<Self, ConfigError> {
         let config_path = config_path.as_ref();
         let mut config: Config = read_json(config_path)?;
-        config.keybindings = resolve_keybindings(None);
+        config.keybindings = Preset::default().bindings();
         tracing::debug!(config_path = %config_path.display(), "Configuration loaded");
         Ok(config)
     }
 
     /// Save configuration to disk: preferences to `config.json`, keybindings
-    /// to `mappings.json`, creating the directory if needed.
+    /// to `keys.toml` as changes to their preset, creating the directory if
+    /// needed.
     pub fn save(&self) -> Result<(), ConfigError> {
         let config_path = Self::path();
-        let mappings_path = Self::mappings_path();
+        let keys_path = Self::keys_path();
 
         write_json(&config_path, self)?;
-        write_json(&mappings_path, &self.keybindings)?;
+        write_keys(&keys_path, self.keybinding_preset, &self.keybindings)?;
 
         tracing::debug!(
             config_path = %config_path.display(),
-            mappings_path = %mappings_path.display(),
+            keys_path = %keys_path.display(),
             "Configuration saved"
         );
 
@@ -175,43 +190,175 @@ fn load_mappings(path: &Path) -> Result<Option<BindingSet>, ConfigError> {
     }
 }
 
-fn resolve_keybindings(mappings: Option<BindingSet>) -> BindingSet {
-    mappings.unwrap_or_else(arto_keybindings::presets::default_bindings)
+fn read_existing(path: &Path) -> Result<Option<String>, ConfigError> {
+    match fs::read_to_string(path) {
+        Ok(text) => Ok(Some(text)),
+        Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(source) => Err(ConfigError::Read {
+            path: path.to_path_buf(),
+            source,
+        }),
+    }
+}
+
+/// The keybindings in force and the preset they are written against.
+///
+/// `keys.toml` when it exists; otherwise a `mappings.json` from before it,
+/// which held every binding and so is taken against the preset it differs
+/// least from; otherwise the default preset.
+fn load_keybindings(
+    keys_path: &Path,
+    mappings_path: &Path,
+) -> Result<(Preset, BindingSet), ConfigError> {
+    if let Some(text) = read_existing(keys_path)? {
+        let keymap = Keymap::parse(text).map_err(|source| ConfigError::Keys {
+            path: keys_path.to_path_buf(),
+            source,
+        })?;
+        return Ok((keymap.preset, keymap.resolve()));
+    }
+    match load_mappings(mappings_path)? {
+        Some(bindings) => Ok((Preset::closest_to(&bindings), bindings)),
+        None => Ok((Preset::default(), Preset::default().bindings())),
+    }
+}
+
+/// Write `bindings` to `keys.toml` as changes to `preset`, keeping what
+/// still holds of the file as it was written.
+///
+/// A file that cannot be read as a keymap is left alone: the reader is
+/// mid-edit, and writing over it would lose what they typed.
+fn write_keys(path: &Path, preset: Preset, bindings: &BindingSet) -> Result<(), ConfigError> {
+    let existing = read_existing(path)?;
+    let text = Keymap::between(preset, bindings)
+        .write(existing.as_deref())
+        .map_err(|source| ConfigError::Keys {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    write_atomically(path, text.as_bytes(), Access::Kept).map_err(|source| ConfigError::Write {
+        path: path.to_path_buf(),
+        source,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use arto_keybindings::KeyAction;
+    use indoc::indoc;
 
-    #[test]
-    fn resolve_keybindings_uses_mappings_when_present() {
-        let mappings = BindingSet {
-            global: vec![KeyAction {
-                key: "m".to_string(),
-                action: "file.open".to_string(),
-            }],
-            ..Default::default()
-        };
-
-        let resolved = resolve_keybindings(Some(mappings));
-        assert_eq!(resolved.global[0].key, "m");
+    fn binding(key: &str, action: &str) -> KeyAction {
+        KeyAction {
+            key: key.to_string(),
+            action: action.to_string(),
+        }
     }
 
     #[test]
     fn default_with_keybindings_carries_the_preset() {
         let config = Config::default_with_keybindings();
-        assert_eq!(
-            config.keybindings,
-            arto_keybindings::presets::default_bindings()
-        );
+        assert_eq!(config.keybindings, Preset::Default.bindings());
+        assert_eq!(config.keybinding_preset, Preset::Default);
         assert_eq!(config.theme, Default::default());
     }
 
     #[test]
-    fn resolve_keybindings_uses_defaults_when_mappings_missing() {
-        let resolved = resolve_keybindings(None);
-        assert_eq!(resolved, arto_keybindings::presets::default_bindings());
+    fn without_either_file_the_keybindings_are_the_default_preset() {
+        let dir = tempfile::tempdir().unwrap();
+        let loaded = load_keybindings(
+            &dir.path().join("keys.toml"),
+            &dir.path().join("mappings.json"),
+        )
+        .unwrap();
+        assert_eq!(loaded, (Preset::Default, Preset::Default.bindings()));
+    }
+
+    #[test]
+    fn keys_toml_is_its_preset_with_its_changes() {
+        let dir = tempfile::tempdir().unwrap();
+        let keys = dir.path().join("keys.toml");
+        fs::write(
+            &keys,
+            indoc! {r#"
+                preset = "none"
+
+                [global]
+                "j" = "scroll.down"
+            "#},
+        )
+        .unwrap();
+        let loaded = load_keybindings(&keys, &dir.path().join("mappings.json")).unwrap();
+        assert_eq!(
+            loaded,
+            (
+                Preset::None,
+                BindingSet {
+                    global: vec![binding("j", "scroll.down")],
+                    ..Default::default()
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn keys_toml_wins_over_an_older_mappings_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let keys = dir.path().join("keys.toml");
+        let mappings = dir.path().join("mappings.json");
+        fs::write(&keys, "").unwrap();
+        fs::write(&mappings, "{}").unwrap();
+        let loaded = load_keybindings(&keys, &mappings).unwrap();
+        assert_eq!(loaded, (Preset::Default, Preset::Default.bindings()));
+    }
+
+    #[test]
+    fn an_older_mappings_json_is_read_against_the_preset_it_is_closest_to() {
+        let dir = tempfile::tempdir().unwrap();
+        let mappings = dir.path().join("mappings.json");
+        let mut bindings = Preset::Vim.bindings();
+        bindings.global.push(binding("Ctrl+z", "zoom.in"));
+        write_json(&mappings, &bindings).unwrap();
+        let loaded = load_keybindings(&dir.path().join("keys.toml"), &mappings).unwrap();
+        assert_eq!(loaded, (Preset::Vim, bindings));
+    }
+
+    #[test]
+    fn a_keys_toml_that_cannot_be_read_as_a_keymap_is_an_error_naming_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let keys = dir.path().join("keys.toml");
+        fs::write(&keys, "[sidbar]").unwrap();
+        let error = load_keybindings(&keys, &dir.path().join("mappings.json")).unwrap_err();
+        assert!(matches!(error, ConfigError::Keys { .. }));
+        assert!(error.to_string().contains("keys.toml"));
+    }
+
+    #[test]
+    fn keys_are_written_as_changes_to_their_preset() {
+        let dir = tempfile::tempdir().unwrap();
+        let keys = dir.path().join("keys.toml");
+        let mut bindings = Preset::Emacs.bindings();
+        bindings.global.push(binding("Ctrl+z", "zoom.in"));
+        write_keys(&keys, Preset::Emacs, &bindings).unwrap();
+        assert_eq!(
+            fs::read_to_string(&keys).unwrap(),
+            indoc! {r#"
+                preset = "emacs"
+
+                [global]
+                "Ctrl+z" = "zoom.in"
+            "#}
+        );
+    }
+
+    #[test]
+    fn keys_are_not_written_over_a_file_mid_edit() {
+        let dir = tempfile::tempdir().unwrap();
+        let keys = dir.path().join("keys.toml");
+        fs::write(&keys, "[global").unwrap();
+        let error = write_keys(&keys, Preset::Default, &Preset::Default.bindings()).unwrap_err();
+        assert!(matches!(error, ConfigError::Keys { .. }));
+        assert_eq!(fs::read_to_string(&keys).unwrap(), "[global");
     }
 
     #[test]
@@ -253,7 +400,7 @@ mod tests {
     }
 
     #[test]
-    fn load_preferences_from_reads_the_file_and_ignores_sibling_mappings() {
+    fn load_preferences_from_reads_the_file_and_ignores_sibling_keys() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("config.json");
         fs::write(
@@ -261,9 +408,9 @@ mod tests {
             r#"{"theme":{"defaultTheme":"dark","onStartup":"default","onNewWindow":"default"}}"#,
         )
         .unwrap();
-        // A broken mappings.json next to it must not matter to a consumer
+        // A broken keys.toml next to it must not matter to a consumer
         // that only wants preferences.
-        fs::write(dir.path().join("mappings.json"), "{ not json").unwrap();
+        fs::write(dir.path().join("keys.toml"), "[global").unwrap();
 
         let config = Config::load_preferences_from(&config_path).unwrap();
         assert_eq!(config.theme.default_theme, crate::Theme::Dark);
@@ -283,7 +430,7 @@ mod tests {
     #[test]
     fn write_json_creates_parent_directories() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("nested").join("mappings.json");
+        let path = dir.path().join("nested").join("config.json");
 
         write_json(&path, &BindingSet::default()).unwrap();
         let back: BindingSet = read_json(&path).unwrap();

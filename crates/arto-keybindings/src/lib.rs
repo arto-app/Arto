@@ -1,8 +1,8 @@
 //! Arto's keybinding model.
 //!
 //! Everything about shortcuts that does not need a window: parsing shortcut
-//! notation (`"Ctrl+Shift+g"`, `"g g"`) into chords, the binding sets stored
-//! in the user's `mappings.json` and shipped as presets, the actions those
+//! notation (`"Ctrl+Shift+g"`, `"g g"`) into chords, the binding sets
+//! the presets hold, `keys.toml` as a preset and its changes, the actions those
 //! bindings name, the context rules, the sequence-matching engine, and the
 //! formatting of shortcut hints.
 //!
@@ -11,21 +11,25 @@
 //! accelerators, and reading the user's configuration.
 
 mod action;
+mod action_keys;
 mod bindings;
 mod codes;
 mod context;
 mod engine;
 mod hint;
+mod keymap;
 pub mod presets;
 mod resolve;
 mod shortcut;
 
 pub use action::*;
+pub use action_keys::*;
 pub use bindings::*;
 pub use codes::*;
 pub use context::*;
 pub use engine::*;
 pub use hint::*;
+pub use keymap::*;
 pub use resolve::*;
 pub use shortcut::*;
 
