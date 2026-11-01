@@ -12,6 +12,18 @@ preferences:
       clear:
         name: "Clear"
         description: "Remove all keybindings"
+      changes:
+        one: "1 change from this preset"
+        other: "%{count} changes from this preset"
+      reset_all: "Reset all"
+    view:
+      by_action: "By action"
+      by_section: "By section"
+    action_list:
+      changed: "Changed"
+      reset: "Reset"
+      add_key: "Add a key"
+      remove_key: "Remove %{key}"
     bindings:
       title: "Bindings"
       filter_placeholder: "Filter by key or action..."
@@ -40,4 +52,5 @@ preferences:
       also_bound: "Also bound as %{binding} — one will shadow the other"
       overrides: "Overrides %{binding} in this context"
       overridden_in: "Will be overridden in: %{contexts}"
+      takes_from: "%{key} will no longer run \"%{action}\""
       separator: ", "

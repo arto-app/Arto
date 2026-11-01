@@ -11,6 +11,7 @@
 //! accelerators, and reading the user's configuration.
 
 mod action;
+mod action_keys;
 mod bindings;
 mod codes;
 mod context;
@@ -22,6 +23,7 @@ mod resolve;
 mod shortcut;
 
 pub use action::*;
+pub use action_keys::*;
 pub use bindings::*;
 pub use codes::*;
 pub use context::*;

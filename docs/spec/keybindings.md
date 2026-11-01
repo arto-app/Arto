@@ -59,8 +59,25 @@ shortcuts it had until the file is saved again in a shape it can read.
 
 ## Changing them in Preferences
 
-Choosing a preset in **Preferences → Keybindings** replaces every
-shortcut with the preset's.
+**Preferences → Keybindings** shows which preset is in use and how many
+changes the file makes to it. Choosing a preset replaces every shortcut with
+the preset's; choosing the one in use puts back all of its shortcuts.
+
+The shortcuts are listed action by action, each with the keys that run it,
+and can be filtered by keys, by an action's name or by its group. Keys added
+to an action are bound where it works, without choosing a section: the first
+single chord held with Cmd or Ctrl added to an action the menu offers becomes
+its menu shortcut, and other keys go to `global`, or to the section of the
+list or field the action works in. Keys that ran another action there move to
+this one, and so do keys the menu used for another action, since on macOS the
+menu would take them first; the form says which action loses them. Keys
+taken away are
+taken away wherever they ran the action, and keys that run it in some
+sections only say where. An action whose keys differ from the preset is
+marked, and can be put back to the preset's keys.
+
+Listed by section instead, the shortcuts are edited section by section, as
+the file holds them.
 
 Each change is written into `keys.toml` at once, as a change to the preset:
 entries that still hold are left as they were written, comments included,
