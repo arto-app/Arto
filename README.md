@@ -26,9 +26,6 @@
   </picture>
 </p>
 
-> [!WARNING]
-> Arto is **beta**. Features may change without regard to backward compatibility. macOS is the platform it is developed and tested on; Linux and Windows builds exist but are **experimental** — see [Platform support](./docs/spec/installation.md#platform-support).
-
 ## Why
 
 Most Markdown tools are built for *writing*. Arto is built for **reading**: the name is short for "Art of Reading".
