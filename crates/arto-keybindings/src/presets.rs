@@ -1,21 +1,23 @@
 //! Binding sets shipped with Arto.
 //!
-//! Each preset is a JSON document embedded at compile time and validated when
-//! loaded, so a broken preset fails the first test or launch rather than
-//! silently losing shortcuts.
+//! Each preset is written as a `keys.toml` would be, binding everything over
+//! nothing, embedded at compile time and validated when loaded, so a broken
+//! preset fails the first test or launch rather than silently losing
+//! shortcuts.
 
 use std::collections::HashSet;
 use std::str::FromStr;
 
 use crate::action::Action;
 use crate::bindings::{BindingSet, KeyAction};
+use crate::keymap::Keymap;
 use crate::shortcut::ShortcutSequence;
 
 pub mod default {
     use crate::bindings::BindingSet;
 
     pub fn bindings() -> BindingSet {
-        super::parse_bindings_json(include_str!("presets/default.json"), "default")
+        super::parse_preset(include_str!("presets/default.toml"), "default")
     }
 }
 
@@ -23,7 +25,7 @@ pub mod vim {
     use crate::bindings::BindingSet;
 
     pub fn bindings() -> BindingSet {
-        super::parse_bindings_json(include_str!("presets/vim.json"), "vim")
+        super::parse_preset(include_str!("presets/vim.toml"), "vim")
     }
 }
 
@@ -31,7 +33,7 @@ pub mod emacs {
     use crate::bindings::BindingSet;
 
     pub fn bindings() -> BindingSet {
-        super::parse_bindings_json(include_str!("presets/emacs.json"), "emacs")
+        super::parse_preset(include_str!("presets/emacs.toml"), "emacs")
     }
 }
 
@@ -44,9 +46,9 @@ pub fn default_bindings() -> BindingSet {
     default::bindings()
 }
 
-fn parse_bindings_json(json: &str, name: &str) -> BindingSet {
-    let bindings: BindingSet =
-        serde_json::from_str(json).unwrap_or_else(|e| panic!("{name} preset must be valid: {e}"));
+fn parse_preset(toml: &str, name: &str) -> BindingSet {
+    let keymap = Keymap::parse(toml).unwrap_or_else(|e| panic!("{name} preset must be valid: {e}"));
+    let bindings = keymap.apply_to(BindingSet::default());
     validate_preset_bindings(name, &bindings);
     bindings
 }

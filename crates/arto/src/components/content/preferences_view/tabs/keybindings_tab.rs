@@ -7,8 +7,8 @@ use crate::components::icon::{Icon, IconName};
 use crate::config::{BindingSet, Config, KeyAction};
 use crate::hooks::use_dismiss_on_outside;
 use crate::keybindings::{
-    accelerator_for_key, action_group_name, action_title, context_name, presets, resolve_bindings,
-    Action, KeyContext, ResolvedBinding, ACTION_GROUPS, MENU_ACTIONS,
+    accelerator_for_key, action_group_name, action_title, context_name, resolve_bindings, Action,
+    KeyContext, Preset as KbPreset, ResolvedBinding, ACTION_GROUPS, MENU_ACTIONS,
 };
 use crate::keybindings::{KeyChord, ShortcutSequence};
 use rust_i18n::t;
@@ -37,7 +37,13 @@ pub fn KeybindingsTab(config: Signal<Config>) -> Element {
 
             // Preset cards
             h3 { class: "preference-section-title", {t!("preferences.keybindings.presets.title").to_string()} }
-            PresetCards { on_choose: move |bindings| config.write().keybindings = bindings }
+            PresetCards {
+                on_choose: move |preset: KbPreset| {
+                    let mut config = config.write();
+                    config.keybinding_preset = preset;
+                    config.keybindings = preset.bindings();
+                },
+            }
 
             // Binding sections grouped by context
             h3 { class: "preference-section-title", {t!("preferences.keybindings.bindings.title").to_string()} }
@@ -88,41 +94,41 @@ pub fn KeybindingsTab(config: Signal<Config>) -> Element {
 struct Preset {
     name: fn() -> String,
     description: fn() -> String,
-    bindings: fn() -> BindingSet,
+    preset: KbPreset,
 }
 
 const PRESETS: &[Preset] = &[
     Preset {
         name: || t!("preferences.keybindings.presets.default.name").into_owned(),
         description: || t!("preferences.keybindings.presets.default.description").into_owned(),
-        bindings: presets::default::bindings,
+        preset: KbPreset::Default,
     },
     Preset {
         name: || "Vim".to_string(),
         description: || t!("preferences.keybindings.presets.vim.description").into_owned(),
-        bindings: presets::vim::bindings,
+        preset: KbPreset::Vim,
     },
     Preset {
         name: || "Emacs".to_string(),
         description: || t!("preferences.keybindings.presets.emacs.description").into_owned(),
-        bindings: presets::emacs::bindings,
+        preset: KbPreset::Emacs,
     },
     Preset {
         name: || t!("preferences.keybindings.presets.clear.name").into_owned(),
         description: || t!("preferences.keybindings.presets.clear.description").into_owned(),
-        bindings: BindingSet::default,
+        preset: KbPreset::None,
     },
 ];
 
 #[component]
-fn PresetCards(on_choose: EventHandler<BindingSet>) -> Element {
+fn PresetCards(on_choose: EventHandler<KbPreset>) -> Element {
     rsx! {
         div {
             class: "preset-cards",
             for preset in PRESETS.iter() {
                 button {
                     class: "preset-card",
-                    onclick: move |_| on_choose.call((preset.bindings)()),
+                    onclick: move |_| on_choose.call(preset.preset),
                     span { class: "preset-card-name", {(preset.name)()} }
                     span { class: "preset-card-desc", {(preset.description)()} }
                 }
@@ -1123,13 +1129,16 @@ mod tests {
 
     #[test]
     fn each_preset_applies_its_own_bindings() {
-        let applied: Vec<BindingSet> = PRESETS.iter().map(|preset| (preset.bindings)()).collect();
+        let applied: Vec<BindingSet> = PRESETS
+            .iter()
+            .map(|preset| preset.preset.bindings())
+            .collect();
         assert_eq!(
             applied,
             vec![
-                presets::default::bindings(),
-                presets::vim::bindings(),
-                presets::emacs::bindings(),
+                KbPreset::Default.bindings(),
+                KbPreset::Vim.bindings(),
+                KbPreset::Emacs.bindings(),
                 BindingSet::default(),
             ]
         );

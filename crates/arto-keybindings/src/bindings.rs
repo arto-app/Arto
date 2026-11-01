@@ -1,7 +1,7 @@
 use crate::context::KeyContext;
 use serde::{Deserialize, Serialize};
 
-/// Per-context keybinding definition stored in `mappings.json`.
+/// Per-context keybindings: what `keys.toml` resolves to, and what a preset holds.
 ///
 /// Two distinct kinds of shortcut live here, differing by capability:
 ///

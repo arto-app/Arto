@@ -1,6 +1,6 @@
 //! Arto's user configuration.
 //!
-//! The types behind `config.json` (preferences) and `mappings.json`
+//! The types behind `config.json` (preferences) and `keys.toml`
 //! (keybindings), plus where those files live and how to load and save
 //! them. Sections that belong to another crate are borrowed from it rather
 //! than redefined: rendering options come from `arto-markdown`, the binding
@@ -33,7 +33,7 @@ mod window_position_config;
 mod window_size_config;
 mod zoom_config;
 
-pub use arto_keybindings::{BindingSet, KeyAction};
+pub use arto_keybindings::{BindingSet, KeyAction, Preset};
 pub use arto_markdown::{RawHtml, RenderOptions};
 pub use arto_types::{FileOpenBehavior, Theme};
 pub use atomic_write::*;
@@ -83,10 +83,14 @@ pub struct Config {
     pub reading: ReadingConfig,
     /// Commands the reader can look at a document through.
     pub lenses: Vec<Lens>,
-    /// Keybindings live in their own file (`mappings.json`), so they are
+    /// Keybindings live in their own file (`keys.toml`), so they are
     /// neither read from nor written to `config.json`.
     #[serde(skip_serializing, skip_deserializing, default)]
     pub keybindings: BindingSet,
+    /// The preset `keys.toml` starts from; the file holds how
+    /// `keybindings` differ from it.
+    #[serde(skip_serializing, skip_deserializing, default)]
+    pub keybinding_preset: Preset,
 }
 
 #[cfg(test)]
@@ -307,11 +311,13 @@ mod tests {
                 }],
                 ..Default::default()
             },
+            keybinding_preset: Preset::Vim,
         };
 
         let json = serde_json::to_string_pretty(&config).unwrap();
         let parsed: Config = serde_json::from_str(&json).unwrap();
         assert!(!json.contains("\"keybindings\""));
+        assert!(!json.contains("\"keybindingPreset\""));
 
         assert_eq!(parsed.theme.default_theme, Theme::Dark);
         assert_eq!(parsed.theme.light_theme, ColorTheme::LightHighContrast);

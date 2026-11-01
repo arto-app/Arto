@@ -1,6 +1,6 @@
 [package]
 name = "arto-config"
-description = "Arto's user configuration: the config.json and mappings.json types and their on-disk location"
+description = "Arto's user configuration: the config.json and keys.toml types and their on-disk location"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

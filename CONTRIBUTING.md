@@ -107,7 +107,7 @@ Arto/
 ├── Cargo.toml        # Cargo workspace (members = crates/*)
 ├── crates/
 │   ├── arto/         # Desktop application (Dioxus): src/, assets/, Dioxus.toml
-│   ├── arto-config/  # config.json / mappings.json types, file locations, load and save
+│   ├── arto-config/  # config.json / keys.toml types, file locations, load and save
 │   ├── arto-frontend/ # The frontend's bundles as Rust strings, for arto-page and other apps
 │   ├── arto-lsp/     # The wire protocol: JSON-RPC 2.0 in LSP framing, and the local socket
 │   ├── arto-keybindings/ # Shortcut parsing, binding sets, presets, and the matching engine
