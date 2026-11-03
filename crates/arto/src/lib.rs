@@ -208,12 +208,10 @@ fn handle_app_event<T>(event: &Event<'_, T>) {
         }
         Event::LoopDestroyed => relaunch::on_loop_destroyed(),
         Event::MainEventsCleared => {
-            // Defense in depth: drain the IPC queue once per event-loop cycle.
-            //
-            // On macOS, GCD wake (dispatch_async_f) reliably delivers IPC events,
-            // so this branch is effectively redundant. It exists as a fallback for
-            // future cross-platform support where wake_main_thread() may not have
-            // a fully reliable platform-specific implementation (e.g., Linux/Windows).
+            // On Windows and Linux this is where the IPC queue is drained:
+            // the IPC thread can only make the loop come round (see
+            // `ipc::main_thread_wanted`), not run anything here itself. On
+            // macOS the GCD wake drains it first, and this finds it empty.
             ipc::process_main_thread_tasks();
         }
         _ => {}
