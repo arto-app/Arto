@@ -65,9 +65,13 @@ fn base_dir_of(file: &Path) -> PathBuf {
 pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
     let state = use_context::<AppState>();
     let html = use_signal(String::new);
+    // The file whose HTML `html` holds, set in the same breath, so the page
+    // can tell a document that has arrived from one still being read: the
+    // ready reporter waits for it before asking for a render.
+    let loaded = use_signal(|| None::<PathBuf>);
 
     // Setup component hooks
-    use_file_loader(file, html, state);
+    use_file_loader(file, html, loaded, state);
     use_file_watcher(file, state);
     use_changes_on_config(state);
     use_link_click_handler(file, state);
@@ -126,6 +130,7 @@ pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
                 // document's Han characters with Japanese glyphs.
                 lang: "",
                 "data-render-generation": generation,
+                "data-arto-loaded": loaded.read().as_ref().map(|file| file.to_string_lossy().into_owned()),
                 dangerous_inner_html: "{html}"
             }
             // Where the marks of what changed since last read are drawn,
@@ -140,10 +145,16 @@ pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
 }
 
 /// Hook to load and render file content
-fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: AppState) {
+fn use_file_loader(
+    file: ReadSignal<PathBuf>,
+    html: Signal<String>,
+    loaded: Signal<Option<PathBuf>>,
+    mut state: AppState,
+) {
     use_effect(move || {
         let file = file();
         let mut html = html;
+        let mut loaded = loaded;
         // Reading reload_trigger subscribes this effect to it, so a manual
         // reload or a file-watcher event re-runs the load as well.
         let _ = state.reload_trigger.read();
@@ -170,6 +181,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                         match render_to_html_with_toc(&content, &file) {
                             Ok(rendered) => {
                                 html.set(rendered.html);
+                                loaded.set(Some(file.clone()));
                                 state.headings.set(rendered.headings);
                                 state.reading_profile.set(Some(Arc::new(rendered.reading)));
                                 let source = RenderedSource::new(file.clone(), content);
@@ -192,6 +204,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                                     escaped_content
                                 );
                                 html.set(plain_html);
+                                loaded.set(Some(file.clone()));
                                 state.headings.set(Vec::new());
                                 state.rendered_source.set(None);
                                 state.reading_profile.set(None);
@@ -207,6 +220,7 @@ fn use_file_loader(file: ReadSignal<PathBuf>, html: Signal<String>, mut state: A
                             escaped_content
                         );
                         html.set(plain_html);
+                        loaded.set(Some(file.clone()));
                         state.headings.set(Vec::new());
                         state.rendered_source.set(None);
                         state.reading_profile.set(None);

@@ -37,6 +37,7 @@ pub use request::*;
 
 use crate::cli::CliInvocation;
 use dioxus::desktop::tao::window::WindowId;
+use dioxus::prelude::ReadableExt;
 use queue::{drain_events, SHUTDOWN_REQUESTED, SHUTDOWN_SIGNAL, SHUTDOWN_STARTED};
 use std::sync::atomic::Ordering;
 use window_selection::{select_target_window, select_target_window_with_behavior};
@@ -336,7 +337,8 @@ fn open_request_with_behavior(
     open_each_in_its_own_window(desktop, files, &request.window);
 }
 
-/// Hold the launch until `window_id` next finishes drawing.
+/// Hold the launch until `window_id` next finishes drawing what the request
+/// left it showing.
 ///
 /// The window is already open and has no reason to notice that anything now
 /// waits on it, so it is told.
@@ -344,7 +346,14 @@ fn watch_existing_window(window_id: WindowId, ready: Option<arto_lsp::Responder>
     let Some(ready) = ready else {
         return;
     };
-    ready::await_window(window_id, ready);
+    let file = crate::window::main::get_window_state(window_id).and_then(|state| {
+        state
+            .document
+            .peek()
+            .file()
+            .map(std::path::Path::to_path_buf)
+    });
+    ready::await_window(window_id, file, ready);
     let _ = crate::events::REPORT_READY_IN_WINDOW.send(window_id);
 }
 
