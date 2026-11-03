@@ -107,9 +107,71 @@ pub fn run(args: &PageArgs) -> Result<(), PageError> {
     }
 }
 
+/// The error and every cause under it on one line, which is how both
+/// binaries report a [`PageError`].
+///
+/// A cause the line already ends with is left out. Most errors here put
+/// their cause into their own message as well as behind `source()`, and a
+/// plain walk of the chain (anyhow's `{:#}`) would print it once per level.
+pub fn cause_chain(err: &dyn std::error::Error) -> String {
+    let mut line = err.to_string();
+    let mut source = err.source();
+    while let Some(cause) = source {
+        let text = cause.to_string();
+        if !line.ends_with(&text) {
+            line.push_str(": ");
+            line.push_str(&text);
+        }
+        source = cause.source();
+    }
+    line
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_cause_follows_the_error_on_one_line() {
+        let parse = std::io::Error::other("nesting too deep");
+        let err = PageError::Render(arto_markdown::RenderError::Parse(Box::new(parse)));
+
+        assert_eq!(
+            cause_chain(&err),
+            "failed to render Markdown: failed to parse Markdown: nesting too deep"
+        );
+    }
+
+    #[test]
+    fn a_cause_the_message_already_ends_with_is_not_repeated() {
+        let missing = std::io::Error::other("No such file or directory");
+        let err = PageError::Read {
+            path: PathBuf::from("/nonexistent.md"),
+            source: missing,
+        };
+
+        assert_eq!(
+            cause_chain(&err),
+            "cannot read /nonexistent.md: No such file or directory"
+        );
+    }
+
+    #[test]
+    fn a_broken_configuration_is_explained_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("config.json");
+        std::fs::write(&config, "{").unwrap();
+        let err = run(&PageArgs {
+            config: Some(config.clone()),
+            no_config: false,
+            ..args("/nonexistent.md")
+        })
+        .unwrap_err();
+
+        let line = cause_chain(&err);
+        assert_eq!(line.matches("EOF while parsing").count(), 1, "{line}");
+        assert_eq!(line.matches("cannot parse").count(), 1, "{line}");
+    }
 
     fn args(input: &str) -> PageArgs {
         PageArgs {

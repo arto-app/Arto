@@ -187,8 +187,7 @@ fn main() {
     // machinery: rendering a page must not be forwarded to a running Arto.
     if let Some(Command::Page(args)) = cli.command {
         if let Err(err) = arto_page::cli::run(&args) {
-            // `{:#}` on an anyhow error prints the whole cause chain.
-            eprintln!("arto page: {:#}", anyhow::Error::from(err));
+            eprintln!("arto page: {}", arto_page::cli::cause_chain(&err));
             std::process::exit(1);
         }
         return;
