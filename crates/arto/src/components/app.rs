@@ -110,6 +110,15 @@ pub fn App(
         app_state
     });
 
+    // Off macOS, being woken is this task's whole job: the event loop
+    // iteration that waking it causes is where the IPC queue is drained.
+    #[cfg(not(target_os = "macos"))]
+    use_future(|| async {
+        loop {
+            crate::ipc::main_thread_wanted().await;
+        }
+    });
+
     // Track drag-and-drop hover state
     let mut is_dragging = use_signal(|| false);
 

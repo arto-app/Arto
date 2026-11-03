@@ -16,7 +16,8 @@
 //!                                                                          ↓
 //!                                                   events → IPC_EVENT_QUEUE
 //!                                                                          ↓
-//!                                                   GCD wake → process_pending_events()
+//!                     macOS: GCD wake → process_pending_events()
+//!     Windows/Linux: a window's task woken → loop iteration → process_pending_events()
 //!
 //! 2nd Instance (Secondary):
 //!   main() → try_send_to_existing_instance() → Applied → exit(0)
@@ -36,6 +37,7 @@ pub use request::*;
 
 use crate::cli::CliInvocation;
 use dioxus::desktop::tao::window::WindowId;
+use dioxus::prelude::ReadableExt;
 use queue::{drain_events, SHUTDOWN_REQUESTED, SHUTDOWN_SIGNAL, SHUTDOWN_STARTED};
 use std::sync::atomic::Ordering;
 use window_selection::{select_target_window, select_target_window_with_behavior};
@@ -168,10 +170,36 @@ fn wake_main_thread() {
     }
 }
 
+/// Wake the main thread to process pending IPC events.
+///
+/// Tao offers no way to run code on the main thread from another one, and
+/// the proxy that posts to its event loop is out of reach: Dioxus keeps the
+/// loop's event type private. A Dioxus task's waker does post that event,
+/// so every main window keeps a task waiting on [`main_thread_wanted`], and
+/// releasing it makes the loop run an iteration whose `MainEventsCleared`
+/// drains the queue.
 #[cfg(not(target_os = "macos"))]
 fn wake_main_thread() {
-    // On non-macOS platforms, rely on custom_event_handler to run
-    // process_main_thread_tasks() on the next event loop iteration.
+    notify_waiting_window();
+}
+
+/// Released by the IPC thread when it has queued work for the main thread.
+static MAIN_THREAD_WANTED: tokio::sync::Notify = tokio::sync::Notify::const_new();
+
+/// `notify_one` rather than `notify_waiters`: it keeps the wake for a window
+/// that is not waiting yet, and one window coming round is enough, since the
+/// drain is not per window.
+#[cfg(any(test, not(target_os = "macos")))]
+fn notify_waiting_window() {
+    MAIN_THREAD_WANTED.notify_one();
+}
+
+/// Resolves once the IPC thread has queued work for the main thread.
+///
+/// Only a window's task should await it, for the event loop iteration that
+/// waking the task causes; the work itself is done by the event handler.
+pub async fn main_thread_wanted() {
+    MAIN_THREAD_WANTED.notified().await;
 }
 
 // ============================================================================
@@ -182,8 +210,9 @@ fn wake_main_thread() {
 ///
 /// MUST be called on the main thread (accesses MAIN_WINDOWS thread_local).
 /// Called from:
-/// - GCD wake callback (after IPC thread pushes events)
-/// - custom_event_handler (defense in depth)
+/// - GCD wake callback on macOS (after IPC thread pushes events)
+/// - custom_event_handler, once per event loop iteration (the only drain on
+///   Windows and Linux)
 pub fn process_pending_events() {
     let Some(desktop) = crate::window::get_any_main_window() else {
         // No window available yet; events stay in queue for later processing
@@ -308,7 +337,8 @@ fn open_request_with_behavior(
     open_each_in_its_own_window(desktop, files, &request.window);
 }
 
-/// Hold the launch until `window_id` next finishes drawing.
+/// Hold the launch until `window_id` next finishes drawing what the request
+/// left it showing.
 ///
 /// The window is already open and has no reason to notice that anything now
 /// waits on it, so it is told.
@@ -316,7 +346,14 @@ fn watch_existing_window(window_id: WindowId, ready: Option<arto_lsp::Responder>
     let Some(ready) = ready else {
         return;
     };
-    ready::await_window(window_id, ready);
+    let file = crate::window::main::get_window_state(window_id).and_then(|state| {
+        state
+            .document
+            .peek()
+            .file()
+            .map(std::path::Path::to_path_buf)
+    });
+    ready::await_window(window_id, file, ready);
     let _ = crate::events::REPORT_READY_IN_WINDOW.send(window_id);
 }
 
@@ -470,6 +507,15 @@ fn open_blank_window(
 mod tests {
     use super::*;
     use std::path::{Path, PathBuf};
+
+    #[tokio::test]
+    async fn test_a_wake_sent_before_any_window_waits_is_kept_for_it() {
+        notify_waiting_window();
+
+        tokio::time::timeout(std::time::Duration::from_secs(1), main_thread_wanted())
+            .await
+            .expect("the wake was lost because no window was waiting yet");
+    }
 
     #[test]
     fn test_event_queue_fifo_ordering() {

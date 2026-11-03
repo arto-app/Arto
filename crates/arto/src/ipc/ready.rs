@@ -32,23 +32,32 @@ use arto_lsp::{AppliedResult, Responder};
 use dioxus::desktop::tao::window::WindowId;
 use parking_lot::Mutex;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
+/// A responder, and the file its request left the window showing (`None`
+/// for the welcome page).
+pub type Waiting = (Option<PathBuf>, Responder);
+
 /// Signals whose window is already open.
-static AWAITING_WINDOW: LazyLock<Mutex<HashMap<WindowId, Vec<Responder>>>> =
+static AWAITING_WINDOW: LazyLock<Mutex<HashMap<WindowId, Vec<Waiting>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// Signals whose window has been asked for but does not exist yet.
 static AWAITING_NEW_WINDOW: LazyLock<Mutex<Vec<Responder>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
-/// Answer this responder when `window_id` next finishes drawing.
-pub fn await_window(window_id: WindowId, responder: Responder) {
+/// Answer this responder when `window_id` next finishes drawing `file`.
+///
+/// The file is recorded now rather than read when the window gets round to
+/// answering, because by then a later request may already have replaced it,
+/// and the draw of its file is not the one this request asked about.
+pub fn await_window(window_id: WindowId, file: Option<PathBuf>, responder: Responder) {
     AWAITING_WINDOW
         .lock()
         .entry(window_id)
         .or_default()
-        .push(responder);
+        .push((file, responder));
 }
 
 /// Answer this responder when the window that is about to be created draws.
@@ -65,11 +74,26 @@ pub fn claim_new_window() -> Vec<Responder> {
 }
 
 /// Take every responder currently waiting on this window.
-pub fn take_pending(window_id: WindowId) -> Vec<Responder> {
+pub fn take_pending(window_id: WindowId) -> Vec<Waiting> {
     AWAITING_WINDOW
         .lock()
         .remove(&window_id)
         .unwrap_or_default()
+}
+
+/// Split `waiting` into those whose request left the window on `shown` and
+/// those whose file has since been replaced, which no draw will answer.
+pub fn split_by_shown_file<T>(
+    waiting: Vec<(Option<PathBuf>, T)>,
+    shown: Option<&Path>,
+) -> (Vec<T>, Vec<T>) {
+    let (drawn, superseded): (Vec<_>, Vec<_>) = waiting
+        .into_iter()
+        .partition(|(file, _)| file.as_deref() == shown);
+    (
+        drawn.into_iter().map(|(_, waiter)| waiter).collect(),
+        superseded.into_iter().map(|(_, waiter)| waiter).collect(),
+    )
 }
 
 /// Answer every request still bound to a window that is going away.
@@ -77,11 +101,40 @@ pub fn take_pending(window_id: WindowId) -> Vec<Responder> {
 /// `ready: false` is the honest answer: the window will never draw, and a
 /// launch told so now beats one held until its own timeout runs out.
 pub fn forget_window(window_id: WindowId) {
-    let Some(responders) = AWAITING_WINDOW.lock().remove(&window_id) else {
+    let Some(waiting) = AWAITING_WINDOW.lock().remove(&window_id) else {
         return;
     };
     tracing::debug!(?window_id, "Window closed before it reported ready");
-    for responder in responders {
+    for (_, responder) in waiting {
         responder.ok(AppliedResult { ready: false });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_a_request_whose_file_was_replaced_is_not_answered_by_the_draw() {
+        let waiting = vec![
+            (Some(PathBuf::from("/a.md")), "a"),
+            (Some(PathBuf::from("/b.md")), "b"),
+            (None, "welcome"),
+        ];
+
+        let (drawn, superseded) = split_by_shown_file(waiting, Some(Path::new("/b.md")));
+
+        assert_eq!(drawn, vec!["b"]);
+        assert_eq!(superseded, vec!["a", "welcome"]);
+    }
+
+    #[test]
+    fn test_a_request_for_the_welcome_page_is_answered_by_its_draw() {
+        let waiting = vec![(None, "reopen"), (Some(PathBuf::from("/a.md")), "a")];
+
+        let (drawn, superseded) = split_by_shown_file(waiting, None);
+
+        assert_eq!(drawn, vec!["reopen"]);
+        assert_eq!(superseded, vec!["a"]);
     }
 }

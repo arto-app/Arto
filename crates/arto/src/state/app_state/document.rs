@@ -34,7 +34,29 @@ pub enum DocumentContent {
     /// A file from the filesystem.
     File(PathBuf),
     /// A file that cannot be shown, and why.
-    FileError(PathBuf, String),
+    FileError(PathBuf, Unreadable),
+}
+
+/// Why a file could not be shown, in the terms the reader can act on.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Unreadable {
+    /// Nothing is at the path any more: moved, renamed or deleted, often
+    /// while it was open.
+    Missing,
+    /// The bytes are not UTF-8 text.
+    NotText,
+    /// Anything else, as the system worded it.
+    Other(String),
+}
+
+impl From<&std::io::Error> for Unreadable {
+    fn from(error: &std::io::Error) -> Self {
+        match error.kind() {
+            std::io::ErrorKind::NotFound => Self::Missing,
+            std::io::ErrorKind::InvalidData => Self::NotText,
+            _ => Self::Other(error.to_string()),
+        }
+    }
 }
 
 /// The document a window is reading, and how it got there.
@@ -116,10 +138,28 @@ mod tests {
     }
 
     #[test]
+    fn why_a_file_cannot_be_shown_follows_the_kind_of_failure() {
+        use std::io::{Error, ErrorKind};
+
+        let missing = Error::from(ErrorKind::NotFound);
+        assert_eq!(Unreadable::from(&missing), Unreadable::Missing);
+
+        // What `read_to_string` reports for bytes that are not UTF-8.
+        let not_text = Error::new(ErrorKind::InvalidData, "stream did not contain valid UTF-8");
+        assert_eq!(Unreadable::from(&not_text), Unreadable::NotText);
+
+        let denied = Error::new(ErrorKind::PermissionDenied, "Permission denied");
+        assert_eq!(
+            Unreadable::from(&denied),
+            Unreadable::Other("Permission denied".to_string())
+        );
+    }
+
+    #[test]
     fn a_file_that_cannot_be_shown_is_still_a_file() {
         let path = PathBuf::from("/path/to/binary.exe");
         let document = Document {
-            content: DocumentContent::FileError(path.clone(), "Binary file".to_string()),
+            content: DocumentContent::FileError(path.clone(), Unreadable::NotText),
             ..Default::default()
         };
         assert!(document.is_empty());

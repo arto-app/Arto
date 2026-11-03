@@ -64,8 +64,8 @@ pub fn parse_size(value: &str) -> Result<WindowExtent, String> {
 
 fn split_pair<'a>(value: &'a str, shape: &str) -> Result<(&'a str, &'a str), String> {
     match value.split_once(',') {
-        Some((first, second)) => Ok((first.trim(), second.trim())),
-        None => Err(format!(
+        Some((first, second)) if !second.contains(',') => Ok((first.trim(), second.trim())),
+        _ => Err(format!(
             "expected {shape}, as two numbers separated by a comma"
         )),
     }
@@ -125,6 +125,10 @@ mod tests {
         assert_eq!(
             parse_size("1400"),
             Err("expected width,height, as two numbers separated by a comma".to_string())
+        );
+        assert_eq!(
+            parse_position("1,2,3"),
+            Err("expected x,y, as two numbers separated by a comma".to_string())
         );
     }
 
