@@ -144,6 +144,11 @@ _embed-quicklook:
     -Xlinker -e -Xlinker _NSExtensionMain \
     -o "$appex/Contents/MacOS/ArtoQuickLook"
   cp "$ql/Info.plist" "$appex/Contents/Info.plist"
+  # Apple requires an app extension's version to match its app's; a fixed one
+  # would also tell `pluginkit` that every release ships the same extension.
+  version="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$app/Contents/Info.plist")"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${version}" \
+    "$appex/Contents/Info.plist"
   echo "Signing extension (inside-out: extension first, then the app) by ${identity}…"
   codesign --force --sign "$identity" --timestamp=none \
     --entitlements "$ql/ArtoQuickLook.entitlements" \
