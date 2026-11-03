@@ -32,7 +32,6 @@
       <array>
         <string>public.plain-text</string>
       </array>
-      <key>LSItemContentType</key><string>public.plain-text</string>
       <key>CFBundleTypeExtensions</key>
       <array>
         <string>txt</string>
