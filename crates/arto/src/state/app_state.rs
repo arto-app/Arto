@@ -19,7 +19,7 @@ mod layout;
 mod sidebar;
 pub(crate) mod sidebar_cursor;
 
-pub use document::{Document, DocumentContent};
+pub use document::{Document, DocumentContent, Unreadable};
 pub use focused_panel::*;
 pub use sidebar::{Face, Group, PanelRow, Sidebar, TreeRow};
 

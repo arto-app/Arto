@@ -105,8 +105,9 @@ content:
 
 file_error:
   title: "Cannot Open File"
-  hint: "This file cannot be opened. It may be a binary file or an unsupported format."
-  message: "Error: %{error}"
+  missing: "This file no longer exists. It may have been moved, renamed or deleted."
+  not_text: "This file is not text Arto can read. It may be a binary file."
+  other: "This file cannot be read: %{error}"
 
 contents:
   label: "Contents"

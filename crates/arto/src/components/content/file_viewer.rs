@@ -14,7 +14,7 @@ use crate::highlights::page::{show_js, take_up, use_page_highlights};
 use crate::lenses::RenderedSource;
 use crate::markdown::render_to_html_with_toc;
 use crate::scroll_anchor::ScrollAnchor;
-use crate::state::{AppState, DocumentContent};
+use crate::state::{AppState, DocumentContent, Unreadable};
 use crate::utils::file::is_markdown_file;
 use crate::utils::page_runtime::once_arto_has;
 use crate::watcher::FILE_WATCHER;
@@ -242,15 +242,14 @@ fn use_file_loader(
                     // This preserves search state across document changes
                     reapply_search(&show).await;
                 }
-                Err(e) => {
-                    // Failed to read as UTF-8 text (likely binary file)
-                    tracing::error!("Failed to read file {:?} as text: {}", file, e);
-                    let error_msg = format!("{:?}", e);
+                Err(error) => {
+                    tracing::warn!(?file, %error, "Failed to read file as text");
+                    let reason = Unreadable::from(&error);
 
                     // Report the failure as the document's content
                     let file_clone = file.clone();
                     state.update_document(move |document| {
-                        document.content = DocumentContent::FileError(file_clone, error_msg);
+                        document.content = DocumentContent::FileError(file_clone, reason);
                     });
                     state.rendered_source.set(None);
                     state.reading_profile.set(None);

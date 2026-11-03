@@ -95,7 +95,8 @@ pub fn Content() -> Element {
                             .and_then(|n| n.to_str())
                             .map(str::to_string)
                             .unwrap_or_else(|| t!("content.unknown_file").to_string());
-                        rsx! { FileErrorView { filename, error_message: error } }
+                        let path = file.to_string_lossy().into_owned();
+                        rsx! { FileErrorView { filename, path, reason: error } }
                     },
                     // A window with nothing open shows what there is to
                     // read rather than explaining that nothing is open.

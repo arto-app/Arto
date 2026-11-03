@@ -4,6 +4,7 @@ mod app_state;
 pub(crate) use app_state::sidebar_cursor;
 pub use app_state::{
     AppState, Document, DocumentContent, Face, FocusedPanel, Group, PanelRow, SearchMatch, TreeRow,
+    Unreadable,
 };
 
 mod persistence;
