@@ -48,7 +48,10 @@ pub fn build_open_request(invocation: &CliInvocation) -> Option<OpenRequest> {
                     directory = Some(canonical);
                 }
             }
-            None => tracing::warn!(?path, "Skipping invalid path (not a file or directory)"),
+            // Said to the person at the terminal, in the words the other
+            // launch messages use, not as a log record: a release build's
+            // logger prints colours and the source line it came from.
+            None => eprintln!("arto: skipping {}: not a file or directory", path.display()),
         }
     }
 
