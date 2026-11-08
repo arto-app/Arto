@@ -243,7 +243,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.1",
- "signal-hook 0.4.5",
+ "signal-hook 0.4.6",
  "similar 3.2.1",
  "sys-locale",
  "tempfile",
@@ -3032,9 +3032,9 @@ dependencies = [
 
 [[package]]
 name = "ignore"
-version = "0.4.33"
+version = "0.4.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00b69833ed729dc5aa7d19541d96d6cf8e9137194207a04916d658e43168402f"
+checksum = "484be5657551d7868d67587df967fb4fcbe9d266a761cc855aaa148fda0b3cc7"
 dependencies = [
  "crossbeam-deque",
  "globset",
@@ -4437,27 +4437,27 @@ dependencies = [
 
 [[package]]
 name = "ox_content_allocator"
-version = "3.4.0"
+version = "3.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc0446527206fef683cc28d84b141af9a5284478a0ede781b50d72673debe60c"
+checksum = "f64459d74f96530d5bce7ac40a9997275191037e9337a74e286b7c2cd225d345"
 dependencies = [
  "bumpalo",
 ]
 
 [[package]]
 name = "ox_content_ast"
-version = "3.4.0"
+version = "3.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c7246a253325be8ed5b9804425acd8da944711fd2491833cef964dce5f00f65"
+checksum = "6022327e6f150e7bca4adfb524de29942ca30503269a5229cb22ab4941732a58"
 dependencies = [
  "ox_content_allocator",
 ]
 
 [[package]]
 name = "ox_content_parser"
-version = "3.4.0"
+version = "3.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4fc91e19e7528ab84ef180cf6b8de0b884d295c62e29f71d3ac4c73e145fc7e"
+checksum = "d63634ca58ec86734d193ac1ea592d6b849757bb9361f780f9fc199b3202d34e"
 dependencies = [
  "compact_str",
  "memchr",
@@ -4470,9 +4470,9 @@ dependencies = [
 
 [[package]]
 name = "ox_content_renderer"
-version = "3.4.0"
+version = "3.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad15fda89dd6fc976046af96bb4ea249023e62d8cd6f8a842266106b93761a6a"
+checksum = "56dbac7e6bee472dfa3a81117da6da3d7223aa5566c3199b54d90b737cc80863"
 dependencies = [
  "compact_str",
  "memchr",
@@ -5845,9 +5845,9 @@ dependencies = [
 
 [[package]]
 name = "signal-hook"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b29ffa27d3d59a049bb328258de100f8012848d1b08d444e08bbc02ac468435e"
+checksum = "49f7447afd772ca79ad17ae0a3972a6b0df0cb4b80990fd82707593e9e012a74"
 dependencies = [
  "libc",
  "signal-hook-registry",
