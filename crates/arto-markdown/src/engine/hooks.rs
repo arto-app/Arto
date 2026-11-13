@@ -1,5 +1,5 @@
-//! Render hooks: the Mermaid and math containers, headings that carry an
-//! attribute block, wiki links, and GitHub video attachments.
+//! Render hooks: the Mermaid, math and HTML embed containers, headings that
+//! carry an attribute block, wiki links, and GitHub video attachments.
 //!
 //! Everything else falls through to the built-in renderer. The
 //! `preprocessed-*` containers hold the source text twice — escaped as the
@@ -27,13 +27,16 @@ pub(super) struct ArtoHooks<'a> {
     /// otherwise a bare URL in the label becomes a second `<a>` nested in
     /// the one this hook opened.
     in_wiki_label: bool,
+    /// Whether a ` ```html-embed ` fence is drawn rather than shown as code.
+    html_embed: bool,
 }
 
 impl<'a> ArtoHooks<'a> {
-    pub(super) fn new(source: &'a str) -> Self {
+    pub(super) fn new(source: &'a str, html_embed: bool) -> Self {
         Self {
             source,
             in_wiki_label: false,
+            html_embed,
         }
     }
 }
@@ -61,11 +64,12 @@ impl HtmlRenderHooks for ArtoHooks<'_> {
                 HtmlRenderControl::Handled
             }
             Node::CodeBlock(code_block) => {
-                // Only the two languages the frontend renders itself are
-                // taken over; every other fence stays a `<pre><code>`.
+                // Only the languages the frontend renders itself are taken
+                // over; every other fence stays a `<pre><code>`.
                 let class = match code_block.lang {
                     Some("mermaid") => "preprocessed-mermaid",
                     Some("math") => "preprocessed-math",
+                    Some(super::HTML_EMBED) if self.html_embed => "preprocessed-html-embed",
                     _ => return HtmlRenderControl::Default,
                 };
                 write_container(cx, "pre", class, code_block.span, code_block.value);

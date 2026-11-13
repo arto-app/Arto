@@ -131,12 +131,19 @@ fn images_diagrams_and_formulas_are_figures() {
         ```math
         y
         ```
+
+        ```html-embed
+        <div>z</div>
+        ```
     "});
     let figures: Vec<(u32, u32, u32)> = blocks
         .iter()
         .map(|b| (b.line, b.figures, b.code_lines))
         .collect();
-    assert_eq!(figures, vec![(1, 2, 0), (3, 1, 0), (8, 1, 0), (12, 1, 0)]);
+    assert_eq!(
+        figures,
+        vec![(1, 2, 0), (3, 1, 0), (8, 1, 0), (12, 1, 0), (16, 1, 0)]
+    );
     // The alt text is not read; the word between the images is.
     assert_eq!(blocks[0].words, 1);
 }

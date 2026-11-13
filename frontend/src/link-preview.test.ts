@@ -89,6 +89,15 @@ describe("sectionOf", () => {
     expect(node.hasAttribute("data-source-range")).toBe(false);
     expect(node.querySelector("[id]")).toBeNull();
   });
+
+  test("copies a drawn HTML embed as its source, to be drawn again in the theme of now", () => {
+    const root = fragment(`<h2>A</h2>
+      <pre class="preprocessed-html-embed" data-original-content="<p>x</p>" data-rendered="true"><iframe srcdoc="old"></iframe></pre>`);
+    const [node] = sectionOf(root.querySelector("h2") as Element, 12).nodes as HTMLElement[];
+    expect(node.querySelector("iframe")).toBeNull();
+    expect(node.textContent).toBe("<p>x</p>");
+    expect(node.dataset.rendered).toBeUndefined();
+  });
 });
 
 describe("leadOf", () => {
@@ -162,6 +171,36 @@ describe("hover", () => {
     expect(document.querySelector('a[href="#fn-1"]')?.getAttribute("aria-describedby")).toBe(
       popover?.id,
     );
+  });
+
+  test("an HTML embed in the excerpt is drawn, and the card placed again as it grows", () => {
+    let resized: (() => void) | null = null;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          resized = callback;
+        }
+        observe(): void {}
+        disconnect(): void {}
+      },
+    );
+    page(`<p><a href="#figure">figure</a></p><h2 id="figure">Figure</h2>
+      <pre class="preprocessed-html-embed" data-original-content="<p>x</p>">&lt;p&gt;x&lt;/p&gt;</pre>`);
+    const anchor = document.querySelector('a[href="#figure"]') as Element;
+    hover(anchor);
+    vi.advanceTimersByTime(HOVER_DELAY_MS);
+
+    expect(shown()?.querySelector("iframe.html-embed-frame")).not.toBeNull();
+    placement.placePopover.mockClear();
+    (resized as (() => void) | null)?.();
+    expect(placement.placePopover).toHaveBeenCalledWith(shown(), anchor);
+
+    placement.placePopover.mockClear();
+    _internal.reset();
+    (resized as (() => void) | null)?.();
+    expect(placement.placePopover).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 
   test("a link to a heading on the page shows that heading's section", () => {

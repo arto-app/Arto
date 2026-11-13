@@ -31,6 +31,7 @@
       "default": {
         "autoLinkUrls": true,
         "math": true,
+        "htmlEmbed": true,
         "wikiLinks": true,
         "superscript": true,
         "subscript": true,
@@ -242,6 +243,11 @@
         },
         "math": {
           "description": "Read `$…$` and `$$…$$` as formulas for the math renderer.\n\nOff leaves a document that writes `$` for something else alone: two\nshell variables in one line (`echo $HOME/$USER`) otherwise pair up\ninto a formula spanning both.",
+          "type": "boolean",
+          "default": true
+        },
+        "htmlEmbed": {
+          "description": "Draw a ` ```html-embed ` fence as the figure its HTML and CSS\ndescribe, the way Zenn does, rather than as code.\n\nThe markup is shown in a frame of its own that runs no script of the\ndocument's and loads nothing from elsewhere, so it cannot reach the\npage around it. Off shows the fence as the code block GitHub shows.",
           "type": "boolean",
           "default": true
         },

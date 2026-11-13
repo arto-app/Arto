@@ -76,6 +76,13 @@ pub struct RenderOptions {
     /// shell variables in one line (`echo $HOME/$USER`) otherwise pair up
     /// into a formula spanning both.
     pub math: bool,
+    /// Draw a ` ```html-embed ` fence as the figure its HTML and CSS
+    /// describe, the way Zenn does, rather than as code.
+    ///
+    /// The markup is shown in a frame of its own that runs no script of the
+    /// document's and loads nothing from elsewhere, so it cannot reach the
+    /// page around it. Off shows the fence as the code block GitHub shows.
+    pub html_embed: bool,
     /// Read `[[target]]` and `[[target|label]]` as links to another document.
     pub wiki_links: bool,
     /// Read `^text^` as superscript.
@@ -120,6 +127,7 @@ impl Default for RenderOptions {
         Self {
             auto_link_urls: true,
             math: true,
+            html_embed: true,
             wiki_links: true,
             superscript: true,
             subscript: true,

@@ -65,9 +65,15 @@ pub(crate) fn build_document(body_html: &str, options: &PageOptions) -> String {
     // is blocked. `style-src 'unsafe-inline'` is required because the page
     // carries its stylesheet inline and the frontend sets inline styles at
     // runtime.
+    // An HTML embed's frame runs a script of its own, written into the frame
+    // rather than the page, and is held to this policy as well as to its own.
     let csp_meta = if options.content_security_policy {
+        let frame =
+            arto_frontend::draws_html_embed(body_html).then_some(arto_frontend::HTML_EMBED_FRAME);
         let sources: Vec<String> = scripts
             .iter()
+            .map(String::as_str)
+            .chain(frame)
             .map(|script| format!("'sha256-{}'", sha256_base64(script)))
             .collect();
         format!(
@@ -315,6 +321,26 @@ mod tests {
         assert!(html.contains(&format!("'sha256-{}'", sha256_base64(BOOTSTRAP_JS))));
     }
 
+    /// A `srcdoc` frame is held to the page's policy as well as its own, so
+    /// the script an HTML embed's frame runs has to be allowlisted here too —
+    /// and only on a page that draws one.
+    #[test]
+    fn test_build_document_allowlists_the_html_embed_frame_script_when_it_draws_one() {
+        let frame = format!(
+            "'sha256-{}'",
+            sha256_base64(arto_frontend::HTML_EMBED_FRAME)
+        );
+
+        let embed = build_document(
+            r#"<pre class="preprocessed-html-embed" data-original-content="&lt;p&gt;x&lt;/p&gt;">&lt;p&gt;x&lt;/p&gt;</pre>"#,
+            &PageOptions::default(),
+        );
+        assert!(embed.contains(&frame), "{embed}");
+
+        let prose = build_document("<p>hi</p>", &PageOptions::default());
+        assert!(!prose.contains(&frame));
+    }
+
     #[test]
     fn test_build_document_can_omit_csp() {
         let options = PageOptions {
@@ -323,7 +349,10 @@ mod tests {
         };
         let html = build_document("<p>hi</p>", &options);
 
-        assert!(!html.contains("Content-Security-Policy"));
+        // The head, where the page's policy goes: the runtime in the body
+        // carries the policy it writes into an HTML embed's frame.
+        let head = &html[..html.find("<body>").expect("a body")];
+        assert!(!head.contains("Content-Security-Policy"));
         // The rest of the document is unchanged.
         assert!(html.contains("ArtoRenderer.init"));
         assert!(html.contains(r#"<meta name="viewport""#));

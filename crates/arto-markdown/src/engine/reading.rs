@@ -17,16 +17,19 @@ use crate::{count_text, ReadingBlock, ReadingProfile};
 use ox_content_ast::{Document, Node};
 
 /// `escape_html` says raw HTML is shown as written, tags and all, rather than
-/// rendered.
+/// rendered; `html_embed` says a ` ```html-embed ` fence is drawn as a figure
+/// rather than shown as code.
 pub(super) fn collect(
     document: &Document<'_>,
     lines: &LineTable<'_>,
     escape_html: bool,
+    html_embed: bool,
 ) -> ReadingProfile {
     let mut profile = ReadingProfile::default();
     let mut footnotes = Counter::new(
         u32::try_from(lines.last_line() + 1).unwrap_or(u32::MAX),
         escape_html,
+        html_embed,
     );
     let mut has_footnotes = false;
     for node in document.children.iter() {
@@ -39,7 +42,11 @@ pub(super) fn collect(
         let Some(line) = lines.start_line(span.start as usize, span.end as usize) else {
             continue;
         };
-        let mut counter = Counter::new(u32::try_from(line).unwrap_or(u32::MAX), escape_html);
+        let mut counter = Counter::new(
+            u32::try_from(line).unwrap_or(u32::MAX),
+            escape_html,
+            html_embed,
+        );
         counter.blocks(std::slice::from_ref(node));
         profile.blocks.push(counter.finish());
     }
@@ -56,10 +63,11 @@ struct Counter {
     block: ReadingBlock,
     text: String,
     escape_html: bool,
+    html_embed: bool,
 }
 
 impl Counter {
-    fn new(line: u32, escape_html: bool) -> Self {
+    fn new(line: u32, escape_html: bool, html_embed: bool) -> Self {
         Self {
             block: ReadingBlock {
                 line,
@@ -67,6 +75,7 @@ impl Counter {
             },
             text: String::new(),
             escape_html,
+            html_embed,
         }
     }
 
@@ -95,8 +104,9 @@ impl Counter {
                 }
                 Node::ListItem(item) => self.blocks(&item.children),
                 Node::CodeBlock(code) => match code.lang {
-                    // The two the frontend draws are looked at, not read.
+                    // The ones the frontend draws are looked at, not read.
                     Some("mermaid" | "math") => self.block.figures += 1,
+                    Some(super::HTML_EMBED) if self.html_embed => self.block.figures += 1,
                     _ => self.block.code_lines += count(code.value.lines().count()),
                 },
                 Node::MathBlock(_) => self.block.figures += 1,

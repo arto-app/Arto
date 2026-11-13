@@ -16,8 +16,8 @@ use std::ops::Range;
 
 /// The content range of every code block, keyed by the start of its span.
 ///
-/// Mermaid and math blocks are code blocks to the parser too; they are listed
-/// like any other and simply never looked up.
+/// Mermaid, math and HTML embed blocks are code blocks to the parser too; they
+/// are listed like any other and simply never looked up.
 pub(super) fn collect(document: &Document<'_>, body: &str) -> HashMap<usize, Range<usize>> {
     let mut contents = HashMap::new();
     collect_blocks(&document.children, body, &mut contents);

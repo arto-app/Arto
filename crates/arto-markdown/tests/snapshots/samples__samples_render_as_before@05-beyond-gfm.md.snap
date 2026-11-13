@@ -114,5 +114,30 @@ directly.</p>
 <p data-source-range="136:1-138:5"><strong>GitHub and engines with GFM autolink literals:</strong> both become links.
 <strong>Otherwise:</strong> plain text, while <a href="https://example.com">https://example.com</a> on the same page is a
 link.</p>
-<hr data-source-range="140:1-140:3">
-<p data-source-range="142:1-142:79">Previous: <span data-md-link="./04-frontmatter.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Frontmatter</span> · Back to the <span data-md-link="./README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">index</span></p>
+<h2 data-source-range="140:1-140:14">HTML embeds</h2>
+<p data-source-range="142:1-143:29">Source: a fenced block whose language is <code>html-embed</code>, holding HTML and a
+<code>&lt;style&gt;</code>, as Zenn writes it.</p>
+<pre data-source-range="145:1-161:3" class="preprocessed-html-embed" data-original-content="&lt;div class=&quot;flow&quot;&gt;&#10;  &lt;div class=&quot;box&quot;&gt;Input&lt;/div&gt;&lt;div class=&quot;arrow&quot;&gt;→&lt;/div&gt;&#10;  &lt;div class=&quot;box&quot;&gt;Process&lt;/div&gt;&lt;div class=&quot;arrow&quot;&gt;→&lt;/div&gt;&#10;  &lt;div class=&quot;box&quot;&gt;Output&lt;/div&gt;&#10;&lt;/div&gt;&#10;&lt;p class=&quot;note&quot;&gt;A &lt;a href=&quot;https://example.com&quot;&gt;link&lt;/a&gt; stays text.&lt;/p&gt;&#10;&lt;button onclick=&quot;alert(1)&quot;&gt;Never shown&lt;/button&gt;&#10;&lt;script&gt;document.body.textContent = &quot;script ran&quot;;&lt;/script&gt;&#10;&lt;style&gt;&#10;  .flow { display: flex; align-items: center; gap: 8px; justify-content: center; padding: 16px; }&#10;  .box { padding: 8px 16px; border: 2px solid #3ea8ff; border-radius: 8px;&#10;         background: light-dark(#eaf6ff, #1a2f3f); }&#10;  .note { text-align: center; margin: 0 0 16px; }&#10;&lt;/style&gt;&#10;&lt;style data-theme=&quot;dark&quot;&gt;.arrow { color: #9fd3ff; }&lt;/style&gt;&#10;">&lt;div class=&quot;flow&quot;&gt;
+  &lt;div class=&quot;box&quot;&gt;Input&lt;/div&gt;&lt;div class=&quot;arrow&quot;&gt;→&lt;/div&gt;
+  &lt;div class=&quot;box&quot;&gt;Process&lt;/div&gt;&lt;div class=&quot;arrow&quot;&gt;→&lt;/div&gt;
+  &lt;div class=&quot;box&quot;&gt;Output&lt;/div&gt;
+&lt;/div&gt;
+&lt;p class=&quot;note&quot;&gt;A &lt;a href=&quot;https://example.com&quot;&gt;link&lt;/a&gt; stays text.&lt;/p&gt;
+&lt;button onclick=&quot;alert(1)&quot;&gt;Never shown&lt;/button&gt;
+&lt;script&gt;document.body.textContent = &quot;script ran&quot;;&lt;/script&gt;
+&lt;style&gt;
+  .flow { display: flex; align-items: center; gap: 8px; justify-content: center; padding: 16px; }
+  .box { padding: 8px 16px; border: 2px solid #3ea8ff; border-radius: 8px;
+         background: light-dark(#eaf6ff, #1a2f3f); }
+  .note { text-align: center; margin: 0 0 16px; }
+&lt;/style&gt;
+&lt;style data-theme=&quot;dark&quot;&gt;.arrow { color: #9fd3ff; }&lt;/style&gt;
+</pre>
+<p data-source-range="163:1-168:69"><strong>Zenn:</strong> the three boxes in a row, in a bordered frame labelled as
+user-created content, the box fill and the arrows following the reader’s
+theme; the link is plain text and neither the button nor the script’s text
+appears.
+<strong>Arto:</strong> the same, in a frame as tall as the figure.
+<strong>GitHub and plain GFM renderers:</strong> the source as an HTML code block.</p>
+<hr data-source-range="170:1-170:3">
+<p data-source-range="172:1-172:79">Previous: <span data-md-link="./04-frontmatter.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">Frontmatter</span> · Back to the <span data-md-link="./README.md" class="md-link" onmousedown="if(event.button===0||event.button===1){event.preventDefault();window.handleMarkdownLinkClick(this.dataset.mdLink,event.button)}">index</span></p>

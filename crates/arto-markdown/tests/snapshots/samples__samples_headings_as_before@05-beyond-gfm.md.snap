@@ -14,3 +14,4 @@ input_file: samples/05-beyond-gfm.md
 2 "Math in table cells" #math-in-table-cells
 2 "Emoji shortcodes" #emoji-shortcodes
 2 "Autolinks without a scheme" #autolinks-without-a-scheme
+2 "HTML embeds" #html-embeds

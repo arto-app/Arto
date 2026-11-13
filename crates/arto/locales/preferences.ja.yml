@@ -66,6 +66,9 @@ preferences:
       math:
         label: "数式"
         description: "$…$ と $$…$$ を数式として扱います。オフにすると、ドル記号を別の目的で書くドキュメントのためにそのまま残します。オンでは、1 行に 2 つのシェル変数があるだけで対になり数式になってしまいます。"
+      html_embed:
+        label: "HTML 埋め込み"
+        description: "```html-embed ブロックを、Zenn と同じように HTML と CSS が描く図として表示します。スクリプトは動かず、画像以外は何も読み込まない専用の枠の中に描きます。オフにするとコードとして表示します。"
       wiki_links:
         label: "Wiki リンク"
         description: "[[Page]] と [[Page|label]] で、Obsidian と同じように別のドキュメントを開きます。"

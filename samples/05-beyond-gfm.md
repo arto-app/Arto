@@ -137,6 +137,36 @@ www.example.com and contact@example.com
 **Otherwise:** plain text, while https://example.com on the same page is a
 link.
 
+## HTML embeds
+
+Source: a fenced block whose language is `html-embed`, holding HTML and a
+`<style>`, as Zenn writes it.
+
+```html-embed
+<div class="flow">
+  <div class="box">Input</div><div class="arrow">→</div>
+  <div class="box">Process</div><div class="arrow">→</div>
+  <div class="box">Output</div>
+</div>
+<p class="note">A <a href="https://example.com">link</a> stays text.</p>
+<button onclick="alert(1)">Never shown</button>
+<script>document.body.textContent = "script ran";</script>
+<style>
+  .flow { display: flex; align-items: center; gap: 8px; justify-content: center; padding: 16px; }
+  .box { padding: 8px 16px; border: 2px solid #3ea8ff; border-radius: 8px;
+         background: light-dark(#eaf6ff, #1a2f3f); }
+  .note { text-align: center; margin: 0 0 16px; }
+</style>
+<style data-theme="dark">.arrow { color: #9fd3ff; }</style>
+```
+
+**Zenn:** the three boxes in a row, in a bordered frame labelled as
+user-created content, the box fill and the arrows following the reader's
+theme; the link is plain text and neither the button nor the script's text
+appears.
+**Arto:** the same, in a frame as tall as the figure.
+**GitHub and plain GFM renderers:** the source as an HTML code block.
+
 ---
 
 Previous: [Frontmatter](./04-frontmatter.md) · Back to the [index](./README.md)

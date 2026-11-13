@@ -12,6 +12,10 @@
       "copy_code": "コードをクリップボードにコピー",
       "copy_image": "画像としてコピー"
     },
+    "html_embed": {
+      "label": "ユーザー作成コンテンツ",
+      "too_large": "この埋め込みは %{limit} を超えるため表示しません。"
+    },
     "lenses": {
       "original_handle": "原文 — Option (⌥) を押しながらブロックに重ねても表示できます"
     },
