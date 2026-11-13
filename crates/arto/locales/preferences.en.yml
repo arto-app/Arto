@@ -66,6 +66,9 @@ preferences:
       math:
         label: "Math"
         description: "$…$ and $$…$$ are formulas. Off leaves the dollars to a document that writes them for something else — two shell variables on one line otherwise pair up into a formula."
+      html_embed:
+        label: "HTML embeds"
+        description: "A ```html-embed block is drawn as the figure its HTML and CSS describe, the way Zenn shows it — in a frame of its own that runs no script and loads nothing but images. Off shows the block as code."
       wiki_links:
         label: "Wiki links"
         description: "[[Page]] and [[Page|label]] open another document, the way Obsidian writes them."

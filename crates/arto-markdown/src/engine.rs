@@ -2,10 +2,10 @@
 //!
 //! Everything that knows the parser, and the HTML the renderer writes, lives
 //! below this module: the parser and renderer options, the hooks that swap
-//! Mermaid and math for the containers the frontend renders client-side, the
-//! heading outline, the links a document makes, the pass that turns the
-//! rendered markup into the crate's HTML contract, and the selection source
-//! map. The rest of the crate sees [`render`] with its [`Rendered`] output,
+//! Mermaid, math and HTML embeds for the containers the frontend renders
+//! client-side, the heading outline, the links a document makes, the pass
+//! that turns the rendered markup into the crate's HTML contract, and the
+//! selection source map. The rest of the crate sees [`render`] with its [`Rendered`] output,
 //! [`links`] and [`extract_source_selection`], none of which mentions an
 //! ox-content type, so replacing the engine is a change inside this
 //! directory.
@@ -28,6 +28,9 @@ use lines::LineTable;
 use ox_content_allocator::Allocator;
 use ox_content_parser::{Parser, ParserOptions};
 use ox_content_renderer::{HtmlRenderer, HtmlRendererOptions};
+
+/// The fence language Zenn draws as HTML and CSS rather than shows as code.
+const HTML_EMBED: &str = "html-embed";
 
 /// The parser configuration every parse in the engine uses.
 ///
@@ -107,13 +110,20 @@ pub(crate) fn render(
         .parse()
         .map_err(|error| RenderError::Parse(Box::new(error)))?;
 
-    let html = HtmlRenderer::with_options(renderer_options(options))
-        .render_with_hooks(&document, &mut hooks::ArtoHooks::new(body));
+    let html = HtmlRenderer::with_options(renderer_options(options)).render_with_hooks(
+        &document,
+        &mut hooks::ArtoHooks::new(body, options.html_embed),
+    );
 
     let lines = LineTable::new(body, frontmatter_lines);
     let code_contents = code::collect(&document, body);
     let annotated = annotate::annotate(&html, &lines, &code_contents, with_toc);
-    let reading = reading::collect(&document, &lines, options.raw_html == RawHtml::Escape);
+    let reading = reading::collect(
+        &document,
+        &lines,
+        options.raw_html == RawHtml::Escape,
+        options.html_embed,
+    );
 
     let headings = if with_toc {
         // The ids come back from the rendered headings, so the outline and

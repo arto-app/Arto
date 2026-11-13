@@ -39,6 +39,14 @@ pub fn MarkdownTab(config: Signal<Config>) -> Element {
             }
 
             ToggleRow {
+                label: t!("preferences.markdown.syntax.html_embed.label").to_string(),
+                description: Some(t!("preferences.markdown.syntax.html_embed.description").to_string()),
+                checked: markdown.html_embed,
+                on_change: move |on| config.write().markdown.html_embed = on,
+                shipped: Some(defaults.html_embed),
+            }
+
+            ToggleRow {
                 label: t!("preferences.markdown.syntax.wiki_links.label").to_string(),
                 description: Some(t!("preferences.markdown.syntax.wiki_links.description").to_string()),
                 checked: markdown.wiki_links,

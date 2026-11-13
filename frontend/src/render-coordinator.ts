@@ -1,5 +1,7 @@
 import { applyPictureTheme } from "./picture-theme";
+import * as htmlEmbedRenderer from "./html-embed-renderer";
 import * as mathRenderer from "./math-renderer";
+import { currentTheme } from "./theme";
 import * as mermaidRenderer from "./mermaid-renderer";
 import * as syntaxHighlighter from "./syntax-highlighter";
 import * as codeCopy from "./code-copy";
@@ -315,6 +317,7 @@ class RenderCoordinator {
           mathRenderer.renderMath(markdownBody);
           syntaxHighlighter.highlightCodeBlocks(markdownBody);
           await mermaidRenderer.renderDiagrams(markdownBody);
+          htmlEmbedRenderer.renderHtmlEmbeds(markdownBody, currentTheme);
           codeCopy.addCopyButtons(markdownBody);
           setupSpecialBlockListeners(markdownBody);
         }),

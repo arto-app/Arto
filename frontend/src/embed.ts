@@ -17,6 +17,7 @@
 import "../style/embed.css";
 
 import * as codeCopy from "./code-copy";
+import * as htmlEmbedRenderer from "./html-embed-renderer";
 import * as mathRenderer from "./math-renderer";
 import * as mermaidRenderer from "./mermaid-renderer";
 import { applyPictureTheme } from "./picture-theme";
@@ -69,6 +70,7 @@ function draw(viewer: Element): void {
   mathRenderer.renderMath(viewer);
   syntaxHighlighter.highlightCodeBlocks(viewer);
   void mermaidRenderer.renderDiagrams(viewer);
+  htmlEmbedRenderer.renderHtmlEmbeds(viewer, () => theme);
   codeCopy.addCopyButtons(viewer);
 }
 
@@ -77,14 +79,16 @@ function draw(viewer: Element): void {
  * `theme` — one of GitHub's theme names, as `config.json` spells them.
  *
  * The diagrams follow the stylesheet like the rest of the document, so
- * nothing is drawn again. A promise all the same: the script API returns
- * one, and a host may await it.
+ * nothing is drawn again; an HTML embed is told the theme across its frame.
+ * A promise all the same: the script API returns one, and a host may await
+ * it.
  */
 export function setTheme(next: Theme): Promise<void> {
   theme = next;
   for (const viewer of liveViewers()) {
     viewer.setAttribute("data-theme", theme);
     applyPictureTheme(viewer, theme);
+    htmlEmbedRenderer.setHtmlEmbedTheme(viewer, theme);
   }
   return Promise.resolve();
 }

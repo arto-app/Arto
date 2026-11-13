@@ -15,6 +15,7 @@
  */
 
 import { getCurrentElement } from "./content-cursor";
+import { renderHtmlEmbedsElsewhere } from "./html-embed-renderer";
 import { t } from "./i18n";
 import { renderMathElsewhere } from "./math-renderer";
 import { renderDiagramsElsewhere } from "./mermaid-renderer";
@@ -37,7 +38,12 @@ const MORE = "link-preview-more";
 const UNAVAILABLE = "link-preview-unavailable";
 const LINK_SELECTOR = "a[href], span.md-link[data-md-link]";
 const HEADING = /^H[1-6]$/;
-const DIAGRAM = "pre.preprocessed-mermaid[data-original-content]";
+/**
+ * Blocks a copy takes back to their source, to be drawn again in the card: a
+ * frame copied as drawn would keep the theme it was drawn in.
+ */
+const DRAWN =
+  "pre.preprocessed-mermaid[data-original-content], pre.preprocessed-html-embed[data-original-content]";
 
 /** Part of a document, copied, and whether there was more of it. */
 export interface Excerpt {
@@ -70,11 +76,11 @@ function detached(node: Node): Node {
       el.removeAttribute("id");
       el.removeAttribute("data-source-range");
     }
-    const own = copy.matches(DIAGRAM) ? [copy] : [];
-    for (const diagram of [...own, ...Array.from(copy.querySelectorAll(DIAGRAM))]) {
-      if (!(diagram instanceof HTMLElement)) continue;
-      diagram.textContent = diagram.dataset.originalContent ?? "";
-      delete diagram.dataset.rendered;
+    const own = copy.matches(DRAWN) ? [copy] : [];
+    for (const block of [...own, ...Array.from(copy.querySelectorAll(DRAWN))]) {
+      if (!(block instanceof HTMLElement)) continue;
+      block.textContent = block.dataset.originalContent ?? "";
+      delete block.dataset.rendered;
     }
   }
   return copy;
@@ -340,6 +346,14 @@ function show(anchor: HTMLElement, { title, excerpt, open }: Shown): void {
     popover.id = POPOVER_ID;
     popover.setAttribute("role", "tooltip");
     document.body.appendChild(popover);
+    // An HTML embed's frame takes its height only after the card was placed,
+    // so a card that grows is placed again rather than left off the window.
+    if (typeof ResizeObserver !== "undefined") {
+      const card = popover;
+      new ResizeObserver(() => {
+        if (current && card.classList.contains("is-visible")) placePopover(card, current.anchor);
+      }).observe(card);
+    }
   }
   const followThen = (action: () => void) => () => {
     hide();
@@ -385,13 +399,14 @@ function show(anchor: HTMLElement, { title, excerpt, open }: Shown): void {
 }
 
 /**
- * Set the formulas and draw the diagrams of the excerpt in `body`, which
- * the page's renderers never look at. Both are done before the card is
- * placed, so it is placed for the size it has.
+ * Set the formulas and draw the diagrams and HTML embeds of the excerpt in
+ * `body`, which the page's renderers never look at. All are done before the
+ * card is placed, so it is placed for the size it has.
  */
 function draw(body: HTMLElement): void {
   renderMathElsewhere(body);
   renderDiagramsElsewhere(body);
+  renderHtmlEmbedsElsewhere(body);
 }
 
 /**

@@ -9,6 +9,25 @@ fn render_with(markdown: &str, options: RenderOptions) -> String {
 }
 
 #[test]
+fn html_embed_off_leaves_the_fence_a_code_block() {
+    let source = "```html-embed\n<b>x</b>\n```\n";
+    assert!(
+        render(source).contains("preprocessed-html-embed"),
+        "the default reads this as an embed"
+    );
+
+    let html = render_with(
+        source,
+        RenderOptions {
+            html_embed: false,
+            ..Default::default()
+        },
+    );
+    assert!(!html.contains("preprocessed-html-embed"), "{html}");
+    assert!(html.contains(r#"class="language-html-embed""#), "{html}");
+}
+
+#[test]
 fn math_off_leaves_the_dollars_to_the_prose() {
     // Two shell variables in one line are what the option is for: the parser
     // pairs their `$`s into a formula spanning the text between them.
@@ -357,6 +376,7 @@ fn the_gfm_baseline_survives_every_option_being_turned_off() {
     let everything_off = RenderOptions {
         auto_link_urls: false,
         math: false,
+        html_embed: false,
         wiki_links: false,
         superscript: false,
         subscript: false,

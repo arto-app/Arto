@@ -243,10 +243,12 @@
                   cp -r ${frontend-assets}/* crates/arto/assets/frontend/
                   # The page crate embeds the stylesheet and the page runtime;
                   # the frontend crate carries the runtime and stylesheet it
-                  # hands to other apps, and the library bundles both use.
+                  # hands to other apps, the library bundles both use, and the
+                  # script an HTML embed's frame runs.
                   cp ${frontend-assets}/main.css ${frontend-assets}/page.iife.js \
                     crates/arto-page/assets/frontend/
                   cp ${frontend-assets}/embed* ${frontend-assets}/page-* \
+                    ${frontend-assets}/html-embed-frame.js \
                     crates/arto-frontend/assets/frontend/
                 '';
 
@@ -333,10 +335,12 @@
                   mkdir -p crates/arto-page/assets/frontend crates/arto-frontend/assets/frontend
                   # The page crate embeds the stylesheet and the page runtime;
                   # the frontend crate carries the runtime and stylesheet it
-                  # hands to other apps, and the library bundles both use.
+                  # hands to other apps, the library bundles both use, and the
+                  # script an HTML embed's frame runs.
                   cp ${frontend-assets}/main.css ${frontend-assets}/page.iife.js \
                     crates/arto-page/assets/frontend/
                   cp ${frontend-assets}/embed* ${frontend-assets}/page-* \
+                    ${frontend-assets}/html-embed-frame.js \
                     crates/arto-frontend/assets/frontend/
                 '';
 

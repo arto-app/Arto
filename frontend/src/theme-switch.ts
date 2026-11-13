@@ -1,3 +1,4 @@
+import { setHtmlEmbedTheme } from "./html-embed-renderer";
 import { applyPictureTheme } from "./picture-theme";
 import { type Theme, currentTheme, isDarkTheme, themedElement } from "./theme";
 import * as viewportQueue from "./viewport-queue";
@@ -8,8 +9,10 @@ export function setCurrentTheme(theme: Theme): void {
   // The stylesheet repaints on the attribute alone, diagrams included: they
   // name their colours as CSS variables. Theme-aware pictures do not, because
   // their media query answers for the system rather than for the theme the
-  // reader chose here.
+  // reader chose here; nor do HTML embeds, whose frames the page's stylesheet
+  // cannot reach.
   applyPictureTheme();
+  setHtmlEmbedTheme(document, theme);
 }
 
 /**

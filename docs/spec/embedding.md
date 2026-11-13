@@ -16,7 +16,9 @@ links and its theme stay its own.
   highlight.js in a common and a complete build;
 - `Libraries::for_fragment`, which names the bundles a rendered fragment
   needs, and `Libraries::scripts`, which yields them in the order to load
-  them.
+  them;
+- `HTML_EMBED_FRAME`, the script the runtime runs inside an HTML embed's
+  frame, and `draws_html_embed`, which says whether a fragment has one.
 
 The library bundles are the ones `arto page` and Quick Look embed, and the
 crate is versioned with `arto-markdown`. A document that draws no diagram needs no Pele, one that
@@ -87,9 +89,17 @@ is painted `light`. An image written as a `<picture>` with
 `prefers-color-scheme` sources follows this theme rather than the system's,
 in `render` and in `setTheme` alike.
 
+An HTML embed is drawn in a sandboxed `<iframe srcdoc>`, which runs no script
+of the document's and cannot reach the host's page; `setTheme` reaches it by
+message. Such a frame is held to the host page's `Content-Security-Policy` as
+well as its own, so a host that allowlists scripts by hash adds the hash of
+`HTML_EMBED_FRAME` for a fragment that `draws_html_embed`, or the frame keeps
+its first height and theme.
+
 The runtime does nothing until `render` is called and touches nothing outside
 the viewers it was handed: no keyboard handler, no scrolling, no observer of
-the host's document.
+the host's document. Its one listener on the host's window takes the height
+an HTML embed's frame reports, and only from a frame it drew.
 
 ## What the host keeps
 

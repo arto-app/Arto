@@ -121,6 +121,7 @@ all of them; what a standalone page leaves out is in
 | --- | --- | --- |
 | `autoLinkUrls` | A bare URL becomes a link | on |
 | `math` | `$…$` and `$$…$$` are formulas | on |
+| `htmlEmbed` | A ` ```html-embed ` fence is drawn as the figure its HTML and CSS describe, as on Zenn, in a frame that runs no script and loads nothing but images | on |
 | `wikiLinks` | `[[target]]` and `[[target\|label]]` link to another document | on |
 | `superscript` | `^text^` is superscript | on |
 | `subscript` | `~text~` is subscript | on |

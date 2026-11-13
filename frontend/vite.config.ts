@@ -6,6 +6,7 @@ import fs from "fs";
 import icons from "./icons.json" with { type: "json" };
 import { scopeStylesheetPlugin } from "./build/scope-stylesheet.ts";
 import { writeIfChanged } from "./build/write-if-changed.ts";
+import { FRAME_SCRIPT } from "./src/html-embed-frame.ts";
 
 function iconSpritePlugin(): Plugin {
   return {
@@ -230,6 +231,7 @@ const bundleConsumers: BundleConsumer[] = [
       "page-hljs-common.txt",
       "page-hljs-all.iife.js",
       "page-hljs-all.txt",
+      "html-embed-frame.js",
     ],
   },
 ];
@@ -285,6 +287,26 @@ function hljsManifestPlugin(
   };
 }
 
+/**
+ * Write the script an HTML embed's frame runs out as a file of its own.
+ *
+ * The frontend writes it into each frame as text, and a page whose policy
+ * allowlists scripts by hash — what `arto page` writes — has to name its hash
+ * too, since a `srcdoc` frame is held to the page's policy as well as its
+ * own. The Rust side reads this file to compute that hash, so it is the same
+ * constant the frontend bundles rather than a copy.
+ */
+function htmlEmbedFramePlugin(environment: string): Plugin {
+  return {
+    name: "html-embed-frame",
+    apply: "build",
+    applyToEnvironment: (candidate) => candidate.name === environment,
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: "html-embed-frame.js", source: FRAME_SCRIPT });
+    },
+  };
+}
+
 /** The build options for one IIFE entry under `src/`. */
 function iifeEnvironment(entry: string, name: string) {
   return {
@@ -324,6 +346,7 @@ export default defineConfig(({ mode }) => {
         "page-hljs-common.txt",
       ),
       hljsManifestPlugin("pageHljsAll", () => import("highlight.js"), "page-hljs-all.txt"),
+      htmlEmbedFramePlugin("page"),
       syncBundlePlugin(consumers, production),
     ],
     css: {

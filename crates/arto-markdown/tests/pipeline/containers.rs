@@ -113,3 +113,35 @@ fn empty_display_math_does_not_break_rendering() {
         assert!(html.contains("preprocessed-math-display"), "{html}");
     }
 }
+
+#[test]
+fn html_embed_block_becomes_a_preprocessed_pre() {
+    let html = render(indoc! {r#"
+        ```html-embed
+        <div class="box">in</div>
+        <style>.box { color: red; }</style>
+        ```
+    "#});
+
+    assert!(
+        has_element(
+            &html,
+            "pre",
+            &[
+                ("class", "preprocessed-html-embed"),
+                ("data-source-range", "1:1-4:3"),
+            ]
+        ),
+        "{html}"
+    );
+    // The markup travels as text, never as markup of the page: the frontend
+    // places it in a frame of its own.
+    assert!(
+        html.contains(
+            r#"data-original-content="&lt;div class=&quot;box&quot;&gt;in&lt;/div&gt;&#10;"#
+        ),
+        "{html}"
+    );
+    assert!(!html.contains(r#"<div class="box">"#), "{html}");
+    assert!(!html.contains("language-html-embed"), "{html}");
+}

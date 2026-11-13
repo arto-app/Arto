@@ -1,9 +1,9 @@
 //! Arto's frontend, for an application that places `arto-markdown`'s output
 //! in a page of its own.
 //!
-//! The HTML `arto-markdown` writes leaves three things to script: diagrams
-//! (`preprocessed-mermaid`), formulas (`preprocessed-math*`) and the colours
-//! of code. This crate carries the build of Arto's frontend that draws them in
+//! The HTML `arto-markdown` writes leaves these to script: diagrams
+//! (`preprocessed-mermaid`), formulas (`preprocessed-math*`), HTML embeds
+//! (`preprocessed-html-embed`) and the colours of code. This crate carries the build of Arto's frontend that draws them in
 //! someone else's page, together with the library bundles `arto page` and
 //! Quick Look embed, so a host's documents look and behave the way they do in
 //! Arto.
@@ -66,6 +66,25 @@ pub const HLJS_COMMON: &str = include_str!("../assets/frontend/page-hljs-common.
 /// highlight.js with every language, for the fragments that name one the
 /// common build does not have. Load it after [`RUNTIME`].
 pub const HLJS_ALL: &str = include_str!("../assets/frontend/page-hljs-all.iife.js");
+
+/// The script an HTML embed's frame runs, exactly as the runtime writes it
+/// into the frame.
+///
+/// The runtime draws a `preprocessed-html-embed` block in an `<iframe
+/// srcdoc>`, and a `srcdoc` frame is held to the policy of the page around it
+/// as well as to its own. A page whose `Content-Security-Policy` allowlists
+/// scripts by hash therefore has to name this script's hash too, or the frame
+/// cannot size itself or follow the theme.
+pub const HTML_EMBED_FRAME: &str = include_str!("../assets/frontend/html-embed-frame.js");
+
+/// The class of the block the runtime draws in a frame of its own.
+const HTML_EMBED_CLASS: &str = "preprocessed-html-embed";
+
+/// Whether `fragment`, HTML as `arto-markdown` renders it, draws an HTML
+/// embed, and so runs [`HTML_EMBED_FRAME`].
+pub fn draws_html_embed(fragment: impl AsRef<str>) -> bool {
+    fragment.as_ref().contains(HTML_EMBED_CLASS)
+}
 
 /// The names each highlight.js build answers to, aliases included, one per
 /// line and written by the frontend build beside the bundle it describes.

@@ -7,6 +7,7 @@ import { setupScrollbarReach } from "./scrollbar-reach";
 import { currentTheme } from "./theme";
 import { setCurrentTheme } from "./theme-switch";
 import { renderCoordinator } from "./render-coordinator";
+import { FRAME_SELECTOR } from "./html-embed-renderer";
 import * as keyboardInterceptor from "./keyboard-interceptor";
 import * as mouseNavigation from "./mouse-navigation";
 import * as scrollController from "./scroll-controller";
@@ -24,6 +25,7 @@ export { setCurrentTheme } from "./theme-switch";
 
 export function init(): void {
   renderCoordinator.init();
+  renderCoordinator.ignoreWithin(FRAME_SELECTOR);
 
   // The header's line and the gutter's current tick both answer to where the
   // reader is, and a new document moves them without a scroll happening. The

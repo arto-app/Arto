@@ -18,7 +18,7 @@
 //!    source line below it.
 //! 2. **The engine** (`engine` module: everything that knows the parser).
 //!    The body is parsed once and rendered with hooks that replace fenced
-//!    `mermaid` and `math` blocks and `$…$` expressions by the
+//!    `mermaid`, `math` and `html-embed` blocks and `$…$` expressions by the
 //!    `preprocessed-*` containers described below. A second pass over the
 //!    rendered HTML turns the byte range on each block element into the
 //!    `data-source-range` described below, gives GitHub alerts
@@ -35,8 +35,8 @@
 //! `data-source-range="L:C-L:C"`, the range of the file it was rendered from:
 //! paragraphs, headings, quotes and alerts, lists and their items, tables
 //! down to each cell, rules, code blocks, definition lists, footnote
-//! definitions and the Mermaid and math containers. Elements the pipeline
-//! makes up, such as an alert's title, carry none.
+//! definitions and the Mermaid, math and HTML embed containers. Elements the
+//! pipeline makes up, such as an alert's title, carry none.
 //!
 //! Lines and columns are 1-based, lines count through the whole file
 //! (frontmatter included) and columns count Unicode code points, so the
@@ -84,6 +84,22 @@
 //! styled by `frontend/style/components/content/markdown-viewer.css`,
 //! `frontend/style/components/mermaid-window.css`,
 //! `frontend/style/components/math-window.css` and `frontend/style/print.css`.
+//!
+//! ## HTML embeds
+//!
+//! A ` ```html-embed ` fence, Zenn's figure written in HTML and CSS, becomes a
+//! container of the same shape while [`RenderOptions::html_embed`] is on:
+//!
+//! - ` ```html-embed ` → `<pre class="preprocessed-html-embed" data-original-content="…">`
+//!
+//! The markup stays text in the HTML this crate writes, and no filter of
+//! [`RawHtml`] applies to it: the frontend draws it in a sandboxed frame of
+//! its own, which is where it is kept from the page.
+//!
+//! Readers: `frontend/src/html-embed-renderer.ts`, `frontend/src/code-copy.ts`;
+//! styled by `frontend/style/components/content/html-embed.css`. The script
+//! that frame runs is `frontend/src/html-embed-frame.ts`, which `arto page`
+//! allowlists by hash.
 //!
 //! ## GitHub alerts
 //!
