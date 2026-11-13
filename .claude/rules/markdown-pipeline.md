@@ -18,9 +18,10 @@ Order of operations, which must not change:
    the body.
 2. The engine (`src/engine/`, the only place that knows the parser and the
    HTML it writes). It parses once and renders with hooks, then rewrites
-   the result into the crate's contract: Mermaid and math blocks and `$…$`
-   become the `preprocessed-*` containers the frontend renders
-   client-side, GitHub alerts (`> [!NOTE]`) become
+   the result into the crate's contract: Mermaid, math and `html-embed`
+   blocks and `$…$` become the `preprocessed-*` containers the frontend
+   renders client-side (an `html-embed` one only while
+   `RenderOptions::html_embed` is on), GitHub alerts (`> [!NOTE]`) become
    `<div class="markdown-alert …">`, the byte range on every block element
    becomes its `data-source-range="L:C-L:C"`, and heading ids survive only
    when a table of contents was asked for.
