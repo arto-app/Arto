@@ -60,7 +60,14 @@ const REMOVED = [
   "textarea",
   "select",
   "datalist",
+  // A template's content is a fragment querySelectorAll does not walk, and
+  // the frame's parser turns `<template shadowrootmode>` into a live shadow
+  // tree: whatever it holds would reach the frame unsanitized.
+  "template",
 ].join(",");
+
+/** SVG animations, which can set any attribute after sanitizing, `href` too. */
+const ANIMATIONS = "animate, animateMotion, animateTransform, set";
 
 /** The attributes a link is followed by. */
 const LINK_ATTRIBUTES = [
@@ -104,7 +111,14 @@ function sanitize(markup: string): string {
       }
     }
   }
-  for (const link of Array.from(body.querySelectorAll("a, area"))) {
+  for (const animation of Array.from(body.querySelectorAll(ANIMATIONS))) {
+    const target = animation.getAttribute("attributeName")?.toLowerCase();
+    if (target === "href" || target === "xlink:href") {
+      animation.remove();
+    }
+  }
+  // MathML lets any of its elements be a link through `href`.
+  for (const link of Array.from(body.querySelectorAll("a, area, math, math *"))) {
     for (const name of LINK_ATTRIBUTES) {
       link.removeAttribute(name);
     }

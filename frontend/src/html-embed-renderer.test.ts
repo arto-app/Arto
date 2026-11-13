@@ -73,6 +73,33 @@ describe("sanitize", () => {
     expect(svg.hasAttribute("href")).toBe(false);
   });
 
+  test("nothing the sanitizer cannot see into is kept", () => {
+    const holder = sanitized(
+      `<div><template shadowrootmode="open"><a href="https://example.com">go</a><input type="text"></template></div>`,
+    );
+
+    expect(holder.innerHTML).toBe("<div></div>");
+  });
+
+  test("an SVG animation cannot give a link back the address it lost", () => {
+    const holder = sanitized(
+      `<svg><a><set attributeName="href" to="https://example.com"/>` +
+        `<animate attributeName="xlink:href" values="https://example.com"/>` +
+        `<animate attributeName="opacity" values="0;1"/><text>x</text></a></svg>`,
+    );
+
+    const animations = Array.from(holder.content.querySelectorAll("set, animate"), (element) =>
+      element.getAttribute("attributeName"),
+    );
+    expect(animations).toEqual(["opacity"]);
+  });
+
+  test("a MathML element is not a link either", () => {
+    const holder = sanitized(`<math><mi href="https://example.com">x</mi></math>`);
+
+    expect(holder.content.querySelector("mi")?.hasAttribute("href")).toBe(false);
+  });
+
   test("takes out forms and their contents, but keeps checkboxes and radios", () => {
     const holder = sanitized(
       `<form action="/x"><input name="q"><button>go</button></form>` +
