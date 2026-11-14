@@ -23,10 +23,10 @@
 //!   main() → try_send_to_existing_instance() → Applied → exit(0)
 //! ```
 
+mod parked;
 mod queue;
 pub mod ready;
 mod request;
-mod selection;
 mod state;
 mod subscribers;
 mod window_selection;
@@ -35,9 +35,9 @@ mod window_selection;
 // the server start-up with logging and shutdown handling, and the rest of
 // the app should reach the transport only through those wrappers.
 pub use arto_lsp::{OpenEvent, OpenRequest, SendResult};
+pub use parked::{abandon as abandon_parked, answer as answer_parked, refuse as refuse_parked};
 pub use queue::*;
 pub use request::*;
-pub use selection::{abandon as abandon_selection, answer as answer_selection};
 pub use state::{report_window_closed, report_window_state};
 
 use crate::cli::CliInvocation;
@@ -298,6 +298,12 @@ fn handle_event_on_main_thread(
         arto_lsp::Call::Selection(params) => {
             if let Some(responder) = responder {
                 state::selection(&params, responder);
+            }
+            return;
+        }
+        arto_lsp::Call::Capture(params) => {
+            if let Some(responder) = responder {
+                state::capture(&params, responder);
             }
             return;
         }

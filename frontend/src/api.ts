@@ -10,6 +10,7 @@ import {
 } from "./context-menu-handler";
 import { fitSubmenu } from "./submenu-fit";
 import { rasterizeMathBlock, rasterizeMermaidBlock } from "./special-block-rasterizer";
+import * as capture from "./capture";
 import * as findInPage from "./find-in-page";
 import * as keyboardInterceptor from "./keyboard-interceptor";
 import * as mouseNavigation from "./mouse-navigation";
@@ -41,6 +42,15 @@ export interface ArtoApi {
     onComplete: (callback: () => void) => void;
     /** Force a render pass for any content already in the DOM */
     schedule: () => void;
+  };
+  /** Pictures of what the document draws, for `arto/capture`. */
+  capture: {
+    /** The top-level block a source line belongs to. */
+    line: typeof capture.captureLine;
+    /** The block of the heading with this id. */
+    heading: typeof capture.captureHeading;
+    /** What the reader sees of the document now. */
+    viewport: typeof capture.captureViewport;
   };
   rasterize: {
     /** Rasterize an image to a PNG data URL via Canvas.
@@ -237,6 +247,11 @@ export function createArtoApi(): ArtoApi {
     render: {
       onComplete: (callback) => renderCoordinator.onRenderComplete(callback),
       schedule: () => renderCoordinator.scheduleRender(),
+    },
+    capture: {
+      line: capture.captureLine,
+      heading: capture.captureHeading,
+      viewport: capture.captureViewport,
     },
     rasterize: {
       image: rasterizeImage,

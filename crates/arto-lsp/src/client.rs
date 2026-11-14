@@ -64,8 +64,8 @@ pub const APPLY_TIMEOUT: Duration = Duration::from_secs(5);
 const DEADLINE_MARGIN: Duration = Duration::from_secs(5);
 
 /// How long this launch listens for an answer.
-fn client_deadline(wait_ready: bool) -> Duration {
-    let theirs = if wait_ready {
+fn client_deadline(waits_on_a_drawing: bool) -> Duration {
+    let theirs = if waits_on_a_drawing {
         READY_TIMEOUT
     } else {
         APPLY_TIMEOUT
@@ -234,7 +234,7 @@ fn exchange(
     // the call asked to wait. Either way this end listens for longer than
     // the instance is allowed to take, so the instance's own answer always
     // arrives while somebody is still reading.
-    let deadline = client_deadline(call.wait_ready());
+    let deadline = client_deadline(call.waits_on_a_drawing());
     if let Err(error) = socket::set_socket_timeout(reader.get_mut(), deadline) {
         tracing::debug!(%error, "Could not set the IPC socket timeout for the answer");
     }

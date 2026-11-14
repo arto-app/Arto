@@ -27,6 +27,8 @@ pub const STATE: &str = "arto/state";
 pub const GOTO: &str = "arto/goto";
 /// What the reader has selected, if anything.
 pub const SELECTION: &str = "arto/selection";
+/// A picture of a block, or of what the reader sees, as the page draws it.
+pub const CAPTURE: &str = "arto/capture";
 /// A window's state changed. Carries the whole [`WindowState`] rather than
 /// a delta: one window's state is small, and a client that wants to know
 /// where the reader is should not have to reassemble it.
@@ -113,6 +115,9 @@ pub struct ServerCapabilities {
     /// Whether what the reader has selected can be asked for.
     #[serde(default)]
     pub selection: bool,
+    /// Whether a picture of what a window draws can be asked for.
+    #[serde(default)]
+    pub capture: bool,
     /// Whether a client that asked for [`DID_CHANGE_STATE`] will get it.
     /// The client says what it can be told before hearing this, so the
     /// answer is what tells it whether anything will actually arrive.
@@ -132,6 +137,7 @@ impl Default for ServerCapabilities {
             state: true,
             goto: true,
             selection: true,
+            capture: true,
             state_changes: true,
             wait_ready: true,
         }
@@ -277,6 +283,51 @@ pub struct SelectionResult {
     pub text: Option<String>,
 }
 
+/// The parameters of [`CAPTURE`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptureParams {
+    /// Which window to draw from. The last focused one when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window: Option<WindowKey>,
+    pub target: CaptureTarget,
+}
+
+/// What to draw.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CaptureTarget {
+    /// The top-level block a source line belongs to — the line
+    /// [`ScrollPosition`] names for the block at the top, among others.
+    Block(u32),
+    /// The block of a heading, by the `id` [`STATE`] reported for it.
+    Heading(String),
+    /// What the reader sees of the document now.
+    Viewport,
+}
+
+/// What [`CAPTURE`] answers with.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptureResult {
+    pub window: WindowKey,
+    /// The picture, as base64 of a PNG.
+    pub png: String,
+    /// Its size in pixels.
+    pub width: u32,
+    pub height: u32,
+    /// The source lines the block was rendered from; absent for a viewport.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lines: Option<LineRange>,
+}
+
+/// Source lines, 1-based, both ends included.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LineRange {
+    pub start: u32,
+    pub end: u32,
+}
+
 /// The parameters of [`GOTO`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -344,6 +395,8 @@ pub enum Call {
     Goto(GotoParams),
     /// Report what the reader has selected.
     Selection(SelectionParams),
+    /// Draw a picture of what a window shows.
+    Capture(CaptureParams),
 }
 
 impl Call {
@@ -356,6 +409,12 @@ impl Call {
                 ..
             }
         )
+    }
+
+    /// Whether answering may take as long as drawing a document does, which
+    /// is what both ends size their deadline by.
+    pub fn waits_on_a_drawing(&self) -> bool {
+        self.wait_ready() || matches!(self, Self::Capture(_))
     }
 
     /// Read a call out of a method name and its parameters.
@@ -390,6 +449,7 @@ impl Call {
             STATE => Ok(Self::State(parse_params(params)?)),
             GOTO => Ok(Self::Goto(parse_params(params)?)),
             SELECTION => Ok(Self::Selection(parse_params(params)?)),
+            CAPTURE => Ok(Self::Capture(parse_params(params)?)),
             other => Err(ResponseError::new(
                 ErrorCode::MethodNotFound,
                 format!("unknown method: {other}"),
@@ -411,6 +471,7 @@ impl Call {
             Self::State(_) => capabilities.state,
             Self::Goto(_) => capabilities.goto,
             Self::Selection(_) => capabilities.selection,
+            Self::Capture(_) => capabilities.capture,
         }
     }
 
@@ -452,6 +513,7 @@ impl Call {
             Self::State(params) => Ok((STATE, serde_json::to_value(params)?)),
             Self::Goto(params) => Ok((GOTO, serde_json::to_value(params)?)),
             Self::Selection(params) => Ok((SELECTION, serde_json::to_value(params)?)),
+            Self::Capture(params) => Ok((CAPTURE, serde_json::to_value(params)?)),
         }
     }
 }
@@ -511,6 +573,13 @@ mod tests {
                 }),
             ),
             ("selection", Call::Selection(SelectionParams::default())),
+            (
+                "capture",
+                Call::Capture(CaptureParams {
+                    window: None,
+                    target: CaptureTarget::Viewport,
+                }),
+            ),
         ];
         for (capability, call) in calls {
             assert!(
@@ -738,6 +807,43 @@ mod tests {
     }
 
     #[test]
+    fn a_capture_call_round_trips_through_its_method_and_params() {
+        let call = Call::Capture(CaptureParams {
+            window: Some(WindowKey(3)),
+            target: CaptureTarget::Block(42),
+        });
+        let (method, params) = call.to_method().unwrap();
+        assert_eq!(method, CAPTURE);
+        assert_eq!(params, json!({"window": 3, "target": {"block": 42}}));
+        assert_eq!(Call::from_method(method, Some(params)).unwrap(), call);
+    }
+
+    #[test]
+    fn capture_targets_travel_tagged_by_what_they_name() {
+        assert_eq!(
+            serde_json::to_value(CaptureTarget::Heading("install".into())).unwrap(),
+            json!({"heading": "install"})
+        );
+        assert_eq!(
+            serde_json::to_value(CaptureTarget::Viewport).unwrap(),
+            json!("viewport")
+        );
+    }
+
+    #[test]
+    fn a_capture_is_given_as_long_as_a_drawing_to_answer() {
+        // It draws the block's diagrams before it can draw the block, which
+        // is the same wait as a launch that asked for the window to draw.
+        let capture = Call::Capture(CaptureParams {
+            window: None,
+            target: CaptureTarget::Viewport,
+        });
+        assert!(capture.waits_on_a_drawing());
+        assert!(!Call::State(StateParams::default()).waits_on_a_drawing());
+        assert!(!capture.wait_ready(), "a capture opens nothing to wait for");
+    }
+
+    #[test]
     fn a_selection_call_round_trips_through_its_method_and_params() {
         let call = Call::Selection(SelectionParams {
             window: Some(WindowKey(2)),
@@ -811,6 +917,7 @@ mod tests {
                     "state": true,
                     "goto": true,
                     "selection": true,
+                    "capture": true,
                     "stateChanges": true,
                     "waitReady": true,
                 },

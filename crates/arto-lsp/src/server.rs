@@ -401,12 +401,12 @@ fn answer(
 
     tracing::debug!(method = %request.method, "Handing a JSON-RPC request to the app");
 
-    // How long the app gets to answer. A request that asked to wait is
-    // waiting on a window being drawn; every other one is waiting only for
-    // the main thread to come round. The peer listens for longer than
+    // How long the app gets to answer. A request that asked to wait, or a
+    // capture, is waiting on a window being drawn; every other one is waiting
+    // only for the main thread to come round. The peer listens for longer than
     // either, so whatever is answered here is still being read.
     let wait_ready = call.wait_ready();
-    let deadline = if wait_ready {
+    let deadline = if call.waits_on_a_drawing() {
         READY_TIMEOUT
     } else {
         APPLY_TIMEOUT
@@ -548,6 +548,10 @@ mod tests {
                     window: params.window.unwrap_or(crate::WindowKey(1)),
                     text: None,
                 }),
+                methods::Call::Capture(_) => responder.err(jsonrpc::ResponseError::new(
+                    jsonrpc::ErrorCode::InternalError,
+                    "nothing to draw here",
+                )),
             },
             &|writer| subscribed.lock().unwrap().push(writer),
             &|| {},

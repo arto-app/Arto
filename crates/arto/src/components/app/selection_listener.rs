@@ -3,6 +3,7 @@ use dioxus::document;
 use dioxus::prelude::*;
 
 use crate::events::READ_SELECTION_IN_WINDOW;
+use arto_lsp::SelectionResult;
 
 /// Answer `arto/selection` for this window.
 ///
@@ -23,9 +24,12 @@ pub(super) fn setup_selection_listener() {
                     // never replies would take every later request with
                     // it, not only its own.
                     match tokio::time::timeout(SELECTION_TIMEOUT, read_selection()).await {
-                        Ok(text) => crate::ipc::answer_selection(token, text),
+                        Ok(text) => crate::ipc::answer_parked(token, |window| SelectionResult {
+                            window,
+                            text,
+                        }),
                         Err(_) => {
-                            crate::ipc::abandon_selection(token, "the window did not answer");
+                            crate::ipc::abandon_parked(token, "the window did not answer");
                         }
                     }
                 }

@@ -102,7 +102,7 @@ The page follows your configuration, and ships with a Content-Security-Policy th
 
 Full flags and behaviour: [CLI usage](./docs/spec/cli.md).
 
-An agent can use Arto as its display: `arto mcp` is an MCP server that opens files under the directories you allow, reads what you are reading and where, and scrolls you to the part that matters — see [Letting an agent use Arto](./docs/spec/mcp.md). Other programs can do the same over Arto's local socket: [Controlling a running Arto](./docs/spec/control.md).
+An agent can use Arto as its display: `arto mcp` is an MCP server that opens files under the directories you allow, reads what you are reading and where, scrolls you to the part that matters, and takes a picture of a block to see how it came out — see [Letting an agent use Arto](./docs/spec/mcp.md). Other programs can do the same over Arto's local socket: [Controlling a running Arto](./docs/spec/control.md).
 
 ## Built with
 

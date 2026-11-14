@@ -30,8 +30,8 @@ compared after links are followed, so neither a link nor `..` reaches
 outside. A path outside them is refused with a message that names them, and
 nothing reaches Arto. The agent cannot widen them during a session.
 
-Reading what Arto shows, moving the reader and reading the selection are not
-limited to these directories.
+Reading what Arto shows, moving the reader, reading the selection and
+picturing what is drawn are not limited to these directories.
 
 ## The tools
 
@@ -46,6 +46,7 @@ error saying so.
 | `state` | `window` | Describes every window, or the one numbered `window` |
 | `goto` | `window`, `target` | Moves the reader, as `arto/goto` does |
 | `selection` | `window` | Reads what is selected, as `arto/selection` does |
+| `capture` | `window`, `target` | Pictures a block or what you see, as `arto/capture` does |
 
 `open` answers once the window has drawn the document. It opens where Arto's
 settings say, or in a new window with `newWindow`, and leaves the keyboard
@@ -62,3 +63,8 @@ after the agent's session ends. No other tool starts Arto.
 `{"search": {"query": …, "index": …}}` — so the `scroll` that `state`
 reported can be handed straight back. `window` is a number from `state`;
 left out, it is the window you were last in.
+
+`capture` answers with the picture as an image, and beside it, as JSON, its
+size and the source lines of the block. Its `target` is `{"block": line}`,
+`{"heading": id}` or `"viewport"`; the `line` of a `scroll` from `state`
+names the block at the top of the window. Taking a picture never moves you.

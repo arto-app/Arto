@@ -6,8 +6,8 @@
 //! the page, and it is answered in the turn that received the request.
 
 use arto_lsp::{
-    ErrorCode, GotoParams, GotoResult, Heading, Responder, ResponseError, ScrollPosition,
-    SelectionParams, StateParams, StateResult, WindowKey, WindowState,
+    CaptureParams, ErrorCode, GotoParams, GotoResult, Heading, Responder, ResponseError,
+    ScrollPosition, SelectionParams, StateParams, StateResult, WindowKey, WindowState,
 };
 
 use dioxus::desktop::tao::window::WindowId;
@@ -40,7 +40,7 @@ pub fn report_window_closed(window_id: WindowId) {
     let Some(key) = crate::window::main::window_key_of(window_id) else {
         return;
     };
-    super::selection::forget_window(key);
+    super::parked::forget_window(key);
     super::subscribers::publish(key, None);
 }
 
@@ -106,12 +106,29 @@ pub fn selection(params: &SelectionParams, responder: Responder) {
         Ok(window) => window,
         Err(error) => return responder.err(error),
     };
-    let token = super::selection::ask(key, responder);
+    let token = super::parked::ask(key, responder);
     if crate::events::READ_SELECTION_IN_WINDOW
         .send((window_id, token))
         .is_err()
     {
-        super::selection::abandon(token, "no window is listening for the question");
+        super::parked::abandon(token, "no window is listening for the question");
+    }
+}
+
+/// Ask a window for a picture of what it draws.
+///
+/// Answered like [`selection`], a round trip later: the page draws it.
+pub fn capture(params: &CaptureParams, responder: Responder) {
+    let (window_id, key) = match resolve_window(params.window) {
+        Ok(window) => window,
+        Err(error) => return responder.err(error),
+    };
+    let token = super::parked::ask(key, responder);
+    if crate::events::CAPTURE_IN_WINDOW
+        .send((window_id, token, params.target.clone()))
+        .is_err()
+    {
+        super::parked::abandon(token, "no window is listening for the request");
     }
 }
 

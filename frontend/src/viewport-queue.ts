@@ -388,6 +388,26 @@ export async function flush(): Promise<void> {
   }
 }
 
+/**
+ * Run the jobs waiting inside `root`, and wait for those already running
+ * there.
+ *
+ * A capture of one block draws what that block still lacks and nothing
+ * else: a [`flush`] would draw every diagram in the document to take a
+ * picture of one of them.
+ */
+export async function drawWithin(root: Element): Promise<void> {
+  const inside = (element: Element): boolean => root === element || root.contains(element);
+  for (let round = 0; round < MAX_FLUSH_ROUNDS; round++) {
+    const batch = Array.from(pending.keys()).filter(inside);
+    if (batch.length === 0 && !Array.from(running).some(inside)) {
+      return;
+    }
+    await Promise.all(batch.map((element) => run(element)));
+    await idle();
+  }
+}
+
 /** How long a backfill pass runs before handing the thread back. */
 const BACKFILL_BUDGET_MS = 4;
 
