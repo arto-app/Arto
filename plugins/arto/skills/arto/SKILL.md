@@ -24,7 +24,7 @@ shell, which hangs when Arto is not running yet.
 
 1. Pick the file: the one the user named, else the Markdown file you just
    wrote or edited. Content that exists only in the conversation goes into a
-   `.md` file under the project first, where `open` is allowed to reach it.
+   `.md` file first, in a directory `open` is allowed to reach.
 2. Call `open` with its path. It answers once the document is drawn, and
    starts Arto when it is not running. Pass `newWindow` only when the user
    asks for a separate window, and `activate` only when they want Arto in
@@ -34,11 +34,11 @@ shell, which hangs when Arto is not running yet.
 4. Report in one line what you opened. Do not read the document back; the
    user is reading it in Arto.
 
-This plugin starts the server without `--allow`, so `open` reaches only the
-project directory and refuses anything outside it. When it refuses, do not
-copy the file somewhere it can reach. Tell the user the directory it needs,
-and that registering the server themselves allows it, for example
-`claude mcp add --scope user arto -- arto mcp --allow <dir>`.
+`open` reaches only the directories the user allowed when configuring this
+plugin, or the project directory when they allowed none, and refuses
+anything outside them. When it refuses, do not copy the file somewhere it
+can reach. Tell the user the directory it needs, and that
+`/plugin configure arto@arto` adds it.
 
 ## Following the reader
 

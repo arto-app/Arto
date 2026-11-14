@@ -145,7 +145,8 @@ without the app.
 
 `arto mcp` runs a Model Context Protocol server on standard input and output,
 for an agent's MCP client to start. It lets the agent open files under the
-directories given with `--allow` (or under the one it was started in), read
+directories given with `--allow` or `ARTO_MCP_ALLOW` (or under the one it
+was started in), read
 what Arto shows and move the reader; see
 [Letting an agent use Arto](./mcp.md).
 

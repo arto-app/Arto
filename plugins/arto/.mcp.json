@@ -2,7 +2,10 @@
   "mcpServers": {
     "arto": {
       "command": "arto",
-      "args": ["mcp"]
+      "args": ["mcp"],
+      "env": {
+        "ARTO_MCP_ALLOW": "${user_config.allow}"
+      }
     }
   }
 }

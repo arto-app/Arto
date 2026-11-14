@@ -113,7 +113,7 @@ In Claude Code, this repository is a plugin marketplace. The plugin registers th
 /plugin install arto@arto
 ```
 
-It lets Claude open files under the project it was started in. For other directories, or for another MCP client, register the server yourself — see [Letting an agent use Arto](./docs/spec/mcp.md). Other programs can drive Arto over its local socket instead: [Controlling a running Arto](./docs/spec/control.md).
+It asks which directories Claude may open files under; left empty, that is the project Claude was started in, and `/plugin configure arto@arto` changes it later. For another MCP client, register the server yourself — see [Letting an agent use Arto](./docs/spec/mcp.md). Other programs can drive Arto over its local socket instead: [Controlling a running Arto](./docs/spec/control.md).
 
 ## Built with
 

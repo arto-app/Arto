@@ -22,19 +22,27 @@ claude mcp add arto -- arto mcp --allow ~/notes --allow ~/src/project
 The command is the `arto` from [the CLI](./cli.md); on Windows, the single
 binary rather than the installed copy.
 
+A client that cannot change the command line can name the directories in
+`ARTO_MCP_ALLOW` instead, separated as in `PATH` (`:`, or `;` on Windows).
+`--allow` takes precedence over it.
+
 In Claude Code, the `arto` plugin from the marketplace in Arto's repository
-registers the server without `--allow`, so the agent opens files under the
-project it was started in:
+registers the server for you:
 
 ```
 /plugin marketplace add arto-app/Arto
 /plugin install arto@arto
 ```
 
+The plugin asks for the directories to allow, in the form `ARTO_MCP_ALLOW`
+takes; `/plugin configure arto@arto` changes them later. Left empty, the
+agent opens files under the project Claude Code was started in.
+
 ## What it may open
 
-`open` opens only files and directories under the `--allow` directories, or,
-when none is given, under the directory `arto mcp` was started in. A path is
+`open` opens only files and directories under the `--allow` directories, or
+the ones `ARTO_MCP_ALLOW` lists, or, when neither names any, under the
+directory `arto mcp` was started in. A path is
 compared after links are followed, so neither a link nor `..` reaches
 outside. A path outside them is refused with a message that names them, and
 nothing reaches Arto. The agent cannot widen them during a session.

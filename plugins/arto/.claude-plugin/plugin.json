@@ -8,5 +8,14 @@
   "homepage": "https://arto-app.github.io",
   "repository": "https://github.com/arto-app/Arto",
   "license": "MIT",
-  "keywords": ["markdown", "reader", "mcp"]
+  "keywords": ["markdown", "reader", "mcp"],
+  "userConfig": {
+    "allow": {
+      "type": "string",
+      "title": "Directories Claude may open",
+      "description": "Absolute paths of the directories Claude may open files under, separated by ':' (';' on Windows). Include the project if Claude should still open its files. Leave empty for the project only.",
+      "required": false,
+      "default": ""
+    }
+  }
 }
