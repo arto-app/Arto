@@ -205,6 +205,32 @@ jobs:
         run: just arto::machete
       - uses: ./.github/actions/age-proof-cargo-cache
 
+  # The crate packages, built the way `cargo publish` verifies them in the
+  # release workflow. A job of its own rather than a step of the Linux rust
+  # leg: the verification compiles every member again from its package, and
+  # in parallel it adds no minutes to the run.
+  package:
+    needs: [changes, frontend]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: frontend-assets
+          path: crates
+      - uses: ./.github/actions/setup-toolchain
+        with:
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: package
+      - run: just arto::package
+      - uses: ./.github/actions/age-proof-cargo-cache
+
   # Evaluate every flake output without building. Catches a source fileset
   # that names a moved file, a missing attribute, or a broken devShell in a
   # minute or two; the full build is the separate nix workflow.
@@ -277,7 +303,7 @@ jobs:
   # The one status to require. Skipped jobs are fine (a docs-only change has
   # no Rust to build); failed or cancelled ones are not.
   ci:
-    needs: [changes, frontend, rust, flake-eval, docs, workflows, bundle, nix]
+    needs: [changes, frontend, rust, package, flake-eval, docs, workflows, bundle, nix]
     if: always()
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5

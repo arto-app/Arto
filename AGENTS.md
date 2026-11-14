@@ -40,7 +40,7 @@ way GitHub does, locally and offline.
 Run `just ci` before reporting a change as done. It checks formatting
 (rustfmt, oxfmt, nixfmt), lints (clippy, oxlint), runs every test, and checks
 the rustdoc, feature combinations, advisories, unused dependencies, the
-documentation's links and the workflow files. CI runs the same recipes.
+crate packages, the documentation's links and the workflow files. CI runs the same recipes.
 
 `just fmt` formats everything `just ci` checks.
 
