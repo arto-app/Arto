@@ -1,5 +1,5 @@
 ---
-paths: "crates/arto-lsp/**, crates/arto/src/ipc.rs, crates/arto/src/ipc/**, crates/arto/src/main.rs"
+paths: "crates/arto-lsp/**, crates/arto-mcp/**, crates/arto/src/ipc.rs, crates/arto/src/ipc/**, crates/arto/src/main.rs"
 ---
 
 # Single-Instance Architecture
@@ -248,3 +248,9 @@ report in `initialize` — `Server::serve` the primary's, and
 `arto.vim` and `arto.el` do not speak this protocol — both exec the `arto`
 binary with a path and let the CLI's own handoff do the rest, so a protocol
 change never reaches them.
+
+`arto mcp` (`crates/arto-mcp/`) is a client of this protocol and nothing
+more: each MCP tool is one request sent with `ask_existing_instance`, on a
+connection of its own. A tool that needs something the socket cannot do
+needs a method here first. The roots it limits `open` to are its own guard
+against an agent's mistakes, not a trust boundary — see `docs/adr/20261114-let-an-mcp-client-open-only-what-it-was-started-on.md`.

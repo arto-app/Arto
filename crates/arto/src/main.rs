@@ -64,7 +64,8 @@ enum OpenModeArg {
         \x20 arto --open=new --position=80,64 --size=1400,920 --theme=dark --wait-ready\n\
         \x20 arto docs/               Open a directory in the file explorer\n\
         \x20 arto file1.md file2.md   Open each file in its own window\n\
-        \x20 arto page README.md      Print README.md as a self-contained HTML page",
+        \x20 arto page README.md      Print README.md as a self-contained HTML page\n\
+        \x20 arto mcp --allow=.        Let an agent show files under . in Arto (MCP over stdio)",
     // Subcommands and the open-paths form are exclusive, so `arto page` is
     // never mistaken for a request to open a file called `page` (use
     // `arto ./page` for that).
@@ -114,6 +115,9 @@ struct Cli {
 enum Command {
     /// Render a Markdown file into a self-contained HTML page
     Page(arto_page::cli::PageArgs),
+    /// Serve the Model Context Protocol on standard I/O, so an agent can show
+    /// files in Arto and read where the reader is
+    Mcp(arto_mcp::cli::McpArgs),
 }
 
 /// Hide the console window of a launch that came from no terminal.
@@ -185,12 +189,28 @@ fn main() {
 
     // Subcommands run to completion here, before any of the single-instance
     // machinery: rendering a page must not be forwarded to a running Arto.
-    if let Some(Command::Page(args)) = cli.command {
-        if let Err(err) = arto_page::cli::run(&args) {
-            eprintln!("arto page: {}", arto_page::cli::cause_chain(&err));
-            std::process::exit(1);
+    match cli.command {
+        Some(Command::Page(args)) => {
+            if let Err(err) = arto_page::cli::run(&args) {
+                eprintln!("arto page: {}", arto_page::cli::cause_chain(&err));
+                std::process::exit(1);
+            }
+            return;
         }
-        return;
+        // A client of the running Arto, never one itself: it talks to
+        // whatever instance is up, and starts one only when asked to open.
+        Some(Command::Mcp(args)) => {
+            let client_info = arto_lsp::PeerInfo {
+                name: "arto mcp".to_string(),
+                version: Some(env!("ARTO_BUILD_VERSION").to_string()),
+            };
+            if let Err(err) = arto_mcp::cli::run(&args, client_info) {
+                eprintln!("arto mcp: {err}");
+                std::process::exit(1);
+            }
+            return;
+        }
+        None => {}
     }
 
     let open_mode = match cli.open {

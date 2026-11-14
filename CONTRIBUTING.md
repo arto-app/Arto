@@ -110,6 +110,7 @@ Arto/
 │   ├── arto-config/  # config.json / keys.toml types, file locations, load and save
 │   ├── arto-frontend/ # The frontend's bundles as Rust strings, for arto-page and other apps
 │   ├── arto-lsp/     # The wire protocol: JSON-RPC 2.0 in LSP framing, and the local socket
+│   ├── arto-mcp/     # `arto mcp`: an MCP server over the wire protocol, for agents
 │   ├── arto-keybindings/ # Shortcut parsing, binding sets, presets, and the matching engine
 │   ├── arto-markdown/ # Markdown → HTML rendering library used by the app and arto-page
 │   ├── arto-page/    # Self-contained HTML pages: CLI, `arto page`, Quick Look FFI (feature ffi)

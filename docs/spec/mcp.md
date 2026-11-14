@@ -1,0 +1,64 @@
+# Letting an agent use Arto
+
+`arto mcp` is a [Model Context Protocol](https://modelcontextprotocol.io)
+server. Registered with an agent's MCP client, it lets the agent put a file
+in front of you in Arto, see what you are reading and where, move you to the
+part that matters, and read what you have selected.
+
+## Registering it
+
+An MCP client starts the server itself, as a command that talks over its
+standard input and output. Give it `arto mcp` and the directories the agent
+may open files in:
+
+```sh
+claude mcp add arto -- arto mcp --allow ~/notes --allow ~/src/project
+```
+
+```json
+{"mcpServers": {"arto": {"command": "arto", "args": ["mcp", "--allow", "/Users/me/notes"]}}}
+```
+
+The command is the `arto` from [the CLI](./cli.md); on Windows, the single
+binary rather than the installed copy.
+
+## What it may open
+
+`open` opens only files and directories under the `--allow` directories, or,
+when none is given, under the directory `arto mcp` was started in. A path is
+compared after links are followed, so neither a link nor `..` reaches
+outside. A path outside them is refused with a message that names them, and
+nothing reaches Arto. The agent cannot widen them during a session.
+
+Reading what Arto shows, moving the reader and reading the selection are not
+limited to these directories.
+
+## The tools
+
+Each tool is one request to the running Arto, described in
+[Controlling a running Arto](./control.md), and answers with Arto's answer
+as JSON text. When Arto refuses, or is not running, the tool answers with an
+error saying so.
+
+| Tool | Takes | Does |
+| --- | --- | --- |
+| `open` | `paths`, `newWindow`, `activate` | Opens the files, and the one directory as the folder the file explorer shows |
+| `state` | `window` | Describes every window, or the one numbered `window` |
+| `goto` | `window`, `target` | Moves the reader, as `arto/goto` does |
+| `selection` | `window` | Reads what is selected, as `arto/selection` does |
+
+`open` answers once the window has drawn the document. It opens where Arto's
+settings say, or in a new window with `newWindow`, and leaves the keyboard
+with the application you are working in unless `activate` is set. Relative
+paths are read against the directory `arto mcp` was started in.
+
+When Arto is not running, `open` starts it on the same files and waits for
+it to show them, answering `{"ready": true, "launched": true}`, or
+`"ready": false` if it did not within thirty seconds. Arto keeps running
+after the agent's session ends. No other tool starts Arto.
+
+`goto` takes a `target` as `arto/goto` does — `{"heading": id}`,
+`{"scroll": {"line": …, "fraction": …}}`, `"top"`, `"bottom"` or
+`{"search": {"query": …, "index": …}}` — so the `scroll` that `state`
+reported can be handed straight back. `window` is a number from `state`;
+left out, it is the window you were last in.

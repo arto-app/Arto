@@ -397,6 +397,23 @@ impl Call {
         }
     }
 
+    /// Whether an instance that answered `initialize` with `capabilities`
+    /// can be asked this.
+    pub fn is_offered_by(&self, capabilities: &ServerCapabilities) -> bool {
+        match self {
+            Self::Apply { event, wait_ready } => {
+                let method = match event {
+                    OpenEvent::Open(_) => capabilities.open,
+                    OpenEvent::Reopen { .. } => capabilities.reopen,
+                };
+                method && (!wait_ready || capabilities.wait_ready)
+            }
+            Self::State(_) => capabilities.state,
+            Self::Goto(_) => capabilities.goto,
+            Self::Selection(_) => capabilities.selection,
+        }
+    }
+
     /// The method and parameters that carry this call.
     ///
     /// Fallible because a [`PathBuf`](std::path::PathBuf) that is not valid
@@ -453,6 +470,77 @@ mod tests {
     use arto_types::Theme;
     use serde_json::json;
     use std::path::PathBuf;
+
+    fn offering_only(capability: &str) -> ServerCapabilities {
+        serde_json::from_value(json!({ capability: true })).unwrap()
+    }
+
+    #[test]
+    fn a_call_is_offered_only_by_an_instance_that_has_its_capability() {
+        let calls = [
+            (
+                "open",
+                Call::Apply {
+                    event: OpenEvent::Open(OpenRequest {
+                        files: vec![],
+                        directory: None,
+                        behavior: None,
+                        behind: false,
+                        window: WindowOptions::default(),
+                    }),
+                    wait_ready: false,
+                },
+            ),
+            (
+                "reopen",
+                Call::Apply {
+                    event: OpenEvent::Reopen {
+                        behavior: None,
+                        behind: false,
+                        window: WindowOptions::default(),
+                    },
+                    wait_ready: false,
+                },
+            ),
+            ("state", Call::State(StateParams::default())),
+            (
+                "goto",
+                Call::Goto(GotoParams {
+                    window: None,
+                    target: GotoTarget::Top,
+                }),
+            ),
+            ("selection", Call::Selection(SelectionParams::default())),
+        ];
+        for (capability, call) in calls {
+            assert!(
+                call.is_offered_by(&offering_only(capability)),
+                "{capability}"
+            );
+            assert!(
+                !call.is_offered_by(&offering_only("none")),
+                "{capability} offered by an instance that never mentioned it"
+            );
+        }
+    }
+
+    #[test]
+    fn a_call_that_waits_needs_an_instance_that_can_wait() {
+        // Asking an instance to wait that cannot would be answered at once,
+        // and the client would take `ready: false` for "did not draw".
+        let call = Call::Apply {
+            event: OpenEvent::Reopen {
+                behavior: None,
+                behind: false,
+                window: WindowOptions::default(),
+            },
+            wait_ready: true,
+        };
+        assert!(!call.is_offered_by(&offering_only("reopen")));
+        let both: ServerCapabilities =
+            serde_json::from_value(json!({"reopen": true, "waitReady": true})).unwrap();
+        assert!(call.is_offered_by(&both));
+    }
 
     #[test]
     fn an_open_call_round_trips_through_its_method_and_params() {

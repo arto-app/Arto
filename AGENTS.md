@@ -53,6 +53,7 @@ crate packages, the documentation's links and the workflow files. CI runs the sa
 | `crates/arto-config/` | `config.json` types and file I/O (no globals) |
 | `crates/arto-keybindings/` | Keybinding parsing and defaults |
 | `crates/arto-lsp/` | The wire protocol: JSON-RPC 2.0 in LSP framing, and the socket it runs on |
+| `crates/arto-mcp/` | `arto mcp`: an MCP server over the wire protocol, for agents |
 | `crates/arto-frontend/` | The frontend's bundles as Rust strings: the library bundles `arto-page` embeds, and the runtime and stylesheet for another app's page |
 | `crates/arto-page/` | Standalone page renderer: `arto page` CLI and the Quick Look static library |
 | `crates/arto-types/` | Values `config.json` and the wire protocol both carry (`Theme`, `FileOpenBehavior`) |
@@ -107,6 +108,7 @@ they stay as they are.
 | `config` | `crates/arto-config/` |
 | `keybindings` | `crates/arto-keybindings/` |
 | `lsp` | `crates/arto-lsp/` |
+| `mcp` | `crates/arto-mcp/` |
 | `page` | `crates/arto-page/` |
 | `types` | `crates/arto-types/` |
 | `frontend` | `frontend/`, `crates/arto-frontend/` |

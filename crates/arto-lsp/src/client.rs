@@ -151,6 +151,104 @@ pub fn send_to_existing_instance(
     outcome
 }
 
+/// Why a call to the running instance got no answer to use.
+#[derive(Debug, thiserror::Error)]
+pub enum AskError {
+    /// Nothing is listening, or what is listening does not speak this.
+    #[error("Arto is not running")]
+    NoInstance,
+    /// The instance is running but says it cannot be asked this.
+    #[error("the running Arto cannot be asked {0}; it may be older than this command")]
+    Unsupported(&'static str),
+    /// The instance understood the call and refused it.
+    #[error("{0}")]
+    Refused(jsonrpc::ResponseError),
+    /// The call was written, and nothing readable came back in time.
+    #[error("the running Arto did not answer")]
+    Unanswered,
+    /// The connection failed before the call could be written.
+    #[error("could not reach the running Arto: {0}")]
+    Failed(#[source] std::io::Error),
+}
+
+/// Ask the running instance one thing, and hand back its answer.
+///
+/// The general form of [`send_to_existing_instance`], for a client that is
+/// not a launch: nothing here decides whether to become primary, so the
+/// outcomes are only what happened. A call the instance did not offer in
+/// `initialize` is not sent at all.
+pub fn ask_existing_instance(
+    client_info: methods::PeerInfo,
+    call: &methods::Call,
+) -> Result<serde_json::Value, AskError> {
+    let socket_path = socket::socket_path();
+
+    let Some(stream) = connect_with_timeout(&socket_path, socket::IPC_TIMEOUT) else {
+        return Err(AskError::NoInstance);
+    };
+    if let Err(error) = socket::set_socket_timeout(&stream, socket::IPC_TIMEOUT) {
+        tracing::debug!(%error, "Could not set the IPC socket timeout");
+    }
+    let mut reader = std::io::BufReader::new(stream);
+
+    let capabilities = match handshake(&mut reader, client_info) {
+        Handshake::Ready(capabilities) => capabilities,
+        Handshake::NoInstance => return Err(AskError::NoInstance),
+        Handshake::Failed(error) => return Err(AskError::Failed(error)),
+    };
+    if !call.is_offered_by(&capabilities) {
+        let method = call.to_method().map(|(method, _)| method).unwrap_or("this");
+        return Err(AskError::Unsupported(method));
+    }
+
+    let outcome = exchange(&mut reader, call)
+        .and_then(|response| response.into_result().map_err(AskError::Refused));
+
+    let _ = send(
+        &mut reader,
+        jsonrpc::Notification::new(methods::EXIT, None).into(),
+    );
+    outcome
+}
+
+/// Write one call and read its answer.
+///
+/// [`AskError::Failed`] only while nothing has been written; from the write
+/// onward the call may have been carried out, and every failure says so.
+fn exchange(
+    reader: &mut std::io::BufReader<Stream>,
+    call: &methods::Call,
+) -> Result<jsonrpc::Response, AskError> {
+    // A call that cannot even be encoded is not one to send: the primary
+    // would answer `InvalidParams` to a null `params`, and the client would
+    // have nothing better to report than if it had never tried. A path that
+    // is not valid UTF-8 is how this happens.
+    let (method, params) = call
+        .to_method()
+        .map_err(|error| AskError::Failed(invalid_data(error)))?;
+    let request = jsonrpc::Request::new(CALL_ID, method, Some(params));
+    send(reader, request.into()).map_err(AskError::Failed)?;
+
+    // The answer to this one is the app's, not the connection thread's, so
+    // it takes as long as the app does — a whole document being drawn, when
+    // the call asked to wait. Either way this end listens for longer than
+    // the instance is allowed to take, so the instance's own answer always
+    // arrives while somebody is still reading.
+    let deadline = client_deadline(call.wait_ready());
+    if let Err(error) = socket::set_socket_timeout(reader.get_mut(), deadline) {
+        tracing::debug!(%error, "Could not set the IPC socket timeout for the answer");
+    }
+
+    match read_response(reader) {
+        Some(response) if response.id != jsonrpc::RequestId::Number(CALL_ID) => {
+            tracing::debug!(?response.id, "Instance answered a request that was not sent");
+            Err(AskError::Unanswered)
+        }
+        Some(response) => Ok(response),
+        None => Err(AskError::Unanswered),
+    }
+}
+
 /// Ids for the two requests one handoff makes. A connection this short has
 /// no need to generate them.
 const INITIALIZE_ID: i64 = 1;
@@ -213,35 +311,8 @@ fn request(
         event: event.clone(),
         wait_ready,
     };
-    // A request that cannot even be encoded is not one to send: the primary
-    // would answer `InvalidParams` to a null `params`, and the launch would
-    // have nothing better to report than if it had never tried. A path that
-    // is not valid UTF-8 is how this happens. Nothing has been written yet,
-    // so this is still a clean failure.
-    let (method, params) = match call.to_method() {
-        Ok(parts) => parts,
-        Err(error) => return SendResult::Failed(invalid_data(error)),
-    };
-    let request = jsonrpc::Request::new(CALL_ID, method, Some(params));
-    if let Err(error) = send(reader, request.into()) {
-        return SendResult::Failed(error);
-    }
-
-    // The answer to this one is the app's, not the connection thread's, so
-    // it takes as long as the app does — a whole document being drawn, when
-    // the launch asked to wait. Either way this end listens for longer than
-    // the instance is allowed to take, so the instance's own answer always
-    // arrives while somebody is still reading.
-    if let Err(error) = socket::set_socket_timeout(reader.get_mut(), client_deadline(wait_ready)) {
-        tracing::debug!(%error, "Could not set the IPC socket timeout for the answer");
-    }
-
-    match read_response(reader) {
-        Some(response) if response.id != jsonrpc::RequestId::Number(CALL_ID) => {
-            tracing::debug!(?response.id, "Instance answered a request that was not sent");
-            SendResult::Unanswered
-        }
-        Some(response) => match response.into_result() {
+    match exchange(reader, &call) {
+        Ok(response) => match response.into_result() {
             Ok(result) => match serde_json::from_value::<methods::AppliedResult>(result) {
                 Ok(applied) => SendResult::Applied {
                     ready: applied.ready,
@@ -253,7 +324,8 @@ fn request(
             },
             Err(error) => SendResult::Refused(error),
         },
-        None => SendResult::Unanswered,
+        Err(AskError::Failed(error)) => SendResult::Failed(error),
+        Err(_) => SendResult::Unanswered,
     }
 }
 
