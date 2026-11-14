@@ -1,8 +1,8 @@
 # Arto
 
 <!-- Quoted from README.md; do not rephrase it here. -->
-Arto — the Art of Reading Markdown. A desktop app that renders Markdown the
-way GitHub does, locally and offline.
+Arto — the Art of Reading Markdown. A desktop app for reading Markdown,
+locally and offline.
 
 ## How it is built
 
@@ -63,6 +63,7 @@ crate packages, the documentation's links and the workflow files. CI runs the sa
 | `platform/` | OS-specific packaging (macOS bundle and Quick Look extension) |
 | `docs/` | concept, ADRs, and specs — the pages the README links to are the specs |
 | `nix/` | Wrappers the Nix build puts in front of macOS tools |
+| `.claude-plugin/`, `plugins/` | The Claude Code plugin marketplace: the `arto` plugin registers `arto mcp` and a skill for its tools |
 
 ## Where the details live
 
@@ -122,6 +123,7 @@ they stay as they are.
 | `build` | `justfile`s, the workspace `Cargo.toml`, `rust-toolchain.toml`, `.cargo/`, lint and deny settings |
 | `ci` | `.github/` |
 | `nix` | `flake.nix`, `flake.lock`, `nix/` |
+| `plugins` | `.claude-plugin/`, `plugins/` |
 | `deps` | dependency updates |
 
 Add a row when a new area appears.

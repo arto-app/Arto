@@ -7,7 +7,7 @@
 
 <p align="center">
   <strong>Arto — the Art of Reading Markdown.</strong><br>
-  A desktop app that renders Markdown the way GitHub does, locally and offline.
+  A desktop app for reading Markdown, locally and offline.
 </p>
 
 <p align="center">
@@ -30,7 +30,7 @@
 
 Most Markdown tools are built for *writing*. Arto is built for **reading**: the name is short for "Art of Reading".
 
-Markdown is where documentation, communication and thinking now live, and reading it deserves more than a preview pane. Arto reproduces GitHub's rendering locally and offline, with typography and whitespace chosen for long reading rather than for editing.
+Markdown is where documentation, communication and thinking now live, and reading it deserves more than a preview pane. Arto renders it locally and offline, with typography and whitespace chosen for long reading rather than for editing.
 
 ## Features
 
@@ -102,7 +102,18 @@ The page follows your configuration, and ships with a Content-Security-Policy th
 
 Full flags and behaviour: [CLI usage](./docs/spec/cli.md).
 
-An agent can use Arto as its display: `arto mcp` is an MCP server that opens files under the directories you allow, reads what you are reading and where, scrolls you to the part that matters, and takes a picture of a block to see how it came out — see [Letting an agent use Arto](./docs/spec/mcp.md). Other programs can do the same over Arto's local socket: [Controlling a running Arto](./docs/spec/control.md).
+## With an agent
+
+An agent can use Arto as its display. `arto mcp` is an MCP server that opens files under the directories you allow, reads what you are reading, where you are and what you selected, scrolls you to the part that matters, and takes a picture of a block to see how it came out.
+
+In Claude Code, this repository is a plugin marketplace. The plugin registers the server and a skill that tells Claude when to reach for each of its tools:
+
+```
+/plugin marketplace add arto-app/Arto
+/plugin install arto@arto
+```
+
+It asks which directories Claude may open files under; left empty, that is the project Claude was started in, and `/plugin configure arto@arto` changes it later. For another MCP client, register the server yourself — see [Letting an agent use Arto](./docs/spec/mcp.md). Other programs can drive Arto over its local socket instead: [Controlling a running Arto](./docs/spec/control.md).
 
 ## Built with
 

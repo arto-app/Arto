@@ -304,7 +304,7 @@ preferences:
       last_focused: "Last focused"
   about:
     version: "Version %{version}"
-    description: "A local app that faithfully recreates GitHub-style Markdown rendering for a beautiful reading experience."
+    description: "A desktop app for reading Markdown, locally and offline."
     config_dir: "Configuration Directory"
     open_in_finder: "Open in Finder"
     view_on_github: "View on GitHub"

@@ -1,0 +1,21 @@
+{
+  "name": "arto",
+  "description": "Use Arto, the Markdown reader, as Claude Code's display: open documents in front of the reader, follow what they read and select, and picture what Arto drew.",
+  "author": {
+    "name": "arto-app",
+    "url": "https://github.com/arto-app"
+  },
+  "homepage": "https://arto-app.github.io",
+  "repository": "https://github.com/arto-app/Arto",
+  "license": "MIT",
+  "keywords": ["markdown", "reader", "mcp"],
+  "userConfig": {
+    "allow": {
+      "type": "string",
+      "title": "Directories Claude may open",
+      "description": "Absolute paths of the directories Claude may open files under, separated by ':' (';' on Windows). Include the project if Claude should still open its files. Leave empty for the project only.",
+      "required": false,
+      "default": ""
+    }
+  }
+}

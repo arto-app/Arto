@@ -44,8 +44,7 @@ enum OpenModeArg {
     version = VERSION,
     about,
     long_about = "Arto — the Art of Reading Markdown\n\n\
-        A local app that faithfully recreates GitHub-style Markdown rendering\n\
-        for a beautiful reading experience.\n\n\
+        A desktop app for reading Markdown, locally and offline.\n\n\
         Arto runs as a single instance — if already running, paths are sent\n\
         to the existing process instead of launching a new one.\n\n\
         --position, --size and --theme apply to the window --open selects,\n\

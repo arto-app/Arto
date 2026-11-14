@@ -20,9 +20,9 @@ icon = [
 ]
 copyright = "Copyright 2025 lambdalisue"
 category = "Utility"
-short_description = "A GitHub Markdown viewer"
+short_description = "A Markdown reader"
 long_description = """
-Arto is a GitHub Markdown viewer built with Dioxus.
+Arto is a desktop app for reading Markdown, locally and offline.
 """
 
 # Every shared library the binary links directly (the DT_NEEDED entries, minus
