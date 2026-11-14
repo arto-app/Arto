@@ -2,6 +2,21 @@ use arto_types::{FileOpenBehavior, Theme};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+/// The name a client outside the process uses for one window, the
+/// windowing system's own id being opaque and not serializable.
+///
+/// Counts from one and is never reused within a run, so a key held across a
+/// close names nothing rather than whatever took the number.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct WindowKey(pub u32);
+
+impl std::fmt::Display for WindowKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 /// A window's top-left corner in screen coordinates, in logical pixels.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WindowPoint {

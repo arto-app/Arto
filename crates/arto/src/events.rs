@@ -38,3 +38,21 @@ pub static SET_CONTENT_ZOOM_IN_WINDOW: std::sync::LazyLock<broadcast::Sender<(Wi
 /// [`crate::ipc::ready`]).
 pub static REPORT_READY_IN_WINDOW: std::sync::LazyLock<broadcast::Sender<WindowId>> =
     std::sync::LazyLock::new(|| broadcast::channel(10).0);
+
+/// Move the reader within one window's document.
+///
+/// Travels as an event because the move itself is `document::eval`, which
+/// only reaches a WebView from inside that window's own scope.
+pub static GOTO_IN_WINDOW: std::sync::LazyLock<broadcast::Sender<(WindowId, GotoTarget)>> =
+    std::sync::LazyLock::new(|| broadcast::channel(10).0);
+
+/// Ask a window what the reader has selected.
+///
+/// The `u64` names the request that is waiting; the window answers it
+/// through [`crate::ipc::answer_selection`]. A selection lives in the
+/// WebView, so unlike everything else a client can ask for, this one cannot
+/// be read off the main thread.
+pub static READ_SELECTION_IN_WINDOW: std::sync::LazyLock<broadcast::Sender<(WindowId, u64)>> =
+    std::sync::LazyLock::new(|| broadcast::channel(10).0);
+
+pub use arto_lsp::GotoTarget;

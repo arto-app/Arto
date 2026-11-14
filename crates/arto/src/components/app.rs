@@ -1,9 +1,11 @@
 mod drag_drop_overlay;
 mod drop_handlers;
+mod goto_listener;
 mod keybinding_engine;
 mod listeners;
 mod mouse_navigation;
 mod ready_reporter;
+mod selection_listener;
 mod shortcut_overlay;
 
 use dioxus::desktop::tao::dpi::{LogicalPosition, LogicalSize};
@@ -32,10 +34,12 @@ use crate::theme::Theme;
 
 use drag_drop_overlay::DragDropOverlay;
 use drop_handlers::handle_dropped_files;
+use goto_listener::setup_goto_listener;
 use keybinding_engine::setup_keybinding_engine;
 use listeners::setup_window_listeners;
 use mouse_navigation::setup_mouse_navigation;
 use ready_reporter::setup_ready_reporter;
+use selection_listener::setup_selection_listener;
 use shortcut_overlay::{
     build_shortcut_help_items, close_shortcut_overlay, split_shortcut_help_columns,
     ShortcutHelpOverlay, ShortcutOverlayVisibility,
@@ -194,6 +198,16 @@ pub fn App(
                     );
                 }
             }
+            // The last window on macOS is hidden rather than destroyed, so
+            // `use_drop` never runs for it and a client watching would be
+            // left holding a window `arto/state` no longer reports.
+            TaoEvent::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                window_id,
+                ..
+            } if window_id == &window().id() => {
+                crate::ipc::report_window_closed(*window_id);
+            }
             _ => {}
         }
     });
@@ -207,6 +221,18 @@ pub fn App(
     // Answer any launch that is holding its socket open for this window.
     setup_ready_reporter();
 
+    // Move the reader where a client outside the process asked.
+    setup_goto_listener();
+
+    // Tell it what the reader has selected when it asks.
+    setup_selection_listener();
+
+    // Tell a client that asked to follow this window how it reads now. The
+    // reads inside are what subscribe the effect.
+    use_effect(move || {
+        crate::ipc::report_window_state(window().id());
+    });
+
     // Keep the window title on the document being read
     use_effect(move || {
         let title =
@@ -217,6 +243,9 @@ pub fn App(
     // Save state and close child windows when this window closes
     use_drop(move || {
         let window_id = window().id();
+
+        // Before the key is forgotten, or there is nothing left to name.
+        crate::ipc::report_window_closed(window_id);
 
         // Unregister this window's state from the global mapping
         crate::window::unregister_window_state(window_id);

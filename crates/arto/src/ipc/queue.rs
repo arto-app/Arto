@@ -144,7 +144,7 @@ fn request_shutdown(signal: i32) {
 /// and this launch is the app.
 pub fn push_event(event: OpenEvent) {
     push_queued_event(QueuedEvent {
-        call: Call {
+        call: Call::Apply {
             event,
             wait_ready: false,
         },
@@ -168,15 +168,29 @@ pub fn push_queued_event(queued: QueuedEvent) {
 /// that is not waiting is answered now — holding its connection open for a
 /// draw it never asked about would time it out for nothing.
 pub fn try_pop_first_event() -> Option<OpenEvent> {
-    let mut queued = get_event_queue().lock().pop_front()?;
+    let mut queue = get_event_queue().lock();
+
+    // This path can only answer with what a window opening amounts to, so a
+    // query or a move is left where it is for the main thread's next turn
+    // rather than stranded here.
+    if !matches!(queue.front()?.call, Call::Apply { .. }) {
+        return None;
+    }
+
+    let mut queued = queue.pop_front()?;
+    drop(queue);
+
     if let Some(responder) = queued.responder.take() {
-        if queued.call.wait_ready {
+        if queued.call.wait_ready() {
             super::ready::await_new_window(responder);
         } else {
             responder.ok(AppliedResult { ready: false });
         }
     }
-    Some(queued.call.event)
+    match queued.call {
+        Call::Apply { event, .. } => Some(event),
+        other => unreachable!("only an Apply is taken here, got {other:?}"),
+    }
 }
 
 /// Drain all pending events from the IPC queue.

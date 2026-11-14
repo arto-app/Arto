@@ -5,10 +5,12 @@ use dioxus::desktop::{
 };
 use dioxus::prelude::*;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
+
+use arto_lsp::WindowKey;
 
 use crate::state::AppState;
 
@@ -149,6 +151,45 @@ thread_local! {
     static MAIN_WINDOWS: RefCell<Vec<WeakDesktopContext>> = const { RefCell::new(Vec::new()) };
     static LAST_FOCUSED_WINDOW: RefCell<Option<WindowId>> = const { RefCell::new(None) };
     static WINDOW_STATES: RefCell<HashMap<WindowId, AppState>> = RefCell::new(HashMap::new());
+    /// What a window is called on the wire.
+    static WINDOW_KEYS: RefCell<HashMap<WindowId, WindowKey>> = RefCell::new(HashMap::new());
+    /// Never goes back, so a key never names a second window.
+    static NEXT_WINDOW_KEY: Cell<u32> = const { Cell::new(1) };
+}
+
+/// The window a client named, if it is still open.
+pub fn window_for_key(key: WindowKey) -> Option<WindowId> {
+    WINDOW_KEYS.with(|keys| {
+        keys.borrow()
+            .iter()
+            .find_map(|(window_id, named)| (*named == key).then_some(*window_id))
+    })
+}
+
+/// What this window is called on the wire, if it has been named.
+///
+/// Does not assign one: asking about a window that is gone would otherwise
+/// put a dead id back in the table and spend a number for nothing.
+pub fn window_key_of(window_id: WindowId) -> Option<WindowKey> {
+    WINDOW_KEYS.with(|keys| keys.borrow().get(&window_id).copied())
+}
+
+/// What this window is called on the wire, assigning a name if it has none.
+pub fn window_key(window_id: WindowId) -> WindowKey {
+    if let Some(key) = WINDOW_KEYS.with(|keys| keys.borrow().get(&window_id).copied()) {
+        return key;
+    }
+    let key = WindowKey(NEXT_WINDOW_KEY.with(|next| {
+        let value = next.get();
+        next.set(value + 1);
+        value
+    }));
+    WINDOW_KEYS.with(|keys| keys.borrow_mut().insert(window_id, key));
+    key
+}
+
+fn forget_window_key(window_id: WindowId) {
+    WINDOW_KEYS.with(|keys| keys.borrow_mut().remove(&window_id));
 }
 
 /// List all active (upgraded) main window contexts
@@ -171,6 +212,17 @@ pub fn list_visible_main_windows() -> Vec<Rc<DesktopService>> {
         .into_iter()
         .filter(|ctx| ctx.window.is_visible())
         .collect()
+}
+
+/// Whether this window is one anybody can see.
+///
+/// With `WindowCloseBehaviour::WindowHides` a closed window is still in
+/// `MAIN_WINDOWS` with its state intact, so "still registered" is not the
+/// same question.
+pub fn is_visible_main_window(window_id: WindowId) -> bool {
+    list_visible_main_windows()
+        .iter()
+        .any(|context| context.window.id() == window_id)
 }
 
 pub fn register_main_window(handle: WeakDesktopContext) {
@@ -445,6 +497,9 @@ pub fn register_window_state(window_id: WindowId, state: AppState) {
     WINDOW_STATES.with(|states| {
         states.borrow_mut().insert(window_id, state);
     });
+    // Named here rather than on first use, so keys run in the order the
+    // windows opened.
+    let _ = window_key(window_id);
 }
 
 /// Unregister AppState when window closes.
@@ -453,6 +508,7 @@ pub fn unregister_window_state(window_id: WindowId) {
     WINDOW_STATES.with(|states| {
         states.borrow_mut().remove(&window_id);
     });
+    forget_window_key(window_id);
 }
 
 /// Get AppState by WindowId.
