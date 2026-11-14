@@ -63,7 +63,7 @@ Section "Arto file associations"
     ; Settings → Default apps only lists an application that publishes a
     ; Capabilities key and points RegisteredApplications at it.
     WriteRegStr SHCTX "Software\Arto\Capabilities" "ApplicationName" "Arto"
-    WriteRegStr SHCTX "Software\Arto\Capabilities" "ApplicationDescription" "A GitHub Markdown viewer"
+    WriteRegStr SHCTX "Software\Arto\Capabilities" "ApplicationDescription" "A Markdown reader"
     WriteRegStr SHCTX "Software\Arto\Capabilities\FileAssociations" ".md" "${ARTO_MARKDOWN_PROGID}"
     WriteRegStr SHCTX "Software\Arto\Capabilities\FileAssociations" ".markdown" "${ARTO_MARKDOWN_PROGID}"
     WriteRegStr SHCTX "Software\Arto\Capabilities\FileAssociations" ".txt" "${ARTO_TEXT_PROGID}"

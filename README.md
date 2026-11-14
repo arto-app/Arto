@@ -7,7 +7,7 @@
 
 <p align="center">
   <strong>Arto — the Art of Reading Markdown.</strong><br>
-  A desktop app that renders Markdown the way GitHub does, locally and offline.
+  A desktop app for reading Markdown, locally and offline.
 </p>
 
 <p align="center">
@@ -30,7 +30,7 @@
 
 Most Markdown tools are built for *writing*. Arto is built for **reading**: the name is short for "Art of Reading".
 
-Markdown is where documentation, communication and thinking now live, and reading it deserves more than a preview pane. Arto reproduces GitHub's rendering locally and offline, with typography and whitespace chosen for long reading rather than for editing.
+Markdown is where documentation, communication and thinking now live, and reading it deserves more than a preview pane. Arto renders it locally and offline, with typography and whitespace chosen for long reading rather than for editing.
 
 ## Features
 

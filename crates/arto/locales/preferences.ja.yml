@@ -304,7 +304,7 @@ preferences:
       last_focused: "最後に使用したもの"
   about:
     version: "バージョン %{version}"
-    description: "GitHub スタイルの Markdown レンダリングを忠実に再現し、心地よく読めるようにするローカルアプリです。"
+    description: "Markdown を手元で、オフラインで読むためのデスクトップアプリです。"
     config_dir: "設定フォルダ"
     open_in_finder: "Finder で開く"
     view_on_github: "GitHub で見る"

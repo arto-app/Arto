@@ -1,8 +1,8 @@
 # Arto
 
 <!-- Quoted from README.md; do not rephrase it here. -->
-Arto — the Art of Reading Markdown. A desktop app that renders Markdown the
-way GitHub does, locally and offline.
+Arto — the Art of Reading Markdown. A desktop app for reading Markdown,
+locally and offline.
 
 ## How it is built
 
