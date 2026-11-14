@@ -44,6 +44,7 @@ Methods, all in `crates/arto-lsp/src/methods.rs`:
 | `arto/state` | request | What is open, and where the reader is in it |
 | `arto/goto` | request | Put the reader somewhere in a window's document |
 | `arto/selection` | request | What the reader has selected |
+| `arto/capture` | request | A picture of a block, or of what the reader sees |
 | `arto/didChangeState` | notification | **Sent by the instance** — a window changed |
 | `shutdown` | request | No more requests; `exit` follows |
 | `exit` | notification | **Close this connection** — see below |
@@ -112,12 +113,20 @@ own, so the hits stay highlighted where the reader can see them — a jump
 that left no trace would put them somewhere they could not account for.
 `index` counts hits from zero and out of range moves nothing.
 
-`arto/selection` is the one method that cannot be answered from the main
-thread: a selection lives in the WebView. The responder is parked in
-`crates/arto/src/ipc/selection.rs` and the window answers it a round trip
-later, which is why it is its own method rather than a field of
-`arto/state` — that one is answered in the turn that asked, and every
-field of it is already here.
+`arto/selection` and `arto/capture` cannot be answered from the main
+thread: a selection lives in the WebView, and the page draws its own
+picture. The responder is parked in `crates/arto/src/ipc/parked.rs` and
+the window answers it a round trip later, which is why each is a method of
+its own rather than a field of `arto/state` — that one is answered in the
+turn that asked, and every field of it is already here.
+
+A capture is drawn by the page with `html2canvas`, not snapshotted from the
+screen (see
+`docs/adr/20261114-draw-a-capture-from-the-page-rather-than-the-screen.md`):
+a block out of view is drawn where it stands, after `drawWithin` has drawn
+the diagrams it still lacks, and the reader is never moved. Because that can
+take as long as drawing a document, `Call::waits_on_a_drawing` gives it the
+deadline a `waitReady` launch has, at both ends.
 
 ## Ending a session
 
@@ -236,8 +245,8 @@ format to keep in step with the first.
 | `crates/arto-lsp/src/server.rs` | `Server`, `ReadySignal` |
 | `crates/arto-lsp/src/writer.rs` | `Writer` — a connection's write half, shared |
 | `crates/arto/src/ipc.rs` | Queues received events, wakes the main thread, opens files in the right window |
-| `crates/arto/src/ipc/state.rs` | Answers `arto/state` and routes `arto/goto` and `arto/selection` |
-| `crates/arto/src/ipc/selection.rs` | Requests parked while a window is asked what is selected |
+| `crates/arto/src/ipc/state.rs` | Answers `arto/state` and routes `arto/goto`, `arto/selection` and `arto/capture` |
+| `crates/arto/src/ipc/parked.rs` | Requests parked while a window answers from its WebView |
 | `crates/arto/src/ipc/subscribers.rs` | Who gets `arto/didChangeState`, and how often |
 
 `arto-lsp` is a library crate: no globals, debug-level logging only. It does

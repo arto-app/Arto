@@ -31,6 +31,11 @@ describe("init", () => {
         onComplete: "function",
         schedule: "function",
       },
+      capture: {
+        line: "function",
+        heading: "function",
+        viewport: "function",
+      },
       rasterize: {
         image: "function",
         mathBlock: "function",

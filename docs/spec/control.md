@@ -29,7 +29,7 @@ does not have; a client asks only for what was offered.
 ```json
 {"serverInfo":{"name":"arto","version":"…"},
  "capabilities":{"open":true,"reopen":true,"state":true,"goto":true,
-                 "selection":true,"stateChanges":true,"waitReady":true}}
+                 "selection":true,"capture":true,"stateChanges":true,"waitReady":true}}
 ```
 
 `shutdown` tells Arto the client is done: it is answered, and any request
@@ -114,6 +114,34 @@ one named by `window`, or the one last focused:
 ```
 
 `text` is absent when nothing is selected.
+
+## Capturing what is drawn
+
+`arto/capture` answers with a picture of what a window draws — the window
+named by `window`, or the one last focused:
+
+| `target` | Pictures |
+| --- | --- |
+| `{"block": 42}` | the top-level block line 42 belongs to |
+| `{"heading": "install"}` | the block of the heading with that `id` |
+| `"viewport"` | what the reader sees of the document now |
+
+```json
+{"window":1,"png":"iVBORw0KGgo…","width":1480,"height":620,"lines":{"start":40,"end":51}}
+```
+
+`png` is base64 of a PNG, and `width` and `height` are its size in pixels.
+`lines` are the source lines the block was rendered from, and absent for the
+viewport. A line between two blocks belongs to the block above it, so the
+`line` of a `scroll` from `arto/state` names the block at the top of the
+window.
+
+A block is drawn where it stands, whether the reader can see it or not, and
+the reader is not moved. A diagram or formula in it that had not been drawn
+yet is drawn first. The picture is the page drawing its own document, which
+can differ from the screen where a style is beyond what it can draw. A line
+before the first block, or an `id` no heading has, is refused with error
+`-32602`.
 
 ## Following changes
 

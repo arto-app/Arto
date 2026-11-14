@@ -242,6 +242,52 @@ describe("flush", () => {
   });
 });
 
+describe("drawWithin", () => {
+  test("runs the jobs inside the block and leaves the rest waiting", async () => {
+    // A capture of one block should not pay for every diagram in the file.
+    const block = div();
+    const inside = document.createElement("div");
+    block.append(inside);
+    const insideJob = vi.fn();
+    const outsideJob = vi.fn();
+    viewportQueue.whenNearViewport(inside, insideJob);
+    viewportQueue.whenNearViewport(div(), outsideJob);
+
+    await viewportQueue.drawWithin(block);
+
+    expect(insideJob).toHaveBeenCalledOnce();
+    expect(outsideJob).not.toHaveBeenCalled();
+    expect(viewportQueue.pendingCount()).toBe(1);
+  });
+
+  test("runs a job registered on the block itself", async () => {
+    const block = div();
+    const job = vi.fn();
+    viewportQueue.whenNearViewport(block, job);
+
+    await viewportQueue.drawWithin(block);
+
+    expect(job).toHaveBeenCalledOnce();
+  });
+
+  test("waits for a job inside the block that is already running", async () => {
+    const block = div();
+    let finish!: () => void;
+    let done = false;
+    viewportQueue.whenNearViewport(block, async () => {
+      await new Promise<void>((resolve) => (finish = resolve));
+      done = true;
+    });
+    scrollTo(block);
+
+    const drawn = viewportQueue.drawWithin(block);
+    finish();
+    await drawn;
+
+    expect(done).toBe(true);
+  });
+});
+
 describe("isDrawing", () => {
   test("reports the block being drawn and what the job writes into it", async () => {
     const element = div();

@@ -1,3 +1,4 @@
+mod capture_listener;
 mod drag_drop_overlay;
 mod drop_handlers;
 mod goto_listener;
@@ -32,6 +33,7 @@ use crate::menu;
 use crate::state::{AppState, Document, PersistedState};
 use crate::theme::Theme;
 
+use capture_listener::setup_capture_listener;
 use drag_drop_overlay::DragDropOverlay;
 use drop_handlers::handle_dropped_files;
 use goto_listener::setup_goto_listener;
@@ -226,6 +228,9 @@ pub fn App(
 
     // Tell it what the reader has selected when it asks.
     setup_selection_listener();
+
+    // Draw it a picture of a block, or of what the reader sees, when asked.
+    setup_capture_listener();
 
     // Tell a client that asked to follow this window how it reads now. The
     // reads inside are what subscribe the effect.

@@ -1,14 +1,15 @@
-//! Requests parked while a window is asked what the reader has selected.
+//! Requests parked while a window answers them from its WebView.
 //!
-//! Everything else a client asks for is on the main thread already. A
-//! selection is not — it lives in the WebView — so the answer arrives a
-//! round trip later, from the window's own scope. The responder waits here
-//! in the meantime, named by a number the window hands back.
+//! Everything else a client asks for is on the main thread already. What
+//! the reader has selected, and a picture of what the page draws, are not —
+//! they live in the WebView — so the answer arrives a round trip later, from
+//! the window's own scope. The responder waits here in the meantime, named
+//! by a number the window hands back.
 //!
 //! A responder dropped rather than answered releases the client too, so a
 //! window that closes mid-question strands nothing.
 
-use arto_lsp::{ErrorCode, Responder, ResponseError, SelectionResult, WindowKey, APPLY_TIMEOUT};
+use arto_lsp::{ErrorCode, Responder, ResponseError, WindowKey, READY_TIMEOUT};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -33,7 +34,8 @@ pub fn ask(window: WindowKey, responder: Responder) -> u64 {
     // broadcast — has nobody left to answer it, and the client it belongs
     // to gave up when the server's own deadline passed. Swept here rather
     // than on a timer, because entries only ever pile up as new ones come.
-    asked.retain(|_, entry| entry.at.elapsed() < APPLY_TIMEOUT);
+    // The longest deadline any parked request has is a drawing's.
+    asked.retain(|_, entry| entry.at.elapsed() < READY_TIMEOUT);
     asked.insert(
         token,
         Asked {
@@ -45,31 +47,32 @@ pub fn ask(window: WindowKey, responder: Responder) -> u64 {
     token
 }
 
-/// Answer the request this number names, if it is still waiting.
+/// Answer the request this number names, if it is still waiting, with what
+/// `answer` makes of the window it was asked of.
 ///
 /// The client may have given up — the server stops waiting after its own
 /// deadline — so an unknown number is ordinary rather than an error.
-pub fn answer(token: u64, text: Option<String>) {
+pub fn answer<T: serde::Serialize>(token: u64, answer: impl FnOnce(WindowKey) -> T) {
     let Some(asked) = ASKED.lock().remove(&token) else {
         return;
     };
-    asked.responder.ok(SelectionResult {
-        window: asked.window,
-        text,
-    });
+    asked.responder.ok(answer(asked.window));
 }
 
-/// Give up on the request this number names, saying why.
+/// Refuse the request this number names, as `code` with `reason`.
 ///
 /// A refusal beats silence: the client would otherwise wait out the
 /// server's deadline to be told the same thing with less of a reason.
-pub fn abandon(token: u64, reason: &str) {
+pub fn refuse(token: u64, code: ErrorCode, reason: &str) {
     let Some(asked) = ASKED.lock().remove(&token) else {
         return;
     };
-    asked
-        .responder
-        .err(ResponseError::new(ErrorCode::InternalError, reason));
+    asked.responder.err(ResponseError::new(code, reason));
+}
+
+/// Give up on the request this number names, saying why.
+pub fn abandon(token: u64, reason: &str) {
+    refuse(token, ErrorCode::InternalError, reason);
 }
 
 /// Let go of every question put to a window that is closing. Dropping the

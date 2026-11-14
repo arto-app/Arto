@@ -3,8 +3,8 @@
 use crate::instance::Instance;
 use crate::roots::Roots;
 use arto_lsp::{
-    AskError, Call, GotoParams, OpenEvent, OpenRequest, ScrollPosition, SelectionParams,
-    StateParams, StateResult, WindowKey, WindowOptions,
+    AskError, Call, CaptureParams, CaptureResult, GotoParams, OpenEvent, OpenRequest,
+    ScrollPosition, SelectionParams, StateParams, StateResult, WindowKey, WindowOptions,
 };
 use arto_types::FileOpenBehavior;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
@@ -19,8 +19,8 @@ use std::time::Duration;
 const INSTRUCTIONS: &str = "Arto is the Markdown reader on the user's screen. \
 Use `open` to put a file in front of the user, `state` to see what is open and where \
 the reader is, `goto` to move the reader to a heading, a place or a search hit, and \
-`selection` to read what the user has selected. `open` only opens paths under the \
-directories this server was started with.";
+`selection` to read what the user has selected, and `capture` to see how a block came \
+out. `open` only opens paths under the directories this server was started with.";
 
 /// How long `open` waits for an Arto it started to show the document.
 #[derive(Debug, Clone, Copy)]
@@ -115,6 +115,38 @@ impl From<Target> for arto_lsp::GotoTarget {
     }
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CaptureArgs {
+    /// A window number as `state` reports it; the window the user was last in
+    /// when left out.
+    #[serde(default)]
+    pub window: Option<u32>,
+    pub target: Shot,
+}
+
+/// What to take a picture of.
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum Shot {
+    /// The top-level block a source line belongs to, such as the `line` of
+    /// the `scroll` that `state` reports.
+    Block(u32),
+    /// The block of a heading, by the `id` that `state` lists it with.
+    Heading(String),
+    /// What the user sees of the document now.
+    Viewport,
+}
+
+impl From<Shot> for arto_lsp::CaptureTarget {
+    fn from(shot: Shot) -> Self {
+        match shot {
+            Shot::Block(line) => Self::Block(line),
+            Shot::Heading(id) => Self::Heading(id),
+            Shot::Viewport => Self::Viewport,
+        }
+    }
+}
+
 #[tool_router]
 impl<I: Instance> Arto<I> {
     pub fn new(instance: I, roots: Roots, server_info: Implementation) -> Self {
@@ -195,6 +227,24 @@ impl<I: Instance> Arto<I> {
             window: args.window.map(WindowKey),
         });
         Ok(answer(self.ask(call).await))
+    }
+
+    /// A picture of a block, or of what the reader sees.
+    #[tool(
+        description = "Take a picture of how Arto drew part of a document: the block a source line belongs to, the block of a heading (by the id `state` lists), or what the user sees now. The block is drawn where it is, without scrolling the user to it. Answers with a PNG and, as JSON, its size and the source lines of the block."
+    )]
+    async fn capture(
+        &self,
+        Parameters(args): Parameters<CaptureArgs>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let call = Call::Capture(CaptureParams {
+            window: args.window.map(WindowKey),
+            target: args.target.into(),
+        });
+        Ok(match self.ask(call).await {
+            Ok(value) => picture(value),
+            outcome => answer(outcome),
+        })
     }
 }
 
@@ -289,6 +339,23 @@ impl<I: Instance> ServerHandler for Arto<I> {
             .with_server_info(self.server_info.clone())
             .with_instructions(INSTRUCTIONS)
     }
+}
+
+/// Arto's picture as an image the agent can look at, and the rest of the
+/// answer beside it as text — without the image's bytes a second time.
+fn picture(value: serde_json::Value) -> CallToolResult {
+    let Ok(mut result) = serde_json::from_value::<CaptureResult>(value) else {
+        return refusal("Arto answered the capture with something unreadable");
+    };
+    let png = std::mem::take(&mut result.png);
+    let mut about = serde_json::to_value(&result).unwrap_or_default();
+    if let Some(about) = about.as_object_mut() {
+        about.remove("png");
+    }
+    CallToolResult::success(vec![
+        ContentBlock::image(png, "image/png"),
+        ContentBlock::text(about.to_string()),
+    ])
 }
 
 /// What Arto answered, or why it did not, as the agent will read it.
@@ -443,7 +510,7 @@ mod tests {
             .map(|tool| tool.name.to_string())
             .collect();
         names.sort();
-        assert_eq!(names, ["goto", "open", "selection", "state"]);
+        assert_eq!(names, ["capture", "goto", "open", "selection", "state"]);
     }
 
     #[tokio::test]
@@ -697,5 +764,61 @@ mod tests {
 
         assert!(is_error(&result));
         assert_eq!(text(&result), "no window 9 is open");
+    }
+    #[tokio::test]
+    async fn capture_hands_the_agent_the_picture_and_what_it_shows() {
+        let project = project();
+        let fake = Fake::answering([Ok(json!({
+            "window": 1,
+            "png": "UE5H",
+            "width": 400,
+            "height": 300,
+            "lines": {"start": 4, "end": 7},
+        }))]);
+        let args: CaptureArgs = serde_json::from_value(json!({"target": {"block": 5}})).unwrap();
+
+        let result = server(&fake, &project)
+            .capture(Parameters(args))
+            .await
+            .unwrap();
+
+        assert!(!is_error(&result), "{}", text(&result));
+        let image = result
+            .content
+            .iter()
+            .find_map(|block| block.as_image())
+            .unwrap();
+        assert_eq!(image.data, "UE5H");
+        assert_eq!(image.mime_type, "image/png");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&text(&result)).unwrap(),
+            json!({"window": 1, "width": 400, "height": 300, "lines": {"start": 4, "end": 7}}),
+            "the bytes travel once, as the image"
+        );
+        assert_eq!(
+            fake.asked(),
+            [Call::Capture(CaptureParams {
+                window: None,
+                target: arto_lsp::CaptureTarget::Block(5),
+            })]
+        );
+    }
+
+    #[tokio::test]
+    async fn a_capture_arto_could_not_take_reaches_the_agent_as_its_message() {
+        let project = project();
+        let fake = Fake::answering([Err(AskError::Refused(ResponseError::new(
+            ErrorCode::InvalidParams,
+            "no block at line 1",
+        )))]);
+        let args: CaptureArgs = serde_json::from_value(json!({"target": "viewport"})).unwrap();
+
+        let result = server(&fake, &project)
+            .capture(Parameters(args))
+            .await
+            .unwrap();
+
+        assert!(is_error(&result));
+        assert_eq!(text(&result), "no block at line 1");
     }
 }

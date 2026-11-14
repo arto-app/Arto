@@ -49,10 +49,18 @@ pub static GOTO_IN_WINDOW: std::sync::LazyLock<broadcast::Sender<(WindowId, Goto
 /// Ask a window what the reader has selected.
 ///
 /// The `u64` names the request that is waiting; the window answers it
-/// through [`crate::ipc::answer_selection`]. A selection lives in the
+/// through [`crate::ipc::answer_parked`]. A selection lives in the
 /// WebView, so unlike everything else a client can ask for, this one cannot
 /// be read off the main thread.
 pub static READ_SELECTION_IN_WINDOW: std::sync::LazyLock<broadcast::Sender<(WindowId, u64)>> =
     std::sync::LazyLock::new(|| broadcast::channel(10).0);
 
-pub use arto_lsp::GotoTarget;
+/// Ask a window for a picture of what it draws.
+///
+/// Answered like [`READ_SELECTION_IN_WINDOW`], a round trip later: the page
+/// draws the picture itself.
+pub static CAPTURE_IN_WINDOW: std::sync::LazyLock<
+    broadcast::Sender<(WindowId, u64, CaptureTarget)>,
+> = std::sync::LazyLock::new(|| broadcast::channel(10).0);
+
+pub use arto_lsp::{CaptureTarget, GotoTarget};
