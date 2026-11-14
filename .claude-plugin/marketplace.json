@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "arto",
+  "owner": {
+    "name": "arto-app",
+    "url": "https://github.com/arto-app"
+  },
+  "description": "Let Claude Code use Arto, the Markdown reader, as its display.",
+  "plugins": [
+    {
+      "name": "arto",
+      "source": "./plugins/arto",
+      "description": "Registers `arto mcp` and a skill for it: open a document in front of the reader, see what they are reading and what they selected, move them to the part that matters, and picture a block to check how it came out.",
+      "category": "productivity",
+      "keywords": ["markdown", "reader", "mcp"]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "arto": {
+      "command": "arto",
+      "args": ["mcp"]
+    }
+  }
+}

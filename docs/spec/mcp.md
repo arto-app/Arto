@@ -22,6 +22,15 @@ claude mcp add arto -- arto mcp --allow ~/notes --allow ~/src/project
 The command is the `arto` from [the CLI](./cli.md); on Windows, the single
 binary rather than the installed copy.
 
+In Claude Code, the `arto` plugin from the marketplace in Arto's repository
+registers the server without `--allow`, so the agent opens files under the
+project it was started in:
+
+```
+/plugin marketplace add arto-app/Arto
+/plugin install arto@arto
+```
+
 ## What it may open
 
 `open` opens only files and directories under the `--allow` directories, or,
