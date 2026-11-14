@@ -158,6 +158,7 @@ inside the devShell:
 | Rust tests | `just arto::test-ci` (nextest) or `just arto::test` |
 | rustdoc, feature combinations | `just arto::doc`, `just arto::features` |
 | advisories and licenses, unused dependencies | `just arto::deny`, `just arto::machete` |
+| crate packages (what `cargo publish` verifies) | `just frontend::assets`, then `just arto::package` |
 | frontend | `just frontend::check`, `just frontend::test` |
 | documentation links and paths | `just docs` |
 | workflow files | `just workflows` |

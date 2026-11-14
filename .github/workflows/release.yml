@@ -73,7 +73,8 @@ jobs:
       # each to reach the index before the next one asks for it. The
       # verification build is the point of not passing `--no-verify`: it is
       # what proves each package actually carries the files its `include`
-      # list claims, which nothing else in CI checks.
+      # list claims. CI's `package` job runs the same verification on every
+      # pull request; this one still matters for the stamped version.
       #
       # `--allow-dirty` because the two steps above deliberately leave the
       # tree modified.

@@ -28,7 +28,7 @@ test: frontend::assets arto::test frontend::test
 verify: fmt check test
 
 # Everything CI checks, in one recipe: the gate before a change is done.
-ci: fmt-check check test docs workflows arto::doc arto::features arto::deny arto::machete
+ci: fmt-check check test docs workflows arto::doc arto::features arto::deny arto::machete arto::package
 
 # Links in Markdown files (offline, see lychee.toml) and repository paths
 # named in documentation; the same checks the CI docs job runs.

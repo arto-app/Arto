@@ -50,6 +50,14 @@ deny:
 machete:
   cargo machete
 
+# Every member packaged and built from its package alone, as `cargo publish`
+# verifies it on release: a file an `include!` reads but the `include` list
+# leaves out fails here, not after the release is already out. Run after the
+# frontend assets are built, since three packages carry them. `--allow-dirty`
+# because the assets are untracked build output.
+package:
+  cargo package --workspace --allow-dirty
+
 verify: fmt check test
 
 clean:
