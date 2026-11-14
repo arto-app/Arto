@@ -130,3 +130,5 @@ reports how things stand at the start.
 
 A connection that has finished `initialize` stays open for as long as the
 client holds it, whether or not it has anything to ask.
+
+Agents reach all of this through [`arto mcp`](./mcp.md) instead.

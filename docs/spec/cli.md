@@ -141,4 +141,16 @@ then loads them, and no longer blocks a script the Markdown carries.
 The same command is available as a standalone `arto-page` binary for machines
 without the app.
 
+## Serving an agent
+
+`arto mcp` runs a Model Context Protocol server on standard input and output,
+for an agent's MCP client to start. It lets the agent open files under the
+directories given with `--allow` (or under the one it was started in), read
+what Arto shows and move the reader; see
+[Letting an agent use Arto](./mcp.md).
+
+```sh
+arto mcp --allow ~/notes
+```
+
 [releases]: https://github.com/arto-app/Arto/releases

@@ -1,0 +1,28 @@
+[package]
+name = "arto-mcp"
+description = "A Model Context Protocol server that lets an agent show files in Arto and read where the reader is"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords = ["mcp", "markdown", "agent", "viewer"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+arto-lsp.workspace = true
+arto-types.workspace = true
+clap.workspace = true
+rmcp = { version = "3.10.0", default-features = false, features = ["macros", "server", "transport-io"] }
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { version = "1.54.1", features = ["rt", "time"] }
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { version = "1.54.1", features = ["macros", "rt", "time"] }
