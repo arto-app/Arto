@@ -23,6 +23,7 @@ include = [
   "assets/frontend/page-hljs-common.txt",
   "assets/frontend/page-hljs-all.iife.js",
   "assets/frontend/page-hljs-all.txt",
+  "assets/frontend/html-embed-frame.js",
 ]
 
 # Nothing: a host that only wants the bundles should not compile anything to
