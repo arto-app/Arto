@@ -201,6 +201,11 @@ preferences:
       ignore_whitespace:
         label: "空白の違いを無視"
         description: "空白の入れ方だけが異なる行は、変更として扱いません。"
+    tasks:
+      title: "タスクリスト"
+      tick:
+        label: "チェックをファイルに書きこむ"
+        description: "タスクのチェックボックスをクリックすると、ドキュメントそのものにチェックを書きこみます。変わるのはそのタスクの [ ] か [x] だけです。オフにすると、チェックボックスはドキュメントの内容を示すだけになります。"
   panel:
     current:
       title: "現在の設定"

@@ -201,6 +201,11 @@ preferences:
       ignore_whitespace:
         label: "Ignore spacing"
         description: "A line whose words are only spaced differently is not marked as changed."
+    tasks:
+      title: "Task Lists"
+      tick:
+        label: "Tick tasks in the file"
+        description: "A click on a task's checkbox writes the tick into the document itself, changing its [ ] or [x] and nothing else. Turned off, the checkboxes only show what the document says."
   panel:
     current:
       title: "Current Settings"

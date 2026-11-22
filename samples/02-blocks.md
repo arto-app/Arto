@@ -150,8 +150,8 @@ text, and the numbering continues with 2.
   - [x] Nested done task
 - [ ] ~~Struck~~ task
 
-**Expected:** checkboxes instead of bullets, checked where marked, and the
-checkboxes are not clickable.
+**Expected:** checkboxes instead of bullets, checked where marked; in the app
+a click ticks the task in this file, and in a page `arto page` wrote none does.
 
 ## Horizontal rules
 

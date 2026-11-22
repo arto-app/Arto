@@ -29,6 +29,7 @@ pub mod relaunch;
 mod roots;
 mod scroll_anchor;
 mod state;
+mod tasks;
 mod theme;
 pub mod utils;
 mod visits;

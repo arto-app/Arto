@@ -13,6 +13,7 @@
 //! copy of every document read would make each of those writes the size of
 //! everything the reader has ever opened.
 
+use crate::tasks::{self, Tick};
 use crate::utils::data_store::{evict, record_file_name, touch, write_atomically};
 use chrono::{DateTime, Local};
 use flate2::read::GzDecoder;
@@ -22,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
+use std::sync::{LazyLock, Mutex, MutexGuard};
 
 mod changes;
 
@@ -123,22 +124,51 @@ impl Store {
     /// Returns whether it was kept: a document past the size limit is not,
     /// and loses the version it had, which no longer says what was read.
     pub(crate) fn advance(&self, document: &Path, source: &str) -> io::Result<bool> {
+        let _updating = updating();
         if source.len() > self.max_document_bytes {
             self.forget(document);
             return Ok(false);
         }
-        let baseline = Baseline {
+        self.keep(&Baseline {
             version: VERSION,
             path: document.to_path_buf(),
             read_at: Local::now(),
             source: source.to_string(),
+        })?;
+        Ok(true)
+    }
+
+    /// Tick the task the reader ticked in `document`, which held `before`,
+    /// in the version last read as well — when that version has the line as
+    /// `before` had it, so the reader has read it.
+    ///
+    /// The reader's own tick is not news to them; without this, the tick
+    /// would be marked as a change on the next draw.
+    pub(crate) fn carry_tick(&self, document: &Path, before: &str, tick: Tick) -> io::Result<()> {
+        // Held from the read to the write: two windows ticking the same
+        // document would otherwise each keep a version with only their own
+        // tick in it.
+        let _updating = updating();
+        let Some(mut baseline) = self.load(document) else {
+            return Ok(());
         };
+        if tasks::line(&baseline.source, tick.line) != tasks::line(before, tick.line) {
+            return Ok(());
+        }
+        let Ok(source) = tasks::tick(&baseline.source, tick) else {
+            return Ok(());
+        };
+        baseline.source = source;
+        self.keep(&baseline)
+    }
+
+    fn keep(&self, baseline: &Baseline) -> io::Result<()> {
         let mut gzip = GzEncoder::new(Vec::new(), Compression::default());
-        gzip.write_all(&serde_json::to_vec(&baseline)?)?;
-        let path = self.file(document);
+        gzip.write_all(&serde_json::to_vec(baseline)?)?;
+        let path = self.file(&baseline.path);
         write_atomically(&path, &gzip.finish()?)?;
         evict(&self.root, self.max_bytes, &path, &[]);
-        Ok(true)
+        Ok(())
     }
 
     /// What changed in `document` since it was last read, now that it is
@@ -184,6 +214,15 @@ impl Store {
     }
 }
 
+/// Held while a version is replaced, so that one replaced from what was
+/// kept before does not undo another replacement in between.
+fn updating() -> MutexGuard<'static, ()> {
+    static UPDATING: Mutex<()> = Mutex::new(());
+    UPDATING
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 /// What changed in a document since it was last read, and when that was.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Comparison {
@@ -199,6 +238,17 @@ pub fn compare(document: &Path, source: &str, ignore_whitespace: bool) -> Compar
         .as_ref()
         .map(|store| store.compare(document, source, ignore_whitespace))
         .unwrap_or_default()
+}
+
+/// Carry the reader's tick into the version of `document` last read, in the
+/// app's store; see [`Store::carry_tick`].
+pub fn carry_tick(document: &Path, before: &str, tick: Tick) {
+    let Some(store) = STORE.as_ref() else {
+        return;
+    };
+    if let Err(error) = store.carry_tick(document, before, tick) {
+        tracing::warn!(%error, ?document, "the tick was not kept in the version last read");
+    }
 }
 
 /// Keep `source` as the version of `document` last read, in the app's store.
@@ -344,6 +394,56 @@ mod tests {
         let mut gzip = GzEncoder::new(Vec::new(), Compression::default());
         gzip.write_all(json.to_string().as_bytes()).unwrap();
         fs::write(store.file(Path::new(DOC)), gzip.finish().unwrap()).unwrap();
+
+        assert!(store.load(Path::new(DOC)).is_none());
+    }
+
+    fn tick(line: usize, checked: bool) -> Tick {
+        Tick {
+            line,
+            column: 1,
+            checked,
+        }
+    }
+
+    #[test]
+    fn a_task_the_reader_ticked_is_not_a_change_since_they_read_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = store(&dir);
+        store.advance(Path::new(DOC), "- [ ] a\n- [ ] b\n").unwrap();
+        let read_at = store.load(Path::new(DOC)).unwrap().read_at;
+
+        store
+            .carry_tick(Path::new(DOC), "- [ ] a\n- [ ] b\n", tick(2, true))
+            .unwrap();
+
+        let compared = store.compare(Path::new(DOC), "- [ ] a\n- [x] b\n", true);
+        assert_eq!(compared.changes, []);
+        assert_eq!(compared.read_at, Some(read_at));
+    }
+
+    #[test]
+    fn a_tick_on_a_line_the_reader_has_not_read_stays_a_change() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = store(&dir);
+        store.advance(Path::new(DOC), "- [ ] a\n").unwrap();
+
+        // The file gained a task since it was read, and the reader ticked it.
+        store
+            .carry_tick(Path::new(DOC), "- [ ] a\n- [ ] new\n", tick(2, true))
+            .unwrap();
+
+        assert_eq!(store.load(Path::new(DOC)).unwrap().source, "- [ ] a\n");
+    }
+
+    #[test]
+    fn a_tick_on_a_document_never_read_keeps_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = store(&dir);
+
+        store
+            .carry_tick(Path::new(DOC), "- [ ] a\n", tick(1, true))
+            .unwrap();
 
         assert!(store.load(Path::new(DOC)).is_none());
     }

@@ -43,6 +43,7 @@
 @import url("./components/content/html-embed.css");
 @import url("./components/content/content-cursor.css");
 @import url("./components/content/changes.css");
+@import url("./components/content/task-ticks.css");
 
 /* Special windows */
 @import url("./components/viewer-window.css");
