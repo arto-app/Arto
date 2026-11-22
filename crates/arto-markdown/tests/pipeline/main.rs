@@ -15,6 +15,7 @@ use std::path::Path;
 mod alerts;
 mod containers;
 mod errors;
+mod files;
 mod images;
 mod line_endings;
 mod options;

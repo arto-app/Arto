@@ -207,6 +207,7 @@
 mod block;
 mod engine;
 mod error;
+mod files;
 mod frontmatter;
 mod headings;
 mod images;
@@ -223,6 +224,7 @@ mod urls;
 pub use block::*;
 pub use engine::*;
 pub use error::*;
+pub use files::*;
 pub use headings::*;
 pub use images::*;
 pub use links::*;
@@ -321,7 +323,7 @@ pub fn render_to_html(
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
 ) -> Result<RenderResult, RenderError> {
-    render(markdown.as_ref(), base_path.as_ref(), options, false)
+    Renderer::new(&FileSystem).render_to_html(markdown, base_path, options)
 }
 
 /// Render Markdown to HTML, keeping the heading ids and reporting the
@@ -331,7 +333,7 @@ pub fn render_to_html_with_toc(
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
 ) -> Result<RenderResult, RenderError> {
-    render(markdown.as_ref(), base_path.as_ref(), options, true)
+    Renderer::new(&FileSystem).render_to_html_with_toc(markdown, base_path, options)
 }
 
 /// Render Markdown that was not read from the file it is shown with — a
@@ -354,13 +356,7 @@ pub fn render_detached(
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
 ) -> Result<RenderResult, RenderError> {
-    let mut rendered = render(markdown.as_ref(), base_path.as_ref(), options, false)?;
-    let local = match &options.images {
-        ImageResolution::Deferred { base_url } => Some(base_url.as_str()),
-        _ => None,
-    };
-    rendered.html = detach(&rendered.html, local);
-    Ok(rendered)
+    Renderer::new(&FileSystem).render_detached(markdown, base_path, options)
 }
 
 /// Render the document at `base_path` to be previewed on another
@@ -386,19 +382,7 @@ pub fn render_preview(
     base_path: impl AsRef<Path>,
     options: &RenderOptions,
 ) -> Result<RenderResult, RenderError> {
-    let base_path = base_path.as_ref();
-    let options = RenderOptions {
-        raw_html: RawHtml::Escape,
-        ..options.clone()
-    };
-    let mut rendered = render(markdown.as_ref(), base_path, &options, true)?;
-    let local = match &options.images {
-        ImageResolution::Deferred { base_url } => Some(base_url.as_str()),
-        _ => None,
-    };
-    let html = detach(&rendered.html, local);
-    rendered.html = rebase_document_links(&html, base_path);
-    Ok(rendered)
+    Renderer::new(&FileSystem).render_preview(markdown, base_path, options)
 }
 
 /// `html`, rendered from the document at `document_path`, made to be shown
@@ -414,9 +398,95 @@ pub fn rebase_document_links(html: &str, document_path: impl AsRef<Path>) -> Str
     links::rebase_document_links(html, document_path.as_ref())
 }
 
+/// The render functions, asking a host's [`Files`] about the files a
+/// document names instead of this machine's disk.
+///
+/// The free functions of this crate are a `Renderer` over [`FileSystem`].
+/// Each method behaves as the function of the same name; only where the
+/// answers about files come from differs.
+#[derive(Clone, Copy)]
+pub struct Renderer<'a> {
+    files: &'a dyn Files,
+}
+
+impl<'a> Renderer<'a> {
+    pub fn new(files: &'a dyn Files) -> Self {
+        Self { files }
+    }
+
+    /// See [`render_to_html`].
+    pub fn render_to_html(
+        &self,
+        markdown: impl AsRef<str>,
+        base_path: impl AsRef<Path>,
+        options: &RenderOptions,
+    ) -> Result<RenderResult, RenderError> {
+        self.render(markdown.as_ref(), base_path.as_ref(), options, false)
+    }
+
+    /// See [`render_to_html_with_toc`].
+    pub fn render_to_html_with_toc(
+        &self,
+        markdown: impl AsRef<str>,
+        base_path: impl AsRef<Path>,
+        options: &RenderOptions,
+    ) -> Result<RenderResult, RenderError> {
+        self.render(markdown.as_ref(), base_path.as_ref(), options, true)
+    }
+
+    /// See [`render_detached`].
+    pub fn render_detached(
+        &self,
+        markdown: impl AsRef<str>,
+        base_path: impl AsRef<Path>,
+        options: &RenderOptions,
+    ) -> Result<RenderResult, RenderError> {
+        let mut rendered = self.render(markdown.as_ref(), base_path.as_ref(), options, false)?;
+        rendered.html = detach(&rendered.html, deferred_base_url(options));
+        Ok(rendered)
+    }
+
+    /// See [`render_preview`].
+    pub fn render_preview(
+        &self,
+        markdown: impl AsRef<str>,
+        base_path: impl AsRef<Path>,
+        options: &RenderOptions,
+    ) -> Result<RenderResult, RenderError> {
+        let base_path = base_path.as_ref();
+        let options = RenderOptions {
+            raw_html: RawHtml::Escape,
+            ..options.clone()
+        };
+        let mut rendered = self.render(markdown.as_ref(), base_path, &options, true)?;
+        let html = detach(&rendered.html, deferred_base_url(&options));
+        rendered.html = rebase_document_links(&html, base_path);
+        Ok(rendered)
+    }
+
+    fn render(
+        &self,
+        markdown: &str,
+        base_path: &Path,
+        options: &RenderOptions,
+        with_toc: bool,
+    ) -> Result<RenderResult, RenderError> {
+        render(markdown, base_path, self.files, options, with_toc)
+    }
+}
+
+/// The URL deferred images are served under, which [`detach`] keeps as local.
+fn deferred_base_url(options: &RenderOptions) -> Option<&str> {
+    match &options.images {
+        ImageResolution::Deferred { base_url } => Some(base_url.as_str()),
+        ImageResolution::DataUrl => None,
+    }
+}
+
 fn render(
     markdown: &str,
     base_path: &Path,
+    files: &dyn Files,
     options: &RenderOptions,
     with_toc: bool,
 ) -> Result<RenderResult, RenderError> {
@@ -425,6 +495,7 @@ fn render(
     let post_processed = post_process_html_tags(
         &pipeline.raw_html,
         &pipeline.base_dir,
+        files,
         &options.images,
         options.raw_html,
     );
@@ -441,7 +512,7 @@ fn render(
                         raw_html: RawHtml::Escape,
                         ..options.clone()
                     };
-                    return render(markdown, base_path, &escaped, with_toc);
+                    return render(markdown, base_path, files, &escaped, with_toc);
                 }
                 // Trusted with its raw HTML, the document loses only its
                 // images and link targets by being shown as it came.

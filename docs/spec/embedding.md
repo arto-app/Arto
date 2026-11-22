@@ -101,6 +101,20 @@ the viewers it was handed: no keyboard handler, no scrolling, no observer of
 the host's document. Its one listener on the host's window takes the height
 an HTML embed's frame reports, and only from a frame it drew.
 
+## Where the files come from
+
+Rendering a document asks about the files it names: whether a linked document
+exists, and what an image holds. The render functions ask this machine's
+disk. A host that keeps its documents elsewhere — a browser, a phone, a
+database — renders through `Renderer` with an implementation of `Files` of
+its own, and the document comes out as it would from the disk holding the
+same files: a link to a file the host does not have is marked missing, and an
+image the host holds is drawn.
+
+The host names files by the paths it renders documents at. It answers two
+paths that name one file with one spelling, which is the path a deferred
+image reports and what its URL is made from.
+
 ## What the host keeps
 
 Links, images and source positions stay as `arto-markdown` writes them: a

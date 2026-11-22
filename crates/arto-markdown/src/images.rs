@@ -4,13 +4,12 @@
 use base64::{engine::general_purpose, Engine as _};
 use sha2::{Digest, Sha256};
 use std::cell::RefCell;
-use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::urls::{
     file_url_to_path, has_foreign_scheme, needs_no_resolution, parse_srcset, SrcsetCandidate,
 };
-use crate::{DeferredImage, ImageResolution};
+use crate::{DeferredImage, FileStat, Files, ImageResolution};
 
 /// The largest local image, in bytes, that a render inlines as a data URL or
 /// hands to the host under [`ImageResolution::Deferred`].
@@ -21,38 +20,6 @@ use crate::{DeferredImage, ImageResolution};
 /// that serves deferred images reads the file later than the render did, so it
 /// applies the same bound again when it does.
 pub const MAX_IMAGE_BYTES: u64 = 32 * 1024 * 1024;
-
-/// Read a file for inlining, rejecting anything over `max_size` bytes.
-///
-/// Uses `metadata` as a fast path for regular files, then falls back to a bounded
-/// `Read::take` so files whose reported length is unreliable (device files, files
-/// that grow between stat and read) cannot exceed the limit.
-fn read_image_bounded(path: &Path, max_size: u64) -> Option<Vec<u8>> {
-    if let Ok(metadata) = std::fs::metadata(path) {
-        if metadata.len() > max_size {
-            tracing::debug!(
-                ?path,
-                size = metadata.len(),
-                limit = max_size,
-                "Image exceeds inline size limit; skipping"
-            );
-            return None;
-        }
-    }
-
-    let file = std::fs::File::open(path).ok()?;
-    let mut buf = Vec::new();
-    file.take(max_size + 1).read_to_end(&mut buf).ok()?;
-    if buf.len() as u64 > max_size {
-        tracing::debug!(
-            ?path,
-            limit = max_size,
-            "Image exceeded inline size limit during read; skipping"
-        );
-        return None;
-    }
-    Some(buf)
-}
 
 /// Infer MIME type from file extension
 fn get_mime_type(path: &Path) -> &'static str {
@@ -76,17 +43,37 @@ fn get_mime_type(path: &Path) -> &'static str {
 /// resolution and are declined. Everything else is a path: `file:` URLs
 /// (including `file://`, `file://localhost/…` and `file:/…`) are parsed via
 /// `url::Url` so percent-encoding and platform differences are handled, and
-/// other values are plain filesystem paths — absolute ones used as-is,
-/// relative ones joined onto `canonical_base`. A path that resolves outside
-/// `canonical_base` is still read (logged at `trace` level), matching
-/// standard Markdown viewer behavior. Reads are bounded by
+/// other values are plain paths — absolute ones used as-is, relative ones
+/// joined onto `base_dir` — answered by `files`. A path that leads outside
+/// `base_dir` is still read, matching standard Markdown viewer behavior.
+/// Reads are bounded by
 /// `MAX_IMAGE_BYTES` so a misreferenced huge file or a device file
 /// cannot freeze the UI. An empty file is declined as well: it holds no image,
 /// and its data URL would end in the `base64,` comma, which `srcset` parsing
 /// strips back off into a malformed URL.
-fn inline_local_image(src: &str, canonical_base: &Path) -> Option<String> {
-    let canonical_path = resolve_local_image(src, canonical_base)?;
-    let image_data = read_image_bounded(&canonical_path, MAX_IMAGE_BYTES)?;
+fn inline_local_image(src: &str, base_dir: &Path, files: &dyn Files) -> Option<String> {
+    let FileStat {
+        path: canonical_path,
+        len,
+        ..
+    } = resolve_local_image(src, base_dir, files)?;
+    if len > MAX_IMAGE_BYTES {
+        tracing::debug!(
+            ?canonical_path,
+            size = len,
+            limit = MAX_IMAGE_BYTES,
+            "Image exceeds inline size limit; skipping"
+        );
+        return None;
+    }
+    let Some(image_data) = files.read(&canonical_path, MAX_IMAGE_BYTES) else {
+        tracing::debug!(
+            ?canonical_path,
+            limit = MAX_IMAGE_BYTES,
+            "Image could not be read within the inline size limit; skipping"
+        );
+        return None;
+    };
     if image_data.is_empty() {
         tracing::debug!(?canonical_path, "Image file is empty; nothing to inline");
         return None;
@@ -98,7 +85,7 @@ fn inline_local_image(src: &str, canonical_base: &Path) -> Option<String> {
 
 /// The file a local image reference names, or `None` when the reference
 /// addresses something that needs no resolution or nothing that exists.
-fn resolve_local_image(src: &str, canonical_base: &Path) -> Option<PathBuf> {
+fn resolve_local_image(src: &str, base_dir: &Path, files: &dyn Files) -> Option<FileStat> {
     if needs_no_resolution(src) {
         return None;
     }
@@ -116,7 +103,7 @@ fn resolve_local_image(src: &str, canonical_base: &Path) -> Option<PathBuf> {
             if path.is_absolute() {
                 path.to_path_buf()
             } else {
-                canonical_base.join(path)
+                base_dir.join(path)
             }
         })
     } else {
@@ -124,18 +111,11 @@ fn resolve_local_image(src: &str, canonical_base: &Path) -> Option<PathBuf> {
         if path.is_absolute() {
             path.to_path_buf()
         } else {
-            canonical_base.join(path)
+            base_dir.join(path)
         }
     };
 
-    let canonical_path = absolute_path.canonicalize().ok()?;
-    if !canonical_path.starts_with(canonical_base) {
-        tracing::trace!(
-            ?src,
-            "Image path resolved outside base directory; proceeding with inline read"
-        );
-    }
-    Some(canonical_path)
+    files.stat(&absolute_path)
 }
 
 /// The images a render handed to the host, in the order first referenced.
@@ -169,40 +149,40 @@ impl DeferredImages {
     }
 }
 
-/// The image at `path`, or `None` when it is one no consumer could show.
+/// The image `file` is, or `None` when it is one no consumer could show.
 ///
-/// The bound and the emptiness check are the same ones [`read_image_bounded`]
+/// The bound and the emptiness check are the same ones [`inline_local_image`]
 /// applies, and they are made here rather than left to the host because the
 /// answer changes the markup: a `srcset` candidate that cannot be shown is
 /// dropped so the browser falls back to one that can, and the host serving
 /// the URL is far too late to drop it.
-fn deferred_image(path: PathBuf) -> Option<DeferredImage> {
-    let metadata = std::fs::metadata(&path).ok()?;
-    if metadata.len() > MAX_IMAGE_BYTES {
+fn deferred_image(file: FileStat) -> Option<DeferredImage> {
+    if file.len > MAX_IMAGE_BYTES {
         tracing::debug!(
-            ?path,
-            size = metadata.len(),
+            path = ?file.path,
+            size = file.len,
             limit = MAX_IMAGE_BYTES,
             "Image exceeds the size limit; not served"
         );
         return None;
     }
-    if metadata.len() == 0 {
-        tracing::debug!(?path, "Image file is empty; nothing to serve");
+    if file.len == 0 {
+        tracing::debug!(path = ?file.path, "Image file is empty; nothing to serve");
         return None;
     }
 
     Some(DeferredImage {
-        id: image_id(&path, &metadata),
-        mime: get_mime_type(&path),
-        path,
+        id: image_id(&file),
+        mime: get_mime_type(&file.path),
+        path: file.path,
     })
 }
 
-/// An id standing for the file at `path` as it is right now.
+/// An id standing for `file` as it is right now.
 ///
 /// The path is hashed rather than the bytes, so naming an image costs no
-/// read; the path is already canonical, so two spellings of one file agree.
+/// read; it is the one spelling [`Files::stat`] gives, so two spellings of
+/// one file agree.
 /// The size and modification time go in as well, which is what makes an
 /// edited image a different URL — the app reloads a document when its file
 /// changes, and a URL that stayed the same would let the WebView answer the
@@ -211,11 +191,11 @@ fn deferred_image(path: PathBuf) -> Option<DeferredImage> {
 /// The id is not a secret: anyone who can guess a path can compute its hash.
 /// What limits what the host will serve is the host's own registry — it
 /// answers for the ids a render gave it, and for nothing else.
-fn image_id(path: &Path, metadata: &std::fs::Metadata) -> String {
+fn image_id(file: &FileStat) -> String {
     let mut hasher = Sha256::new();
-    hasher.update(path.as_os_str().as_encoded_bytes());
-    hasher.update(metadata.len().to_le_bytes());
-    if let Ok(modified) = metadata.modified() {
+    hasher.update(file.path.as_os_str().as_encoded_bytes());
+    hasher.update(file.len.to_le_bytes());
+    if let Some(modified) = file.modified {
         if let Ok(since_epoch) = modified.duration_since(std::time::UNIX_EPOCH) {
             hasher.update(since_epoch.as_nanos().to_le_bytes());
         }
@@ -232,14 +212,15 @@ fn image_id(path: &Path, metadata: &std::fs::Metadata) -> String {
 /// is to be left as written.
 pub(crate) fn resolved_image_src(
     src: &str,
-    canonical_base: &Path,
+    base_dir: &Path,
+    files: &dyn Files,
     resolution: &ImageResolution,
     collected: &RefCell<DeferredImages>,
 ) -> Option<String> {
     match resolution {
-        ImageResolution::DataUrl => inline_local_image(src, canonical_base),
+        ImageResolution::DataUrl => inline_local_image(src, base_dir, files),
         ImageResolution::Deferred { base_url } => {
-            let image = deferred_image(resolve_local_image(src, canonical_base)?)?;
+            let image = deferred_image(resolve_local_image(src, base_dir, files)?)?;
             Some(collected.borrow_mut().url(image, base_url))
         }
     }
@@ -260,7 +241,8 @@ pub(crate) fn resolved_image_src(
 /// on.
 pub(crate) fn inline_srcset(
     value: &str,
-    canonical_base: &Path,
+    base_dir: &Path,
+    files: &dyn Files,
     resolution: &ImageResolution,
     collected: &RefCell<DeferredImages>,
 ) -> Option<String> {
@@ -268,7 +250,7 @@ pub(crate) fn inline_srcset(
     let candidates: Vec<String> = parse_srcset(value)
         .into_iter()
         .filter_map(|SrcsetCandidate { url, descriptor }| {
-            let url = match resolved_image_src(&url, canonical_base, resolution, collected) {
+            let url = match resolved_image_src(&url, base_dir, files, resolution, collected) {
                 Some(resolved) => {
                     changed = true;
                     resolved
@@ -292,8 +274,6 @@ pub(crate) fn inline_srcset(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use tempfile::TempDir;
 
     #[test]
     fn test_get_mime_type() {
@@ -306,31 +286,5 @@ mod tests {
         assert_eq!(get_mime_type(Path::new("test.bmp")), "image/bmp");
         assert_eq!(get_mime_type(Path::new("test.ico")), "image/x-icon");
         assert_eq!(get_mime_type(Path::new("test.unknown")), "image/png");
-    }
-
-    /// `read_image_bounded` must reject files larger than the configured limit,
-    /// both via the metadata fast path and via the bounded-read fallback.
-    #[test]
-    fn test_read_image_bounded_rejects_oversized() {
-        let temp = TempDir::new().unwrap();
-        let path = temp.path().join("big.png");
-        // 2 KiB file; limit 1 KiB.
-        fs::write(&path, vec![0u8; 2048]).unwrap();
-
-        assert!(
-            read_image_bounded(&path, 1024).is_none(),
-            "file larger than limit must be rejected"
-        );
-    }
-
-    /// `read_image_bounded` must accept files at or below the limit.
-    #[test]
-    fn test_read_image_bounded_accepts_within_limit() {
-        let temp = TempDir::new().unwrap();
-        let path = temp.path().join("ok.png");
-        fs::write(&path, vec![0u8; 1024]).unwrap();
-
-        let data = read_image_bounded(&path, 1024).expect("exactly-limit file must be accepted");
-        assert_eq!(data.len(), 1024);
     }
 }
