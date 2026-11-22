@@ -21,6 +21,7 @@ import * as lenses from "./lenses";
 import * as changes from "./changes";
 import * as userHighlights from "./user-highlights";
 import * as linkPreview from "./link-preview";
+import * as taskTicks from "./task-ticks";
 import * as viewportQueue from "./viewport-queue";
 import * as scrollAnchor from "./scroll-anchor";
 import * as stickyTableHead from "./sticky-table-head";
@@ -206,6 +207,14 @@ export interface ArtoApi {
     showAtCursor: typeof linkPreview.showAtCursor;
     hide: typeof linkPreview.hide;
   };
+  tasks: {
+    /** Register how a task the reader ticked is handed to the app. */
+    onTick: typeof taskTicks.onTick;
+    /** Turn ticking on or off. */
+    setEnabled: typeof taskTicks.setEnabled;
+    /** Show a task as the file has it, after a tick that was not written. */
+    show: typeof taskTicks.show;
+  };
   print: {
     /** Switch to the light theme for printing; resolves once everything is drawn. */
     prepare: () => Promise<void>;
@@ -378,6 +387,11 @@ export function createArtoApi(): ArtoApi {
       resolve: linkPreview.resolve,
       showAtCursor: linkPreview.showAtCursor,
       hide: linkPreview.hide,
+    },
+    tasks: {
+      onTick: taskTicks.onTick,
+      setEnabled: taskTicks.setEnabled,
+      show: taskTicks.show,
     },
     print: {
       prepare: preparePrint,

@@ -212,6 +212,7 @@ enlarges the whole page, images included, where `fontSize` sets only the text.
 | `minMinutes` | A document shorter than this many minutes shows no reading time | `3` |
 | `showChanges` | Whether what changed since the document was last read is marked: a line beside each block added or rewritten, a hairline where text was taken out, a dot on the headings they fall under. To compare, Arto keeps a copy of each document's source as last read, with the app's data; turning this off stops new copies being kept but does not remove those already kept. A document too large to copy is shown without changes, and once the copies outgrow their space the ones read longest ago go first | `true` |
 | `ignoreWhitespaceChanges` | Whether a line whose words are only spaced differently counts as unchanged | `true` |
+| `tickTasks` | Whether a click on a task list checkbox ticks the task in the file. Only that task's `[ ]` or `[x]` changes; when the file no longer holds the task where the page was drawn from, nothing is written and the checkbox goes back to what the file says. A tick is not marked as a change since the document was last read. Off, the checkboxes only show what the file says. Pages written by `arto page` and the Quick Look preview never tick | `true` |
 
 ## Panel
 

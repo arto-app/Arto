@@ -1,3 +1,4 @@
+mod task_ticks;
 mod viewer_window_bridge;
 
 use dioxus::prelude::*;
@@ -18,6 +19,7 @@ use crate::state::{AppState, DocumentContent, Unreadable};
 use crate::utils::file::is_markdown_file;
 use crate::utils::page_runtime::once_arto_has;
 use crate::watcher::FILE_WATCHER;
+use task_ticks::use_task_ticks;
 use viewer_window_bridge::use_viewer_window_bridge;
 
 /// Data structure for markdown link clicks from JavaScript
@@ -76,6 +78,7 @@ pub fn FileViewer(file: ReadSignal<PathBuf>) -> Element {
     use_changes_on_config(state);
     use_link_click_handler(file, state);
     use_link_preview_handler(file);
+    use_task_ticks(state);
     use_viewer_window_bridge(state);
     use_clipboard_handlers();
     use_context_menu_handler(file);

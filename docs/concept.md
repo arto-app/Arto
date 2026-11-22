@@ -18,7 +18,9 @@ server or an editor in the way.
 ## Principles
 
 - **Reading, not writing.** Typography, whitespace and navigation are chosen
-  for long reading. The document on disk is never changed by reading it.
+  for long reading. The document on disk is never changed by reading it;
+  the one exception is a task the reader ticks off, which is written back
+  to the file.
 - **Offline by default.** Everything the renderer needs is compiled into the
   binary. Nothing leaves the machine unless the document names it by URL or
   the reader opens a lens they configured.
@@ -28,5 +30,6 @@ server or an editor in the way.
 ## What it does not do
 
 - Edit Markdown. Arto is a reader; editing belongs to the reader's editor.
+  Ticking a task is not editing: it changes the task's mark and nothing else.
 - Publish or sync documents, or keep them anywhere but on disk.
 - Render other markup languages.

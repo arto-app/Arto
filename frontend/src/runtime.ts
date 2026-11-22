@@ -15,6 +15,7 @@ import * as contentCursor from "./content-cursor";
 import * as lenses from "./lenses";
 import * as changes from "./changes";
 import * as linkPreview from "./link-preview";
+import * as taskTicks from "./task-ticks";
 import * as fragmentLink from "./fragment-link";
 import * as viewportQueue from "./viewport-queue";
 import * as stickyTableHead from "./sticky-table-head";
@@ -26,6 +27,8 @@ export { setCurrentTheme } from "./theme-switch";
 export function init(): void {
   renderCoordinator.init();
   renderCoordinator.ignoreWithin(FRAME_SELECTOR);
+  // A task made tickable is the same task.
+  for (const name of taskTicks.ATTRIBUTES) renderCoordinator.ignoreAttribute(name);
 
   // The header's line and the gutter's current tick both answer to where the
   // reader is, and a new document moves them without a scroll happening. The

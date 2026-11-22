@@ -144,6 +144,11 @@ describe("init", () => {
         showAtCursor: "function",
         hide: "function",
       },
+      tasks: {
+        onTick: "function",
+        setEnabled: "function",
+        show: "function",
+      },
       print: {
         prepare: "function",
         draw: "function",

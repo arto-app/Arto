@@ -435,6 +435,16 @@ pub fn ReadingTab(
                 on_change: move |on| config.write().reading.ignore_whitespace_changes = on,
                 shipped: Some(defaults.reading.ignore_whitespace_changes),
             }
+
+            h3 { class: "preference-section-title", {t!("preferences.reading.tasks.title").to_string()} }
+
+            ToggleRow {
+                label: t!("preferences.reading.tasks.tick.label").to_string(),
+                description: Some(t!("preferences.reading.tasks.tick.description").to_string()),
+                checked: reading_cfg.tick_tasks,
+                on_change: move |on| config.write().reading.tick_tasks = on,
+                shipped: Some(defaults.reading.tick_tasks),
+            }
         }
     }
 }

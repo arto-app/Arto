@@ -23,6 +23,10 @@ pub struct ReadingConfig {
     pub show_changes: bool,
     /// Take a line whose words are only spaced differently to be unchanged.
     pub ignore_whitespace_changes: bool,
+    /// Let a click on a task list checkbox tick the task off, or on again, in
+    /// the file itself: Arto then changes that task's `[ ]` or `[x]` and
+    /// nothing else. Turned off, the checkboxes only show what the file says.
+    pub tick_tasks: bool,
 }
 
 impl Default for ReadingConfig {
@@ -34,6 +38,7 @@ impl Default for ReadingConfig {
             min_minutes: 3,
             show_changes: true,
             ignore_whitespace_changes: true,
+            tick_tasks: true,
         }
     }
 }
@@ -66,6 +71,14 @@ mod tests {
     }
 
     #[test]
+    fn tasks_are_ticked_in_the_file_unless_turned_off() {
+        assert!(ReadingConfig::default().tick_tasks);
+
+        let parsed: ReadingConfig = serde_json::from_str(r#"{"tickTasks":false}"#).unwrap();
+        assert!(!parsed.tick_tasks);
+    }
+
+    #[test]
     fn it_survives_a_round_trip() {
         let config = ReadingConfig {
             show_time: false,
@@ -74,11 +87,12 @@ mod tests {
             min_minutes: 5,
             show_changes: false,
             ignore_whitespace_changes: false,
+            tick_tasks: false,
         };
         let json = serde_json::to_string(&config).unwrap();
         assert_eq!(
             json,
-            r#"{"showTime":false,"wordsPerMinute":180,"charactersPerMinute":400,"minMinutes":5,"showChanges":false,"ignoreWhitespaceChanges":false}"#
+            r#"{"showTime":false,"wordsPerMinute":180,"charactersPerMinute":400,"minMinutes":5,"showChanges":false,"ignoreWhitespaceChanges":false,"tickTasks":false}"#
         );
         assert_eq!(
             serde_json::from_str::<ReadingConfig>(&json).unwrap(),

@@ -138,7 +138,8 @@
         "charactersPerMinute": 500,
         "minMinutes": 3,
         "showChanges": true,
-        "ignoreWhitespaceChanges": true
+        "ignoreWhitespaceChanges": true,
+        "tickTasks": true
       }
     },
     "lenses": {
@@ -829,6 +830,11 @@
         },
         "ignoreWhitespaceChanges": {
           "description": "Take a line whose words are only spaced differently to be unchanged.",
+          "type": "boolean",
+          "default": true
+        },
+        "tickTasks": {
+          "description": "Let a click on a task list checkbox tick the task off, or on again, in\nthe file itself: Arto then changes that task's `[ ]` or `[x]` and\nnothing else. Turned off, the checkboxes only show what the file says.",
           "type": "boolean",
           "default": true
         }

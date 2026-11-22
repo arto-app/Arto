@@ -1,0 +1,5 @@
+/* A task the reader can tick, once the app has turned ticking on; see
+   `frontend/src/task-ticks.ts`. An inert checkbox keeps the default cursor. */
+.markdown-body input[data-arto-tickable] {
+  cursor: pointer;
+}

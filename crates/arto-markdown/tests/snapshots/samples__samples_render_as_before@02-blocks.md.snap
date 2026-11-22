@@ -174,8 +174,8 @@ text, and the numbering continues with 2.</p>
 </li>
 <li data-source-range="151:1-151:21"><input type="checkbox" disabled> <del>Struck</del> task</li>
 </ul>
-<p data-source-range="153:1-154:29"><strong>Expected:</strong> checkboxes instead of bullets, checked where marked, and the
-checkboxes are not clickable.</p>
+<p data-source-range="153:1-154:79"><strong>Expected:</strong> checkboxes instead of bullets, checked where marked; in the app
+a click ticks the task in this file, and in a page <code>arto page</code> wrote none does.</p>
 <h2 data-source-range="156:1-156:19">Horizontal rules</h2>
 <p data-source-range="158:1-158:35">Three markers render the same rule:</p>
 <hr data-source-range="160:1-160:3">

@@ -5,6 +5,7 @@ import { currentTheme } from "./theme";
 import * as mermaidRenderer from "./mermaid-renderer";
 import * as syntaxHighlighter from "./syntax-highlighter";
 import * as codeCopy from "./code-copy";
+import * as taskTicks from "./task-ticks";
 import * as viewportQueue from "./viewport-queue";
 import * as scrollAnchor from "./scroll-anchor";
 import * as focusMode from "./focus-mode";
@@ -319,6 +320,7 @@ class RenderCoordinator {
           await mermaidRenderer.renderDiagrams(markdownBody);
           htmlEmbedRenderer.renderHtmlEmbeds(markdownBody, currentTheme);
           codeCopy.addCopyButtons(markdownBody);
+          taskTicks.refresh(markdownBody);
           setupSpecialBlockListeners(markdownBody);
         }),
       );
