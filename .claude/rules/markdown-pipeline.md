@@ -64,9 +64,11 @@ indexes text of its own.
 Rules of thumb:
 
 - Output HTML is a contract. `samples/*.md` are snapshot-tested in
-  `crates/arto-markdown/tests/samples.rs` (HTML and heading outline);
-  review diffs with `cargo insta review`, and never accept a diff you did
-  not intend.
+  `crates/arto-markdown/tests/samples.rs` (HTML and heading outline), and
+  again in `crates/arto-page/tests/renderer.rs` (HTML and the libraries a
+  page loads) as the app's record of the renderer it depends on; a change
+  of output updates both. Review diffs with `cargo insta review`, and never
+  accept a diff you did not intend.
 - Behaviour tests go through the public API (`tests/pipeline/`, one
   module per subject); only
   pure functions get unit tests next to the code. Nothing outside
