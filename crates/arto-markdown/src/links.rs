@@ -10,7 +10,7 @@ use std::path::Path;
 
 use crate::rewrite::rewrite;
 use crate::urls::{file_url_to_path, has_foreign_scheme};
-use crate::{frontmatter, line_endings, RenderOptions, SourceRange};
+use crate::{frontmatter, line_endings, Files, RenderOptions, SourceRange};
 
 /// A link to another Markdown document, as a click on it would open it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -103,13 +103,8 @@ pub(crate) fn local_link(href: &str) -> Option<LocalLink<'_>> {
 /// Whether the file a local link points at exists. The check is what the
 /// click handler will do with the same path, so a link that cannot open is
 /// shown as such before it is clicked.
-pub(crate) fn link_target_exists(base_dir: &Path, path: &str) -> bool {
-    let target = Path::new(path);
-    if target.is_absolute() {
-        target.is_file()
-    } else {
-        base_dir.join(target).is_file()
-    }
+pub(crate) fn link_target_exists(base_dir: &Path, files: &dyn Files, path: &str) -> bool {
+    files.stat(&base_dir.join(path)).is_some()
 }
 
 /// Turn `el` into the `span.md-link` the app follows (see the HTML contract

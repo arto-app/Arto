@@ -6,7 +6,7 @@ use crate::images::{inline_srcset, resolved_image_src, DeferredImages};
 use crate::links::{link_target_exists, local_link, make_document_link};
 use crate::rewrite::{rewrite, Interrupted};
 use crate::sanitize::is_unsafe_attribute;
-use crate::{DeferredImage, ImageResolution, RawHtml};
+use crate::{DeferredImage, Files, ImageResolution, RawHtml};
 
 /// Post-process HTML with lol_html.
 ///
@@ -27,14 +27,10 @@ use crate::{DeferredImage, ImageResolution, RawHtml};
 pub(super) fn post_process_html_tags(
     html_str: &str,
     base_dir: &Path,
+    files: &dyn Files,
     resolution: &ImageResolution,
     raw_html: RawHtml,
 ) -> Result<(String, Vec<DeferredImage>), Interrupted> {
-    let canonical_base = base_dir
-        .canonicalize()
-        .unwrap_or_else(|_| base_dir.to_path_buf());
-    let link_base = canonical_base.clone();
-
     // Both image handlers write into the one list. They borrow it rather than
     // share ownership of it, so that reading it back after the rewriter is
     // done cannot fail — and a change that kept a handler alive too long
@@ -67,7 +63,7 @@ pub(super) fn post_process_html_tags(
         .append_element_content_handler(element!("img[src]", |el| {
             if let Some(src) = el.get_attribute("src") {
                 if let Some(resolved) =
-                    resolved_image_src(&src, &canonical_base, resolution, &collected)
+                    resolved_image_src(&src, base_dir, files, resolution, &collected)
                 {
                     el.set_attribute("src", &resolved)?;
                 }
@@ -79,7 +75,7 @@ pub(super) fn post_process_html_tags(
         // or that theme shows nothing.
         .append_element_content_handler(element!("img[srcset], source[srcset]", |el| {
             if let Some(srcset) = el.get_attribute("srcset") {
-                match inline_srcset(&srcset, &canonical_base, resolution, &collected) {
+                match inline_srcset(&srcset, base_dir, files, resolution, &collected) {
                     // Nothing is left to pick from, so the attribute
                     // has to go rather than stay empty: an `<img>`
                     // then falls back to its `src` and a `<source>`
@@ -94,7 +90,7 @@ pub(super) fn post_process_html_tags(
             Ok(())
         }))
         // Process anchor tags: convert markdown links to spans
-        .append_element_content_handler(element!("a[href]", move |el| {
+        .append_element_content_handler(element!("a[href]", |el| {
             let Some(href) = el.get_attribute("href") else {
                 return Ok(());
             };
@@ -105,7 +101,7 @@ pub(super) fn post_process_html_tags(
             };
             let class = if !local.is_markdown() {
                 "md-link md-link-invalid"
-            } else if !link_target_exists(&link_base, &local.path) {
+            } else if !link_target_exists(base_dir, files, &local.path) {
                 "md-link md-link-missing"
             } else {
                 "md-link"
@@ -137,9 +133,15 @@ mod tests {
     /// The same, for the tests that are about which raw-HTML setting is in
     /// force.
     fn post_process_with(html: &str, base_dir: &Path, raw_html: RawHtml) -> String {
-        post_process_html_tags(html, base_dir, &ImageResolution::DataUrl, raw_html)
-            .expect("post-processes")
-            .0
+        post_process_html_tags(
+            html,
+            base_dir,
+            &crate::FileSystem,
+            &ImageResolution::DataUrl,
+            raw_html,
+        )
+        .expect("post-processes")
+        .0
     }
 
     // ========================================================================
