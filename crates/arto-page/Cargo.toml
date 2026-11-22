@@ -10,15 +10,9 @@ homepage.workspace = true
 readme.workspace = true
 keywords = ["markdown", "html", "github", "renderer", "cli"]
 categories = ["text-processing", "command-line-utilities"]
-# The stylesheet and the page runtime under assets/ are build output copied in
-# by the frontend build (see frontend/vite.config.ts); list them so a package
-# cannot be published without them. The library bundles come from
-# arto-markdown's `frontend` feature.
-include = [
-  "src/**",
-  "assets/frontend/main.css",
-  "assets/frontend/page.iife.js",
-]
+# Part of the app, not a library others build on: only the renderer
+# (arto-markdown, and arto-frontend under its old name) is published.
+publish = false
 
 [lib]
 name = "arto_page"

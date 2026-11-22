@@ -208,10 +208,10 @@ jobs:
         run: just arto::machete
       - uses: ./.github/actions/age-proof-cargo-cache
 
-  # The crate packages, built the way `cargo publish` verifies them in the
-  # release workflow. A job of its own rather than a step of the Linux rust
-  # leg: the verification compiles every member again from its package, and
-  # in parallel it adds no minutes to the run.
+  # The published crates' packages, built the way `cargo publish` verifies
+  # them in the release workflow. A job of its own rather than a step of the
+  # Linux rust leg: the verification compiles them again from their packages,
+  # and in parallel it adds no minutes to the run.
   package:
     needs: [changes, frontend]
     if: needs.changes.outputs.code == 'true'

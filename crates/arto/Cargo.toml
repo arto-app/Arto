@@ -10,23 +10,9 @@ homepage.workspace = true
 readme.workspace = true
 keywords = ["markdown", "viewer", "github", "desktop", "dioxus"]
 categories = ["gui", "text-processing"]
-# The frontend bundle under assets/frontend is build output copied in by the
-# frontend build (see frontend/vite.config.ts), so git ignores it and a
-# package would not carry it. A release binary compiles those two files in,
-# which is what makes `cargo install arto` produce something that runs; list
-# them so a package that lost them cannot be published.
-include = [
-  "src/**",
-  "build.rs",
-  "locales/**",
-  "assets/Arto.png",
-  "assets/arto-header-welcome-dark.png",
-  "assets/arto-header-welcome-light.png",
-  "assets/welcome.md",
-  "assets/frontend/main.css",
-  "assets/frontend/main.js",
-  "assets/frontend/icons/tabler-sprite.svg",
-]
+# Part of the app, not a library others build on: only the renderer
+# (arto-markdown, and arto-frontend under its old name) is published.
+publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

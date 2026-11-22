@@ -10,6 +10,9 @@ homepage.workspace = true
 readme.workspace = true
 keywords = ["keybindings", "shortcuts", "keyboard", "gui"]
 categories = ["gui", "config"]
+# Part of the app, not a library others build on: only the renderer
+# (arto-markdown, and arto-frontend under its old name) is published.
+publish = false
 
 [dependencies]
 # The same crate Dioxus and muda re-export their `Key`, `Code` and

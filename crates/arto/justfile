@@ -55,11 +55,13 @@ deny:
 machete:
   cargo machete
 
-# Every member packaged and built from its package alone, as `cargo publish`
-# verifies it on release: a file an `include!` reads but the `include` list
-# leaves out fails here, not after the release is already out. Run after the
-# frontend assets are built, since three packages carry them. `--allow-dirty`
-# because the assets are untracked build output.
+# Every published member packaged and built from its package alone, as
+# `cargo publish` verifies it on release: a file an `include!` reads but the
+# `include` list leaves out fails here, not after the release is already out.
+# The app's crates are not published, and cargo leaves them out of the
+# registry it verifies against, so they are not packaged either. Run after
+# the frontend assets are built, since arto-markdown carries them.
+# `--allow-dirty` because the assets are untracked build output.
 #
 # The members are stamped with a version the registry does not have, as the
 # release stamps its tag. At git's `0.0.0`, which crates.io holds for every
@@ -86,7 +88,7 @@ package:
   }
   trap cleanup EXIT
   perl -i -pe 's/= "0\.0\.0"/= "'"$version"'"/g' Cargo.toml
-  cargo package --workspace --allow-dirty
+  cargo package -p arto-markdown -p arto-frontend --allow-dirty
 
 verify: fmt check test
 
