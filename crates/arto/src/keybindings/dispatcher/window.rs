@@ -14,8 +14,7 @@ pub(super) fn close_window() {
 }
 
 pub(super) fn reload(state: &mut AppState) {
-    let current = *state.reload_trigger.read();
-    state.reload_trigger.set(current + 1);
+    state.reload_document();
 }
 
 pub(super) fn open_about(state: &mut AppState) {
