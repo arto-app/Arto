@@ -108,15 +108,12 @@ Arto/
 ├── crates/
 │   ├── arto/         # Desktop application (Dioxus): src/, assets/, Dioxus.toml
 │   ├── arto-config/  # config.json / keys.toml types, file locations, load and save
-│   ├── arto-frontend/ # Re-exports arto_markdown::frontend under its old name
 │   ├── arto-lsp/     # The wire protocol: JSON-RPC 2.0 in LSP framing, and the local socket
 │   ├── arto-mcp/     # `arto mcp`: an MCP server over the wire protocol, for agents
 │   ├── arto-keybindings/ # Shortcut parsing, binding sets, presets, and the matching engine
-│   ├── arto-markdown/ # Markdown → HTML rendering library, and (feature frontend) the frontend's bundles
 │   ├── arto-page/    # Self-contained HTML pages: CLI, `arto page`, Quick Look FFI (feature ffi)
 │   └── arto-types/   # Values config.json and the wire protocol both carry (Theme, FileOpenBehavior)
-├── frontend/         # WebView-side TypeScript and CSS (pnpm workspace + Vite): the app's
-│   └── markdown/     #   @arto-app/markdown, the code that draws a rendered document in any page
+├── frontend/         # WebView-side TypeScript and CSS (pnpm + Vite), drawing with @arto-app/markdown
 ├── platform/         # OS-specific files, one directory per OS
 │   ├── macos/        #   bundle/ (Info.plist, icon), quicklook/ (Swift shim), verify-bundle.sh
 │   ├── windows/      #   NSIS installer hook (file associations)
@@ -165,18 +162,14 @@ inside the devShell:
 | workflow files | `just workflows` |
 | flake evaluation | `nix flake check --no-build --all-systems` |
 
-Rendering is covered by snapshots: `crates/arto-markdown/tests/samples.rs`
-renders every numbered file under `samples/` and compares it with
-`crates/arto-markdown/tests/snapshots/`. When a change to the output is
-intended, run the test, inspect the `.snap.new` files with
-`cargo insta review`, and commit the accepted snapshots.
-
-The app keeps a record of its own: `crates/arto-page/tests/renderer.rs`
-renders the same samples through the `arto-markdown` the workspace depends on,
-together with the library bundles each one needs, and compares them with
-`crates/arto-page/tests/snapshots/`. It is what shows a change in the renderer
-the app depends on, wherever that renderer is developed, so a change of
-output updates both records.
+The renderer, `arto-markdown` and `@arto-app/markdown`, is developed and
+released in [arto-app/arto-markdown], which pins its own output in snapshots.
+Arto keeps a record of what the version it depends on draws:
+`crates/arto-page/tests/renderer.rs` renders every numbered file under
+`samples/` together with the library bundles each one needs, and compares them
+with `crates/arto-page/tests/snapshots/`. When a renderer bump changes the
+output, inspect the `.snap.new` files with `cargo insta review` and commit the
+accepted snapshots.
 
 ## Dependency Updates
 
@@ -192,6 +185,8 @@ When updating by hand:
 
 - Versions shared by more than one crate live in `[workspace.dependencies]`
   in the root `Cargo.toml`; bump them there, then run `cargo update`.
+- The `arto-markdown` crate and the `@arto-app/markdown` package are one
+  release: bump both to the same version together.
 - After any change to `frontend/pnpm-lock.yaml`, refresh the `pnpmDeps` hash
   in `flake.nix`: set it to `lib.fakeHash`, run `nix build .#frontend-assets`,
   and copy the hash from the mismatch error.
@@ -202,10 +197,10 @@ When updating by hand:
 
 ## Publishing to crates.io
 
-Arto publishes nothing to crates.io. The renderer, `arto-markdown`, and
-`arto-frontend`, which re-exports its frontend under the old name, are
-released from [arto-app/arto-markdown], which publishes them; every crate in
-this workspace is `publish = false`. The versions already on crates.io stay
+Arto publishes nothing to crates.io; every crate in this workspace is
+`publish = false`. The renderer, `arto-markdown`, is released from
+[arto-app/arto-markdown] and Arto depends on that release. `arto-frontend`, which
+re-exported its frontend under the old name, is no longer released. The versions already on crates.io stay
 there: the app's crates last at 0.47.0, and the renderer's at 0.47.1 before
 its own repository took them over.
 

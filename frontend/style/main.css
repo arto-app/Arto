@@ -1,5 +1,5 @@
 /* Primer design tokens: theme-independent scales, then one block per theme
-   (generated at build time from @primer/primitives), then the Markdown
+   (generated from @primer/primitives by the renderer's package), then the Markdown
    stylesheet that reads them. */
 @import url("@primer/primitives/dist/css/base/size/size.css");
 @import url("@primer/primitives/dist/css/base/typography/typography.css");

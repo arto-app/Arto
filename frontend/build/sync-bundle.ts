@@ -6,8 +6,8 @@ import type { Plugin } from "vite";
  * A crate that embeds part of a bundle.
  *
  * The Rust side cannot read the bundle from `dist/` directly: Dioxus'
- * `asset!()` refuses paths outside its own crate, and a crate published to
- * crates.io cannot ship files from outside its directory either. So every
+ * `asset!()` refuses paths outside its own crate, and a crate's package
+ * cannot carry files from outside its directory either. So every
  * consumer keeps its own copy under `assets/frontend/`, and
  * {@link syncBundlePlugin} refreshes those copies after each build, including
  * every rebuild in watch mode, so `dx serve` picks the change up.

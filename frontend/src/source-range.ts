@@ -3,7 +3,7 @@
  *
  * The attribute is `L:C-L:C`: 1-based lines of the whole file and 1-based
  * columns in code points, both ends inclusive. The contract lives in the
- * crate docs of `crates/arto-markdown/src/lib.rs`.
+ * crate docs of `arto_markdown`.
  */
 
 export interface SourcePosition {

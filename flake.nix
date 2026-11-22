@@ -114,7 +114,7 @@
               # 2. Run: nix build .#frontend-assets
               # 3. Copy the expected hash from error message
               # 4. Update hash value below
-              hash = "sha256-kuJ4zFCN+4/0EuPRC4JNc65ZaFUJS8cSnqppw/nxnRI=";
+              hash = "sha256-fzxhjL+cyo2u0Kp8VuotfZNXbKosv5FitAo9IgTyhoE=";
               fetcherVersion = 3;
             };
 
@@ -238,18 +238,12 @@
                   ];
 
                 postPatch = ''
-                  mkdir -p crates/arto/assets/frontend crates/arto-page/assets/frontend \
-                    crates/arto-markdown/assets/frontend
+                  mkdir -p crates/arto/assets/frontend crates/arto-page/assets/frontend
                   cp -r ${frontend-assets}/* crates/arto/assets/frontend/
                   # The page crate embeds the stylesheet and the page runtime;
-                  # the renderer crate carries the runtime and stylesheet it
-                  # hands to other apps, the library bundles both use, and the
-                  # script an HTML embed's frame runs.
+                  # the library bundles come with the released renderer crate.
                   cp ${frontend-assets}/main.css ${frontend-assets}/page.iife.js \
                     crates/arto-page/assets/frontend/
-                  cp ${frontend-assets}/embed* ${frontend-assets}/page-* \
-                    ${frontend-assets}/html-embed-frame.js \
-                    crates/arto-markdown/assets/frontend/
                 '';
 
                 # Use buildPhaseCargoCommand instead of cargoBuildCommand because crane's
@@ -332,16 +326,11 @@
                 doCheck = false;
 
                 postPatch = ''
-                  mkdir -p crates/arto-page/assets/frontend crates/arto-markdown/assets/frontend
+                  mkdir -p crates/arto-page/assets/frontend
                   # The page crate embeds the stylesheet and the page runtime;
-                  # the renderer crate carries the runtime and stylesheet it
-                  # hands to other apps, the library bundles both use, and the
-                  # script an HTML embed's frame runs.
+                  # the library bundles come with the released renderer crate.
                   cp ${frontend-assets}/main.css ${frontend-assets}/page.iife.js \
                     crates/arto-page/assets/frontend/
-                  cp ${frontend-assets}/embed* ${frontend-assets}/page-* \
-                    ${frontend-assets}/html-embed-frame.js \
-                    crates/arto-markdown/assets/frontend/
                 '';
 
                 cargoExtraArgs = "-p arto-page --bin arto-page";

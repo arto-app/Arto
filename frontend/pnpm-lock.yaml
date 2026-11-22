@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@arto-app/markdown':
-        specifier: workspace:*
-        version: link:markdown
+        specifier: ^0.48.0
+        version: 0.48.0
       '@primer/css':
         specifier: ^22.3.3
         version: 22.3.3(@primer/primitives@11.10.0)
@@ -108,6 +108,9 @@ importers:
         version: 5.1.0(@types/node@26.6.6)(happy-dom@21.0.4)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15))
 
 packages:
+
+  '@arto-app/markdown@0.48.0':
+    resolution: {integrity: sha512-6fsG7EJZjoNrSGUYVLsZ4SuEH9zqaQrC3HQ2696iK763WchFsfCvNJwEwb3NbkAhWBGC660tKMTOgdFF/qXw1Q==}
 
   '@emnapi/core@2.0.0-beta.2':
     resolution: {integrity: sha512-MzCVoWtcg4Pm2B3je5mMvYMvj3MmBKw+fU7vbsJc9/iT8ip6/eYIHo/Dsm/mr+wsHB6SEyJDuxB09Yy6r/8+4A==}
@@ -1171,6 +1174,16 @@ packages:
         optional: true
 
 snapshots:
+
+  '@arto-app/markdown@0.48.0':
+    dependencies:
+      '@primer/css': 22.3.3(@primer/primitives@11.10.0)
+      '@primer/primitives': 11.10.0
+      '@tabler/icons': 3.52.0
+      highlight.js: 11.12.0
+      html2canvas: 1.4.1
+      katex: 0.19.1
+      pele: 1.13.0
 
   '@emnapi/core@2.0.0-beta.2':
     dependencies:

@@ -28,7 +28,7 @@ test: frontend::assets arto::test frontend::test
 verify: fmt check test
 
 # Everything CI checks, in one recipe: the gate before a change is done.
-ci: fmt-check check test docs workflows arto::doc arto::features arto::wasm arto::deny arto::machete
+ci: fmt-check check test docs workflows arto::doc arto::features arto::deny arto::machete
 
 # Links in Markdown files (offline, see lychee.toml) and repository paths
 # named in documentation; the same checks the CI docs job runs.
@@ -60,7 +60,6 @@ dev:
   dist="$root/crates/arto/assets/frontend"
   if [ ! -f "$dist/main.js" ] || [ ! -f "$dist/main.css" ]; then
     echo "Building frontend bundle..."
-    pnpm --filter @arto-app/markdown exec vite build --mode development --minify false
     pnpm exec vite build --mode development --minify false
   else
     echo "Frontend bundle found, skipping initial build..."

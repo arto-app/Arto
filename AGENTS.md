@@ -40,7 +40,7 @@ locally and offline.
 Run `just ci` before reporting a change as done. It checks formatting
 (rustfmt, oxfmt, nixfmt), lints (clippy, oxlint), runs every test, and checks
 the rustdoc, feature combinations, advisories, unused dependencies, the
-crate packages, the documentation's links and the workflow files. CI runs the same recipes.
+documentation's links and the workflow files. CI runs the same recipes.
 
 `just fmt` formats everything `just ci` checks.
 
@@ -49,17 +49,14 @@ crate packages, the documentation's links and the workflow files. CI runs the sa
 | Path | What lives there |
 | --- | --- |
 | `crates/arto/` | The desktop app (Dioxus). Windows, the panel and its faces, menus, IPC client/server |
-| `crates/arto-markdown/` | Markdown → HTML pipeline shared by the app, `arto page` and Quick Look, and (feature `frontend`) the frontend's bundles as Rust strings for another app's page |
 | `crates/arto-config/` | `config.json` types and file I/O (no globals) |
 | `crates/arto-keybindings/` | Keybinding parsing and defaults |
 | `crates/arto-lsp/` | The wire protocol: JSON-RPC 2.0 in LSP framing, and the socket it runs on |
 | `crates/arto-mcp/` | `arto mcp`: an MCP server over the wire protocol, for agents |
-| `crates/arto-frontend/` | Re-exports `arto_markdown::frontend` under the crate's old name; no longer developed |
 | `crates/arto-page/` | Standalone page renderer: `arto page` CLI and the Quick Look static library |
 | `crates/arto-types/` | Values `config.json` and the wire protocol both carry (`Theme`, `FileOpenBehavior`) |
-| `frontend/` | TypeScript and CSS bundled into each crate's `assets/frontend/` by Vite; a pnpm workspace whose root is the app's frontend |
-| `frontend/markdown/` | `@arto-app/markdown`: draws a rendered document in any page (the `embed` and `page-*` bundles `arto-markdown` carries); the app imports it by package name |
-| `samples/` | Rendering samples; their HTML is snapshot-tested in `arto-markdown`, and again in `arto-page` as the app's record of the renderer it depends on |
+| `frontend/` | TypeScript and CSS bundled into each crate's `assets/frontend/` by Vite, drawing documents with the released `@arto-app/markdown` |
+| `samples/` | Rendering samples; their HTML is snapshot-tested in `arto-page` as the app's record of the renderer it depends on |
 | `schemas/` | JSON Schema of `config.json`, generated from `arto-config` and kept in step by its tests |
 | `platform/` | OS-specific packaging (macOS bundle and Quick Look extension) |
 | `docs/` | concept, ADRs, and specs — the pages the README links to are the specs |
@@ -70,9 +67,17 @@ crate packages, the documentation's links and the workflow files. CI runs the sa
 
 Architecture notes load on demand from `.claude/rules/` when a matching file
 is read or edited (see each rule's `paths` frontmatter): windows and state,
-configuration, IPC, menus, the Markdown pipeline, Dioxus async patterns,
+configuration, IPC, menus, Dioxus async patterns,
 testing, UI design, interface translation, ADRs and specs. `.claude/TIPS.md`
 collects longer-form lessons; read it when a rule points there.
+
+The renderer is not developed here. The `arto-markdown` crate and the
+`@arto-app/markdown` package come from
+[arto-app/arto-markdown](https://github.com/arto-app/arto-markdown), which
+releases them together; take both at the same version, and change the
+renderer there. `crates/arto-page/tests/renderer.rs` records what the
+version Arto depends on draws, so a bump that changes output shows up as a
+snapshot diff to review.
 
 The project description lives in `README.md`; quote it instead of inventing
 descriptions.
@@ -106,14 +111,13 @@ they stay as they are.
 | Scope | Covers |
 | --- | --- |
 | `arto` | `crates/arto/` |
-| `markdown` | `crates/arto-markdown/` |
 | `config` | `crates/arto-config/` |
 | `keybindings` | `crates/arto-keybindings/` |
 | `lsp` | `crates/arto-lsp/` |
 | `mcp` | `crates/arto-mcp/` |
 | `page` | `crates/arto-page/` |
 | `types` | `crates/arto-types/` |
-| `frontend` | `frontend/`, `crates/arto-frontend/`, `crates/arto-markdown/src/frontend.rs` |
+| `frontend` | `frontend/` |
 | `samples` | `samples/` |
 | `schemas` | `schemas/` |
 | `platform` | `platform/` |
