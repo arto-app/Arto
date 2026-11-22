@@ -3,7 +3,7 @@
 
 use crate::css::{self, STANDALONE_OVERRIDE_CSS};
 use crate::{PageOptions, Theme};
-use arto_frontend::Libraries;
+use arto_markdown::frontend::Libraries;
 use base64::Engine;
 use sha2::{Digest, Sha256};
 
@@ -68,8 +68,8 @@ pub(crate) fn build_document(body_html: &str, options: &PageOptions) -> String {
     // An HTML embed's frame runs a script of its own, written into the frame
     // rather than the page, and is held to this policy as well as to its own.
     let csp_meta = if options.content_security_policy {
-        let frame =
-            arto_frontend::draws_html_embed(body_html).then_some(arto_frontend::HTML_EMBED_FRAME);
+        let frame = arto_markdown::frontend::draws_html_embed(body_html)
+            .then_some(arto_markdown::frontend::HTML_EMBED_FRAME);
         let sources: Vec<String> = scripts
             .iter()
             .map(String::as_str)
@@ -256,7 +256,7 @@ mod tests {
         assert_eq!(html.matches("'sha256-").count(), 3);
         assert!(html.contains(&format!(
             "'sha256-{}'",
-            sha256_base64(&inline_script(arto_frontend::MERMAID))
+            sha256_base64(&inline_script(arto_markdown::frontend::MERMAID))
         )));
     }
 
@@ -328,7 +328,7 @@ mod tests {
     fn test_build_document_allowlists_the_html_embed_frame_script_when_it_draws_one() {
         let frame = format!(
             "'sha256-{}'",
-            sha256_base64(arto_frontend::HTML_EMBED_FRAME)
+            sha256_base64(arto_markdown::frontend::HTML_EMBED_FRAME)
         );
 
         let embed = build_document(

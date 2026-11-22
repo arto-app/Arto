@@ -1,6 +1,7 @@
 # Publish the frontend for other apps as a crate of its own
 
-Status: Accepted
+Status: Superseded by
+20261122-ship-the-frontend-in-arto-markdown-behind-a-feature.md
 
 ## Context
 

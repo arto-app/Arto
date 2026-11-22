@@ -10,7 +10,7 @@
  *
  * So this runtime does nothing until it is handed an element, touches nothing
  * outside the elements it was handed, and is published under the same global
- * as the page runtime, so that the library bundles `arto-frontend` ships register
+ * as the page runtime, so that the library bundles `arto_markdown::frontend` ships register
  * themselves with it exactly as they do with a page.
  */
 

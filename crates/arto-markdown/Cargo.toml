@@ -10,6 +10,22 @@ homepage.workspace = true
 readme.workspace = true
 keywords = ["markdown", "html", "github", "renderer", "commonmark"]
 categories = ["text-processing"]
+# The bundles under assets/ are build output copied in by the frontend build
+# (see frontend/vite.config.ts) and ignored by git; list them so a package
+# cannot be published without them. They ship whether or not a consumer turns
+# the `frontend` feature on, which only decides whether they are compiled in.
+include = [
+  "src/**",
+  "assets/frontend/embed.css",
+  "assets/frontend/embed.iife.js",
+  "assets/frontend/page-mermaid.iife.js",
+  "assets/frontend/page-math.iife.js",
+  "assets/frontend/page-hljs-common.iife.js",
+  "assets/frontend/page-hljs-common.txt",
+  "assets/frontend/page-hljs-all.iife.js",
+  "assets/frontend/page-hljs-all.txt",
+  "assets/frontend/html-embed-frame.js",
+]
 
 [dependencies]
 base64.workspace = true
@@ -34,6 +50,10 @@ percent-encoding = "2.3.2"
 # `JsonSchema` for the options that are also a section of Arto's `config.json`,
 # so the configuration crate can describe that file without redefining them.
 schemars = ["dep:schemars"]
+# `frontend`: the stylesheet, the runtime and the library bundles that draw
+# the HTML in a page, for a host that shows documents rather than only
+# writing them.
+frontend = []
 
 [dev-dependencies]
 indoc.workspace = true

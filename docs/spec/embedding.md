@@ -1,14 +1,15 @@
 # Embedding
 
 An application can show Markdown the way Arto does in a window of its own:
-`arto-markdown` renders the HTML, and Arto's frontend, published as
-`arto-frontend`, draws what the HTML leaves to script — Mermaid diagrams,
-math and the colours of code. The host keeps its window: its keys, its scrolling, its
+`arto-markdown` renders the HTML, and Arto's frontend, which the same crate
+carries, draws what the HTML leaves to script — Mermaid diagrams, math and
+the colours of code. The host keeps its window: its keys, its scrolling, its
 links and its theme stay its own.
 
 ## What a host is given
 
-`arto-frontend` carries, as Rust strings:
+`arto_markdown::frontend`, there when the crate's `frontend` feature is on,
+carries as Rust strings:
 
 - `STYLESHEET`, the styles of a rendered document;
 - `RUNTIME`, the script that draws it, published as `window.ArtoRenderer`;
@@ -20,8 +21,10 @@ links and its theme stay its own.
 - `HTML_EMBED_FRAME`, the script the runtime runs inside an HTML embed's
   frame, and `draws_html_embed`, which says whether a fragment has one.
 
-The library bundles are the ones `arto page` and Quick Look embed, and the
-crate is versioned with `arto-markdown`. A document that draws no diagram needs no Pele, one that
+The library bundles are the ones `arto page` and Quick Look embed, built
+from the same version as the renderer. `arto-frontend`, the crate they were
+published in before, hands a host the same module under its old name. A
+document that draws no diagram needs no Pele, one that
 sets no formula needs no KaTeX, and the complete highlight.js is needed only
 for a language outside the common build.
 
@@ -42,7 +45,7 @@ fragment needs.
 sequenceDiagram
     participant H as Host
     participant M as arto-markdown
-    participant F as arto-frontend
+    participant F as arto_markdown::frontend
     H->>M: render the Markdown
     M-->>H: the HTML fragment
     H->>F: Libraries::for_fragment

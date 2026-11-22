@@ -212,16 +212,16 @@ const bundleConsumers: BundleConsumer[] = [
     files: ["main.js", "main.css", "icons/tabler-sprite.svg"],
   },
   // The page crate inlines the stylesheet and the page runtime, and takes the
-  // library bundles from the frontend crate below.
+  // library bundles from the renderer crate below.
   {
     dir: path.resolve(import.meta.dirname, "../crates/arto-page/assets/frontend"),
     files: ["main.css", "page.iife.js"],
   },
-  // The frontend crate hands a host the runtime and the stylesheet for a
-  // document in someone else's page, and every consumer the library bundles
-  // and the manifests that choose among them.
+  // The renderer crate's `frontend` feature hands a host the runtime and the
+  // stylesheet for a document in someone else's page, and every consumer the
+  // library bundles and the manifests that choose among them.
   {
-    dir: path.resolve(import.meta.dirname, "../crates/arto-frontend/assets/frontend"),
+    dir: path.resolve(import.meta.dirname, "../crates/arto-markdown/assets/frontend"),
     files: [
       "embed.iife.js",
       "embed.css",
@@ -258,7 +258,7 @@ const pageLibraries = [
 /**
  * Write down the languages a highlight.js bundle answers to, beside it.
  *
- * `arto-frontend` reads the body it is given to choose between the two builds,
+ * `arto_markdown::frontend` reads the body it is given to choose between the two builds,
  * and the choice is only as good as its idea of what is in them — a name
  * hard-coded on the Rust side would go quietly wrong on the next highlight.js
  * release. So the list is build output, like the bundle it describes, and the
