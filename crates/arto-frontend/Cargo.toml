@@ -10,7 +10,8 @@ homepage.workspace = true
 readme.workspace = true
 keywords = ["markdown", "mermaid", "katex", "highlight", "webview"]
 categories = ["text-processing", "web-programming"]
-include = ["src/**"]
+# Released from arto-app/arto-markdown together with arto-markdown.
+publish = false
 
 [dependencies]
 arto-markdown = { workspace = true, features = ["frontend"] }

@@ -10,22 +10,9 @@ homepage.workspace = true
 readme.workspace = true
 keywords = ["markdown", "html", "github", "renderer", "commonmark"]
 categories = ["text-processing"]
-# The bundles under assets/ are build output copied in by the frontend build
-# (see frontend/markdown/vite.config.ts) and ignored by git; list them so a package
-# cannot be published without them. They ship whether or not a consumer turns
-# the `frontend` feature on, which only decides whether they are compiled in.
-include = [
-  "src/**",
-  "assets/frontend/embed.css",
-  "assets/frontend/embed.iife.js",
-  "assets/frontend/page-mermaid.iife.js",
-  "assets/frontend/page-math.iife.js",
-  "assets/frontend/page-hljs-common.iife.js",
-  "assets/frontend/page-hljs-common.txt",
-  "assets/frontend/page-hljs-all.iife.js",
-  "assets/frontend/page-hljs-all.txt",
-  "assets/frontend/html-embed-frame.js",
-]
+# Released from arto-app/arto-markdown, which publishes it to crates.io; this
+# copy is what the app builds against until it depends on that release.
+publish = false
 
 [dependencies]
 base64.workspace = true
