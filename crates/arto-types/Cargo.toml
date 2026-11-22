@@ -1,6 +1,6 @@
 [package]
 name = "arto-types"
-description = "Values Arto's configuration and its wire protocol both spell: the theme preference and where an opened file goes"
+description = "Values Arto's configuration and its wire protocol both spell: the theme preference and where an opened file goes. Last version published to crates.io: Arto installs from its releases at https://github.com/arto-app/Arto"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

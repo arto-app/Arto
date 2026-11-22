@@ -1,6 +1,6 @@
 [package]
 name = "arto-keybindings"
-description = "Arto's keybinding model: shortcut parsing, binding sets, presets, and the sequence-matching engine"
+description = "Arto's keybinding model: shortcut parsing, binding sets, presets, and the sequence-matching engine. Last version published to crates.io: Arto installs from its releases at https://github.com/arto-app/Arto"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "arto"
-description = "Arto, the Art of Reading Markdown"
+description = "Arto, the Art of Reading Markdown. Last version published to crates.io: Arto installs from its releases at https://github.com/arto-app/Arto"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
