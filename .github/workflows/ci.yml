@@ -197,6 +197,9 @@ jobs:
       - name: Feature combinations
         if: matrix.target == 'ubuntu'
         run: just arto::features
+      - name: Renderer for wasm32
+        if: matrix.target == 'ubuntu'
+        run: just arto::wasm
       - name: Advisories and licenses
         if: matrix.target == 'ubuntu'
         run: just arto::deny
