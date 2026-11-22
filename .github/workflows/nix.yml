@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   build:
-    uses: lambdalisue/nix-github-release/.github/workflows/build.yml@v0.1.1
+    uses: lambdalisue/nix-github-release/.github/workflows/build.yml@v0.1.3
     with:
       packages: arto arto-page
       runners: '["blacksmith-6vcpu-macos-15", "blacksmith-4vcpu-ubuntu-2404", "blacksmith-4vcpu-ubuntu-2404-arm"]'
