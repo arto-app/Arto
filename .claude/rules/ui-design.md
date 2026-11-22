@@ -1,5 +1,5 @@
 ---
-paths: "frontend/style/**/*.css, frontend/renderer/style/**/*.css, crates/arto/src/components/**/*.rs"
+paths: "frontend/style/**/*.css, frontend/markdown/style/**/*.css, crates/arto/src/components/**/*.rs"
 ---
 
 # UI/UX Design Patterns
@@ -73,7 +73,7 @@ Arto paints one of GitHub's themes, chosen in the preferences for light mode
 and for dark mode independently. The palette therefore is not written by hand:
 
 - `@primer/primitives` ships a block of design tokens per theme. A Vite plugin
-  (`primerThemesPlugin` in `frontend/renderer/build/primer-themes.ts`) re-scopes
+  (`primerThemesPlugin` in `frontend/markdown/build/primer-themes.ts`) re-scopes
   each block onto `[data-theme="<name>"]` and writes them to the renderer's
   `style/generated/primer-themes.css`, which the app's stylesheet imports too.
   The names are GitHub's (`light`, `dark_dimmed`, `light_high_contrast`, …) and
@@ -84,7 +84,7 @@ and for dark mode independently. The palette therefore is not written by hand:
   the tokens, and every component follows without a second palette.
 - The rendered Markdown is styled by `@primer/css`'s `markdown.css`, which reads
   the same tokens. Code highlighting maps highlight.js classes onto
-  `--color-prettylights-syntax-*` in `frontend/renderer/style/syntax.css`.
+  `--color-prettylights-syntax-*` in `frontend/markdown/style/syntax.css`.
 
 **Use Arto's semantic variables in components** (`--bg-secondary`,
 `--border-color`, `--text-secondary`). Reach for a raw Primer token only where

@@ -58,7 +58,7 @@ crate packages, the documentation's links and the workflow files. CI runs the sa
 | `crates/arto-page/` | Standalone page renderer: `arto page` CLI and the Quick Look static library |
 | `crates/arto-types/` | Values `config.json` and the wire protocol both carry (`Theme`, `FileOpenBehavior`) |
 | `frontend/` | TypeScript and CSS bundled into each crate's `assets/frontend/` by Vite; a pnpm workspace whose root is the app's frontend |
-| `frontend/renderer/` | `@arto-app/renderer`: draws a rendered document in any page (the `embed` and `page-*` bundles `arto-markdown` carries); the app imports it by package name |
+| `frontend/markdown/` | `@arto-app/markdown`: draws a rendered document in any page (the `embed` and `page-*` bundles `arto-markdown` carries); the app imports it by package name |
 | `samples/` | Rendering samples; their HTML is snapshot-tested in `arto-markdown`, and again in `arto-page` as the app's record of the renderer it depends on |
 | `schemas/` | JSON Schema of `config.json`, generated from `arto-config` and kept in step by its tests |
 | `platform/` | OS-specific packaging (macOS bundle and Quick Look extension) |

@@ -8,9 +8,9 @@ importers:
 
   .:
     dependencies:
-      '@arto-app/renderer':
+      '@arto-app/markdown':
         specifier: workspace:*
-        version: link:renderer
+        version: link:markdown
       '@primer/css':
         specifier: ^22.3.3
         version: 22.3.3(@primer/primitives@11.10.0)
@@ -58,7 +58,7 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@26.6.6)(happy-dom@21.0.4)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15))
 
-  renderer:
+  markdown:
     dependencies:
       '@primer/css':
         specifier: ^22.3.3

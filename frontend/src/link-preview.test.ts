@@ -12,7 +12,7 @@ import {
   setup,
   showAtCursor,
 } from "./link-preview";
-import { MAX_PREVIEW_DIAGRAMS } from "@arto-app/renderer/mermaid-renderer";
+import { MAX_PREVIEW_DIAGRAMS } from "@arto-app/markdown/mermaid-renderer";
 
 const cursor = vi.hoisted(() => ({ element: null as Element | null }));
 vi.mock("./content-cursor", () => ({ getCurrentElement: () => cursor.element }));
@@ -23,7 +23,7 @@ const libraries = vi.hoisted(() => ({
     render: vi.fn<(source: string, options: object) => { svg: string }>(),
   },
 }));
-vi.mock("@arto-app/renderer/libraries", () => ({
+vi.mock("@arto-app/markdown/libraries", () => ({
   katexLibrary: () => libraries.katex,
   mermaidLibrary: () => libraries.mermaid,
 }));

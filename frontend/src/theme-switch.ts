@@ -1,7 +1,7 @@
-import { setHtmlEmbedTheme } from "@arto-app/renderer/html-embed-renderer";
-import { applyPictureTheme } from "@arto-app/renderer/picture-theme";
-import { type Theme, currentTheme, isDarkTheme, themedElement } from "@arto-app/renderer/theme";
-import * as viewportQueue from "@arto-app/renderer/viewport-queue";
+import { setHtmlEmbedTheme } from "@arto-app/markdown/html-embed-renderer";
+import { applyPictureTheme } from "@arto-app/markdown/picture-theme";
+import { type Theme, currentTheme, isDarkTheme, themedElement } from "@arto-app/markdown/theme";
+import * as viewportQueue from "@arto-app/markdown/viewport-queue";
 
 /** Switch the theme. */
 export function setCurrentTheme(theme: Theme): void {

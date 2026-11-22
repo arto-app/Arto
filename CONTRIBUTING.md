@@ -116,7 +116,7 @@ Arto/
 │   ├── arto-page/    # Self-contained HTML pages: CLI, `arto page`, Quick Look FFI (feature ffi)
 │   └── arto-types/   # Values config.json and the wire protocol both carry (Theme, FileOpenBehavior)
 ├── frontend/         # WebView-side TypeScript and CSS (pnpm workspace + Vite): the app's
-│   └── renderer/     #   @arto-app/renderer, the code that draws a rendered document in any page
+│   └── markdown/     #   @arto-app/markdown, the code that draws a rendered document in any page
 ├── platform/         # OS-specific files, one directory per OS
 │   ├── macos/        #   bundle/ (Info.plist, icon), quicklook/ (Swift shim), verify-bundle.sh
 │   ├── windows/      #   NSIS installer hook (file associations)

@@ -18,7 +18,7 @@ import {
   provideHtml2Canvas,
   provideKatex,
   provideMermaid,
-} from "@arto-app/renderer/libraries";
+} from "@arto-app/markdown/libraries";
 
 provideMermaid(pele);
 provideKatex(katex);

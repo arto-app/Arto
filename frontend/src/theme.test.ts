@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { describe, test, expect } from "vitest";
 
-import { isDarkTheme } from "@arto-app/renderer/theme";
+import { isDarkTheme } from "@arto-app/markdown/theme";
 
 const repository = path.resolve(import.meta.dirname, "../..");
 
@@ -20,7 +20,7 @@ function themesTheAppCanAskFor(): string[] {
 
 function generatedStylesheet(): string {
   const file = createRequire(import.meta.url).resolve(
-    "@arto-app/renderer/style/generated/primer-themes.css",
+    "@arto-app/markdown/style/generated/primer-themes.css",
   );
   return readFileSync(file, { encoding: "utf-8" });
 }

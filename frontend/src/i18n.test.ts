@@ -4,13 +4,13 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 
 import * as appI18n from "./app-i18n";
-import rendererEnglish from "@arto-app/renderer/i18n.en.json";
+import rendererEnglish from "@arto-app/markdown/i18n.en.json";
 
 const locales = path.resolve(import.meta.dirname, "../../crates/arto/locales");
 
 /** The renderer's sources, which ask for words of their own. */
 const rendererSources = path.dirname(
-  createRequire(import.meta.url).resolve("@arto-app/renderer/i18n"),
+  createRequire(import.meta.url).resolve("@arto-app/markdown/i18n"),
 );
 
 describe("t, as the app imports it", () => {

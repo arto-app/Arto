@@ -4,10 +4,10 @@ import { createArtoApi } from "./api";
 import { refreshReadingPosition, setupReadingPosition } from "./reading-position";
 import { setupRowHover } from "./row-hover";
 import { setupScrollbarReach } from "./scrollbar-reach";
-import { currentTheme } from "@arto-app/renderer/theme";
+import { currentTheme } from "@arto-app/markdown/theme";
 import { setCurrentTheme } from "./theme-switch";
 import { renderCoordinator } from "./render-coordinator";
-import { FRAME_SELECTOR } from "@arto-app/renderer/html-embed-renderer";
+import { FRAME_SELECTOR } from "@arto-app/markdown/html-embed-renderer";
 import * as keyboardInterceptor from "./keyboard-interceptor";
 import * as mouseNavigation from "./mouse-navigation";
 import * as scrollController from "./scroll-controller";
@@ -17,7 +17,7 @@ import * as changes from "./changes";
 import * as linkPreview from "./link-preview";
 import * as taskTicks from "./task-ticks";
 import * as fragmentLink from "./fragment-link";
-import * as viewportQueue from "@arto-app/renderer/viewport-queue";
+import * as viewportQueue from "@arto-app/markdown/viewport-queue";
 import * as stickyTableHead from "./sticky-table-head";
 import * as videoFallback from "./video-fallback";
 import { forgetStep, setupFocusScrolling, stepFocus } from "./focus-mode";
@@ -113,4 +113,4 @@ export {
   provideKatex,
   provideHtml2Canvas,
   provideHljs,
-} from "@arto-app/renderer/libraries";
+} from "@arto-app/markdown/libraries";

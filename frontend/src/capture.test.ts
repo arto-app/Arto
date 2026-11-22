@@ -1,8 +1,8 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
 
 import * as capture from "./capture";
-import { provideHtml2Canvas, type Html2CanvasLibrary } from "@arto-app/renderer/libraries";
-import * as viewportQueue from "@arto-app/renderer/viewport-queue";
+import { provideHtml2Canvas, type Html2CanvasLibrary } from "@arto-app/markdown/libraries";
+import * as viewportQueue from "@arto-app/markdown/viewport-queue";
 
 /** A document of top-level blocks, each with the range it was rendered from. */
 function documentOf(blocks: Array<[tag: string, range: string, id?: string]>): HTMLElement[] {

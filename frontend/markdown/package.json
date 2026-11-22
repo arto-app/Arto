@@ -1,5 +1,5 @@
 {
-  "name": "@arto-app/renderer",
+  "name": "@arto-app/markdown",
   "private": true,
   "type": "module",
   "exports": {
