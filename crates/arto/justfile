@@ -60,7 +60,32 @@ machete:
 # leaves out fails here, not after the release is already out. Run after the
 # frontend assets are built, since three packages carry them. `--allow-dirty`
 # because the assets are untracked build output.
+#
+# The members are stamped with a version the registry does not have, as the
+# release stamps its tag. At git's `0.0.0`, which crates.io holds for every
+# name claimed by hand, cargo verifies each package against that old upload
+# rather than its sibling in this tree, and a member using anything a sibling
+# gained since then fails although the release would build. A pre-release of
+# `0.0.0` would not do: `^0.0.0-x` is still met by `0.0.0`.
+#
+# The version is new on every run, because cargo unpacks a package it
+# verifies against into the shared registry cache by name and version, and
+# reuses what it finds there: a fixed version would verify against whatever
+# an earlier run packaged. Those unpacked copies are removed afterwards, and
+# the manifest and the lockfile are put back, however the run ends.
 package:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cd "{{root}}"
+  version="999.$(date +%s).0"
+  backup="$(mktemp -d)"
+  cp Cargo.toml Cargo.lock "$backup/"
+  cleanup() {
+    cp "$backup/Cargo.toml" "$backup/Cargo.lock" .
+    rm -rf "$backup" "${CARGO_HOME:-$HOME/.cargo}"/registry/src/*/arto*-"$version"
+  }
+  trap cleanup EXIT
+  perl -i -pe 's/= "0\.0\.0"/= "'"$version"'"/g' Cargo.toml
   cargo package --workspace --allow-dirty
 
 verify: fmt check test
