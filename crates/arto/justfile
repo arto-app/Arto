@@ -42,6 +42,11 @@ doc:
 features:
   cargo hack check --each-feature --no-dev-deps -p arto-markdown -p arto-keybindings -p arto-config -p arto-lsp -p arto-mcp -p arto-frontend -p arto-page -p arto-types
 
+# The renderer is what a browser host runs, so it has to build for wasm32
+# with nothing in it that only the desktop platforms provide.
+wasm:
+  cargo clippy -p arto-markdown --target wasm32-unknown-unknown -- -D warnings
+
 # Advisories, licenses and duplicate majors, per deny.toml at the root.
 deny:
   cargo deny --workspace check

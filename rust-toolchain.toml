@@ -2,3 +2,5 @@
 channel = "1.99.0"
 components = ["rustfmt", "clippy", "rust-src", "rust-analyzer"]
 profile = "minimal"
+# The renderer is also built for the browser; `just arto::wasm` checks it.
+targets = ["wasm32-unknown-unknown"]

@@ -319,6 +319,7 @@ dependencies = [
  "ox_content_ast",
  "ox_content_parser",
  "ox_content_renderer",
+ "percent-encoding",
  "schemars",
  "serde",
  "serde_json",

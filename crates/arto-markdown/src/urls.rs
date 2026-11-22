@@ -86,11 +86,30 @@ pub(crate) fn file_url_to_path(href: &str) -> Option<PathBuf> {
     }
     let path = url::Url::parse(href)
         .ok()
-        .and_then(|url| url.to_file_path().ok());
+        .and_then(|url| to_file_path(&url));
     if path.is_none() {
         tracing::debug!(?href, "file: URL names no file on this machine");
     }
     path
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn to_file_path(url: &url::Url) -> Option<PathBuf> {
+    url.to_file_path().ok()
+}
+
+/// `url` has no `to_file_path` on wasm, which has no platform path shape of
+/// its own; a host there addresses files by `/`-separated paths, so the
+/// decoded path of a URL without a host is the file.
+#[cfg(target_family = "wasm")]
+fn to_file_path(url: &url::Url) -> Option<PathBuf> {
+    if url.host().is_some() {
+        return None;
+    }
+    let path = percent_encoding::percent_decode_str(url.path())
+        .decode_utf8()
+        .ok()?;
+    Some(PathBuf::from(path.into_owned()))
 }
 
 /// One entry of a `srcset` attribute: a URL and the descriptor that follows it.
