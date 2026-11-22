@@ -10,8 +10,8 @@ homepage.workspace = true
 readme.workspace = true
 keywords = ["mcp", "markdown", "agent", "viewer"]
 categories = ["command-line-utilities"]
-# Part of the app, not a library others build on: only the renderer
-# (arto-markdown, and arto-frontend under its old name) is published.
+# Part of the app, not a library others build on: only the renderer,
+# released from arto-app/arto-markdown, is published.
 publish = false
 
 [dependencies]

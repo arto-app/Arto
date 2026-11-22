@@ -2,9 +2,8 @@ import { defineConfig, type Plugin } from "vite";
 import path from "path";
 import fs from "fs";
 
-import { primerThemesPlugin } from "@arto-app/markdown/build/primer-themes";
-import { type BundleConsumer, syncBundlePlugin } from "@arto-app/markdown/build/sync-bundle";
-import { writeIfChanged } from "@arto-app/markdown/build/write-if-changed";
+import { type BundleConsumer, syncBundlePlugin } from "./build/sync-bundle";
+import { writeIfChanged } from "./build/write-if-changed";
 
 import icons from "./icons.json" with { type: "json" };
 
@@ -44,7 +43,11 @@ function iconSpritePlugin(): Plugin {
   };
 }
 
-/** Crates that embed the bundle; the renderer's own build feeds `arto-markdown`. */
+/**
+ * Crates that embed the bundle. The library bundles the page also needs come
+ * with the released `arto-markdown` crate, built from the same package this
+ * one bundles.
+ */
 const bundleConsumers: BundleConsumer[] = [
   // The app compiles in the ES module and the stylesheet and serves them from
   // its own protocol; the sprite it writes into each window's document. Naming
@@ -64,8 +67,7 @@ const bundleConsumers: BundleConsumer[] = [
 
 export default defineConfig(({ mode }) => {
   // The Nix build sets VITE_OUT_DIR to its output path and copies the bundle
-  // into the crate itself, so no consumer sync happens there. The renderer's
-  // build has written into that directory already, so it is left as it is.
+  // into the crate itself, so no consumer sync happens there.
   const outDir = process.env.VITE_OUT_DIR || path.resolve(import.meta.dirname, "dist");
   const consumers = process.env.VITE_OUT_DIR ? [] : bundleConsumers;
   const production = mode === "production";
@@ -73,13 +75,7 @@ export default defineConfig(({ mode }) => {
   return {
     base: "/assets/frontend/",
     root: ".",
-    plugins: [
-      iconSpritePlugin(),
-      // The renderer's build writes this stylesheet too; generating it here
-      // as well keeps a build of the app alone from finding it missing.
-      primerThemesPlugin(),
-      syncBundlePlugin(consumers, production),
-    ],
+    plugins: [iconSpritePlugin(), syncBundlePlugin(consumers, production)],
     build: {
       outDir,
       // In dev mode, keep existing files for incremental updates

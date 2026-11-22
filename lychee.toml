@@ -9,8 +9,6 @@ exclude_path = [
   "target",
   "frontend/node_modules",
   "frontend/dist",
-  "frontend/markdown/node_modules",
-  "frontend/markdown/dist",
   ".git",
 ]
 # Placeholders that are not links.

@@ -131,7 +131,6 @@ jobs:
           path: |
             crates/arto/assets/frontend
             crates/arto-page/assets/frontend
-            crates/arto-markdown/assets/frontend
           if-no-files-found: error
           retention-days: 1
 
@@ -197,9 +196,6 @@ jobs:
       - name: Feature combinations
         if: matrix.target == 'ubuntu'
         run: just arto::features
-      - name: Renderer for wasm32
-        if: matrix.target == 'ubuntu'
-        run: just arto::wasm
       - name: Advisories and licenses
         if: matrix.target == 'ubuntu'
         run: just arto::deny

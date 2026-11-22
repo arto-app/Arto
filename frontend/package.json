@@ -3,16 +3,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm --recursive --include-workspace-root --parallel run watch",
-    "watch": "vite build --mode development --watch --minify false",
-    "build": "pnpm --filter @arto-app/markdown run build && vite build --minify",
-    "fmt": "pnpm --filter @arto-app/markdown run fmt && oxfmt --write \"**/*.{ts,tsx,js,jsx,css}\" \"!markdown/**\"",
-    "fmt:check": "pnpm --filter @arto-app/markdown run fmt:check && oxfmt --check \"**/*.{ts,tsx,js,jsx,css}\" \"!markdown/**\"",
-    "check": "pnpm --filter @arto-app/markdown run check && oxlint --ignore-pattern \"markdown/**\" && tsc --noEmit",
-    "test": "pnpm --filter @arto-app/markdown run test && vitest run"
+    "dev": "vite build --mode development --watch --minify false",
+    "build": "vite build --minify",
+    "fmt": "oxfmt --write \"**/*.{ts,tsx,js,jsx,css}\"",
+    "fmt:check": "oxfmt --check \"**/*.{ts,tsx,js,jsx,css}\"",
+    "check": "oxlint && tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@arto-app/markdown": "workspace:*",
+    "@arto-app/markdown": "^0.48.0",
     "@primer/css": "^22.3.3",
     "@primer/primitives": "^11.10.0",
     "@types/node": "^26.6.6",

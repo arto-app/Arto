@@ -37,15 +37,17 @@ readme = "README.md"
 # be five chances to forget one. It is the workspace version, so the release
 # patch that stamps `[workspace.package]` above stamps these in the same pass.
 arto-config = { path = "crates/arto-config", version = "0.0.0" }
-arto-frontend = { path = "crates/arto-frontend", version = "0.0.0" }
 arto-lsp = { path = "crates/arto-lsp", version = "0.0.0" }
 arto-keybindings = { path = "crates/arto-keybindings", version = "0.0.0" }
-arto-markdown = { path = "crates/arto-markdown", version = "0.0.0" }
 arto-mcp = { path = "crates/arto-mcp", version = "0.0.0" }
 arto-page = { path = "crates/arto-page", version = "0.0.0" }
 arto-types = { path = "crates/arto-types", version = "0.0.0" }
 
 anyhow = "1.0.104"
+# The renderer, released from https://github.com/arto-app/arto-markdown. Its
+# npm package, which frontend/ bundles, has to be taken at the same version:
+# the HTML this writes and the code that draws it are one interface.
+arto-markdown = "0.48.0"
 base64 = "0.23.1"
 clap = { version = "4.6.6", features = ["derive"] }
 dirs = "7.0.0"
@@ -53,7 +55,6 @@ html-escape = "0.3.0"
 indoc = "2.0.7"
 insta = { version = "1.48.0", features = ["glob"] }
 keyboard-types = "0.7.0"
-lol_html = "3.0.1"
 schemars = "1.2.2"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"

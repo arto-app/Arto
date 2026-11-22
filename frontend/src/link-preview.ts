@@ -5,7 +5,7 @@
  * A footnote reference shows its note and a link to a heading on the page
  * shows that heading's section, both copied out of the page itself. A link
  * to another document (`span.md-link`, see the HTML contract in
- * `crates/arto-markdown/src/lib.rs`) is asked of the app, which renders
+ * the `arto_markdown` crate docs) is asked of the app, which renders
  * that document and answers through `resolve`; the part shown is cut out
  * of the answer here, by the same rules, so the heading ids it is matched
  * against are the ones the renderer wrote rather than a second guess at them.
