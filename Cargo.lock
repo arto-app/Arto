@@ -359,6 +359,7 @@ dependencies = [
  "arto-markdown",
  "base64 0.23.1",
  "clap",
+ "insta",
  "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",

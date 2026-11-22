@@ -172,6 +172,13 @@ renders every numbered file under `samples/` and compares it with
 intended, run the test, inspect the `.snap.new` files with
 `cargo insta review`, and commit the accepted snapshots.
 
+The app keeps a record of its own: `crates/arto-page/tests/renderer.rs`
+renders the same samples through the `arto-markdown` the workspace depends on,
+together with the library bundles each one needs, and compares them with
+`crates/arto-page/tests/snapshots/`. It is what shows a change in the renderer
+the app depends on, wherever that renderer is developed, so a change of
+output updates both records.
+
 ## Dependency Updates
 
 Dependabot opens weekly pull requests for Cargo, pnpm and GitHub Actions
