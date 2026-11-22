@@ -29,9 +29,9 @@
 //! inline scripts embedded here. [`PageOptions`] can switch the policy off
 //! for callers that render trusted input.
 //!
-//! The library bundles and the choice among them come from `arto-frontend`,
-//! which also serves an application that places `arto-markdown`'s output in a
-//! page of its own rather than writing one.
+//! The library bundles and the choice among them come from `arto-markdown`'s
+//! `frontend` feature, which also serves an application that places its output
+//! in a page of its own rather than writing one.
 
 pub use arto_config::{
     CjkFontLanguage, ColorTheme, Config, ConfigError, FontFamilyChoice, Theme, ThemeConfig,

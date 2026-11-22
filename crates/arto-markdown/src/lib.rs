@@ -208,6 +208,11 @@ mod block;
 mod engine;
 mod error;
 mod files;
+// A module of its own rather than glob re-exported: its items name the
+// frontend's bundles, which read as `frontend::RUNTIME` and would not as a
+// bare `RUNTIME` beside the renderer's API.
+#[cfg(feature = "frontend")]
+pub mod frontend;
 mod frontmatter;
 mod headings;
 mod images;

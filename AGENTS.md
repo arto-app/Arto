@@ -49,12 +49,12 @@ crate packages, the documentation's links and the workflow files. CI runs the sa
 | Path | What lives there |
 | --- | --- |
 | `crates/arto/` | The desktop app (Dioxus). Windows, the panel and its faces, menus, IPC client/server |
-| `crates/arto-markdown/` | Markdown → HTML pipeline shared by the app, `arto page` and Quick Look |
+| `crates/arto-markdown/` | Markdown → HTML pipeline shared by the app, `arto page` and Quick Look, and (feature `frontend`) the frontend's bundles as Rust strings for another app's page |
 | `crates/arto-config/` | `config.json` types and file I/O (no globals) |
 | `crates/arto-keybindings/` | Keybinding parsing and defaults |
 | `crates/arto-lsp/` | The wire protocol: JSON-RPC 2.0 in LSP framing, and the socket it runs on |
 | `crates/arto-mcp/` | `arto mcp`: an MCP server over the wire protocol, for agents |
-| `crates/arto-frontend/` | The frontend's bundles as Rust strings: the library bundles `arto-page` embeds, and the runtime and stylesheet for another app's page |
+| `crates/arto-frontend/` | Re-exports `arto_markdown::frontend` under the crate's old name; no longer developed |
 | `crates/arto-page/` | Standalone page renderer: `arto page` CLI and the Quick Look static library |
 | `crates/arto-types/` | Values `config.json` and the wire protocol both carry (`Theme`, `FileOpenBehavior`) |
 | `frontend/` | TypeScript and CSS bundled into each crate's `assets/frontend/` by Vite |
@@ -112,7 +112,7 @@ they stay as they are.
 | `mcp` | `crates/arto-mcp/` |
 | `page` | `crates/arto-page/` |
 | `types` | `crates/arto-types/` |
-| `frontend` | `frontend/`, `crates/arto-frontend/` |
+| `frontend` | `frontend/`, `crates/arto-frontend/`, `crates/arto-markdown/src/frontend.rs` |
 | `samples` | `samples/` |
 | `schemas` | `schemas/` |
 | `platform` | `platform/` |

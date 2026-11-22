@@ -108,11 +108,11 @@ Arto/
 ├── crates/
 │   ├── arto/         # Desktop application (Dioxus): src/, assets/, Dioxus.toml
 │   ├── arto-config/  # config.json / keys.toml types, file locations, load and save
-│   ├── arto-frontend/ # The frontend's bundles as Rust strings, for arto-page and other apps
+│   ├── arto-frontend/ # Re-exports arto_markdown::frontend under its old name
 │   ├── arto-lsp/     # The wire protocol: JSON-RPC 2.0 in LSP framing, and the local socket
 │   ├── arto-mcp/     # `arto mcp`: an MCP server over the wire protocol, for agents
 │   ├── arto-keybindings/ # Shortcut parsing, binding sets, presets, and the matching engine
-│   ├── arto-markdown/ # Markdown → HTML rendering library used by the app and arto-page
+│   ├── arto-markdown/ # Markdown → HTML rendering library, and (feature frontend) the frontend's bundles
 │   ├── arto-page/    # Self-contained HTML pages: CLI, `arto page`, Quick Look FFI (feature ffi)
 │   └── arto-types/   # Values config.json and the wire protocol both carry (Theme, FileOpenBehavior)
 ├── frontend/         # WebView-side TypeScript and CSS (pnpm + Vite)
@@ -224,7 +224,7 @@ carries in git, so nothing needs stamping and no release has to be spent on
 it:
 
 ```bash
-just frontend::assets   # arto, arto-page and arto-frontend carry the bundle in their packages
+just frontend::assets   # arto, arto-page and arto-markdown carry the bundle in their packages
 cargo publish --workspace --allow-dirty
 ```
 

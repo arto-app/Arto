@@ -131,7 +131,7 @@ jobs:
           path: |
             crates/arto/assets/frontend
             crates/arto-page/assets/frontend
-            crates/arto-frontend/assets/frontend
+            crates/arto-markdown/assets/frontend
           if-no-files-found: error
           retention-days: 1
 

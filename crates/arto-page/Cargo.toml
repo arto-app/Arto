@@ -13,7 +13,7 @@ categories = ["text-processing", "command-line-utilities"]
 # The stylesheet and the page runtime under assets/ are build output copied in
 # by the frontend build (see frontend/vite.config.ts); list them so a package
 # cannot be published without them. The library bundles come from
-# arto-frontend.
+# arto-markdown's `frontend` feature.
 include = [
   "src/**",
   "assets/frontend/main.css",
@@ -44,8 +44,7 @@ ffi = []
 # The page honours the user's config.json (rendering options, default theme)
 # so `arto page` and Quick Look look like the app does.
 arto-config.workspace = true
-arto-frontend.workspace = true
-arto-markdown.workspace = true
+arto-markdown = { workspace = true, features = ["frontend"] }
 base64.workspace = true
 clap = { workspace = true, optional = true }
 sha2.workspace = true
