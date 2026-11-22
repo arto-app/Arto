@@ -13,7 +13,12 @@ import html2canvas from "html2canvas";
 import katex from "katex";
 import * as pele from "pele";
 
-import { provideHljs, provideHtml2Canvas, provideKatex, provideMermaid } from "./libraries";
+import {
+  provideHljs,
+  provideHtml2Canvas,
+  provideKatex,
+  provideMermaid,
+} from "@arto-app/renderer/libraries";
 
 provideMermaid(pele);
 provideKatex(katex);

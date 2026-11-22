@@ -15,10 +15,10 @@
  */
 
 import { getCurrentElement } from "./content-cursor";
-import { renderHtmlEmbedsElsewhere } from "./html-embed-renderer";
+import { renderHtmlEmbedsElsewhere } from "@arto-app/renderer/html-embed-renderer";
 import { t } from "./app-i18n";
-import { renderMathElsewhere } from "./math-renderer";
-import { renderDiagramsElsewhere } from "./mermaid-renderer";
+import { renderMathElsewhere } from "@arto-app/renderer/math-renderer";
+import { renderDiagramsElsewhere } from "@arto-app/renderer/mermaid-renderer";
 import { renderCoordinator } from "./render-coordinator";
 import { placePopover } from "./popover";
 

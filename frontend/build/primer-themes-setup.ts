@@ -1,8 +1,8 @@
-import { writePrimerThemes } from "../vite.config.ts";
+import { writePrimerThemes } from "@arto-app/renderer/build/primer-themes";
 
 /**
- * Vitest's global setup: write `style/generated/primer-themes.css` before any
- * test file runs.
+ * Vitest's global setup: write the renderer's generated Primer stylesheet
+ * before any test file runs.
  *
  * Vitest reads its own config instead of `vite.config.ts`, so the plugin that
  * generates the stylesheet never runs here — and the generated file is not

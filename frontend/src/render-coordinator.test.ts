@@ -1,24 +1,24 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock external renderer dependencies before import
-vi.mock("./math-renderer", () => ({
+vi.mock("@arto-app/renderer/math-renderer", () => ({
   renderMath: vi.fn(),
 }));
-vi.mock("./syntax-highlighter", () => ({
+vi.mock("@arto-app/renderer/syntax-highlighter", () => ({
   highlightCodeBlocks: vi.fn(),
 }));
-vi.mock("./mermaid-renderer", () => ({
+vi.mock("@arto-app/renderer/mermaid-renderer", () => ({
   renderDiagrams: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("./code-copy", () => ({
+vi.mock("@arto-app/renderer/code-copy", () => ({
   addCopyButtons: vi.fn(),
 }));
 
 import { _internal } from "./render-coordinator";
-import * as mathRenderer from "./math-renderer";
-import * as syntaxHighlighter from "./syntax-highlighter";
-import * as mermaidRenderer from "./mermaid-renderer";
-import * as codeCopy from "./code-copy";
+import * as mathRenderer from "@arto-app/renderer/math-renderer";
+import * as syntaxHighlighter from "@arto-app/renderer/syntax-highlighter";
+import * as mermaidRenderer from "@arto-app/renderer/mermaid-renderer";
+import * as codeCopy from "@arto-app/renderer/code-copy";
 
 const { RenderCoordinator } = _internal;
 

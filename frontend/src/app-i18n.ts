@@ -6,8 +6,8 @@
  * app's English before the first word is looked up.
  */
 import english from "../../crates/arto/locales/frontend.en.json";
-import { addFallback } from "./i18n";
+import { addFallback } from "@arto-app/renderer/i18n";
 
 addFallback(english);
 
-export { locale, t } from "./i18n";
+export { locale, t } from "@arto-app/renderer/i18n";

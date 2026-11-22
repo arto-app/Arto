@@ -11,7 +11,7 @@ readme.workspace = true
 keywords = ["markdown", "html", "github", "renderer", "commonmark"]
 categories = ["text-processing"]
 # The bundles under assets/ are build output copied in by the frontend build
-# (see frontend/vite.config.ts) and ignored by git; list them so a package
+# (see frontend/renderer/vite.config.ts) and ignored by git; list them so a package
 # cannot be published without them. They ship whether or not a consumer turns
 # the `frontend` feature on, which only decides whether they are compiled in.
 include = [

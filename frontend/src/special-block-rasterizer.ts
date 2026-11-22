@@ -3,8 +3,12 @@
  * These convert DOM elements to PNG data URLs for clipboard copy and file save.
  */
 
-import { html2canvasLibrary } from "./libraries";
-import { findSvgElement, getSvgDimensions, convertSvgToDataUrl } from "./code-copy";
+import { html2canvasLibrary } from "@arto-app/renderer/libraries";
+import {
+  findSvgElement,
+  getSvgDimensions,
+  convertSvgToDataUrl,
+} from "@arto-app/renderer/code-copy";
 
 /**
  * Rasterize a Math block (KaTeX HTML) to PNG data URL via html2canvas.
