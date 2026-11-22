@@ -22,7 +22,7 @@ import * as changes from "./changes";
 import * as userHighlights from "./user-highlights";
 import * as linkPreview from "./link-preview";
 import * as taskTicks from "./task-ticks";
-import * as viewportQueue from "./viewport-queue";
+import * as viewportQueue from "@arto-app/renderer/viewport-queue";
 import * as scrollAnchor from "./scroll-anchor";
 import * as stickyTableHead from "./sticky-table-head";
 import { preparePrint, restorePrint } from "./theme-switch";

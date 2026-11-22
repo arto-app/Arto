@@ -62,7 +62,7 @@ fn plural_key(key: &str, count: usize) -> String {
 }
 
 /// The `<script>` that hands the frontend its words for the current locale,
-/// read by `frontend/src/i18n.ts`.
+/// read by `frontend/renderer/src/i18n.ts`.
 pub(crate) fn frontend_catalog() -> String {
     let messages = match locale() {
         "ja" => include_str!("../locales/frontend.ja.json"),

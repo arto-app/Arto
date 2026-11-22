@@ -3,13 +3,13 @@
    stylesheet that reads them. */
 @import url("@primer/primitives/dist/css/base/size/size.css");
 @import url("@primer/primitives/dist/css/base/typography/typography.css");
-@import url("./generated/primer-themes.css");
+@import url("@arto-app/renderer/style/generated/primer-themes.css");
 @import url("@primer/css/dist/markdown.css");
 
 /* Variables and utilities */
-@import url("./variables.css");
+@import url("@arto-app/renderer/style/variables.css");
 @import url("./scrollbar.css");
-@import url("./syntax.css");
+@import url("@arto-app/renderer/style/syntax.css");
 
 /* Shared components */
 @import url("./components/icon.css");
@@ -38,9 +38,9 @@
 /* Content area */
 @import url("./components/content.css");
 @import url("./components/contents-gutter.css");
-@import url("./components/content/code-copy.css");
-@import url("./components/content/mermaid.css");
-@import url("./components/content/html-embed.css");
+@import url("@arto-app/renderer/style/components/content/code-copy.css");
+@import url("@arto-app/renderer/style/components/content/mermaid.css");
+@import url("@arto-app/renderer/style/components/content/html-embed.css");
 @import url("./components/content/content-cursor.css");
 @import url("./components/content/changes.css");
 @import url("./components/content/task-ticks.css");
@@ -56,8 +56,8 @@
 @import url("./components/preferences/keybindings.css");
 @import url("./components/preferences/lenses.css");
 @import url("./components/preferences/typography.css");
-@import url("./components/mermaid-window.css");
-@import url("./components/math-window.css");
+@import url("@arto-app/renderer/style/components/mermaid-window.css");
+@import url("@arto-app/renderer/style/components/math-window.css");
 @import url("./components/image-window.css");
 
 /* External */

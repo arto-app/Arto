@@ -5,6 +5,13 @@
 offline = true
 no_progress = true
 include_fragments = "anchor-only"
-exclude_path = ["target", "frontend/node_modules", "frontend/dist", ".git"]
+exclude_path = [
+  "target",
+  "frontend/node_modules",
+  "frontend/dist",
+  "frontend/renderer/node_modules",
+  "frontend/renderer/dist",
+  ".git",
+]
 # Placeholders that are not links.
 exclude = ["^mailto:", "^file://"]

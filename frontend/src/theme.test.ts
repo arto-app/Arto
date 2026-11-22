@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { describe, test, expect } from "vitest";
 
-import { isDarkTheme } from "./theme";
+import { isDarkTheme } from "@arto-app/renderer/theme";
 
 const repository = path.resolve(import.meta.dirname, "../..");
 
@@ -18,9 +19,10 @@ function themesTheAppCanAskFor(): string[] {
 }
 
 function generatedStylesheet(): string {
-  return readFileSync(path.join(repository, "frontend/style/generated/primer-themes.css"), {
-    encoding: "utf-8",
-  });
+  const file = createRequire(import.meta.url).resolve(
+    "@arto-app/renderer/style/generated/primer-themes.css",
+  );
+  return readFileSync(file, { encoding: "utf-8" });
 }
 
 /** The theme names the generated stylesheet has tokens for. */

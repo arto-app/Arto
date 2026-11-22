@@ -1,5 +1,5 @@
 ---
-paths: "crates/arto-markdown/**, crates/arto/src/markdown.rs, crates/arto-page/**, samples/**, frontend/src/**"
+paths: "crates/arto-markdown/**, crates/arto/src/markdown.rs, crates/arto-page/**, samples/**, frontend/src/**, frontend/renderer/src/**"
 ---
 
 # Markdown Rendering Pipeline
@@ -8,7 +8,8 @@ paths: "crates/arto-markdown/**, crates/arto/src/markdown.rs, crates/arto-page/*
 Quick Look. The crate docs in `crates/arto-markdown/src/lib.rs` are the
 reference for the pipeline order and for the HTML contract (the attributes
 and class names the frontend, the app and the CSS read). Read them before
-changing output; the frontend selectors in `frontend/src/` depend on them.
+changing output; the frontend selectors in `frontend/src/` and `frontend/renderer/src/`
+depend on them.
 
 Order of operations, which must not change:
 

@@ -1,0 +1,49 @@
+{
+  "name": "@arto-app/renderer",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./code-copy": "./src/code-copy.ts",
+    "./html-embed-renderer": "./src/html-embed-renderer.ts",
+    "./i18n": "./src/i18n.ts",
+    "./i18n.en.json": "./src/i18n.en.json",
+    "./libraries": "./src/libraries.ts",
+    "./math-renderer": "./src/math-renderer.ts",
+    "./mermaid-renderer": "./src/mermaid-renderer.ts",
+    "./picture-theme": "./src/picture-theme.ts",
+    "./syntax-highlighter": "./src/syntax-highlighter.ts",
+    "./theme": "./src/theme.ts",
+    "./viewport-queue": "./src/viewport-queue.ts",
+    "./style/*": "./style/*",
+    "./build/primer-themes": "./build/primer-themes.ts",
+    "./build/sync-bundle": "./build/sync-bundle.ts",
+    "./build/write-if-changed": "./build/write-if-changed.ts"
+  },
+  "scripts": {
+    "watch": "vite build --mode development --watch --minify false",
+    "build": "vite build --minify",
+    "fmt": "oxfmt --write \"**/*.{ts,tsx,js,jsx,css}\"",
+    "fmt:check": "oxfmt --check \"**/*.{ts,tsx,js,jsx,css}\"",
+    "check": "oxlint && tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@primer/css": "^22.3.3",
+    "@primer/primitives": "^11.10.0",
+    "@tabler/icons": "^3.50.0",
+    "highlight.js": "^11.12.0",
+    "html2canvas": "^1.4.1",
+    "katex": "^0.19.1",
+    "pele": "^1.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "happy-dom": "^21.0.4",
+    "oxfmt": "^0.77.0",
+    "oxlint": "^1.92.0",
+    "postcss": "^8.5.32",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  }
+}

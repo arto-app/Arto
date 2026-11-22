@@ -1,62 +1,27 @@
 import { readdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import * as appI18n from "./app-i18n";
-import { CATALOG_ID, locale, resetForTesting, t } from "./i18n";
-import rendererEnglish from "./i18n.en.json";
+import rendererEnglish from "@arto-app/renderer/i18n.en.json";
 
 const locales = path.resolve(import.meta.dirname, "../../crates/arto/locales");
 
-function writeCatalog(text: string): void {
-  const script = document.createElement("script");
-  script.type = "application/json";
-  script.id = CATALOG_ID;
-  script.textContent = text;
-  document.head.append(script);
-}
+/** The renderer's sources, which ask for words of their own. */
+const rendererSources = path.dirname(
+  createRequire(import.meta.url).resolve("@arto-app/renderer/i18n"),
+);
 
-afterEach(() => {
-  document.getElementById(CATALOG_ID)?.remove();
-  resetForTesting();
-});
-
-describe("t", () => {
-  test("a page with no catalog reads English", () => {
-    expect(t("frontend.code_copy.copy_image")).toBe("Copy as image");
-    expect(locale()).toBe("en");
-  });
-
-  test("the catalog the window carries wins", () => {
-    writeCatalog(
-      JSON.stringify({
-        locale: "ja",
-        messages: { frontend: { code_copy: { copy_image: "画像" } } },
-      }),
-    );
-    expect(t("frontend.code_copy.copy_image")).toBe("画像");
-    expect(locale()).toBe("ja");
-  });
-
-  test("a key the catalog lacks falls back to English, and then to itself", () => {
-    writeCatalog(JSON.stringify({ locale: "ja", messages: {} }));
-    expect(t("frontend.code_copy.copy_image")).toBe("Copy as image");
-    expect(t("frontend.no.such.key")).toBe("frontend.no.such.key");
-  });
-
-  test("an unreadable catalog is English", () => {
-    writeCatalog("{");
-    expect(t("frontend.code_copy.copy_image")).toBe("Copy as image");
-  });
-
+describe("t, as the app imports it", () => {
   test("placeholders are filled, and one without a value is left as written", () => {
     expect(appI18n.t("frontend.changes.when", { since: "2 hours ago" })).toBe(", 2 hours ago");
     expect(appI18n.t("frontend.changes.when")).toBe(", %{since}");
   });
 
-  test("a word a host registered falls back to the host's English", () => {
+  test("the app's words and the renderer's both read in English", () => {
     expect(appI18n.t("frontend.changes.when", { since: "now" })).toBe(", now");
-    expect(t("frontend.code_copy.copy_image")).toBe("Copy as image");
+    expect(appI18n.t("frontend.code_copy.copy_image")).toBe("Copy as image");
   });
 });
 
@@ -86,15 +51,17 @@ describe("the frontend's catalogs", () => {
 
   test("every key the source asks for is in English", () => {
     const english = new Set([...keys(catalog("frontend.en.json")), ...keys(rendererEnglish)]);
-    const sources = readdirSync(import.meta.dirname).filter(
-      (file) => file.endsWith(".ts") && !file.endsWith(".test.ts"),
+    const sources = [import.meta.dirname, rendererSources].flatMap((dir) =>
+      readdirSync(dir)
+        .filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"))
+        .map((file) => path.join(dir, file)),
     );
     const unknown = sources.flatMap((file) => {
-      const source = readFileSync(path.join(import.meta.dirname, file), "utf-8");
+      const source = readFileSync(file, "utf-8");
       return [...source.matchAll(/\bt\("([\w.]+)"/g)]
         .map((match) => match[1])
         .filter((key) => !english.has(key))
-        .map((key) => `${file}: ${key}`);
+        .map((key) => `${path.basename(file)}: ${key}`);
     });
     expect(unknown).toEqual([]);
   });

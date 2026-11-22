@@ -1,4 +1,4 @@
-import { type Theme, getSystemTheme, themedElement } from "./theme";
+import { type Theme, getSystemTheme, themedElement } from "@arto-app/renderer/theme";
 
 /**
  * Listen for `arto:theme-changed` custom events and sync `data-theme`.

@@ -1,12 +1,12 @@
-import { applyPictureTheme } from "./picture-theme";
-import * as htmlEmbedRenderer from "./html-embed-renderer";
-import * as mathRenderer from "./math-renderer";
-import { currentTheme } from "./theme";
-import * as mermaidRenderer from "./mermaid-renderer";
-import * as syntaxHighlighter from "./syntax-highlighter";
-import * as codeCopy from "./code-copy";
+import { applyPictureTheme } from "@arto-app/renderer/picture-theme";
+import * as htmlEmbedRenderer from "@arto-app/renderer/html-embed-renderer";
+import * as mathRenderer from "@arto-app/renderer/math-renderer";
+import { currentTheme } from "@arto-app/renderer/theme";
+import * as mermaidRenderer from "@arto-app/renderer/mermaid-renderer";
+import * as syntaxHighlighter from "@arto-app/renderer/syntax-highlighter";
+import * as codeCopy from "@arto-app/renderer/code-copy";
 import * as taskTicks from "./task-ticks";
-import * as viewportQueue from "./viewport-queue";
+import * as viewportQueue from "@arto-app/renderer/viewport-queue";
 import * as scrollAnchor from "./scroll-anchor";
 import * as focusMode from "./focus-mode";
 

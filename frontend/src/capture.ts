@@ -6,10 +6,10 @@
  * is not moved to it (docs/adr/20261114-draw-a-capture-from-the-page-rather-than-the-screen.md).
  */
 
-import { html2canvasLibrary } from "./libraries";
+import { html2canvasLibrary } from "@arto-app/renderer/libraries";
 import { scrollContainer } from "./scroll-destination";
 import { readSourceRange } from "./source-range";
-import * as viewportQueue from "./viewport-queue";
+import * as viewportQueue from "@arto-app/renderer/viewport-queue";
 
 /** One picture, as `crates/arto-lsp`'s `CaptureResult` carries it. */
 export interface Capture {

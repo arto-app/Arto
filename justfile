@@ -60,6 +60,7 @@ dev:
   dist="$root/crates/arto/assets/frontend"
   if [ ! -f "$dist/main.js" ] || [ ! -f "$dist/main.css" ]; then
     echo "Building frontend bundle..."
+    pnpm --filter @arto-app/renderer exec vite build --mode development --minify false
     pnpm exec vite build --mode development --minify false
   else
     echo "Frontend bundle found, skipping initial build..."

@@ -3,14 +3,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite build --mode development --watch --minify false",
-    "build": "vite build --minify",
-    "fmt": "oxfmt --write \"**/*.{ts,tsx,js,jsx,css}\"",
-    "fmt:check": "oxfmt --check \"**/*.{ts,tsx,js,jsx,css}\"",
-    "check": "oxlint && tsc --noEmit",
-    "test": "vitest run"
+    "dev": "pnpm --recursive --include-workspace-root --parallel run watch",
+    "watch": "vite build --mode development --watch --minify false",
+    "build": "pnpm --filter @arto-app/renderer run build && vite build --minify",
+    "fmt": "pnpm --filter @arto-app/renderer run fmt && oxfmt --write \"**/*.{ts,tsx,js,jsx,css}\" \"!renderer/**\"",
+    "fmt:check": "pnpm --filter @arto-app/renderer run fmt:check && oxfmt --check \"**/*.{ts,tsx,js,jsx,css}\" \"!renderer/**\"",
+    "check": "pnpm --filter @arto-app/renderer run check && oxlint --ignore-pattern \"renderer/**\" && tsc --noEmit",
+    "test": "pnpm --filter @arto-app/renderer run test && vitest run"
   },
   "dependencies": {
+    "@arto-app/renderer": "workspace:*",
     "@primer/css": "^22.3.3",
     "@primer/primitives": "^11.10.0",
     "@types/node": "^26.6.6",
@@ -24,7 +26,6 @@
     "happy-dom": "^21.0.4",
     "oxfmt": "^0.77.0",
     "oxlint": "^1.92.0",
-    "postcss": "^8.5.32",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.6",
