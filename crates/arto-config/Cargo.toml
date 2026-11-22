@@ -10,6 +10,9 @@ homepage.workspace = true
 readme.workspace = true
 keywords = ["config", "markdown", "settings"]
 categories = ["config"]
+# Part of the app, not a library others build on: only the renderer
+# (arto-markdown, and arto-frontend under its old name) is published.
+publish = false
 
 [dependencies]
 # Sections owned by the crates that consume them.

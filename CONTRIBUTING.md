@@ -197,8 +197,14 @@ When updating by hand:
 
 Publishing a release takes no action: the `publish` job in
 `.github/workflows/release.yml` runs on every published GitHub release and
-sends every member of the workspace — `arto` included — to crates.io at the
-release version.
+sends the renderer's crates — `arto-markdown`, and `arto-frontend`, which
+re-exports its frontend under the old name — to crates.io at the release
+version. The app's crates are `publish = false`; their versions already on
+crates.io stay there.
+
+The crates published are named in two places, the `publish` job and the
+`package` recipe in `crates/arto/justfile`, which verifies them on every pull
+request. A crate made public names itself in both.
 
 No registry token lives in this repository. The job authenticates with
 [Trusted Publishing]: crates.io is told which repository and workflow file it
@@ -224,21 +230,16 @@ carries in git, so nothing needs stamping and no release has to be spent on
 it:
 
 ```bash
-just frontend::assets   # arto, arto-page and arto-markdown carry the bundle in their packages
-cargo publish --workspace --allow-dirty
+just frontend::assets   # arto-markdown carries the bundle in its package
+cargo publish -p <name> --allow-dirty
 ```
 
-`--workspace` orders the members by their dependencies and waits for each to
-reach the index before the next one asks for it, so nothing has to be
-sequenced by hand. `--allow-dirty` is for the bundle, which git ignores
-because it is build output. The verification build is worth the wait: it is
-what proves each package carries the files its `include` list names.
-
-`--exclude <name>` leaves out a crate the registry already carries at `0.0.0`
-— what crates.io has, not what the working tree says, since every member in
-git reads `0.0.0` whether it was ever published or not. There is no
-`--skip-existing`, so a run that stopped partway is resumed by excluding the
-members that did get through.
+`--allow-dirty` is for the bundle, which git ignores because it is build
+output. The verification build is worth the wait: it is what proves the
+package carries the files its `include` list names. Name only the crates the
+registry does not carry yet — what crates.io has, not what the working tree
+says, since every member in git reads `0.0.0` whether it was ever published
+or not.
 
 Then, on each crate's settings page on crates.io, add a trusted publisher for
 this repository naming `release.yml`. From the next release on, the job does
@@ -255,8 +256,7 @@ name, or the `publish` job fails on a member it has no token for — after the
 members ahead of it in the dependency order have already gone out, which
 cannot be undone.
 
-1. Claim the new name exactly as above, excluding every member the registry
-   already carries.
+1. Claim the new name exactly as above.
 2. Add the trusted publisher for it.
 3. Decide what becomes of the old name. It cannot be deleted, so it either
    stays as it is, is yanked, or gets one last version whose description

@@ -10,6 +10,9 @@ homepage.workspace = true
 readme.workspace = true
 keywords = ["ipc", "single-instance", "socket"]
 categories = ["os", "network-programming"]
+# Part of the app, not a library others build on: only the renderer
+# (arto-markdown, and arto-frontend under its old name) is published.
+publish = false
 
 [dependencies]
 # `FileOpenBehavior` and `Theme` travel on the wire exactly as they are

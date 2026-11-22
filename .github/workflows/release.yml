@@ -1,7 +1,7 @@
 name: "Release"
 
 # On a published GitHub release: bundle every leg with the release version,
-# attach the installers to the release, publish the crates, tell the
+# attach the installers to the release, publish the renderer's crates, tell the
 # Homebrew tap, and build the flake from the tag into the Nix cache.
 
 on:
@@ -22,12 +22,11 @@ jobs:
     # has no environment to read them from.
     secrets: inherit
 
-  # The crates at the version the installers carry. After `bundle`, because a
-  # published version can only be yanked, never replaced or corrected — so a
-  # release that could not even be built must not reach the registry.
-  #
-  # macOS because the verification build has to compile `arto`, and macOS
-  # needs no GTK/WebKit packages to do it.
+  # The renderer's crates at the version the installers carry: arto-markdown,
+  # and arto-frontend, which re-exports its frontend under the old name. The
+  # app's crates are `publish = false`. After `bundle`, because a published
+  # version can only be yanked, never replaced or corrected — so a release
+  # that could not even be built must not reach the registry.
   #
   # This job cannot make a crate that does not exist yet: crates.io only lets
   # a trusted publisher be configured on a crate that is already there, so
@@ -66,10 +65,10 @@ jobs:
           VERSION="${VERSION#v}"
           perl -i -pe 's/= "0\.0\.0"/= "'"${VERSION}"'"/g' Cargo.toml
           echo "${VERSION}" > crates/arto/VERSION
-      # `arto`, `arto-page` and `arto-markdown` name the frontend bundle in
-      # their `include` lists, and git does not track it — it is build output.
+      # `arto-markdown` names the frontend bundle in its `include` list, and
+      # git does not track it — it is build output.
       - run: just frontend::assets
-      # `--workspace` orders the members by their dependencies and waits for
+      # Several `-p` order the packages by their dependencies and wait for
       # each to reach the index before the next one asks for it. The
       # verification build is the point of not passing `--no-verify`: it is
       # what proves each package actually carries the files its `include`
@@ -84,7 +83,7 @@ jobs:
       - name: Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        run: cargo publish --workspace --allow-dirty
+        run: cargo publish -p arto-markdown -p arto-frontend --allow-dirty
 
   # Ubuntu rather than macOS: this job only moves files, and it needs
   # `timeout`, which a macOS runner does not have.
