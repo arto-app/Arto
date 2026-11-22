@@ -30,7 +30,7 @@
   "dependencies": {
     "@primer/css": "^22.3.3",
     "@primer/primitives": "^11.10.0",
-    "@tabler/icons": "^3.50.0",
+    "@tabler/icons": "^3.52.0",
     "highlight.js": "^11.12.0",
     "html2canvas": "^1.4.1",
     "katex": "^0.19.1",
@@ -39,11 +39,11 @@
   "devDependencies": {
     "@types/node": "^26.6.6",
     "happy-dom": "^21.0.4",
-    "oxfmt": "^0.77.0",
-    "oxlint": "^1.92.0",
-    "postcss": "^8.5.32",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
+    "postcss": "^8.5.33",
     "typescript": "^7.0.2",
-    "vite": "^8.3.6",
+    "vite": "^8.3.8",
     "vitest": "^5.1.0"
   }
 }
