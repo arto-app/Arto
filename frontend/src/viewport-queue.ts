@@ -34,31 +34,20 @@ const ROOT_MARGIN = "300% 0px";
  */
 const FRAME_BUDGET_MS = 8;
 
+/** Where the document scrolls now; `null` for the viewport. */
+let scroller: string | null = null;
+
 /**
- * The scroll container the app puts the document in.
+ * Say which element the document scrolls in, or `null` when it scrolls with
+ * the page, which is what is assumed until a host says otherwise.
  *
  * `rootMargin` only expands the observer's own root: a target is first
  * clipped against every intervening scroll container, unexpanded, and only
  * then intersected with the margin-expanded root. With the implicit
- * (viewport) root and the document scrolling inside `.content`, the margin
- * would therefore buy nothing and every job would start at the moment its
- * block became visible. Where there is no such container — the standalone
- * page renderer, where the document itself scrolls — the implicit root is
- * the right one.
- */
-export const APP_SCROLLER = ".content";
-
-/** Where the document scrolls now; `null` for the viewport. */
-let scroller: string | null = APP_SCROLLER;
-
-/**
- * Say which element the document scrolls in, or `null` when it scrolls with
- * the page.
- *
- * Arto's window is the only place `.content` means that. A host that places
- * the rendered document in a window of its own may have a `.content` for
- * anything at all, and an observer rooted there would never see a block of
- * ours come near.
+ * (viewport) root and the document scrolling inside a container of its own,
+ * the margin would therefore buy nothing and every job would start at the
+ * moment its block became visible. Only the host knows its window, so only
+ * the host can name that container.
  */
 export function setScroller(selector: string | null): void {
   scroller = selector;

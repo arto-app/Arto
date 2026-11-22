@@ -106,8 +106,8 @@ class MermaidWindowController extends BaseViewerController {
 // Global instance
 let controller: MermaidWindowController | null = null;
 
-// `handleMermaidWindowOpen` is declared once, in main.ts, alongside the other
-// window-open callbacks the Rust side installs in the main viewer window.
+// `handleMermaidWindowOpen` is declared by the renderer that calls it
+// (`mermaid-renderer.ts`); the Rust side installs it in the main viewer window.
 declare global {
   interface Window {
     mermaidWindowController?: MermaidWindowController;

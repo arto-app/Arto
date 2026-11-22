@@ -1,15 +1,15 @@
 /**
  * The words the frontend writes into a window itself.
  *
- * They are kept with the app's own translations, in
- * `crates/arto/locales/frontend.<code>.json`. English is bundled here, so a
- * page with nobody to ask — one `arto page` wrote — still reads; a window
- * the app opens carries the translation for its locale in
- * `#arto-i18n`, written into its head (see `assets::main_head`).
+ * A window the app opens carries the translation for its locale in
+ * `#arto-i18n`, written into its head (see `assets::main_head`). English is
+ * bundled, so a page with nobody to ask — one `arto page` wrote, or another
+ * app's — still reads: the renderer's own words here, and whatever a host
+ * adds with {@link addFallback}.
  */
-import english from "../../crates/arto/locales/frontend.en.json";
+import rendererEnglish from "./i18n.en.json";
 
-type Tree = { [key: string]: string | Tree };
+export type Tree = { [key: string]: string | Tree };
 
 interface Catalog {
   locale: string;
@@ -18,14 +18,14 @@ interface Catalog {
 
 export const CATALOG_ID = "arto-i18n";
 
-const FALLBACK: Catalog = { locale: "en", messages: english };
+const fallbacks: Tree[] = [rendererEnglish];
 
 let catalog: Catalog | null = null;
 
 function current(): Catalog {
   if (catalog) return catalog;
   const text = document.getElementById(CATALOG_ID)?.textContent;
-  catalog = FALLBACK;
+  catalog = { locale: "en", messages: {} };
   if (text) {
     try {
       catalog = JSON.parse(text) as Catalog;
@@ -45,6 +45,14 @@ function lookup(tree: Tree, key: string): string | undefined {
   return typeof node === "string" ? node : undefined;
 }
 
+/**
+ * Add English for words of the host's own, read when the window's catalog
+ * lacks a key.
+ */
+export function addFallback(english: Tree): void {
+  if (!fallbacks.includes(english)) fallbacks.push(english);
+}
+
 /** The interface locale, for `Intl` formatters. */
 export function locale(): string {
   return current().locale;
@@ -56,8 +64,11 @@ export function locale(): string {
  * English, and one English lacks to the key itself.
  */
 export function t(key: string, args: Record<string, string> = {}): string {
-  const text = lookup(current().messages, key) ?? lookup(english, key) ?? key;
-  return text.replace(/%\{(\w+)\}/g, (whole, name: string) => args[name] ?? whole);
+  let text = lookup(current().messages, key);
+  for (const english of fallbacks) {
+    text ??= lookup(english, key);
+  }
+  return (text ?? key).replace(/%\{(\w+)\}/g, (whole, name: string) => args[name] ?? whole);
 }
 
 /** Forget the catalog read from the page, so a test can write another. */

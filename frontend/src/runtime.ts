@@ -24,6 +24,15 @@ import { forgetStep, setupFocusScrolling, stepFocus } from "./focus-mode";
 
 export { setCurrentTheme } from "./theme-switch";
 
+/**
+ * The scroll container the app puts the document in. Named as soon as the
+ * runtime loads, before anything is queued: where there is no such container
+ * — the page `arto page` writes, where the document itself scrolls — nothing
+ * matches it and the queue observes against the viewport.
+ */
+export const APP_SCROLLER = ".content";
+viewportQueue.setScroller(APP_SCROLLER);
+
 export function init(): void {
   renderCoordinator.init();
   renderCoordinator.ignoreWithin(FRAME_SELECTOR);
