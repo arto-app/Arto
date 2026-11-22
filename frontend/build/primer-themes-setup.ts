@@ -1,4 +1,4 @@
-import { writePrimerThemes } from "@arto-app/renderer/build/primer-themes";
+import { writePrimerThemes } from "@arto-app/markdown/build/primer-themes";
 
 /**
  * Vitest's global setup: write the renderer's generated Primer stylesheet

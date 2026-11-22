@@ -2,9 +2,9 @@ import { defineConfig, type Plugin } from "vite";
 import path from "path";
 import fs from "fs";
 
-import { primerThemesPlugin } from "@arto-app/renderer/build/primer-themes";
-import { type BundleConsumer, syncBundlePlugin } from "@arto-app/renderer/build/sync-bundle";
-import { writeIfChanged } from "@arto-app/renderer/build/write-if-changed";
+import { primerThemesPlugin } from "@arto-app/markdown/build/primer-themes";
+import { type BundleConsumer, syncBundlePlugin } from "@arto-app/markdown/build/sync-bundle";
+import { writeIfChanged } from "@arto-app/markdown/build/write-if-changed";
 
 import icons from "./icons.json" with { type: "json" };
 

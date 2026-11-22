@@ -77,15 +77,15 @@
 //! - `$$…$$` → `<div class="preprocessed-math-display" data-original-content="…">`
 //! - `$…$` → `<span class="preprocessed-math-inline" data-original-content="…">`
 //!
-//! Readers: `frontend/renderer/src/mermaid-renderer.ts`,
-//! `frontend/renderer/src/math-renderer.ts`,
-//! `frontend/renderer/src/code-copy.ts` (copy as image),
+//! Readers: `frontend/markdown/src/mermaid-renderer.ts`,
+//! `frontend/markdown/src/math-renderer.ts`,
+//! `frontend/markdown/src/code-copy.ts` (copy as image),
 //! `frontend/src/content-cursor.ts`, `frontend/src/context-menu-handler.ts`,
 //! `frontend/src/render-coordinator.ts` and
 //! `crates/arto/src/keybindings/dispatcher.rs` (open in a window); styled by
-//! `frontend/renderer/style/components/content/markdown-viewer.css`,
-//! `frontend/renderer/style/components/mermaid-window.css`,
-//! `frontend/renderer/style/components/math-window.css` and
+//! `frontend/markdown/style/components/content/markdown-viewer.css`,
+//! `frontend/markdown/style/components/mermaid-window.css`,
+//! `frontend/markdown/style/components/math-window.css` and
 //! `frontend/style/print.css`.
 //!
 //! ## HTML embeds
@@ -99,10 +99,10 @@
 //! [`RawHtml`] applies to it: the frontend draws it in a sandboxed frame of
 //! its own, which is where it is kept from the page.
 //!
-//! Readers: `frontend/renderer/src/html-embed-renderer.ts`,
-//! `frontend/renderer/src/code-copy.ts`; styled by
-//! `frontend/renderer/style/components/content/html-embed.css`. The script
-//! that frame runs is `frontend/renderer/src/html-embed-frame.ts`, which
+//! Readers: `frontend/markdown/src/html-embed-renderer.ts`,
+//! `frontend/markdown/src/code-copy.ts`; styled by
+//! `frontend/markdown/style/components/content/html-embed.css`. The script
+//! that frame runs is `frontend/markdown/src/html-embed-frame.ts`, which
 //! `arto page` allowlists by hash.
 //!
 //! ## GitHub alerts
@@ -133,7 +133,7 @@
 //! and `<table class="frontmatter-table">`. Values are typed with
 //! `yaml-null`, `yaml-bool`, `yaml-number`, `yaml-empty`, `yaml-list` and
 //! `yaml-nested`; styled by
-//! `frontend/renderer/style/components/content/frontmatter.css`.
+//! `frontend/markdown/style/components/content/frontmatter.css`.
 //!
 //! ## Links and images
 //!
@@ -156,7 +156,7 @@
 //! `data-md-link` and `.md-link` are the app,
 //! `frontend/src/link-preview.ts` (which previews the target on hover and
 //! leaves `md-link-missing` and `md-link-invalid` alone) and
-//! `frontend/renderer/style/components/content/markdown-viewer.css`.
+//! `frontend/markdown/style/components/content/markdown-viewer.css`.
 //!
 //! HTML shown on a page other than its own document's goes through
 //! [`rebase_document_links`] first, so its links keep naming what they named
@@ -174,7 +174,7 @@
 //! through [`without_remote_media`] and keeps only the link, and
 //! `frontend/src/video-fallback.ts` swaps a player that fails to play for
 //! it. A URL inside a sentence, or a link with a label, stays a link.
-//! Styled by `frontend/renderer/style/components/content/markdown-viewer.css`.
+//! Styled by `frontend/markdown/style/components/content/markdown-viewer.css`.
 //!
 //! ## Headings
 //!
@@ -206,7 +206,7 @@
 //! ## Code blocks
 //!
 //! `<pre><code class="language-<lang>">`; the frontend highlights by that
-//! class and `frontend/renderer/src/code-copy.ts` adds the copy button to every
+//! class and `frontend/markdown/src/code-copy.ts` adds the copy button to every
 //! `pre`.
 
 mod block;
@@ -386,7 +386,7 @@ pub fn render_detached(
 /// is dropped. A Mermaid diagram is the exception: it is handed to the page,
 /// which draws it as it would its own — images it names included — and
 /// takes out of the drawing only what would run in the app
-/// (`frontend/renderer/src/preview-diagram.ts`).
+/// (`frontend/markdown/src/preview-diagram.ts`).
 pub fn render_preview(
     markdown: impl AsRef<str>,
     base_path: impl AsRef<Path>,

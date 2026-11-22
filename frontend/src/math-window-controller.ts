@@ -1,5 +1,5 @@
 import { BaseViewerController } from "./base-viewer-controller";
-import { themedElement } from "@arto-app/renderer/theme";
+import { themedElement } from "@arto-app/markdown/theme";
 
 /**
  * Math window controller for displaying LaTeX expressions.

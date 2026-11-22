@@ -1,13 +1,13 @@
-@import url("@arto-app/renderer/style/components/content/frontmatter.css");
-@import url("@arto-app/renderer/style/components/content/markdown-alert.css");
-@import url("@arto-app/renderer/style/components/content/markdown-viewer.css");
+@import url("@arto-app/markdown/style/components/content/frontmatter.css");
+@import url("@arto-app/markdown/style/components/content/markdown-alert.css");
+@import url("@arto-app/markdown/style/components/content/markdown-viewer.css");
 @import url("./content/highlights.css");
 @import url("./content/welcome.css");
 @import url("./content/margin-trace.css");
 @import url("./content/sticky-table-head.css");
 @import url("./content/focus-mode.css");
 @import url("./content/link-preview.css");
-@import url("@arto-app/renderer/style/components/content/footnotes.css");
+@import url("@arto-app/markdown/style/components/content/footnotes.css");
 
 .content {
   flex: 1;

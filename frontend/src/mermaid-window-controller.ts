@@ -1,6 +1,6 @@
 import { render } from "pele";
-import { themedElement } from "@arto-app/renderer/theme";
-import { diagramOptions } from "@arto-app/renderer/mermaid-renderer";
+import { themedElement } from "@arto-app/markdown/theme";
+import { diagramOptions } from "@arto-app/markdown/mermaid-renderer";
 import { BaseViewerController } from "./base-viewer-controller";
 
 class MermaidWindowController extends BaseViewerController {
