@@ -160,7 +160,6 @@ inside the devShell:
 | Rust tests | `just arto::test-ci` (nextest) or `just arto::test` |
 | rustdoc, feature combinations | `just arto::doc`, `just arto::features` |
 | advisories and licenses, unused dependencies | `just arto::deny`, `just arto::machete` |
-| crate packages (what `cargo publish` verifies) | `just frontend::assets`, then `just arto::package` |
 | frontend | `just frontend::check`, `just frontend::test` |
 | documentation links and paths | `just docs` |
 | workflow files | `just workflows` |
@@ -203,78 +202,14 @@ When updating by hand:
 
 ## Publishing to crates.io
 
-Publishing a release takes no action: the `publish` job in
-`.github/workflows/release.yml` runs on every published GitHub release and
-sends the renderer's crates — `arto-markdown`, and `arto-frontend`, which
-re-exports its frontend under the old name — to crates.io at the release
-version. The app's crates are `publish = false`; their versions already on
-crates.io stay there.
+Arto publishes nothing to crates.io. The renderer, `arto-markdown`, and
+`arto-frontend`, which re-exports its frontend under the old name, are
+released from [arto-app/arto-markdown], which publishes them; every crate in
+this workspace is `publish = false`. The versions already on crates.io stay
+there: the app's crates last at 0.47.0, and the renderer's at 0.47.1 before
+its own repository took them over.
 
-The crates published are named in two places, the `publish` job and the
-`package` recipe in `crates/arto/justfile`, which verifies them on every pull
-request. A crate made public names itself in both.
-
-No registry token lives in this repository. The job authenticates with
-[Trusted Publishing]: crates.io is told which repository and workflow file it
-trusts, and `rust-lang/crates-io-auth-action` exchanges GitHub's OIDC claim
-for a token that expires when the job ends. That is what `id-token: write` on
-the job is for.
-
-### Version stamping
-
-The version in git is always `0.0.0`, and CI stamps the release tag into the
-working copy without ever committing it. The stamp replaces **every** `0.0.0`
-in the root `Cargo.toml`, not only the `[workspace.package]` one: the members
-ask each other for the workspace version, so stamping one line would leave
-them requiring `^0.0.0` from crates that had just become `X.Y.Z`, and the
-workspace would stop resolving at all.
-
-### Claiming a new name
-
-crates.io only lets a trusted publisher be configured on a crate that already
-exists, so a name has to reach the registry once before CI can ever publish
-it. That first version is `0.0.0` — the version this repository already
-carries in git, so nothing needs stamping and no release has to be spent on
-it:
-
-```bash
-just frontend::assets   # arto-markdown carries the bundle in its package
-cargo publish -p <name> --allow-dirty
-```
-
-`--allow-dirty` is for the bundle, which git ignores because it is build
-output. The verification build is worth the wait: it is what proves the
-package carries the files its `include` list names. Name only the crates the
-registry does not carry yet — what crates.io has, not what the working tree
-says, since every member in git reads `0.0.0` whether it was ever published
-or not.
-
-Then, on each crate's settings page on crates.io, add a trusted publisher for
-this repository naming `release.yml`. From the next release on, the job does
-it, and `0.0.0` is superseded by the first real version — which is also when
-the registry page starts showing the README, keywords and categories, since
-crates.io renders the latest version's metadata.
-
-### Renaming a crate
-
-A rename is a new name by these rules, and the registry does not learn it
-from the rename: nothing in git tells crates.io anything. Both halves have to
-be done by hand, **before** the release that would first publish the new
-name, or the `publish` job fails on a member it has no token for — after the
-members ahead of it in the dependency order have already gone out, which
-cannot be undone.
-
-1. Claim the new name exactly as above.
-2. Add the trusted publisher for it.
-3. Decide what becomes of the old name. It cannot be deleted, so it either
-   stays as it is, is yanked, or gets one last version whose description
-   points at the new name. Leaving it alone leaves a crate on the registry
-   that still looks current.
-
-A grep of the working tree will not catch this: what needs changing is the
-state of the registry, not a file.
-
-[Trusted Publishing]: https://crates.io/docs/trusted-publishing
+[arto-app/arto-markdown]: https://github.com/arto-app/arto-markdown
 
 ## Code Style
 

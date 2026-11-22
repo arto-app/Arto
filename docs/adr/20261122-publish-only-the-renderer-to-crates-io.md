@@ -1,6 +1,7 @@
 # Publish only the renderer to crates.io
 
-Status: Accepted
+Status: Superseded by
+20261122-release-the-renderer-from-its-own-repository.md
 
 ## Context
 
