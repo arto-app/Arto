@@ -1,6 +1,6 @@
 [package]
 name = "arto-lsp"
-description = "Arto's wire protocol: JSON-RPC 2.0 in LSP framing, and the local socket a second launch hands its request to"
+description = "Arto's wire protocol: JSON-RPC 2.0 in LSP framing, and the local socket a second launch hands its request to. Last version published to crates.io: Arto installs from its releases at https://github.com/arto-app/Arto"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

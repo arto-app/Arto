@@ -1,6 +1,6 @@
 [package]
 name = "arto-page"
-description = "Render Markdown into a self-contained HTML page with Arto's styling"
+description = "Render Markdown into a self-contained HTML page with Arto's styling. Last version published to crates.io: Arto installs from its releases at https://github.com/arto-app/Arto"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "arto-mcp"
-description = "A Model Context Protocol server that lets an agent show files in Arto and read where the reader is"
+description = "A Model Context Protocol server that lets an agent show files in Arto and read where the reader is. Last version published to crates.io: Arto installs from its releases at https://github.com/arto-app/Arto"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
