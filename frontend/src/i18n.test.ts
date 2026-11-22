@@ -2,7 +2,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
+import * as appI18n from "./app-i18n";
 import { CATALOG_ID, locale, resetForTesting, t } from "./i18n";
+import rendererEnglish from "./i18n.en.json";
 
 const locales = path.resolve(import.meta.dirname, "../../crates/arto/locales");
 
@@ -48,8 +50,13 @@ describe("t", () => {
   });
 
   test("placeholders are filled, and one without a value is left as written", () => {
-    expect(t("frontend.changes.when", { since: "2 hours ago" })).toBe(", 2 hours ago");
-    expect(t("frontend.changes.when")).toBe(", %{since}");
+    expect(appI18n.t("frontend.changes.when", { since: "2 hours ago" })).toBe(", 2 hours ago");
+    expect(appI18n.t("frontend.changes.when")).toBe(", %{since}");
+  });
+
+  test("a word a host registered falls back to the host's English", () => {
+    expect(appI18n.t("frontend.changes.when", { since: "now" })).toBe(", now");
+    expect(t("frontend.code_copy.copy_image")).toBe("Copy as image");
   });
 });
 
@@ -64,8 +71,21 @@ describe("the frontend's catalogs", () => {
     return JSON.parse(readFileSync(path.join(locales, file), "utf-8"));
   }
 
+  test("the renderer's English is the app's English for the same words", () => {
+    // The renderer carries its own words so it reads in a page the app did
+    // not write; the app keeps them too, so they are translated with the
+    // rest of its catalog. Edited in one place only, the two would drift.
+    const at = (tree: unknown, key: string): unknown =>
+      key.split(".").reduce((node, part) => (node as Record<string, unknown>)?.[part], tree);
+    const app = catalog("frontend.en.json");
+    const drifted = keys(rendererEnglish).filter(
+      (key) => at(app, key) !== at(rendererEnglish, key),
+    );
+    expect(drifted).toEqual([]);
+  });
+
   test("every key the source asks for is in English", () => {
-    const english = new Set(keys(catalog("frontend.en.json")));
+    const english = new Set([...keys(catalog("frontend.en.json")), ...keys(rendererEnglish)]);
     const sources = readdirSync(import.meta.dirname).filter(
       (file) => file.endsWith(".ts") && !file.endsWith(".test.ts"),
     );

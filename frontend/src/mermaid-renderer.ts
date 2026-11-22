@@ -5,6 +5,13 @@ import { inertSvg } from "./preview-diagram";
 import { whenNearViewport } from "./viewport-queue";
 import { restoreCopyButton } from "./code-copy";
 
+declare global {
+  interface Window {
+    /** Open a diagram in a window of its own; a host that has one installs it. */
+    handleMermaidWindowOpen?: (source: string) => void;
+  }
+}
+
 export function renderDiagrams(container: Element): Promise<void> {
   if (!mermaidLibrary()) {
     return Promise.resolve();

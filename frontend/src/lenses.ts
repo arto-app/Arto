@@ -15,7 +15,7 @@
  */
 
 import { getCurrentElement } from "./content-cursor";
-import { t } from "./i18n";
+import { t } from "./app-i18n";
 import { contentZoom, placePopover } from "./popover";
 import { readSourceRange } from "./source-range";
 

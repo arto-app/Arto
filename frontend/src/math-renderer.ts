@@ -2,6 +2,13 @@ import { type KatexLibrary, katexLibrary } from "./libraries";
 import { whenNearViewport } from "./viewport-queue";
 import { restoreCopyButton } from "./code-copy";
 
+declare global {
+  interface Window {
+    /** Open a formula block in a window of its own; a host that has one installs it. */
+    handleMathWindowOpen?: (source: string) => void;
+  }
+}
+
 /**
  * Where the formulas being set are shown.
  *

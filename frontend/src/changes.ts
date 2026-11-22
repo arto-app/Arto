@@ -12,7 +12,7 @@
  * layer beside the page (see [`draw`]).
  */
 
-import { locale, t } from "./i18n";
+import { locale, t } from "./app-i18n";
 import { refreshReadingPosition } from "./reading-position";
 import { renderCoordinator } from "./render-coordinator";
 import { toElement } from "./scroll-controller";

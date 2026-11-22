@@ -1,0 +1,12 @@
+{
+  "frontend": {
+    "code_copy": {
+      "copy_code": "Copy code to clipboard",
+      "copy_image": "Copy as image"
+    },
+    "html_embed": {
+      "label": "User-created content",
+      "too_large": "This embed is larger than %{limit} and is not drawn."
+    }
+  }
+}

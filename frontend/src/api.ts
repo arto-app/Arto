@@ -234,10 +234,6 @@ export interface ArtoApi {
 declare global {
   interface Window {
     Arto: ArtoApi;
-    /** Called from JavaScript when Math block click is detected */
-    handleMathWindowOpen?: (source: string) => void;
-    /** Called from JavaScript when Mermaid block click is detected */
-    handleMermaidWindowOpen?: (source: string) => void;
     /** Called from JavaScript when Image block click is detected */
     handleImageWindowOpen?: (src: string, alt: string | null) => void;
     /** Follow a document link as written; installed by the app's file viewer. */

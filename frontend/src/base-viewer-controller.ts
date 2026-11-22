@@ -3,7 +3,7 @@
  * Provides a foundation for specialized viewers like Mermaid, Math, and Image windows.
  */
 
-import { t } from "./i18n";
+import { t } from "./app-i18n";
 
 interface ViewerState {
   scale: number;

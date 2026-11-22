@@ -255,5 +255,5 @@ export async function copyImageToClipboard(): Promise<void> {
 }
 
 // Sync data-theme attribute when Rust dispatches theme changes
-import { setupThemeSync } from "./theme";
+import { setupThemeSync } from "./theme-sync";
 setupThemeSync();

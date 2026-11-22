@@ -54,8 +54,6 @@ function liveViewers(): Element[] {
  * current theme. Each block is drawn as the reader comes near it.
  */
 export function render(viewer: Element): void {
-  // The host's page, not Arto's window: a `.content` there is the host's.
-  viewportQueue.setScroller(null);
   // Jobs for blocks the host has since thrown away would only hold the queue.
   viewportQueue.prune();
 
