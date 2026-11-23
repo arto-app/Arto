@@ -235,6 +235,7 @@
                   ++ lib.optionals isLinux [
                     pkgs.pkg-config
                     pkgs.wrapGAppsHook3
+                    pkgs.copyDesktopItems
                   ];
 
                 postPatch = ''
@@ -304,7 +305,32 @@
 
                     mkdir -p $out/bin
                     ln -s $out/lib/${appExecutableName}/${appExecutableName} $out/bin/${appExecutableName}
+
+                    # Referenced as its own store path rather than through the
+                    # source fileset, so replacing the icon does not rebuild
+                    # the cargo dependencies.
+                    install -Dm644 ${./platform/linux/arto.png} \
+                      $out/share/icons/hicolor/512x512/apps/${appExecutableName}.png
                   '';
+
+                desktopItems = lib.optionals isLinux [
+                  (pkgs.makeDesktopItem {
+                    name = appExecutableName;
+                    desktopName = "Arto";
+                    genericName = "Markdown Reader";
+                    comment = "Read Markdown, locally and offline";
+                    exec = "${appExecutableName} %F";
+                    icon = appExecutableName;
+                    categories = [
+                      "Office"
+                      "Viewer"
+                    ];
+                    mimeTypes = [ "text/markdown" ];
+                    # Tao gives GTK no application id, so the window is known
+                    # by GTK's program name: the executable's.
+                    startupWMClass = appExecutableName;
+                  })
+                ];
 
                 # Also lets the release check run `--version` against the tag.
                 meta.mainProgram = appExecutableName;
