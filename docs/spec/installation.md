@@ -98,7 +98,9 @@ carries the Finder associations and the Quick Look preview.
 ## Nix
 
 [Nix] works on Apple silicon Macs and on Linux. The app bundle it builds on
-macOS has no Quick Look preview; install with Homebrew for that. To try Arto
+macOS has no Quick Look preview; install with Homebrew for that. On Linux the
+package puts Arto in the desktop's application launcher, with its icon, and
+offers it as an application for Markdown files. To try Arto
 without installing it:
 
 ```sh
