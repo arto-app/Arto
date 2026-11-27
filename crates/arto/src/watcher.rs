@@ -1,3 +1,5 @@
+use dioxus::core::Task;
+use dioxus::prelude::*;
 use notify_debouncer_full::notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, RecommendedCache};
 use parking_lot::Mutex;
@@ -6,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use thiserror::Error;
-use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::mpsc::{self, Receiver, Sender, UnboundedReceiver, UnboundedSender};
 
 #[derive(Debug, Error)]
 pub enum WatcherError {
@@ -18,14 +20,14 @@ type WatcherResult<T> = Result<T, WatcherError>;
 
 /// Global file watcher that manages file change notifications
 pub struct FileWatcher {
-    command_tx: Sender<FileWatcherCommand>,
+    command_tx: UnboundedSender<FileWatcherCommand>,
 }
 
 enum FileWatcherCommand {
     Watch(PathBuf, Sender<()>),
-    Unwatch(PathBuf),
+    Release(PathBuf),
     WatchDirectoryNonRecursive(PathBuf, Sender<Vec<PathBuf>>),
-    UnwatchDirectoryNonRecursive(PathBuf),
+    ReleaseDirectoryNonRecursive(PathBuf),
 }
 
 type Senders<T> = HashMap<PathBuf, Vec<Sender<T>>>;
@@ -90,12 +92,13 @@ fn add<T>(senders: &mut Senders<T>, path: &Path, tx: Sender<T>) -> bool {
     is_first
 }
 
-/// Drop one watcher of `path`, and say whether that was the last.
-fn remove<T>(senders: &mut Senders<T>, path: &Path) -> bool {
+/// Forget the watchers of `path` that stopped listening, and say whether that
+/// left it with none.
+fn prune<T>(senders: &mut Senders<T>, path: &Path) -> bool {
     let Some(watchers) = senders.get_mut(path) else {
         return false;
     };
-    watchers.pop();
+    watchers.retain(|sender| !sender.is_closed());
     let is_last = watchers.is_empty();
     if is_last {
         senders.remove(path);
@@ -122,33 +125,42 @@ fn route_events(watchers: &Mutex<Watchers>, result: DebounceEventResult) {
     }
 }
 
+/// What a command asks of the file system watcher, once the books are kept.
+enum Action {
+    Start(PathBuf, &'static str),
+    Stop(PathBuf, &'static str),
+}
+
+fn apply(watchers: &mut Watchers, command: FileWatcherCommand) -> Option<Action> {
+    match command {
+        FileWatcherCommand::Watch(path, tx) => {
+            add(&mut watchers.files, &path, tx).then_some(Action::Start(path, "file"))
+        }
+        FileWatcherCommand::Release(path) => {
+            prune(&mut watchers.files, &path).then_some(Action::Stop(path, "file"))
+        }
+        FileWatcherCommand::WatchDirectoryNonRecursive(path, tx) => {
+            add(&mut watchers.directories, &path, tx).then_some(Action::Start(path, "directory"))
+        }
+        FileWatcherCommand::ReleaseDirectoryNonRecursive(path) => {
+            prune(&mut watchers.directories, &path).then_some(Action::Stop(path, "directory"))
+        }
+    }
+}
+
 fn run_commands(
     debouncer: &mut WatcherDebouncer,
     watchers: &Mutex<Watchers>,
-    mut commands: Receiver<FileWatcherCommand>,
+    mut commands: UnboundedReceiver<FileWatcherCommand>,
 ) {
     while let Some(command) = commands.blocking_recv() {
-        match command {
-            FileWatcherCommand::Watch(path, tx) => {
-                if add(&mut watchers.lock().files, &path, tx) {
-                    start_watching(debouncer, &path, "file");
-                }
-            }
-            FileWatcherCommand::Unwatch(path) => {
-                if remove(&mut watchers.lock().files, &path) {
-                    stop_watching(debouncer, &path, "file");
-                }
-            }
-            FileWatcherCommand::WatchDirectoryNonRecursive(path, tx) => {
-                if add(&mut watchers.lock().directories, &path, tx) {
-                    start_watching(debouncer, &path, "directory");
-                }
-            }
-            FileWatcherCommand::UnwatchDirectoryNonRecursive(path) => {
-                if remove(&mut watchers.lock().directories, &path) {
-                    stop_watching(debouncer, &path, "directory");
-                }
-            }
+        // Unlocked before the watcher is touched, which may wait on the
+        // thread that delivers events and takes the same lock.
+        let action = apply(&mut watchers.lock(), command);
+        match action {
+            Some(Action::Start(path, kind)) => start_watching(debouncer, &path, kind),
+            Some(Action::Stop(path, kind)) => stop_watching(debouncer, &path, kind),
+            None => {}
         }
     }
     tracing::info!("File watcher command channel closed");
@@ -170,7 +182,7 @@ fn stop_watching(debouncer: &mut WatcherDebouncer, path: &Path, kind: &str) {
 
 impl FileWatcher {
     fn new() -> Self {
-        let (command_tx, command_rx) = mpsc::channel::<FileWatcherCommand>(100);
+        let (command_tx, command_rx) = mpsc::unbounded_channel::<FileWatcherCommand>();
 
         std::thread::spawn(move || {
             let watchers = Arc::new(Mutex::new(Watchers::default()));
@@ -193,65 +205,105 @@ impl FileWatcher {
     }
 
     /// Watch a file and receive notifications when it changes
-    pub async fn watch(&self, path: impl Into<PathBuf>) -> WatcherResult<Receiver<()>> {
-        let path = path.into();
-        let (tx, rx) = mpsc::channel(100);
-        self.command_tx
-            .send(FileWatcherCommand::Watch(path, tx))
-            .await
-            .map_err(|_| WatcherError::CommandFailed)?;
-        Ok(rx)
-    }
-
-    /// Stop watching a file
-    pub async fn unwatch(&self, path: impl Into<PathBuf>) -> WatcherResult<()> {
-        let path = path.into();
-        self.command_tx
-            .send(FileWatcherCommand::Unwatch(path))
-            .await
-            .map_err(|_| WatcherError::CommandFailed)
+    pub fn watch(&self, path: impl Into<PathBuf>) -> WatcherResult<Watch<()>> {
+        self.register(
+            path.into(),
+            FileWatcherCommand::Watch,
+            FileWatcherCommand::Release,
+        )
     }
 
     /// Watch a directory non-recursively and receive, for each batch of
     /// changes, the direct children that changed (or the directory itself).
-    pub async fn watch_directory_non_recursive(
+    pub fn watch_directory_non_recursive(
         &self,
         path: impl Into<PathBuf>,
-    ) -> WatcherResult<Receiver<Vec<PathBuf>>> {
-        let path = path.into();
-        let (tx, rx) = mpsc::channel(100);
-        self.command_tx
-            .send(FileWatcherCommand::WatchDirectoryNonRecursive(path, tx))
-            .await
-            .map_err(|_| WatcherError::CommandFailed)?;
-        Ok(rx)
+    ) -> WatcherResult<Watch<Vec<PathBuf>>> {
+        self.register(
+            path.into(),
+            FileWatcherCommand::WatchDirectoryNonRecursive,
+            FileWatcherCommand::ReleaseDirectoryNonRecursive,
+        )
     }
 
-    /// [`FileWatcher::watch_directory_non_recursive`] from a plain thread,
-    /// outside any async runtime.
-    pub fn watch_directory_non_recursive_blocking(
+    fn register<T>(
         &self,
-        path: impl Into<PathBuf>,
-    ) -> WatcherResult<Receiver<Vec<PathBuf>>> {
-        let path = path.into();
-        let (tx, rx) = mpsc::channel(100);
+        path: PathBuf,
+        watch: fn(PathBuf, Sender<T>) -> FileWatcherCommand,
+        release: fn(PathBuf) -> FileWatcherCommand,
+    ) -> WatcherResult<Watch<T>> {
+        let (tx, changes) = mpsc::channel(100);
         self.command_tx
-            .blocking_send(FileWatcherCommand::WatchDirectoryNonRecursive(path, tx))
+            .send(watch(path.clone(), tx))
             .map_err(|_| WatcherError::CommandFailed)?;
-        Ok(rx)
+        Ok(Watch {
+            path,
+            changes,
+            commands: self.command_tx.clone(),
+            release,
+        })
+    }
+}
+
+/// One listener's hold on a path. The path stays watched for as long as any
+/// hold on it lives; dropping this one gives it up.
+pub struct Watch<T> {
+    path: PathBuf,
+    changes: Receiver<T>,
+    commands: UnboundedSender<FileWatcherCommand>,
+    release: fn(PathBuf) -> FileWatcherCommand,
+}
+
+impl<T> Watch<T> {
+    pub async fn recv(&mut self) -> Option<T> {
+        self.changes.recv().await
     }
 
-    /// Stop watching a directory non-recursively
-    pub async fn unwatch_directory_non_recursive(
-        &self,
-        path: impl Into<PathBuf>,
-    ) -> WatcherResult<()> {
-        let path = path.into();
-        self.command_tx
-            .send(FileWatcherCommand::UnwatchDirectoryNonRecursive(path))
-            .await
-            .map_err(|_| WatcherError::CommandFailed)
+    /// [`Watch::recv`] from a plain thread, outside any async runtime.
+    pub fn blocking_recv(&mut self) -> Option<T> {
+        self.changes.blocking_recv()
     }
+}
+
+impl<T> Drop for Watch<T> {
+    fn drop(&mut self) {
+        // Closed before the release is sent, so that the watcher can tell
+        // this listener from the others on the same path.
+        self.changes.close();
+        let path = std::mem::take(&mut self.path);
+        // Fails only once the watcher thread has gone, taking every watch.
+        let _ = self.commands.send((self.release)(path));
+    }
+}
+
+/// Listen to what `path` names for as long as the calling component shows it.
+pub fn use_watch<T: 'static>(
+    path: ReadSignal<PathBuf>,
+    watch: impl Fn(PathBuf) -> WatcherResult<Watch<T>> + 'static,
+    on_change: impl FnMut(T) + Clone + 'static,
+) {
+    let mut listening = use_hook(|| CopyValue::new(None::<Task>));
+    use_effect(move || {
+        let path = path();
+        // The task holds the watch, so cancelling it is what releases the
+        // path shown before. A component going away cancels it unasked.
+        if let Some(previous) = listening.take() {
+            previous.cancel();
+        }
+        let mut changes = match watch(path.clone()) {
+            Ok(changes) => changes,
+            Err(error) => {
+                tracing::error!(?path, %error, "Failed to register a watch");
+                return;
+            }
+        };
+        let mut on_change = on_change.clone();
+        listening.set(Some(spawn(async move {
+            while let Some(change) = changes.recv().await {
+                on_change(change);
+            }
+        })));
+    });
 }
 
 pub static FILE_WATCHER: LazyLock<FileWatcher> = LazyLock::new(FileWatcher::new);
@@ -259,6 +311,200 @@ pub static FILE_WATCHER: LazyLock<FileWatcher> = LazyLock::new(FileWatcher::new)
 #[cfg(test)]
 mod tests {
     use super::*;
+    use dioxus::core::{NoOpMutations, ScopeId};
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    /// A watcher with no file system behind it: what it was asked is applied
+    /// to the books when they are read.
+    struct Books {
+        commands: UnboundedReceiver<FileWatcherCommand>,
+        watchers: Watchers,
+    }
+
+    impl Books {
+        fn open() -> (&'static FileWatcher, Self) {
+            let (command_tx, commands) = mpsc::unbounded_channel();
+            let watcher = Box::leak(Box::new(FileWatcher { command_tx }));
+            let books = Self {
+                commands,
+                watchers: Watchers::default(),
+            };
+            (watcher, books)
+        }
+
+        fn settle(&mut self) {
+            while let Ok(command) = self.commands.try_recv() {
+                apply(&mut self.watchers, command);
+            }
+        }
+
+        fn files(&mut self) -> Vec<PathBuf> {
+            self.settle();
+            let mut held: Vec<PathBuf> = self.watchers.files.keys().cloned().collect();
+            held.sort();
+            held
+        }
+
+        fn directories(&mut self) -> Vec<PathBuf> {
+            self.settle();
+            let mut held: Vec<PathBuf> = self.watchers.directories.keys().cloned().collect();
+            held.sort();
+            held
+        }
+
+        fn change(&mut self, path: &str) {
+            self.settle();
+            let changed = paths(&[path]);
+            // Delivery blocks, which an async test's thread may not.
+            std::thread::scope(|scope| {
+                scope.spawn(|| self.watchers.notify(&changed));
+            });
+        }
+    }
+
+    fn held(paths: &[&str]) -> Vec<PathBuf> {
+        paths.iter().map(PathBuf::from).collect()
+    }
+
+    /// What the window under test shows, and what its views were told.
+    #[derive(Clone)]
+    struct Window {
+        watcher: &'static FileWatcher,
+        showing: Rc<RefCell<Option<PathBuf>>>,
+        heard: Rc<RefCell<Vec<PathBuf>>>,
+    }
+
+    #[component]
+    fn View(path: ReadSignal<PathBuf>) -> Element {
+        let window = use_context::<Window>();
+        let watcher = window.watcher;
+        let heard = window.heard.clone();
+        use_watch(
+            path,
+            move |path| watcher.watch(path),
+            move |()| heard.borrow_mut().push(path.peek().clone()),
+        );
+        rsx! {}
+    }
+
+    fn window_root(window: Window) -> Element {
+        let showing = window.showing.borrow().clone();
+        use_context_provider(|| window);
+        rsx! {
+            if let Some(path) = showing {
+                View { path }
+            }
+        }
+    }
+
+    async fn run(dom: &mut VirtualDom) {
+        for _ in 0..3 {
+            tokio::select! {
+                _ = dom.wait_for_work() => {}
+                _ = tokio::time::sleep(Duration::from_millis(20)) => {}
+            }
+            dom.render_immediate(&mut NoOpMutations);
+        }
+    }
+
+    async fn open_window(watcher: &'static FileWatcher, path: &str) -> (VirtualDom, Window) {
+        let window = Window {
+            watcher,
+            showing: Rc::new(RefCell::new(Some(PathBuf::from(path)))),
+            heard: Rc::default(),
+        };
+        let mut dom = VirtualDom::new_with_props(window_root, window.clone());
+        dom.rebuild(&mut NoOpMutations);
+        run(&mut dom).await;
+        (dom, window)
+    }
+
+    async fn show(dom: &mut VirtualDom, window: &Window, path: Option<&str>) {
+        *window.showing.borrow_mut() = path.map(PathBuf::from);
+        dom.mark_dirty(ScopeId::APP);
+        run(dom).await;
+    }
+
+    #[test]
+    fn dropping_a_watch_releases_what_it_watched() {
+        let (watcher, mut books) = Books::open();
+        let file = watcher.watch("/w/a.md").unwrap();
+        let directory = watcher.watch_directory_non_recursive("/w").unwrap();
+        assert_eq!(books.files(), held(&["/w/a.md"]));
+        assert_eq!(books.directories(), held(&["/w"]));
+
+        drop(file);
+        drop(directory);
+
+        assert_eq!(books.files(), held(&[]));
+        assert_eq!(books.directories(), held(&[]));
+    }
+
+    /// Whichever of two holders lets go, the other goes on hearing.
+    #[test]
+    fn a_path_held_twice_stays_watched_for_the_holder_that_stays() {
+        for first_leaves in [true, false] {
+            let (watcher, mut books) = Books::open();
+            let first = watcher.watch("/w/a.md").unwrap();
+            let second = watcher.watch("/w/a.md").unwrap();
+            let (leaving, mut staying) = if first_leaves {
+                (first, second)
+            } else {
+                (second, first)
+            };
+
+            drop(leaving);
+            books.change("/w/a.md");
+
+            assert_eq!(books.files(), held(&["/w/a.md"]), "{first_leaves}");
+            assert_eq!(staying.changes.try_recv(), Ok(()), "{first_leaves}");
+        }
+    }
+
+    #[tokio::test]
+    async fn showing_another_document_releases_the_one_before() {
+        let (watcher, mut books) = Books::open();
+        let (mut dom, window) = open_window(watcher, "/w/a.md").await;
+        assert_eq!(books.files(), held(&["/w/a.md"]));
+
+        show(&mut dom, &window, Some("/w/b.md")).await;
+
+        assert_eq!(books.files(), held(&["/w/b.md"]));
+        books.change("/w/a.md");
+        run(&mut dom).await;
+        assert!(window.heard.borrow().is_empty());
+        books.change("/w/b.md");
+        run(&mut dom).await;
+        assert_eq!(*window.heard.borrow(), held(&["/w/b.md"]));
+    }
+
+    #[tokio::test]
+    async fn a_view_that_goes_away_releases_its_document() {
+        let (watcher, mut books) = Books::open();
+        let (mut dom, window) = open_window(watcher, "/w/a.md").await;
+
+        show(&mut dom, &window, None).await;
+
+        assert_eq!(books.files(), held(&[]));
+    }
+
+    #[tokio::test]
+    async fn closing_one_of_two_windows_on_a_document_keeps_it_watched() {
+        let (watcher, mut books) = Books::open();
+        let (first, _) = open_window(watcher, "/w/a.md").await;
+        let (mut second, window) = open_window(watcher, "/w/a.md").await;
+
+        drop(first);
+        books.change("/w/a.md");
+        run(&mut second).await;
+
+        assert_eq!(books.files(), held(&["/w/a.md"]));
+        assert_eq!(*window.heard.borrow(), held(&["/w/a.md"]));
+
+        drop(second);
+        assert_eq!(books.files(), held(&[]));
+    }
 
     fn paths(paths: &[&str]) -> HashSet<PathBuf> {
         paths.iter().map(PathBuf::from).collect()
@@ -332,12 +578,16 @@ mod tests {
         let mut senders: Senders<()> = HashMap::new();
         let path = Path::new("/w/a.md");
 
-        assert!(add(&mut senders, path, mpsc::channel(1).0));
-        assert!(!add(&mut senders, path, mpsc::channel(1).0));
+        let (first, first_listens) = mpsc::channel(1);
+        let (second, second_listens) = mpsc::channel(1);
+        assert!(add(&mut senders, path, first));
+        assert!(!add(&mut senders, path, second));
 
-        assert!(!remove(&mut senders, path));
-        assert!(remove(&mut senders, path));
-        assert!(!remove(&mut senders, path));
+        drop(first_listens);
+        assert!(!prune(&mut senders, path));
+        drop(second_listens);
+        assert!(prune(&mut senders, path));
+        assert!(!prune(&mut senders, path));
     }
 
     #[test]

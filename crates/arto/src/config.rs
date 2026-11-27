@@ -64,8 +64,7 @@ pub fn watch_config_files() {
             if let Err(error) = std::fs::create_dir_all(&directory) {
                 tracing::warn!(%error, ?directory, "config directory could not be made");
             }
-            let mut changes = match FILE_WATCHER.watch_directory_non_recursive_blocking(&directory)
-            {
+            let mut changes = match FILE_WATCHER.watch_directory_non_recursive(&directory) {
                 Ok(changes) => changes,
                 Err(error) => {
                     tracing::warn!(%error, ?directory, "config directory is not watched");

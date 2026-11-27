@@ -18,7 +18,7 @@ use crate::scroll_anchor::ScrollAnchor;
 use crate::state::{AppState, DocumentContent, Unreadable};
 use crate::utils::file::is_markdown_file;
 use crate::utils::page_runtime::once_arto_has;
-use crate::watcher::FILE_WATCHER;
+use crate::watcher::{use_watch, FILE_WATCHER};
 use task_ticks::use_task_ticks;
 use viewer_window_bridge::use_viewer_window_bridge;
 
@@ -528,37 +528,14 @@ async fn reapply_search(before: &str) {
 
 /// Hook to watch file for changes and trigger reload
 fn use_file_watcher(file: ReadSignal<PathBuf>, mut state: AppState) {
-    use_effect(move || {
-        let file = file();
-
-        spawn(async move {
-            let file_path = file.clone();
-            let mut watcher = match FILE_WATCHER.watch(file_path.clone()).await {
-                Ok(watcher) => watcher,
-                Err(e) => {
-                    tracing::error!(
-                        "Failed to register file watcher for {:?}: {:?}",
-                        file_path,
-                        e
-                    );
-                    return;
-                }
-            };
-
-            while watcher.recv().await.is_some() {
-                tracing::info!("File change detected, reloading: {:?}", file_path);
-                state.reload_document();
-            }
-
-            if let Err(e) = FILE_WATCHER.unwatch(file_path.clone()).await {
-                tracing::error!(
-                    "Failed to unregister file watcher for {:?}: {:?}",
-                    file_path,
-                    e
-                );
-            }
-        });
-    });
+    use_watch(
+        file,
+        |path| FILE_WATCHER.watch(path),
+        move |()| {
+            tracing::info!(file = ?*file.peek(), "File change detected, reloading");
+            state.reload_document();
+        },
+    );
 }
 
 /// Hook to setup JavaScript handler for markdown link clicks
