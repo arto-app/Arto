@@ -357,18 +357,24 @@ let root = if path.is_file() {
 
 **✅ Do:**
 ```rust
-let mut changed = FILE_WATCHER.watch(path.clone()).await?;
-while changed.recv().await.is_some() {
+// In a component: watched while it shows `path`.
+use_watch(path, |path| FILE_WATCHER.watch(path), move |()| {
+    // reload
+});
+
+// Elsewhere: watched until `changes` is dropped.
+let mut changes = FILE_WATCHER.watch_directory_non_recursive(directory)?;
+while let Some(changed) = changes.blocking_recv() {
     // reload
 }
-FILE_WATCHER.unwatch(path).await?;
 ```
 
 **Why:** `watcher::FILE_WATCHER` is a `LazyLock` global that owns one
 debouncer on a thread of its own and is driven over a channel, so it is safe
 to reach from any task or thread. A second debouncer for one more path is a
-second thread and a second set of OS watches; register with this one instead
-(`watch_directory_non_recursive_blocking` from a plain thread).
+second thread and a second set of OS watches; register with this one instead.
+A release written after the receive loop never runs: the loop ends only once
+the watch is released, and a component's task is dropped, not finished.
 
 ---
 

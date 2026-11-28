@@ -3,7 +3,6 @@ use rust_i18n::t;
 use std::cmp::Ordering;
 use std::fs;
 use std::path::PathBuf;
-use tokio::sync::oneshot;
 
 use super::context_menu::{open_row_context_menu, SidebarItemKind, SidebarRowRole};
 use crate::components::icon::{Icon, IconName};
@@ -11,7 +10,7 @@ use crate::components::reorder::{drop_class, drop_side, DragRow};
 use crate::components::sidebar::row_actions::RowActions;
 use crate::state::{AppState, FocusedPanel, Group};
 use crate::utils::file::is_markdown_file;
-use crate::watcher::FILE_WATCHER;
+use crate::watcher::{use_watch, FILE_WATCHER};
 
 /// A directory entry with pre-computed file type from `readdir()`.
 ///
@@ -250,7 +249,7 @@ fn RootSubtree(
     let mut state = use_context::<AppState>();
     let watched = use_memo({
         let root = root.clone();
-        move || Some(root.clone())
+        move || root.clone()
     });
     use_directory_watcher(watched.into(), refresh_counter);
 
@@ -430,8 +429,7 @@ fn DirectoryChildren(
     refresh_counter: Signal<u32>,
 ) -> Element {
     // Watch expanded directories only (non-recursive) to avoid broad permission access.
-    let watched = use_memo(move || Some(path()));
-    use_directory_watcher(watched.into(), refresh_counter);
+    use_directory_watcher(path, refresh_counter);
 
     // Subscribe to the signal so Dioxus re-runs this component when the
     // counter increments (file watcher detected filesystem changes).
@@ -624,58 +622,13 @@ fn FileTreeNode(
 }
 
 /// Hook to watch a directory for file system changes and trigger refresh
-fn use_directory_watcher(directory: ReadSignal<Option<PathBuf>>, mut refresh_counter: Signal<u32>) {
-    // Cancellation signal for the currently active watcher task.
-    let mut stop_tx = use_signal(|| None::<oneshot::Sender<()>>);
-
-    use_effect(move || {
-        let directory = directory();
-        // Cancel previous watcher when target directory changes.
-        if let Some(tx) = stop_tx.write().take() {
-            let _ = tx.send(());
-        }
-
-        spawn(async move {
-            let Some(dir) = directory else {
-                return;
-            };
-
-            let (tx, mut stop_rx) = oneshot::channel();
-            stop_tx.set(Some(tx));
-
-            // Start watching the directory (direct children only)
-            let Ok(mut watcher) = FILE_WATCHER
-                .watch_directory_non_recursive(dir.clone())
-                .await
-            else {
-                tracing::error!("Failed to start directory watcher for {:?}", dir);
-                return;
-            };
-
-            tracing::debug!("Directory watcher started (non-recursive) for {:?}", dir);
-
-            // Listen for changes and trigger refresh
-            loop {
-                tokio::select! {
-                    _ = &mut stop_rx => break,
-                    changed = watcher.recv() => {
-                        if changed.is_none() {
-                            break;
-                        }
-                        tracing::trace!(?dir, "Directory changed, triggering refresh");
-                        refresh_counter.set(refresh_counter() + 1);
-                    }
-                }
-            }
-
-            let _ = FILE_WATCHER.unwatch_directory_non_recursive(dir).await;
-        });
-    });
-
-    // Ensure watcher task gets cancelled when component unmounts.
-    use_drop(move || {
-        if let Some(tx) = stop_tx.write().take() {
-            let _ = tx.send(());
-        }
-    });
+fn use_directory_watcher(directory: ReadSignal<PathBuf>, mut refresh_counter: Signal<u32>) {
+    use_watch(
+        directory,
+        |path| FILE_WATCHER.watch_directory_non_recursive(path),
+        move |_| {
+            tracing::trace!(directory = ?*directory.peek(), "Directory changed, triggering refresh");
+            refresh_counter.set(refresh_counter() + 1);
+        },
+    );
 }
