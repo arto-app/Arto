@@ -537,7 +537,7 @@ mod tests {
         let (tx, mut rx) = mpsc::channel(100);
         FILE_WATCHER
             .command_tx
-            .blocking_send(FileWatcherCommand::Watch(file.clone(), tx))
+            .send(FileWatcherCommand::Watch(file.clone(), tx))
             .unwrap();
         std::thread::sleep(SETTLED);
         while rx.try_recv().is_ok() {}
