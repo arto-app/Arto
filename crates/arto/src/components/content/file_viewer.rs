@@ -346,7 +346,7 @@ fn set_changes_js(changes: &[Change], generation: u64, read_at: Option<i64>) -> 
 
 /// Handle scroll position when navigating to a file.
 ///
-/// If pending_scroll_anchor is set (from back/forward navigation),
+/// If pending_scroll_anchor is set (from back/forward navigation or a reload),
 /// restore that position in two phases:
 /// 1. Immediately when DOM content changes (MutationObserver, before browser paint)
 /// 2. After Mermaid/KaTeX rendering completes (adjusts for content height changes)

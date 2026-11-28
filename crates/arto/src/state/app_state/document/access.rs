@@ -34,8 +34,11 @@ impl AppState {
     /// Read the document again from disk.
     ///
     /// Nothing about the document changes here; the viewer watches the
-    /// counter and re-reads the file when it moves.
+    /// counter and re-reads the file when it moves. The reader's place goes
+    /// with it as the pending anchor, or the viewer would start at the top.
     pub fn reload_document(&mut self) {
+        let position = *self.current_scroll_anchor.read();
+        self.pending_scroll_anchor.set(Some(position));
         let current = *self.reload_trigger.read();
         self.reload_trigger.set(current + 1);
     }
