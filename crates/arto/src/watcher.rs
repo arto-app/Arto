@@ -506,6 +506,9 @@ mod tests {
         assert_eq!(books.files(), held(&[]));
     }
 
+    // Three times the debounce, so what the watcher holds has been handed over.
+    const SETTLED: Duration = Duration::from_millis(1500);
+
     fn paths(paths: &[&str]) -> HashSet<PathBuf> {
         paths.iter().map(PathBuf::from).collect()
     }
@@ -523,6 +526,34 @@ mod tests {
             );
         }
         watchers
+    }
+
+    /// A file under the real watcher, with what its creation reports gone by.
+    fn watched_file() -> (tempfile::TempDir, PathBuf, Receiver<()>) {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().canonicalize().unwrap().join("a.md");
+        std::fs::write(&file, "# Before\n").unwrap();
+
+        let (tx, mut rx) = mpsc::channel(100);
+        FILE_WATCHER
+            .command_tx
+            .send(FileWatcherCommand::Watch(file.clone(), tx))
+            .unwrap();
+        std::thread::sleep(SETTLED);
+        while rx.try_recv().is_ok() {}
+
+        (dir, file, rx)
+    }
+
+    fn told_within(rx: &mut Receiver<()>, limit: Duration) -> bool {
+        let deadline = std::time::Instant::now() + limit;
+        while std::time::Instant::now() < deadline {
+            if rx.try_recv().is_ok() {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        false
     }
 
     #[test]
@@ -599,5 +630,23 @@ mod tests {
         watchers.notify(&paths(&["/w/a.md"]));
 
         assert_eq!(rx.try_recv().unwrap(), vec![PathBuf::from("/w/a.md")]);
+    }
+
+    #[test]
+    fn a_watched_file_being_read_tells_its_watcher_nothing() {
+        let (_dir, file, mut rx) = watched_file();
+
+        std::fs::read_to_string(&file).unwrap();
+
+        assert!(!told_within(&mut rx, SETTLED));
+    }
+
+    #[test]
+    fn a_watched_file_being_written_tells_its_watcher() {
+        let (_dir, file, mut rx) = watched_file();
+
+        std::fs::write(&file, "# After\n").unwrap();
+
+        assert!(told_within(&mut rx, SETTLED * 4));
     }
 }
